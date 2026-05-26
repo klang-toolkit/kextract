@@ -1,0 +1,9 @@
+LIBZSTD_HOME=/usr/local/Cellar/zstd/1.5.5
+
+kextract --output src -t libzstd \
+  -I ${LIBZSTD_HOME}/include \
+  -l :${LIBZSTD_HOME}/lib/libzstd.dylib \
+  --header-class-name Libzstd \
+  "<zstd.h>"
+
+javac --source=22 -d . src/libzstd/*.java

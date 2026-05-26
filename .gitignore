@@ -1,0 +1,6 @@
+.gradle
+**/build/
+.idea
+.claude/
+_dev_stdin.kt
+.junie/

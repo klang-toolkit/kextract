@@ -1,0 +1,260 @@
+/*
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
+ */
+package org.openjdk.kextract.impl
+
+import org.openjdk.kextract.Declaration
+import org.openjdk.kextract.Declaration.Typedef
+import org.openjdk.kextract.Declaration.Variable
+import org.openjdk.kextract.Type
+import org.openjdk.kextract.Type.Declared
+import org.openjdk.kextract.Type.Delegated
+import org.openjdk.kextract.Type.Function
+import org.openjdk.kextract.impl.DeclarationImpl.AnonymousStruct
+import org.openjdk.kextract.impl.DeclarationImpl.JavaFunctionalInterfaceName
+import org.openjdk.kextract.impl.DeclarationImpl.JavaName
+import org.openjdk.kextract.impl.Utils
+import java.lang.reflect.Modifier
+import java.util.concurrent.ConcurrentHashMap
+import javax.lang.model.SourceVersion
+
+class NameMangler(private val headerName: String) : Declaration.Visitor<Void?, Declaration?> {
+
+    private val functionTypeDefNames = HashMap<Type, String>()
+
+    private class Scope private constructor(
+        val parent: Scope?,
+        name: String,
+        val isStruct: Boolean
+    ) {
+        val className: String = NameMangler.javaSafeIdentifier(name)
+        private val nestedClassNames = HashSet<String>()
+        private var nestedClassNameCount = 0
+
+        private fun isEnclosedBySameName(name: String): Boolean =
+            className == name || (isNested() && parent!!.isEnclosedBySameName(name))
+
+        fun isNested(): Boolean = parent != null && parent.isStruct
+
+        fun uniqueNestedClassName(name: String): String {
+            val safe = NameMangler.javaSafeIdentifier(name)
+            val notSeen = nestedClassNames.add(safe.lowercase())
+            val notEnclosed = !isEnclosedBySameName(safe)
+            return if (notSeen && notEnclosed) safe else "$safe\$${nestedClassNameCount++}"
+        }
+
+        fun fullName(): List<String> {
+            val names = mutableListOf<String>()
+            var current: Scope? = this
+            while (current != null && current.isStruct) {
+                names.add(0, current.className)
+                current = current.parent
+            }
+            return names
+        }
+
+        companion object {
+            fun newStruct(parent: Scope?, name: String) = Scope(parent, name, true)
+            fun newHeader(name: String) = Scope(null, name, false)
+        }
+    }
+
+    private lateinit var curScope: Scope
+
+    fun scan(header: Declaration.Scoped): Declaration.Scoped {
+        val javaName = javaSafeIdentifier(headerName.replace(".h", "_h"), true)
+        curScope = Scope.newHeader(javaName)
+        JavaName.with(header, listOf(javaName))
+        header.members().forEach { it.accept(this, null) }
+        return header
+    }
+
+    override fun visitConstant(constant: Declaration.Constant, parent: Declaration?): Void? {
+        JavaName.with(constant, makeJavaName(constant))
+        return null
+    }
+
+    override fun visitFunction(func: Declaration.Function, parent: Declaration?): Void? {
+        JavaName.with(func, makeJavaName(func))
+        var i = 0
+        for (param in func.parameters()) {
+            val f = Utils.getAsFunctionPointer(param.type())
+            if (f != null) {
+                val fiName = func.name() + "\$" + (if (param.name().isEmpty()) "x$i" else param.name())
+                JavaFunctionalInterfaceName.with(param, fiName)
+                i++
+            }
+            JavaName.with(param, makeJavaName(param))
+            Utils.forEachNested(param) { it.accept(this, func) }
+        }
+        val returnFunc = Utils.getAsFunctionPointer(func.type().returnType())
+        if (returnFunc != null) {
+            JavaFunctionalInterfaceName.with(func, func.name() + "\$return")
+        }
+        Utils.forEachNested(func) { it.accept(this, func) }
+        return null
+    }
+
+    override fun visitScoped(scoped: Declaration.Scoped, parent: Declaration?): Void? {
+        if (Utils.isEnum(scoped)) {
+            scoped.members().forEach { it.accept(this, null) }
+        } else if (Utils.isStructOrUnion(scoped)) {
+            if (JavaName.isPresent(scoped)) return null
+
+            val oldScope = curScope
+            if (!AnonymousStruct.isPresent(scoped)) {
+                val name = if (parent is Typedef && parent.type() is Declared &&
+                    (parent.type() as Declared).tree().name().isEmpty()) {
+                    JavaName.getOrThrow(parent)
+                } else {
+                    oldScope.uniqueNestedClassName(
+                        if (scoped.name().isEmpty()) fallbackNameFor(parent, scoped)
+                        else scoped.name()
+                    )
+                }
+                curScope = Scope.newStruct(oldScope, name)
+                JavaName.with(scoped, curScope.fullName())
+            }
+            try {
+                scoped.members().forEach { it.accept(this, null) }
+            } finally {
+                curScope = oldScope
+            }
+        }
+        return null
+    }
+
+    override fun visitTypedef(typedef: Declaration.Typedef, parent: Declaration?): Void? {
+        if (JavaName.isPresent(typedef)) return null
+
+        val javaName = curScope.uniqueNestedClassName(typedef.name())
+        JavaName.with(typedef, listOf(javaName))
+        val func = Utils.getAsFunctionPointer(typedef.type())
+        if (func != null) {
+            JavaFunctionalInterfaceName.with(typedef, javaName)
+            functionTypeDefNames[typedef.type()] = javaName
+        }
+        Utils.forEachNested(typedef) { it.accept(this, typedef) }
+        return null
+    }
+
+    private fun fallbackNameFor(parent: Declaration?, nested: Declaration.Scoped): String {
+        var nestedName = parent?.name() ?: ""
+        val func: Function? = when (parent) {
+            is Declaration.Function -> parent.type()
+            is Variable -> Utils.getAsFunctionPointer(parent.type())
+            is Typedef -> Utils.getAsFunctionPointer(parent.type())
+            else -> null
+        }
+        if (func != null) {
+            var suffix: String? = null
+            for (i in func.argumentTypes().indices) {
+                val arg = func.argumentTypes()[i]
+                if (arg is Declared && arg.tree() === nested) {
+                    suffix = "\$x$i"
+                }
+            }
+            if (suffix == null) suffix = "\$return"
+            nestedName += suffix
+        }
+        return nestedName
+    }
+
+    override fun visitVariable(variable: Declaration.Variable, parent: Declaration?): Void? {
+        JavaName.with(variable, makeJavaName(variable))
+        val type = variable.type()
+        val func = Utils.getAsFunctionPointer(type)
+        if (func != null) {
+            val declFiName = curScope.uniqueNestedClassName(variable.name())
+            JavaFunctionalInterfaceName.with(variable, declFiName)
+        } else if (type is Delegated) {
+            val typedefName = functionTypeDefNames[type.type()]
+            if (typedefName != null) {
+                JavaFunctionalInterfaceName.with(variable, typedefName)
+            }
+        }
+        Utils.forEachNested(variable) { it.accept(this, variable) }
+        return null
+    }
+
+    override fun visitDeclaration(decl: Declaration, parent: Declaration?): Void? = null
+
+    private fun makeJavaName(decl: Declaration): List<String> =
+        if (decl.name().isEmpty()) listOf(decl.name())
+        else listOf(javaSafeIdentifier(decl.name()))
+
+    companion object {
+        @JvmStatic
+        fun javaSafeIdentifier(name: String): String = javaSafeIdentifier(name, false)
+
+        @JvmStatic
+        fun javaSafeIdentifiers(names: List<String>): List<String> = names.map { javaSafeIdentifier(it) }
+
+        @JvmStatic
+        fun javaSafeIdentifier(name: String, checkAllChars: Boolean): String {
+            if (checkAllChars) {
+                val buf = StringBuilder()
+                val chars = name.toCharArray()
+                buf.append(if (Character.isJavaIdentifierStart(chars[0])) chars[0] else '_')
+                for (i in 1 until chars.size) {
+                    buf.append(if (Character.isJavaIdentifierPart(chars[i])) chars[i] else '_')
+                }
+                return buf.toString()
+            } else {
+                assert(SourceVersion.isIdentifier(name))
+                return if (SourceVersion.isKeyword(name) || isRestrictedTypeName(name) || isJavaTypeName(name))
+                    "${name}_" else name
+            }
+        }
+
+        private fun isRestrictedTypeName(name: String): Boolean = when (name) {
+            "var", "yield", "record", "sealed", "permits" -> true
+            else -> false
+        }
+
+        private val WELL_KNOWN_JAVA_TYPES: MutableSet<String> = ConcurrentHashMap.newKeySet<String>().also {
+            it.add("ByteOrder")
+            it.add("MethodHandle")
+            it.add("VarHandle")
+        }
+
+        private fun isJavaTypeName(name: String): Boolean {
+            if (name.isEmpty() || name[0].isLowerCase()) return false
+            if (WELL_KNOWN_JAVA_TYPES.contains(name)) return true
+            return checkTypeInPackage("java.lang", name) || checkTypeInPackage("java.lang.foreign", name)
+        }
+
+        private fun checkTypeInPackage(pkgName: String, typeName: String): Boolean {
+            return try {
+                val mods = Class.forName("$pkgName.$typeName").modifiers
+                if (Modifier.isPublic(mods)) {
+                    WELL_KNOWN_JAVA_TYPES.add(typeName)
+                    true
+                } else false
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+}
