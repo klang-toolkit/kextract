@@ -70,23 +70,9 @@ sourceSets {
         runtimeClasspath += sourceSets["main"].output + sourceSets["main"].runtimeClasspath
     }
     test {
-        java {
-            setSrcDirs(
-                listOf("test/jtreg") +
-                (file("test/jtreg/generator").listFiles()?.toList() ?: emptyList()) +
-                listOf("test/lib", "test/testng")
-            )
-            // exclude all test files from compilation; jtreg compiles these for us when tests run
-            exclude("**/*")
-        }
         kotlin {
             setSrcDirs(listOf("src/test/kotlin"))
             exclude("ManualKotlinGen.kt")
-            // Exclude jtreg-managed tests but include newimpl
-            exclude("org/openjdk/kextract/impl/**")
-            exclude("org/openjdk/kextract/clang/**")
-            exclude("org/openjdk/kextract/kotlin/**")
-            exclude("org/openjdk/kextract/KextractToolTest.kt")
         }
         compileClasspath += sourceSets["kmain"].output
         runtimeClasspath += sourceSets["kmain"].output
@@ -100,7 +86,6 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
     "kmainImplementation"("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
-    testImplementation(fileTree(mapOf("dir" to "${findProperty("jtreg_home")}/lib/", "include" to "*.jar")))
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -147,19 +132,6 @@ tasks.named<Jar>("jar") {
     archiveBaseName = "org.openjdk.kextract"
     archiveVersion = project.version.toString()
     from(sourceSets["kmain"].output)
-}
-
-tasks.register<Test>("testOptionsNew") {
-    group = "verification"
-    description = "Runs OptionsNewTest"
-    useJUnitPlatform()
-    filter {
-        includeTestsMatching("*OptionsNewTest*")
-    }
-    testClassesDirs = files(
-        "${layout.buildDirectory}/classes/java/main",
-        "${layout.buildDirectory}/classes/java/test"
-    )
 }
 
 tasks.register<Sync>("copyLibClang") {
@@ -268,108 +240,6 @@ tasks.register<Exec>("verify") {
     dependsOn("createKextractImage")
     executable = "$kextract_bin_dir/kextract$os_script_extension"
     args = listOf("test.h", "--output", "$buildDirectory/integration_test")
-}
-
-tasks.register<Exec>("createRuntimeImageForTest") {
-    val jarTask = tasks.named<Jar>("jar")
-    dependsOn(jarTask)
-
-    val out_dir = "$buildDirectory/kextract-jdk-test-image"
-
-    inputs.file(jarTask.flatMap { it.archiveFile })
-    outputs.dir(out_dir)
-
-    doFirst {
-        delete(out_dir)
-    }
-
-    executable = "$jdk_home/bin/jlink"
-    args = listOf(
-        "--module-path=$jdk_home/jmods",
-        "--add-modules=java.base,java.compiler",
-        "--output=$out_dir"
-    )
-}
-
-tasks.register<Exec>("cmakeConfigure") {
-    executable = "cmake"
-    args = listOf(
-        "-B", "$buildDirectory/testlib-build",
-        "-S", "$projectDir/test/test-support",
-        "-DTEST_SOURCE_ROOT:FILEPATH=$projectDir/test",
-        "-DCMAKE_BUILD_TYPE:STRING=Release",
-        "-DCMAKE_INSTALL_PREFIX:FILEPATH=$buildDirectory/testlib-install"
-    )
-}
-
-tasks.register<Exec>("cmakeBuild") {
-    dependsOn("cmakeConfigure")
-    executable = "cmake"
-    args = listOf(
-        "--build", "$buildDirectory/testlib-build",
-        "--config", "Release",
-        "--target", "install"
-    )
-}
-
-tasks.register("testDeps") {
-    dependsOn("createRuntimeImageForTest", "cmakeBuild")
-}
-
-fun createJtregTask(name: String, jacocoAgent: String?, osLibDir: String) {
-    tasks.register<JavaExec>(name) {
-        dependsOn("testDeps")
-
-        if (findProperty("jtreg_home") == null) {
-            throw GradleException("jtreg_home is not defined")
-        }
-
-        workingDir = file("$buildDirectory")
-        classpath = files("${findProperty("jtreg_home")}/lib/jtreg.jar")
-
-        val argList = mutableListOf(
-            "-jdk", "$buildDirectory/kextract-jdk-test-image",
-            "-nativepath:$buildDirectory/testlib-install/$osLibDir",
-            "-javaoption:--enable-native-access=org.openjdk.kextract,ALL-UNNAMED",
-            "-javacoption:--add-exports=org.openjdk.kextract/org.openjdk.kextract.json.parser=ALL-UNNAMED",
-            "-javaoption:--add-exports=org.openjdk.kextract/org.openjdk.kextract.json.parser=ALL-UNNAMED",
-            "-avm", "-conc:auto", "-verbose:summary,fail,error",
-            "-retain:fail,error"
-        )
-
-        if (jacocoAgent != null) {
-            val coverageFile = "$buildDirectory/jacoco-run/kextract.exec"
-            val includes = "org.openjdk.kextract.*"
-            argList += "-javaoption:-javaagent:$jacocoAgent=destfile=$coverageFile,includes=$includes"
-        }
-
-        argList += "../test"
-        args = argList
-    }
-}
-
-createJtregTask("jtreg", null, os_lib_dir)
-val jacocoAgent = findProperty("jacoco_agent") as String?
-if (jacocoAgent != null) {
-    createJtregTask("jtregWithCoverage", jacocoAgent, os_lib_dir)
-}
-
-tasks.register<JavaExec>("coverage") {
-    dependsOn("jtregWithCoverage")
-
-    if (findProperty("jacoco_cli") == null) {
-        throw GradleException("jacoco_cli is not defined")
-    }
-
-    classpath = files(findProperty("jacoco_cli"))
-
-    args = listOf(
-        "report",
-        "$buildDirectory/jacoco-run/kextract.exec",
-        "--classfiles", "$buildDirectory/classes/java/main",
-        "--sourcefiles", "$projectDir/src/main/java",
-        "--html", "$buildDirectory/jacoco-report"
-    )
 }
 
 tasks.register("writeLibClangVersion") {
