@@ -5,12 +5,11 @@ import java.nio.file.attribute.PosixFilePermission
 
 plugins {
     java
-    id("org.jetbrains.kotlin.jvm") version "2.2.0"
+    id("org.jetbrains.kotlin.jvm") version "2.3.21"
 }
 
 kotlin {
-    // Use Java 24 as JVM target to match Kotlin 2.2.0 capabilities
-    // Note: Actual compilation uses Java 25 (configured in compileJava/compileTestJava)
+    jvmToolchain(25)
 }
 
 fun checkPath(p: String) {
@@ -84,15 +83,15 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
-    "kmainImplementation"("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.3.21")
+    "kmainImplementation"("org.jetbrains.kotlin:kotlin-stdlib:2.3.21")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.14.4")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.14.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("org.jetbrains.kotlin:kotlin-test:2.2.0")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:2.3.21")
 
     // Kotest
-    val kotestVersion = "5.9.1"
+    val kotestVersion = "6.1.11"
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
     testImplementation("io.kotest:kotest-property:$kotestVersion")
@@ -105,7 +104,7 @@ tasks.withType<Test>().configureEach {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-    options.release = 24
+    options.release = 25
     if (name.contains("Java")) {
         options.isFork = true
         options.forkOptions.executable = "$jdk_home/bin/javac$os_exe_suffix"
@@ -113,18 +112,18 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.named<JavaCompile>("compileTestJava") {
-    options.release = 24
+    options.release = 25
 }
 
 tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>("compileTestKotlin") {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_24)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25)
     }
 }
 
 tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>("compileKmainKotlin") {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_24)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25)
     }
 }
 
