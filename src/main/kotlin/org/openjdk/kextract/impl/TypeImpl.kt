@@ -67,7 +67,7 @@ abstract class TypeImpl : Type {
                 return other is Type.Delegated && TypeImpl.equals(this, other)
             return _kind == other.kind()
         }
-        override fun hashCode(): Int = Objects.hash(_kind)
+        override fun hashCode(): Int = _kind.hashCode()
     }
 
     abstract class DelegatedBase(
@@ -132,7 +132,7 @@ abstract class TypeImpl : Type {
                 return other is Type.Delegated && TypeImpl.equals(this, other)
             return _declaration == other.tree()
         }
-        override fun hashCode(): Int = Objects.hash(_declaration)
+        override fun hashCode(): Int = _declaration.hashCode()
     }
 
     class FunctionImpl(
