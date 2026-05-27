@@ -135,7 +135,10 @@ tasks.named<Jar>("jar") {
 }
 
 tasks.register<Sync>("copyLibClang") {
-    doFirst { delete("$buildDirectory/jmod_inputs/libs") }
+    doFirst {
+        delete("$buildDirectory/jmod_inputs/libs")
+        delete("$buildDirectory/jmod_inputs/conf")
+    }
     into("$buildDirectory/jmod_inputs")
     val isAix = Os.isName("AIX") || Os.isName("aix")
     val isUnixNotMac = Os.isFamily(Os.FAMILY_UNIX) && !Os.isFamily(Os.FAMILY_MAC)
@@ -156,6 +159,7 @@ tasks.register<Sync>("copyLibClang") {
     from(clang_include_dir) {
         include("*.h")
         into("conf/kextract")
+        filePermissions { unix("rw-r--r--") }
     }
 }
 
@@ -244,6 +248,46 @@ tasks.register<Exec>("verify") {
     dependsOn("createKextractImage")
     executable = "$kextract_bin_dir/kextract$os_script_extension"
     args = listOf("test.h", "--output", "$buildDirectory/integration_test")
+}
+
+/**
+ * Builds kextract, then compiles and runs every example under examples/.
+ * Requires: cc (or clang) and kotlinc on PATH.
+ *
+ * Usage:  ./gradlew verifyExamples
+ */
+tasks.register("verifyExamples") {
+    dependsOn("createKextractImage")
+    group = "verification"
+    description = "Build kextract, generate Kotlin bindings for each example and run the result."
+
+    doLast {
+        var allPassed = true
+        val examplesDir = file("examples")
+        examplesDir.listFiles { f -> f.isDirectory && File(f, "run.sh").exists() }
+            ?.sortedBy { it.name }
+            ?.forEach { exampleDir ->
+                println("\n── ${exampleDir.name} ──────────────────────────────")
+                if (File(exampleDir, "PENDING").exists()) {
+                    println("  PENDING — skipped (remove PENDING file once implemented)")
+                    return@forEach
+                }
+                val proc = ProcessBuilder("bash", "run.sh", "--skip-build")
+                    .directory(exampleDir)
+                    .redirectErrorStream(true)
+                    .start()
+                val output = proc.inputStream.bufferedReader().readText()
+                val exitCode = proc.waitFor()
+                print(output)
+                if (exitCode != 0) {
+                    logger.error("✗ ${exampleDir.name} FAILED (exit $exitCode)")
+                    allPassed = false
+                } else {
+                    println("✓ ${exampleDir.name} passed")
+                }
+            }
+        if (!allPassed) throw GradleException("One or more examples failed — see output above.")
+    }
 }
 
 tasks.register("writeLibClangVersion") {
