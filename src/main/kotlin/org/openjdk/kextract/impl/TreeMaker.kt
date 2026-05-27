@@ -49,7 +49,6 @@ import org.openjdk.kextract.impl.DeclarationImpl.NestedDeclarations
 import org.openjdk.kextract.impl.DeclarationImpl.DeclarationString
 
 import java.nio.file.Path
-import java.util.Objects
 
 /**
  * Kotlin port of TreeMaker.
@@ -79,7 +78,6 @@ internal class TreeMaker {
     }
 
     fun createTree(c: Cursor): Declaration? {
-        Objects.requireNonNull(c)
         val lang: CursorLanguage = c.language()
         val linkage: LinkageKind = c.linkage()
 
@@ -392,7 +390,7 @@ internal class TreeMaker {
     }
 
     private fun checkCursorAnyNew(c: Cursor, vararg kinds: CursorKind) {
-        val expected = Objects.requireNonNull(c.kind())
+        val expected = c.kind()
         for (k in kinds) {
             if (k == expected) return
         }

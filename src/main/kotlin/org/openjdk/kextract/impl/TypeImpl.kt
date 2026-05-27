@@ -103,7 +103,7 @@ abstract class TypeImpl : Type {
             if (other !is Type.Delegated) return false
             if (!super.equals(other))
                 return TypeImpl.equals(this, other)
-            return Objects.equals(_type, other.type())
+            return _type == other.type()
         }
         override fun hashCode(): Int =
             if (kind() == Delegated.Kind.TYPEDEF) type().hashCode()
