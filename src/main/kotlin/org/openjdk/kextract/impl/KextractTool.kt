@@ -28,9 +28,10 @@ package org.openjdk.kextract.impl
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.kotlin.KotlinGenerator
 import org.openjdk.kextract.kotlin.models.KotlinSourceFile
-import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.charset.StandardCharsets
+import kotlin.io.path.createDirectories
+import kotlin.io.path.readLines
+import kotlin.io.path.writeText
 
 /**
  * Main entry point for kextract tool - Kotlin version.
@@ -121,7 +122,7 @@ class KextractTool(private val logger: Logger) {
         val outputDir = Path.of(builtOptions.outputDir)
 
         try {
-            Files.createDirectories(outputDir)
+            outputDir.createDirectories()
         } catch (e: Exception) {
             logger.err("kextract.output.dir.create.failed", outputDir.toString(), e.message ?: "")
             return OUTPUT_ERROR
@@ -179,7 +180,7 @@ class KextractTool(private val logger: Logger) {
             when {
                 arg.startsWith("@") -> {
                     val path = Path.of(arg.substring(1))
-                    val fileArgs = Files.readAllLines(path, StandardCharsets.UTF_8)
+                    val fileArgs = path.readLines()
                         .filter { it.isNotBlank() && !it.startsWith("#") }
                         .flatMap { it.trim().split("\\s+".toRegex()) }
                     parseArgs(fileArgs, options, positional)
@@ -334,8 +335,8 @@ class KextractTool(private val logger: Logger) {
         return try {
             for (result in results) {
                 val outputPath = outputDir.resolve(result.getPath())
-                Files.createDirectories(outputPath.parent)
-                Files.writeString(outputPath, result.contents)
+                outputPath.parent.createDirectories()
+                outputPath.writeText(result.contents)
             }
             SUCCESS
         } catch (e: Exception) {

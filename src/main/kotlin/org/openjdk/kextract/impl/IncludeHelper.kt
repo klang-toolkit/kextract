@@ -27,9 +27,8 @@ package org.openjdk.kextract.impl
 import org.openjdk.kextract.Declaration
 import java.io.IOException
 import java.io.UncheckedIOException
-import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardOpenOption
+import kotlin.io.path.bufferedWriter
 import java.util.EnumMap
 import java.util.TreeMap
 import java.util.TreeSet
@@ -120,7 +119,7 @@ class IncludeHelper {
 
     fun dumpIncludes() {
         try {
-            Files.newBufferedWriter(Path.of(dumpIncludesFile!!), StandardOpenOption.CREATE).use { writer ->
+            Path.of(dumpIncludesFile!!).bufferedWriter().use { writer ->
                 val declsByPath = usedDeclarations.filter { it.pos().path != null }
                     .groupingBy { it.pos().path!! }
                     .foldTo(

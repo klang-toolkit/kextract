@@ -2,9 +2,8 @@ package org.openjdk.kextract.impl
 
 import java.io.Reader
 import java.io.IOException
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.bufferedReader
 
 /**
  * Utility object for processing command line arguments.
@@ -71,7 +70,7 @@ object CommandLine {
      */
     @Throws(IOException::class)
     private fun loadCmdFile(name: String, args: MutableList<String>) {
-        Files.newBufferedReader(Path.of(name), StandardCharsets.UTF_8).use { reader ->
+        Path.of(name).bufferedReader().use { reader ->
             val tokenizer = Tokenizer(reader)
             var token: String?
             while (tokenizer.nextToken().also { token = it } != null) {
