@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest a new capability, flag, or improvement to generated bindings.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What can't you do today, or what's painful about how you do it?
+      placeholder: When I try to bind headers that use bitfields, kextract silently skips them and I have to hand-write the layout.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What would the ideal outcome look like? A new CLI flag, a different generated-code shape, an extra hook, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: If useful, a header snippet plus the Kotlin you'd want kextract to emit.
+      render: kotlin
+      placeholder: |
+        // For this header:
+        //   struct flags { unsigned a:1; unsigned b:3; };
+        //
+        // I'd like to get:
+        object flags_h {
+            fun a(seg: MemorySegment): Int = ...
+            fun b(seg: MemorySegment): Int = ...
+        }
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, other tools you looked at, related JEPs, etc.
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+    validations:
+      required: false

@@ -1,0 +1,108 @@
+name: Bug report
+description: kextract does something wrong — wrong bindings, crash, parse failure, etc.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. The more reproducer detail you can paste, the faster we can fix it.
+        A minimal `.h` snippet plus the exact `kextract` command is usually enough.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: One or two sentences describing the unexpected behavior.
+      placeholder: kextract emits an invalid Kotlin signature when the header contains ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: header
+    attributes:
+      label: Minimal header that reproduces
+      description: A self-contained C or Objective-C snippet that triggers the bug. Trim it as much as you can.
+      render: c
+      placeholder: |
+        struct foo {
+          int x;
+          const char *name;
+        };
+
+        int do_thing(struct foo *f);
+    validations:
+      required: false
+
+  - type: textarea
+    id: command
+    attributes:
+      label: kextract command
+      description: The exact invocation you ran (including all flags).
+      render: shell
+      placeholder: kextract -t com.example.foo -o out foo.h
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Error message, stack trace, or the wrong Kotlin that was generated. Paste verbatim.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: kextract-version
+    attributes:
+      label: kextract version
+      description: Output of `kextract --version`, or the commit SHA if you built from source.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux (x86_64)
+        - Linux (aarch64)
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows (x86_64)
+        - Other — describe in "Additional context"
+    validations:
+      required: true
+
+  - type: input
+    id: jdk
+    attributes:
+      label: JDK version
+      description: First line of `java -version`.
+      placeholder: openjdk 25
+    validations:
+      required: true
+
+  - type: input
+    id: llvm
+    attributes:
+      label: LLVM / libclang version
+      placeholder: 22.1.6
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Logs, screenshots, anything else that helps.
+    validations:
+      required: false
