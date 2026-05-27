@@ -276,12 +276,9 @@ abstract class DeclarationImpl(
     }
 
     /** Marker attribute: no code should be generated for this declaration. */
-    data class Skip(private val _compat: Int = 0) : Declaration.Attribute {
-        companion object {
-            private val INSTANCE = Skip()
-            fun with(declaration: Declaration) = declaration.addAttribute(INSTANCE)
-            fun isPresent(declaration: Declaration): Boolean = declaration.hasAttribute<Skip>()
-        }
+    object Skip : Declaration.Attribute {
+        fun with(declaration: Declaration) = declaration.addAttribute(this)
+        fun isPresent(declaration: Declaration): Boolean = declaration.hasAttribute<Skip>()
     }
 
     data class JavaName(val names: List<String>) : Declaration.Attribute {
