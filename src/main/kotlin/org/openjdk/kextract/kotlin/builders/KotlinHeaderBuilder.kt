@@ -9,9 +9,7 @@ import org.openjdk.kextract.kotlin.utils.TypeMapper
 /**
  * Generates Kotlin code for functions, variables, and constants.
  */
-class KotlinHeaderBuilder(builder: SourceBuilder, toplevel: KotlinToplevelBuilder) {
-    private val builder: SourceBuilder = builder
-    private val toplevel: KotlinToplevelBuilder = toplevel
+class KotlinHeaderBuilder(private val builder: SourceBuilder, private val toplevel: KotlinToplevelBuilder) {
 
     fun visitFunction(decl: Declaration.Function) {
         val name = toplevel.javaName(decl.name())

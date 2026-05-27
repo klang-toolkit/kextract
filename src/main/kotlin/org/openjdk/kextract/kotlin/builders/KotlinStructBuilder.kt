@@ -9,9 +9,7 @@ import org.openjdk.kextract.kotlin.utils.TypeMapper
 /**
  * Generates Kotlin code for structs and unions.
  */
-class KotlinStructBuilder(builder: SourceBuilder, toplevel: KotlinToplevelBuilder) {
-    private val builder: SourceBuilder = builder
-    private val toplevel: KotlinToplevelBuilder = toplevel
+class KotlinStructBuilder(private val builder: SourceBuilder, private val toplevel: KotlinToplevelBuilder) {
 
     fun visitStruct(decl: Declaration.Scoped) {
         val className = toplevel.javaName(decl.name())

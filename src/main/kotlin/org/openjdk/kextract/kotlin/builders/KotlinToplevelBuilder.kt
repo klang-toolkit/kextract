@@ -11,10 +11,9 @@ import org.openjdk.kextract.kotlin.utils.KotlinNameMangler
  */
 class KotlinToplevelBuilder(
     private val targetPackage: String,
-    className: String,
+    val className: String,
     private val headerName: String
 ) : Declaration.Visitor<Unit> {
-    val className: String = className
     private val builder = SourceBuilder()
     private val files = mutableListOf<KotlinSourceFile>()
     private val headerBuilder = KotlinHeaderBuilder(builder, this)
