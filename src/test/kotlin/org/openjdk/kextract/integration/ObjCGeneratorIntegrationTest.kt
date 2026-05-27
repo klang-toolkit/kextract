@@ -10,7 +10,7 @@ import io.kotest.matchers.string.shouldNotContain
 import org.openjdk.kextract.impl.NameMangler
 import org.openjdk.kextract.kotlin.KotlinGenerator
 import org.openjdk.kextract.kotlin.models.KotlinSourceFile
-import org.openjdk.kextract.newimpl.KextractTool
+import org.openjdk.kextract.impl.KextractTool
 import java.nio.file.Files
 
 /**

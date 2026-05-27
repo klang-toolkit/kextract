@@ -20,9 +20,8 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package org.openjdk.kextract.newimpl
+package org.openjdk.kextract.impl
 
-import org.openjdk.kextract.impl.IncludeHelper
 import java.util.*
 
 /**

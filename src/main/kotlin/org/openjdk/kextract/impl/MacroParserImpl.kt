@@ -36,7 +36,6 @@ import org.openjdk.kextract.clang.EvalResult
 import org.openjdk.kextract.clang.Index
 import org.openjdk.kextract.clang.LibClang
 import org.openjdk.kextract.clang.TranslationUnit
-import org.openjdk.kextract.newimpl.Logger
 
 import java.io.IOException
 import java.nio.file.Files

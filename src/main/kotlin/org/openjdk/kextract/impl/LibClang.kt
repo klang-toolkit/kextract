@@ -24,7 +24,7 @@
  *
  */
 
-package org.openjdk.kextract.newimpl
+package org.openjdk.kextract.impl
 
 import java.lang.foreign.Arena
 import java.lang.foreign.Linker

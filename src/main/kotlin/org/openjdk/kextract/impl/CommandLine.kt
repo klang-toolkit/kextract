@@ -1,4 +1,4 @@
-package org.openjdk.kextract.newimpl
+package org.openjdk.kextract.impl
 
 import java.io.Reader
 import java.io.IOException

@@ -24,7 +24,6 @@
  */
 package org.openjdk.kextract.impl
 
-import org.openjdk.kextract.newimpl.Logger
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Declaration.Constant
 import org.openjdk.kextract.Declaration.Function

@@ -32,7 +32,6 @@ import org.openjdk.kextract.clang.CursorKind
 import org.openjdk.kextract.clang.Diagnostic
 import org.openjdk.kextract.clang.LibClang
 import org.openjdk.kextract.clang.SourceLocation
-import org.openjdk.kextract.newimpl.Logger
 
 class Parser(private val logger: Logger) {
 

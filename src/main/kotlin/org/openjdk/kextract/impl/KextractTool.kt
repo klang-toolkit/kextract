@@ -23,7 +23,7 @@
  * questions.
  */
 
-package org.openjdk.kextract.newimpl
+package org.openjdk.kextract.impl
 
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.impl.Parser

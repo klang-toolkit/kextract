@@ -23,7 +23,7 @@
  * questions.
  */
 
-package org.openjdk.kextract.newimpl
+package org.openjdk.kextract.impl
 
 import org.openjdk.kextract.Position
 import java.io.PrintWriter
