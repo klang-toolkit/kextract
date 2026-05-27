@@ -4,7 +4,7 @@ import java.io.Reader
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.nio.file.Paths
+import java.nio.file.Path
 
 /**
  * Utility object for processing command line arguments.
@@ -13,9 +13,6 @@ import java.nio.file.Paths
 object CommandLine {
     private const val FORM_FEED = '\u000C'
     private const val NUL = '\u0000'
-    private val DOUBLE_QUOTE = '"'
-    private val SINGLE_QUOTE = '\''
-
     /**
      * Process Win32-style command files for the specified command line arguments.
      * @param args The command line arguments to process
@@ -74,7 +71,7 @@ object CommandLine {
      */
     @Throws(IOException::class)
     private fun loadCmdFile(name: String, args: MutableList<String>) {
-        Files.newBufferedReader(Paths.get(name), StandardCharsets.UTF_8).use { reader ->
+        Files.newBufferedReader(Path.of(name), StandardCharsets.UTF_8).use { reader ->
             val tokenizer = Tokenizer(reader)
             var token: String?
             while (tokenizer.nextToken().also { token = it } != null) {
@@ -102,7 +99,7 @@ object CommandLine {
         while (pos < len) {
             ch = inEnv[pos]
             when (ch) {
-                DOUBLE_QUOTE, SINGLE_QUOTE -> {
+                '"', '\'' -> {
                     quote = if (quote == NUL) ch else if (quote == ch) NUL else {
                         sb.append(ch)
                         quote
@@ -166,7 +163,7 @@ object CommandLine {
                     '\n', '\r' -> {
                         return sb.toString()
                     }
-                    DOUBLE_QUOTE, SINGLE_QUOTE -> {
+                    '"', '\'' -> {
                         quoteChar = if (quoteChar == null) currentChar
                                     else if (quoteChar == currentChar) null
                                     else {
