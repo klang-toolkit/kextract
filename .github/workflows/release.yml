@@ -1,0 +1,169 @@
+name: Release multiplatform build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name to publish (e.g. v1.0.0)'
+        required: true
+
+env:
+  TOOLCHAIN_VERSION: 25
+  GRADLE_JAVA_VERSION: 21
+  LLVM_VERSION: 22.1.6
+
+jobs:
+  resolve-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: [resolve-tag]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: windows-latest
+            platform: windows-x86_64
+          - os: macos-14
+            platform: macos-aarch64
+
+    steps:
+      - name: 'Check out repository'
+        uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ needs.resolve-tag.outputs.tag }}
+          fetch-depth: 1
+
+      - name: 'Setup Toolchain JDK'
+        id: setup-toolchain
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.TOOLCHAIN_VERSION }}
+
+      - name: 'Setup Gradle Java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.GRADLE_JAVA_VERSION }}
+
+      - name: 'Cache LLVM archive'
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/kextract-llvm
+          key: kextract-llvm-${{ env.LLVM_VERSION }}-${{ matrix.platform }}
+
+      - name: 'Cache extracted LLVM'
+        uses: actions/cache@v4
+        with:
+          path: build/llvm/${{ env.LLVM_VERSION }}
+          key: kextract-llvm-extracted-${{ env.LLVM_VERSION }}-${{ matrix.platform }}
+
+      - name: 'Build Kextract'
+        shell: bash
+        run: |
+          ./gradlew -Pjdk_home="${{ steps.setup-toolchain.outputs.path }}" -Pllvm_home= assemble
+
+      - name: 'Smoke-test the produced image (Unix)'
+        if: ${{ matrix.os != 'windows-latest' }}
+        shell: bash
+        run: |
+          test -x build/kextract/bin/kextract
+          test -f build/kextract/lib/org.graphiks.kextract.jar
+          test -d build/kextract/runtime
+          test -d build/kextract/conf/kextract
+          output="$(build/kextract/bin/kextract 2>&1 || true)"
+          echo "$output"
+          echo "$output" | grep -qi "header"
+
+      - name: 'Smoke-test the produced image (Windows)'
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: pwsh
+        run: |
+          # kextract may exit non-zero; don't let that throw or propagate the exit code.
+          $PSNativeCommandUseErrorActionPreference = $false
+          if (-not (Test-Path build/kextract/bin/kextract.bat)) { throw "kextract.bat missing" }
+          if (-not (Test-Path build/kextract/lib/org.graphiks.kextract.jar)) { throw "kextract jar missing" }
+          if (-not (Test-Path build/kextract/runtime)) { throw "runtime missing" }
+          if (-not (Test-Path build/kextract/conf/kextract)) { throw "conf missing" }
+          $output = (& build/kextract/bin/kextract.bat 2>&1) | Out-String
+          Write-Host $output
+          if ($output -notmatch '(?i)header') { throw "expected 'header' in output, got: $output" }
+          $global:LASTEXITCODE = 0
+          exit 0
+
+      - name: 'Package archive (Unix)'
+        if: ${{ matrix.os != 'windows-latest' }}
+        shell: bash
+        run: |
+          tag="${{ needs.resolve-tag.outputs.tag }}"
+          archive_name="kextract-${tag}-${{ matrix.platform }}.tar.gz"
+          tar -czf "$archive_name" -C build kextract
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$archive_name" > "$archive_name.sha256"
+          else
+            shasum -a 256 "$archive_name" > "$archive_name.sha256"
+          fi
+          echo "ARCHIVE_NAME=$archive_name" >> "$GITHUB_ENV"
+
+      - name: 'Package archive (Windows)'
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: pwsh
+        run: |
+          $tag = "${{ needs.resolve-tag.outputs.tag }}"
+          $archiveName = "kextract-$tag-${{ matrix.platform }}.zip"
+          Compress-Archive -Path build/kextract -DestinationPath $archiveName
+          $hash = (Get-FileHash -Algorithm SHA256 $archiveName).Hash.ToLower()
+          "$hash  $archiveName" | Out-File -FilePath "$archiveName.sha256" -Encoding ascii
+          "ARCHIVE_NAME=$archiveName" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: 'Upload artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kextract-${{ matrix.platform }}
+          path: |
+            ${{ env.ARCHIVE_NAME }}
+            ${{ env.ARCHIVE_NAME }}.sha256
+          if-no-files-found: error
+
+  release:
+    needs: [resolve-tag, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 'Download all artifacts'
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 'List artifacts'
+        shell: bash
+        run: ls -lah artifacts
+
+      - name: 'Create GitHub Release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-tag.outputs.tag }}
+          name: ${{ needs.resolve-tag.outputs.tag }}
+          generate_release_notes: true
+          files: artifacts/*
+          fail_on_unmatched_files: true
