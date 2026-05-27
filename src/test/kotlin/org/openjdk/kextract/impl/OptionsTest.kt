@@ -20,7 +20,7 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package org.openjdk.kextract.impl
+package org.openjdk.kextract.pipeline
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -112,7 +112,7 @@ class OptionsTest {
     fun `test addIncludeSymbol works`() {
         val builder = Options.builder()
         builder.addIncludeSymbol(
-            org.openjdk.kextract.impl.IncludeHelper.IncludeKind.CONSTANT,
+            org.openjdk.kextract.pipeline.IncludeHelper.IncludeKind.CONSTANT,
             "MY_CONSTANT"
         )
         val options = builder.build()

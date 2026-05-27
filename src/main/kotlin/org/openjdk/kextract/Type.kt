@@ -25,7 +25,7 @@
  */
 package org.openjdk.kextract
 
-import org.openjdk.kextract.impl.PrettyPrinter
+import org.openjdk.kextract.pipeline.PrettyPrinter
 import java.lang.foreign.AddressLayout
 import java.lang.foreign.MemoryLayout
 import java.lang.foreign.ValueLayout

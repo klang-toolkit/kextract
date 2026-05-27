@@ -23,7 +23,7 @@
  * questions.
  */
 
-package org.openjdk.kextract.impl
+package org.openjdk.kextract.pipeline
 
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

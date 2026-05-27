@@ -7,10 +7,10 @@ import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import org.openjdk.kextract.impl.NameMangler
+import org.openjdk.kextract.pipeline.NameMangler
 import org.openjdk.kextract.kotlin.KotlinGenerator
 import org.openjdk.kextract.kotlin.models.KotlinSourceFile
-import org.openjdk.kextract.impl.KextractTool
+import org.openjdk.kextract.pipeline.KextractTool
 import java.nio.file.Files
 
 /**

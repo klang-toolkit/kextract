@@ -20,7 +20,7 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package org.openjdk.kextract.impl
+package org.openjdk.kextract.pipeline
 
 /**
  * Configuration options for kextract (Kotlin version).

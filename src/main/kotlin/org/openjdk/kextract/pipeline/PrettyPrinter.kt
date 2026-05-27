@@ -23,7 +23,7 @@
  *  questions.
  *
  */
-package org.openjdk.kextract.impl
+package org.openjdk.kextract.pipeline
 
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Position

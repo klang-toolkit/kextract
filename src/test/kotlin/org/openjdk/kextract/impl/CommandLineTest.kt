@@ -1,4 +1,4 @@
-package org.openjdk.kextract.impl
+package org.openjdk.kextract.pipeline
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertThrows

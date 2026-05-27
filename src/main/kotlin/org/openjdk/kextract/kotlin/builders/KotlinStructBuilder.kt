@@ -3,7 +3,7 @@ package org.openjdk.kextract.kotlin.builders
 
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Type
-import org.openjdk.kextract.impl.LayoutUtils
+import org.openjdk.kextract.pipeline.LayoutUtils
 import org.openjdk.kextract.kotlin.utils.TypeMapper
 
 /**

@@ -1,4 +1,4 @@
-package org.openjdk.kextract.impl
+package org.openjdk.kextract.pipeline
 
 import java.io.Reader
 import java.io.IOException

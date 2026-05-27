@@ -23,7 +23,7 @@
  * questions.
  */
 
-package org.openjdk.kextract.impl
+package org.openjdk.kextract.pipeline
 
 import org.openjdk.kextract.Position
 import java.io.PrintWriter
@@ -45,7 +45,7 @@ class Logger @JvmOverloads constructor(
         private set
 
     private val messagesBundle: ResourceBundle by lazy {
-        ResourceBundle.getBundle("org.openjdk.kextract.impl.resources.Messages", locale)
+        ResourceBundle.getBundle("org.openjdk.kextract.pipeline.resources.Messages", locale)
     }
 
     // --- Error / warning / info (key-based, no position) ---
