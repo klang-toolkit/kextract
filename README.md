@@ -124,3 +124,9 @@ org.graphiks.kextract.kotlin   # Kotlin code generators
 ```
 
 Tests are written with [JUnit 5](https://junit.org/junit5/) and [Kotest](https://kotest.io/).
+
+---
+
+## License
+
+[MIT](LICENSE)
