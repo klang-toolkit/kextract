@@ -352,10 +352,7 @@ internal class TreeMaker {
     private fun <D : Declaration> withNestedTypesNew(d: D, c: Cursor, ignoreNestedParams: Boolean): D {
         val nestedDefinitions: MutableList<Declaration> = mutableListOf()
         collectNestedTypesNew(c, nestedDefinitions, ignoreNestedParams)
-        val nestedDecls = nestedDefinitions.stream()
-            .filter { m -> m is Scoped }
-            .map { m -> m as Scoped }
-            .toList()
+        val nestedDecls = nestedDefinitions.filterIsInstance<Scoped>()
         if (nestedDecls.isNotEmpty()) {
             NestedDeclarations.with(d, nestedDecls)
         }

@@ -40,7 +40,6 @@ import org.openjdk.kextract.clang.TranslationUnit
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.stream.Collectors
 
 internal class MacroParserImpl private constructor(
     private val reparser: ClangReparser,
@@ -236,10 +235,9 @@ internal class MacroParserImpl private constructor(
                 // step 2 - retry failed parsed macros as pointers
                 reparseMacros(true)
             }
-            return macrosByMangledName.values.stream()
-                .filter { it.isSuccess() }
-                .map { (it as Success).constant() }
-                .collect(Collectors.toList())
+            return macrosByMangledName.values
+                .filterIsInstance<Success>()
+                .map { it.constant() }
         }
 
         fun updateTable(treeMaker: TreeMaker, decl: Cursor) {
@@ -287,9 +285,8 @@ internal class MacroParserImpl private constructor(
             if (recovery) {
                 buf.append("#include <stdint.h>\n")
             }
-            macrosByMangledName.values.stream()
-                .filter { !it.isSuccess() } // skip macros that already have passed
-                .filter { if (recovery) it.isRecoverableFailure() else it.isUnparsed() }
+            macrosByMangledName.values
+                .filter { !it.isSuccess() && (if (recovery) it.isRecoverableFailure() else it.isUnparsed()) }
                 .forEach { e ->
                     buf.append("__auto_type ")
                         .append(e.mangledName())
