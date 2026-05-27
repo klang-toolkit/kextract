@@ -28,6 +28,7 @@ package org.openjdk.kextract.impl
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
+import org.openjdk.kextract.TypeImpl
 
 class PrettyPrinter : Declaration.Visitor<Unit> {
 

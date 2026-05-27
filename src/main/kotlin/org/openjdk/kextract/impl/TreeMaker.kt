@@ -33,6 +33,7 @@ import org.openjdk.kextract.Declaration.Variable
 import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
 import org.openjdk.kextract.Type.Declared
+import org.openjdk.kextract.TypeImpl
 import org.openjdk.kextract.clang.Cursor
 import org.openjdk.kextract.clang.CursorKind
 import org.openjdk.kextract.clang.CursorLanguage

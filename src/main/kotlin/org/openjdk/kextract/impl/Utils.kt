@@ -27,6 +27,7 @@ package org.openjdk.kextract.impl
 
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Type
+import org.openjdk.kextract.TypeImpl
 import org.openjdk.kextract.clang.Cursor
 import org.openjdk.kextract.clang.CursorKind
 import org.openjdk.kextract.impl.DeclarationImpl.ClangEnumType
