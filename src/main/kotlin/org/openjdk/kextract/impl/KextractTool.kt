@@ -53,6 +53,12 @@ class KextractTool constructor(private val loggerNew: Logger) {
         val DEBUG: Boolean = System.getProperty("kextract.debug") == "true"
         private val isMacOSX: Boolean = System.getProperty("os.name") == "Mac OS X"
 
+        /** Headers that should be included with angle-brackets or are known special names. */
+        private val SPECIAL_HEADERS = setOf(
+            "stdarg.h", "stddef.h", "stdint.h", "stdbool.h", "stdalign.h",
+            "stdnoreturn.h", "stdckdint.h", "stdatomic.h"
+        )
+
         // Error codes
         @JvmStatic val SUCCESS = 0
         @JvmStatic val FAILURE = 1
@@ -75,34 +81,13 @@ class KextractTool constructor(private val loggerNew: Logger) {
          */
         @JvmStatic
         fun parse(headers: List<String>, vararg parserOptions: String): Declaration.Scoped {
-            val source = generateTmpSourceStatic(headers)
-            return Parser(Logger.DEFAULT).parse("kextract\$tmp.h", source, parserOptions.toList())
-        }
-
-        /**
-         * Generate temporary source for special headers (static version for parse method).
-         */
-        private fun generateTmpSourceStatic(headers: List<String>): String {
-            if (headers.isEmpty()) return ""
-            
-            return headers.joinToString("\n") { header ->
-                if (isSpecialHeaderNameStatic(header)) {
+            val source = headers.joinToString("\n") { header ->
+                if (header.startsWith("<") && header.endsWith(">") || header in SPECIAL_HEADERS)
                     "#include $header"
-                } else {
+                else
                     "#include \"$header\""
-                }
             }
-        }
-
-        /**
-         * Check if header is special (static version).
-         */
-        private fun isSpecialHeaderNameStatic(header: String): Boolean {
-            val specialHeaders = setOf(
-                "stdarg.h", "stddef.h", "stdint.h", "stdbool.h", "stdalign.h",
-                "stdnoreturn.h", "stdckdint.h", "stdatomic.h"
-            )
-            return header.startsWith("<") && header.endsWith(">") || header in specialHeaders
+            return Parser(Logger.DEFAULT).parse("kextract\$tmp.h", source, parserOptions.toList())
         }
     }
 
@@ -405,14 +390,9 @@ class KextractTool constructor(private val loggerNew: Logger) {
     }
 
     /**
-     * Check if header is special (enclosed in <>).
+     * Check if header is special (enclosed in <> or is a well-known C standard header).
      */
-    fun isSpecialHeaderName(header: String): Boolean {
-        val specialHeaders = setOf(
-            "stdarg.h", "stddef.h", "stdint.h", "stdbool.h", "stdalign.h",
-            "stdnoreturn.h", "stdckdint.h", "stdatomic.h"
-        )
-        return header.startsWith("<") && header.endsWith(">") || header in specialHeaders
-    }
+    fun isSpecialHeaderName(header: String): Boolean =
+        (header.startsWith("<") && header.endsWith(">")) || header in SPECIAL_HEADERS
 
 }
