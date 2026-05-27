@@ -27,7 +27,7 @@ package org.openjdk.kextract.impl
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Type
 import org.openjdk.kextract.Type.Delegated
-import org.openjdk.kextract.impl.DeclarationImpl.Skip
+import org.openjdk.kextract.DeclarationImpl.Skip
 
 class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Unit> {
 

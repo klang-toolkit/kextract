@@ -1,7 +1,7 @@
 package org.openjdk.kextract.kotlin.builders
 
 import org.openjdk.kextract.Declaration
-import org.openjdk.kextract.impl.DeclarationImpl.Skip
+import org.openjdk.kextract.DeclarationImpl.Skip
 import org.openjdk.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.kotlinName
 import org.openjdk.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.returnLayout
 import org.openjdk.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.returnTypeKotlin

@@ -25,8 +25,8 @@
 package org.openjdk.kextract.impl
 
 import org.openjdk.kextract.Type
-import org.openjdk.kextract.impl.DeclarationImpl.ClangEnumType
-import org.openjdk.kextract.impl.DeclarationImpl.JavaName
+import org.openjdk.kextract.DeclarationImpl.ClangEnumType
+import org.openjdk.kextract.DeclarationImpl.JavaName
 
 /**
  * Utility class for generating layout strings for code generation.

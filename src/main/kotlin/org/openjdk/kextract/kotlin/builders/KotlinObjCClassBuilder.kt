@@ -2,7 +2,7 @@ package org.openjdk.kextract.kotlin.builders
 
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Type
-import org.openjdk.kextract.impl.DeclarationImpl.Skip
+import org.openjdk.kextract.DeclarationImpl.Skip
 import org.openjdk.kextract.kotlin.utils.TypeMapper
 
 /**

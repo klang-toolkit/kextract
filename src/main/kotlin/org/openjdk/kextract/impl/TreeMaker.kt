@@ -34,6 +34,7 @@ import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
 import org.openjdk.kextract.Type.Declared
 import org.openjdk.kextract.TypeImpl
+import org.openjdk.kextract.DeclarationImpl
 import org.openjdk.kextract.clang.Cursor
 import org.openjdk.kextract.clang.CursorKind
 import org.openjdk.kextract.clang.CursorLanguage
@@ -42,12 +43,12 @@ import org.openjdk.kextract.clang.PrintingPolicy
 import org.openjdk.kextract.clang.PrintingPolicyProperty
 import org.openjdk.kextract.clang.SourceLocation
 import org.openjdk.kextract.clang.TypeKind
-import org.openjdk.kextract.impl.DeclarationImpl.AnonymousStruct
-import org.openjdk.kextract.impl.DeclarationImpl.ClangAlignOf
-import org.openjdk.kextract.impl.DeclarationImpl.ClangOffsetOf
-import org.openjdk.kextract.impl.DeclarationImpl.ClangSizeOf
-import org.openjdk.kextract.impl.DeclarationImpl.NestedDeclarations
-import org.openjdk.kextract.impl.DeclarationImpl.DeclarationString
+import org.openjdk.kextract.DeclarationImpl.AnonymousStruct
+import org.openjdk.kextract.DeclarationImpl.ClangAlignOf
+import org.openjdk.kextract.DeclarationImpl.ClangOffsetOf
+import org.openjdk.kextract.DeclarationImpl.ClangSizeOf
+import org.openjdk.kextract.DeclarationImpl.NestedDeclarations
+import org.openjdk.kextract.DeclarationImpl.DeclarationString
 
 import java.nio.file.Path
 

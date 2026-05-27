@@ -30,8 +30,8 @@ import org.openjdk.kextract.Type
 import org.openjdk.kextract.TypeImpl
 import org.openjdk.kextract.clang.Cursor
 import org.openjdk.kextract.clang.CursorKind
-import org.openjdk.kextract.impl.DeclarationImpl.ClangEnumType
-import org.openjdk.kextract.impl.DeclarationImpl.NestedDeclarations
+import org.openjdk.kextract.DeclarationImpl.ClangEnumType
+import org.openjdk.kextract.DeclarationImpl.NestedDeclarations
 import java.lang.foreign.MemorySegment
 import java.lang.invoke.MethodType
 

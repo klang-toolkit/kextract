@@ -25,7 +25,7 @@
 package org.openjdk.kextract.impl
 
 import org.openjdk.kextract.Declaration
-import org.openjdk.kextract.impl.DeclarationImpl.Skip
+import org.openjdk.kextract.DeclarationImpl.Skip
 
 class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visitor<Unit> {
 

@@ -31,9 +31,9 @@ import org.openjdk.kextract.Type
 import org.openjdk.kextract.Type.Declared
 import org.openjdk.kextract.Type.Delegated
 import org.openjdk.kextract.Type.Function
-import org.openjdk.kextract.impl.DeclarationImpl.AnonymousStruct
-import org.openjdk.kextract.impl.DeclarationImpl.JavaFunctionalInterfaceName
-import org.openjdk.kextract.impl.DeclarationImpl.JavaName
+import org.openjdk.kextract.DeclarationImpl.AnonymousStruct
+import org.openjdk.kextract.DeclarationImpl.JavaFunctionalInterfaceName
+import org.openjdk.kextract.DeclarationImpl.JavaName
 import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 import javax.lang.model.SourceVersion

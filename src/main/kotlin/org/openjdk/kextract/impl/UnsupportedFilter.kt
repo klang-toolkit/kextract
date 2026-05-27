@@ -35,9 +35,9 @@ import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
 import org.openjdk.kextract.Type.Declared
 import org.openjdk.kextract.TypeImpl
-import org.openjdk.kextract.impl.DeclarationImpl.AnonymousStruct
-import org.openjdk.kextract.impl.DeclarationImpl.ClangSizeOf
-import org.openjdk.kextract.impl.DeclarationImpl.Skip
+import org.openjdk.kextract.DeclarationImpl.AnonymousStruct
+import org.openjdk.kextract.DeclarationImpl.ClangSizeOf
+import org.openjdk.kextract.DeclarationImpl.Skip
 
 class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> {
 
