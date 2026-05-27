@@ -41,7 +41,7 @@ import org.openjdk.kextract.impl.DeclarationImpl.Skip
 import org.openjdk.kextract.impl.TypeImpl
 import org.openjdk.kextract.impl.Utils
 
-class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?> {
+class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> {
 
     private var firstNamedParent: Declaration? = null
 
@@ -50,15 +50,15 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?>
         return header
     }
 
-    override fun visitFunction(funcTree: Function): Void? {
-        if (Skip.isPresent(funcTree)) return null
+    override fun visitFunction(funcTree: Function) {
+        if (Skip.isPresent(funcTree)) return
         Utils.forEachNested(funcTree) { it.accept(this) }
 
         val unsupportedType = firstUnsupportedType(funcTree.type(), false)
         if (unsupportedType != null) {
             warnSkip(funcTree.pos(), funcTree.name(), unsupportedType(unsupportedType))
             Skip.with(funcTree)
-            return null
+            return
         }
 
         for (param in funcTree.parameters()) {
@@ -66,7 +66,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?>
             val f = Utils.getAsFunctionPointer(param.type())
             if (f != null && !checkFunctionTypeSupported(param, f, funcTree.name())) {
                 Skip.with(funcTree)
-                return null
+                return
             }
         }
 
@@ -74,11 +74,10 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?>
         if (returnFunc != null && !checkFunctionTypeSupported(funcTree, returnFunc, funcTree.name())) {
             Skip.with(funcTree)
         }
-        return null
     }
 
-    override fun visitVariable(varTree: Variable): Void? {
-        if (Skip.isPresent(varTree)) return null
+    override fun visitVariable(varTree: Variable) {
+        if (Skip.isPresent(varTree)) return
 
         val incomingParent = firstNamedParent
         val saved = firstNamedParent
@@ -91,24 +90,23 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?>
         if (unsupportedType != null) {
             warnSkip(varTree.pos(), name, unsupportedType(unsupportedType))
             Skip.with(varTree)
-            return null
+            return
         }
 
         val func = Utils.getAsFunctionPointer(varTree.type())
         if (func != null && !checkFunctionTypeSupported(varTree, func, name)) {
             Skip.with(varTree)
         }
-        return null
     }
 
-    override fun visitScoped(scoped: Scoped): Void? {
-        if (Skip.isPresent(scoped)) return null
+    override fun visitScoped(scoped: Scoped) {
+        if (Skip.isPresent(scoped)) return
 
         val unsupportedType = firstUnsupportedType(Type.declared(scoped), false)
         if (unsupportedType != null) {
             warnSkip(scoped.pos(), scoped.name(), unsupportedType(unsupportedType))
             Skip.with(scoped)
-            return null
+            return
         }
 
         if (scoped.kind() == Kind.BITFIELDS) {
@@ -118,7 +116,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?>
                 }
             }
             Skip.with(scoped)
-            return null
+            return
         }
 
         val newNamedParent = if (scoped.name().isNotEmpty()) scoped else firstNamedParent
@@ -126,11 +124,10 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?>
         firstNamedParent = newNamedParent
         scoped.members().forEach { it.accept(this) }
         firstNamedParent = saved
-        return null
     }
 
-    override fun visitTypedef(typedefTree: Typedef): Void? {
-        if (Skip.isPresent(typedefTree)) return null
+    override fun visitTypedef(typedefTree: Typedef) {
+        if (Skip.isPresent(typedefTree)) return
 
         if (typedefTree.type() is Declared) {
             visitScoped((typedefTree.type() as Declared).tree())
@@ -140,18 +137,17 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?>
         if (unsupportedType != null) {
             warnSkip(typedefTree.pos(), typedefTree.name(), unsupportedType(unsupportedType))
             Skip.with(typedefTree)
-            return null
+            return
         }
 
         val func = Utils.getAsFunctionPointer(typedefTree.type())
         if (func != null && !checkFunctionTypeSupported(typedefTree, func, typedefTree.name())) {
             Skip.with(typedefTree)
         }
-        return null
     }
 
-    override fun visitConstant(d: Constant): Void? {
-        if (Skip.isPresent(d)) return null
+    override fun visitConstant(d: Constant) {
+        if (Skip.isPresent(d)) return
 
         val name = fieldName(firstNamedParent, d)
         val unsupportedType = firstUnsupportedType(d.type(), false)
@@ -159,15 +155,12 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?>
             warnSkip(d.pos(), name, unsupportedType(unsupportedType))
             Skip.with(d)
         }
-        return null
     }
 
     // ObjC declarations: all types are normalized to MemorySegment pointers — no unsupported types
-    override fun visitObjCClass(d: Declaration.ObjCClass): Void? = null
-    override fun visitObjCProtocol(d: Declaration.ObjCProtocol): Void? = null
-    override fun visitObjCCategory(d: Declaration.ObjCCategory): Void? = null
-
-    override fun visitDeclaration(d: Declaration): Void? = null
+    override fun visitObjCClass(d: Declaration.ObjCClass) = Unit
+    override fun visitObjCProtocol(d: Declaration.ObjCProtocol) = Unit
+    override fun visitObjCCategory(d: Declaration.ObjCCategory) = Unit
 
     private fun checkFunctionTypeSupported(decl: Declaration, func: Type.Function, nameOfSkipped: String): Boolean {
         val unsupportedType = firstUnsupportedType(func, false)

@@ -28,7 +28,7 @@ import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.impl.DeclarationImpl.Skip
 import org.openjdk.kextract.impl.Utils
 
-class DuplicateFilter : Declaration.Visitor<Void?> {
+class DuplicateFilter : Declaration.Visitor<Unit> {
 
     private val constants = HashSet<String>()
     private val variables = HashSet<String>()
@@ -43,49 +43,39 @@ class DuplicateFilter : Declaration.Visitor<Void?> {
         return header
     }
 
-    override fun visitConstant(constant: Declaration.Constant): Void? {
+    override fun visitConstant(constant: Declaration.Constant) {
         if (!constants.add(constant.name())) Skip.with(constant)
-        return null
     }
 
-    override fun visitFunction(funcTree: Declaration.Function): Void? {
+    override fun visitFunction(funcTree: Declaration.Function) {
         if (!functions.add(funcTree.name())) Skip.with(funcTree)
-        return null
     }
 
-    override fun visitTypedef(tree: Declaration.Typedef): Void? {
+    override fun visitTypedef(tree: Declaration.Typedef) {
         if (!typedefs.add(tree.name())) Skip.with(tree)
-        return null
     }
 
-    override fun visitVariable(tree: Declaration.Variable): Void? {
+    override fun visitVariable(tree: Declaration.Variable) {
         if (!variables.add(tree.name())) Skip.with(tree)
-        return null
     }
 
-    override fun visitScoped(d: Declaration.Scoped): Void? {
+    override fun visitScoped(d: Declaration.Scoped) {
         if (Utils.isEnum(d)) {
             d.members().forEach { it.accept(this) }
         }
-        return null
     }
 
-    override fun visitObjCClass(d: Declaration.ObjCClass): Void? {
+    override fun visitObjCClass(d: Declaration.ObjCClass) {
         if (!objcClasses.add(d.name())) Skip.with(d)
-        return null
     }
 
-    override fun visitObjCProtocol(d: Declaration.ObjCProtocol): Void? {
+    override fun visitObjCProtocol(d: Declaration.ObjCProtocol) {
         if (!objcProtocols.add(d.name())) Skip.with(d)
-        return null
     }
 
-    override fun visitObjCCategory(d: Declaration.ObjCCategory): Void? {
+    override fun visitObjCCategory(d: Declaration.ObjCCategory) {
         // key = "ClassName(CategoryName)" to allow multiple categories on same class
         val key = "${d.extendedClass()}(${d.categoryName()})"
         if (!objcCategories.add(key)) Skip.with(d)
-        return null
     }
-
-    override fun visitDeclaration(decl: Declaration): Void? = null
 }

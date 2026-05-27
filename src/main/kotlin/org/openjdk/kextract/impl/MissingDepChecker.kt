@@ -26,13 +26,12 @@ package org.openjdk.kextract.impl
 
 import org.openjdk.kextract.newimpl.Logger
 import org.openjdk.kextract.Declaration
-import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
 import org.openjdk.kextract.Type.Delegated
 import org.openjdk.kextract.impl.DeclarationImpl.Skip
 import org.openjdk.kextract.impl.Utils
 
-class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Void?> {
+class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Unit> {
 
     private var currentParent: Declaration? = null
 
@@ -41,8 +40,8 @@ class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Void?>
         return header
     }
 
-    override fun visitFunction(funcTree: Declaration.Function): Void? {
-        if (Skip.isPresent(funcTree)) return null
+    override fun visitFunction(funcTree: Declaration.Function) {
+        if (Skip.isPresent(funcTree)) return
 
         val posDecl = currentParent ?: funcTree
         val saved = currentParent
@@ -51,22 +50,20 @@ class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Void?>
         Utils.forEachNested(funcTree) { it.accept(this) }
         currentParent = saved
         checkMissingDep(posDecl, funcTree.type())
-        return null
     }
 
-    override fun visitScoped(d: Declaration.Scoped): Void? {
-        if (Skip.isPresent(d)) return null
+    override fun visitScoped(d: Declaration.Scoped) {
+        if (Skip.isPresent(d)) return
 
         val posDecl = currentParent ?: d
         val saved = currentParent
         currentParent = posDecl
         d.members().forEach { it.accept(this) }
         currentParent = saved
-        return null
     }
 
-    override fun visitTypedef(tree: Declaration.Typedef): Void? {
-        if (Skip.isPresent(tree)) return null
+    override fun visitTypedef(tree: Declaration.Typedef) {
+        if (Skip.isPresent(tree)) return
 
         val posDecl = currentParent ?: tree
         val saved = currentParent
@@ -75,11 +72,10 @@ class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Void?>
         currentParent = saved
         checkMissingDep(posDecl, tree.type())
         Utils.getAsFunctionPointer(tree.type())?.let { checkMissingDep(posDecl, it) }
-        return null
     }
 
-    override fun visitVariable(tree: Declaration.Variable): Void? {
-        if (Skip.isPresent(tree)) return null
+    override fun visitVariable(tree: Declaration.Variable) {
+        if (Skip.isPresent(tree)) return
 
         val posDecl = currentParent ?: tree
         val saved = currentParent
@@ -88,15 +84,12 @@ class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Void?>
         currentParent = saved
         checkMissingDep(posDecl, tree.type())
         Utils.getAsFunctionPointer(tree.type())?.let { checkMissingDep(posDecl, it) }
-        return null
     }
 
     // ObjC: all types reduce to MemorySegment — no missing dep checks needed
-    override fun visitObjCClass(d: Declaration.ObjCClass): Void? = null
-    override fun visitObjCProtocol(d: Declaration.ObjCProtocol): Void? = null
-    override fun visitObjCCategory(d: Declaration.ObjCCategory): Void? = null
-
-    override fun visitDeclaration(decl: Declaration): Void? = null
+    override fun visitObjCClass(d: Declaration.ObjCClass) = Unit
+    override fun visitObjCProtocol(d: Declaration.ObjCProtocol) = Unit
+    override fun visitObjCCategory(d: Declaration.ObjCCategory) = Unit
 
     private fun checkMissingDep(decl: Declaration, function: Type.Function) {
         checkMissingDep(decl, function.returnType())
@@ -117,5 +110,4 @@ class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Void?>
                 checkMissingDep(decl, type.elementType())
         }
     }
-
 }

@@ -29,7 +29,7 @@ import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
 
-class PrettyPrinter : Declaration.Visitor<Void?> {
+class PrettyPrinter : Declaration.Visitor<Unit> {
 
     companion object {
         private val SPACES = " ".repeat(92)
@@ -107,27 +107,25 @@ class PrettyPrinter : Declaration.Visitor<Void?> {
         return builder.toString()
     }
 
-    override fun visitScoped(d: Declaration.Scoped): Void? {
+    override fun visitScoped(d: Declaration.Scoped) {
         indent()
         builder.append("Scoped: ${d.kind()} ${d.name()}\n")
         getAttributes(d)
         incr()
         d.members().forEach { it.accept(this) }
         decr()
-        return null
     }
 
-    override fun visitFunction(d: Declaration.Function): Void? {
+    override fun visitFunction(d: Declaration.Function) {
         indent()
         builder.append("Function: ${d.name()} type = ${d.type().accept(typeVisitor)}\n")
         getAttributes(d)
         incr()
         d.parameters().forEach { it.accept(this) }
         decr()
-        return null
     }
 
-    override fun visitVariable(d: Declaration.Variable): Void? {
+    override fun visitVariable(d: Declaration.Variable) {
         indent()
         if (d is Declaration.Bitfield) {
             builder.append("Bitfield:  type = ${d.type().accept(typeVisitor)}, name = ${d.name()}, width = ${d.width()}")
@@ -136,20 +134,17 @@ class PrettyPrinter : Declaration.Visitor<Void?> {
         }
         builder.append("\n")
         getAttributes(d)
-        return null
     }
 
-    override fun visitConstant(d: Declaration.Constant): Void? {
+    override fun visitConstant(d: Declaration.Constant) {
         indent()
         builder.append("Constant: ${d.name()} ${d.value()} type = ${d.type().accept(typeVisitor)}\n")
         getAttributes(d)
-        return null
     }
 
-    override fun visitTypedef(d: Declaration.Typedef): Void? {
+    override fun visitTypedef(d: Declaration.Typedef) {
         indent()
         builder.append("Typedef: ${d.name()} = ${d.type().accept(typeVisitor)}\n")
         getAttributes(d)
-        return null
     }
 }

@@ -39,7 +39,7 @@ import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 import javax.lang.model.SourceVersion
 
-class NameMangler(private val headerName: String) : Declaration.Visitor<Void?> {
+class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
 
     private val functionTypeDefNames = HashMap<Type, String>()
 
@@ -91,12 +91,11 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Void?> {
         return header
     }
 
-    override fun visitConstant(constant: Declaration.Constant): Void? {
+    override fun visitConstant(constant: Declaration.Constant) {
         JavaName.with(constant, makeJavaName(constant))
-        return null
     }
 
-    override fun visitFunction(func: Declaration.Function): Void? {
+    override fun visitFunction(func: Declaration.Function) {
         JavaName.with(func, makeJavaName(func))
         var i = 0
         for (param in func.parameters()) {
@@ -120,10 +119,9 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Void?> {
         currentParent = func
         Utils.forEachNested(func) { it.accept(this) }
         currentParent = saved
-        return null
     }
 
-    override fun visitScoped(scoped: Declaration.Scoped): Void? {
+    override fun visitScoped(scoped: Declaration.Scoped) {
         val parent = currentParent   // capture the parent before we change it
         if (Utils.isEnum(scoped)) {
             val saved = currentParent
@@ -131,7 +129,7 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Void?> {
             scoped.members().forEach { it.accept(this) }
             currentParent = saved
         } else if (Utils.isStructOrUnion(scoped)) {
-            if (JavaName.isPresent(scoped)) return null
+            if (JavaName.isPresent(scoped)) return
 
             val oldScope = curScope
             if (!AnonymousStruct.isPresent(scoped)) {
@@ -156,11 +154,10 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Void?> {
                 currentParent = saved
             }
         }
-        return null
     }
 
-    override fun visitTypedef(typedef: Declaration.Typedef): Void? {
-        if (JavaName.isPresent(typedef)) return null
+    override fun visitTypedef(typedef: Declaration.Typedef) {
+        if (JavaName.isPresent(typedef)) return
 
         val javaName = curScope.uniqueNestedClassName(typedef.name())
         JavaName.with(typedef, listOf(javaName))
@@ -173,7 +170,6 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Void?> {
         currentParent = typedef
         Utils.forEachNested(typedef) { it.accept(this) }
         currentParent = saved
-        return null
     }
 
     private fun fallbackNameFor(parent: Declaration?, nested: Declaration.Scoped): String {
@@ -198,7 +194,7 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Void?> {
         return nestedName
     }
 
-    override fun visitVariable(variable: Declaration.Variable): Void? {
+    override fun visitVariable(variable: Declaration.Variable) {
         JavaName.with(variable, makeJavaName(variable))
         val type = variable.type()
         val func = Utils.getAsFunctionPointer(type)
@@ -215,26 +211,20 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Void?> {
         currentParent = variable
         Utils.forEachNested(variable) { it.accept(this) }
         currentParent = saved
-        return null
     }
 
-    override fun visitObjCClass(d: Declaration.ObjCClass): Void? {
+    override fun visitObjCClass(d: Declaration.ObjCClass) {
         JavaName.with(d, listOf(javaSafeIdentifier(d.name())))
-        return null
     }
 
-    override fun visitObjCProtocol(d: Declaration.ObjCProtocol): Void? {
+    override fun visitObjCProtocol(d: Declaration.ObjCProtocol) {
         JavaName.with(d, listOf(javaSafeIdentifier(d.name())))
-        return null
     }
 
-    override fun visitObjCCategory(d: Declaration.ObjCCategory): Void? {
+    override fun visitObjCCategory(d: Declaration.ObjCCategory) {
         // JavaName for a category is the extended class name (used to name the extension file)
         JavaName.with(d, listOf(javaSafeIdentifier(d.extendedClass())))
-        return null
     }
-
-    override fun visitDeclaration(decl: Declaration): Void? = null
 
     private fun makeJavaName(decl: Declaration): List<String> =
         if (decl.name().isEmpty()) listOf(decl.name())

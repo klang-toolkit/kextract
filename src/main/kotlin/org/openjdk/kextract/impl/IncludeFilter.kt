@@ -29,7 +29,7 @@ import org.openjdk.kextract.impl.DeclarationImpl.Skip
 import org.openjdk.kextract.impl.IncludeHelper
 import org.openjdk.kextract.impl.Utils
 
-class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visitor<Void?> {
+class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visitor<Unit> {
 
     private var currentParent: Declaration? = null
 
@@ -38,17 +38,15 @@ class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visi
         return header
     }
 
-    override fun visitConstant(constant: Declaration.Constant): Void? {
+    override fun visitConstant(constant: Declaration.Constant) {
         if (!includeHelper.isIncluded(constant)) Skip.with(constant)
-        return null
     }
 
-    override fun visitFunction(funcTree: Declaration.Function): Void? {
+    override fun visitFunction(funcTree: Declaration.Function) {
         if (!includeHelper.isIncluded(funcTree)) Skip.with(funcTree)
-        return null
     }
 
-    override fun visitScoped(d: Declaration.Scoped): Void? {
+    override fun visitScoped(d: Declaration.Scoped) {
         if (Utils.isStructOrUnion(d)) {
             val name = d.name()
             // A named struct from "typedef struct { ... } Foo" has its redundant typedef filtered out,
@@ -61,33 +59,25 @@ class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visi
         currentParent = d
         d.members().forEach { it.accept(this) }
         currentParent = saved
-        return null
     }
 
-    override fun visitTypedef(tree: Declaration.Typedef): Void? {
+    override fun visitTypedef(tree: Declaration.Typedef) {
         if (!includeHelper.isIncluded(tree)) Skip.with(tree)
-        return null
     }
 
-    override fun visitVariable(tree: Declaration.Variable): Void? {
+    override fun visitVariable(tree: Declaration.Variable) {
         if (currentParent == null && !includeHelper.isIncluded(tree)) Skip.with(tree)
-        return null
     }
 
-    override fun visitObjCClass(d: Declaration.ObjCClass): Void? {
+    override fun visitObjCClass(d: Declaration.ObjCClass) {
         if (!includeHelper.isIncluded(d)) Skip.with(d)
-        return null
     }
 
-    override fun visitObjCProtocol(d: Declaration.ObjCProtocol): Void? {
+    override fun visitObjCProtocol(d: Declaration.ObjCProtocol) {
         if (!includeHelper.isIncluded(d)) Skip.with(d)
-        return null
     }
 
-    override fun visitObjCCategory(d: Declaration.ObjCCategory): Void? {
+    override fun visitObjCCategory(d: Declaration.ObjCCategory) {
         if (!includeHelper.isIncluded(d)) Skip.with(d)
-        return null
     }
-
-    override fun visitDeclaration(decl: Declaration): Void? = null
 }
