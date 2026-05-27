@@ -50,7 +50,6 @@ import org.openjdk.kextract.impl.DeclarationImpl.DeclarationString
 
 import java.nio.file.Path
 import java.util.Objects
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Kotlin port of TreeMaker.
@@ -190,13 +189,13 @@ internal class TreeMaker {
     fun recordDeclarationNew(parent: Cursor, recordCursor: Cursor): Type.Declared {
         val pendingFields: MutableList<Declaration> = mutableListOf()
         val pendingBitFields: MutableList<Variable> = mutableListOf()
-        val pendingBitfieldsPos: AtomicReference<Position?> = AtomicReference(null)
+        var pendingBitfieldsPos: Position? = null
 
         recordCursor.forEach { fc ->
             if (fc.isFlattenable()) {
                 if (fc.isBitField()) {
-                    if (pendingBitfieldsPos.get() == null) {
-                        pendingBitfieldsPos.set(CursorPosition.of(fc))
+                    if (pendingBitfieldsPos == null) {
+                        pendingBitfieldsPos = CursorPosition.of(fc)
                     }
                     val fieldType = toType(fc)
                     val bitfieldDecl = Declaration.bitfield(CursorPosition.of(fc), fc.spelling(), fc.getBitFieldWidth().toLong(), fieldType)
@@ -206,9 +205,9 @@ internal class TreeMaker {
                     pendingBitFields.add(bitfieldDecl)
                 } else {
                     if (pendingBitFields.isNotEmpty()) {
-                        pendingFields.add(Declaration.bitfields(pendingBitfieldsPos.get()!!, *pendingBitFields.toTypedArray()))
+                        pendingFields.add(Declaration.bitfields(pendingBitfieldsPos!!, *pendingBitFields.toTypedArray()))
                         pendingBitFields.clear()
-                        pendingBitfieldsPos.set(null)
+                        pendingBitfieldsPos = null
                     }
                     if (fc.isAnonymousStruct()) {
                         pendingFields.add(recordDeclarationNew(parent, fc).tree())
@@ -226,9 +225,9 @@ internal class TreeMaker {
         }
 
         if (pendingBitFields.isNotEmpty()) {
-            pendingFields.add(Declaration.bitfields(pendingBitfieldsPos.get()!!, *pendingBitFields.toTypedArray()))
+            pendingFields.add(Declaration.bitfields(pendingBitfieldsPos!!, *pendingBitFields.toTypedArray()))
             pendingBitFields.clear()
-            pendingBitfieldsPos.set(null)
+            pendingBitfieldsPos = null
         }
 
         val structOrUnionDecl: Scoped = if (recordCursor.kind() == CursorKind.StructDecl) {
@@ -246,18 +245,18 @@ internal class TreeMaker {
     }
 
     private fun offsetOfAnonymousRecordNew(outermostParent: Cursor, anonRecord: Cursor, record: Cursor): Long? {
-        val result: AtomicReference<Long?> = AtomicReference(null)
+        var result: Long? = null
         record.forEachShortCircuit { fc ->
             if (fc.isFlattenable()) {
                 if (fc.spelling().isNotEmpty()) {
                     val offsetToOutermost = outermostParent.type().getOffsetOf(fc.spelling())
                     val offsetToAnon = anonRecord.type().getOffsetOf(fc.spelling())
-                    result.set(offsetToOutermost - offsetToAnon)
+                    result = offsetToOutermost - offsetToAnon
                     false
                 } else if (fc.isAnonymousStruct()) {
                     val nestedResult = offsetOfAnonymousRecordNew(outermostParent, anonRecord, fc)
                     if (nestedResult != null) {
-                        result.set(nestedResult)
+                        result = nestedResult
                         false
                     } else {
                         true
@@ -269,7 +268,7 @@ internal class TreeMaker {
                 true
             }
         }
-        return result.get()
+        return result
     }
 
     fun createEnum(c: Cursor): Declaration.Scoped? {
