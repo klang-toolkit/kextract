@@ -87,15 +87,11 @@ abstract class TypeImpl : Type {
         override fun hashCode(): Int = Objects.hash(_kind, _name)
     }
 
-    class QualifiedImpl : DelegatedBase {
+    class QualifiedImpl(
+        kind: Delegated.Kind,
+        name: String?,
         private val _type: Type
-
-        constructor(kind: Delegated.Kind, type: Type) : super(kind, null) {
-            _type = type
-        }
-        constructor(kind: Delegated.Kind, name: String, type: Type) : super(kind, name) {
-            _type = type
-        }
+    ) : DelegatedBase(kind, name) {
 
         override fun type(): Type = _type
         override fun equals(other: Any?): Boolean {
@@ -139,20 +135,12 @@ abstract class TypeImpl : Type {
         override fun hashCode(): Int = Objects.hash(_declaration)
     }
 
-    class FunctionImpl : TypeImpl, Type.Function {
-        private val _varargs: Boolean
-        private val _argtypes: List<Type>
-        private val _restype: Type
-        private val _paramNames: List<String>?
-
-        constructor(varargs: Boolean, argtypes: List<Type>, restype: Type, paramNames: List<String>?) : super() {
-            _varargs = varargs
-            _argtypes = argtypes
-            _restype = restype
-            _paramNames = paramNames
-        }
-        constructor(varargs: Boolean, argtypes: List<Type>, restype: Type) :
-            this(varargs, argtypes, restype, null)
+    class FunctionImpl(
+        private val _varargs: Boolean,
+        private val _argtypes: List<Type>,
+        private val _restype: Type,
+        private val _paramNames: List<String>? = null
+    ) : TypeImpl(), Type.Function {
 
         override fun <R> accept(visitor: Type.Visitor<R>): R =
             visitor.visitFunction(this)
@@ -174,21 +162,11 @@ abstract class TypeImpl : Type {
         override fun hashCode(): Int = Objects.hash(_varargs, _argtypes, _restype)
     }
 
-    class ArrayImpl : TypeImpl, Type.Array {
-        private val _kind: Type.Array.Kind
-        private val _elemCount: Long?
+    class ArrayImpl(
+        private val _kind: Type.Array.Kind,
+        private val _elemCount: Long?,
         private val _elemType: Type
-
-        constructor(kind: Type.Array.Kind, count: Long, elemType: Type) : super() {
-            _kind = kind
-            _elemCount = count
-            _elemType = elemType
-        }
-        constructor(kind: Type.Array.Kind, elemType: Type) : super() {
-            _kind = kind
-            _elemCount = null
-            _elemType = elemType
-        }
+    ) : TypeImpl(), Type.Array {
 
         override fun <R> accept(visitor: Type.Visitor<R>): R =
             visitor.visitArray(this)

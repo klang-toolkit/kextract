@@ -124,7 +124,7 @@ interface Type {
             TypeImpl.PrimitiveImpl(kind)
 
         fun qualified(kind: Delegated.Kind, type: Type): Delegated =
-            TypeImpl.QualifiedImpl(kind, type)
+            TypeImpl.QualifiedImpl(kind, null, type)
 
         fun typedef(name: String, aliased: Type): Delegated =
             TypeImpl.QualifiedImpl(Delegated.Kind.TYPEDEF, name, aliased)
@@ -139,7 +139,7 @@ interface Type {
             TypeImpl.PointerImpl(pointee)
 
         fun function(varargs: Boolean, returnType: Type, vararg arguments: Type): Function =
-            TypeImpl.FunctionImpl(varargs, arguments.toList(), returnType, null)
+            TypeImpl.FunctionImpl(varargs, arguments.toList(), returnType)
 
         fun declared(tree: Declaration.Scoped): Declared =
             TypeImpl.DeclaredImpl(tree)
@@ -151,7 +151,7 @@ interface Type {
             TypeImpl.ArrayImpl(Array.Kind.ARRAY, elementCount, elementType)
 
         fun array(elementType: Type): Array =
-            TypeImpl.ArrayImpl(Array.Kind.INCOMPLETE_ARRAY, elementType)
+            TypeImpl.ArrayImpl(Array.Kind.INCOMPLETE_ARRAY, null, elementType)
 
         fun error(erroneousName: String): Type =
             TypeImpl.ErronrousTypeImpl(erroneousName)
