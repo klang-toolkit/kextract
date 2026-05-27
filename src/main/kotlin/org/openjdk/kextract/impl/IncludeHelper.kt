@@ -113,7 +113,7 @@ class IncludeHelper {
 
     private fun isIncludedInternal(kind: IncludeKind, declaration: Declaration): Boolean {
         if (!isEnabled()) return true
-        val names = includesSymbolNamesByKind.getOrPut(kind) { mutableSetOf() }
+        val names = includesSymbolNamesByKind[kind] ?: return false
         return names.contains(declaration.name())
     }
 
