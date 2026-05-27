@@ -230,13 +230,6 @@ interface Declaration {
             isReadOnly: Boolean, getterSelector: String, setterSelector: String
         ): ObjCProperty = DeclarationImpl.ObjCPropertyImpl(type, isReadOnly, getterSelector, setterSelector, name, pos)
 
-        /** Retrieves an attribute of type [R], or null if absent. */
-        inline fun <reified R : Attribute> Declaration.getAttribute(): R? =
-            getAttribute(R::class.java)
-
-        /** Returns true if an attribute of type [R] is present. */
-        inline fun <reified R : Attribute> Declaration.hasAttribute(): Boolean =
-            getAttribute<R>() != null
     }
 
     /**
@@ -245,3 +238,11 @@ interface Declaration {
      */
     data class ClangAttributes(val attributes: Map<String, List<String>>) : Attribute
 }
+
+/** Retrieves an attribute of type [R], or null if absent. */
+inline fun <reified R : Declaration.Attribute> Declaration.getAttribute(): R? =
+    getAttribute(R::class.java)
+
+/** Returns true if an attribute of type [R] is present. */
+inline fun <reified R : Declaration.Attribute> Declaration.hasAttribute(): Boolean =
+    getAttribute<R>() != null

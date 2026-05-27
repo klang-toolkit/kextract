@@ -28,6 +28,8 @@ package org.openjdk.kextract.impl
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
+import org.openjdk.kextract.getAttribute
+import org.openjdk.kextract.hasAttribute
 import java.util.Objects
 
 abstract class DeclarationImpl(
@@ -252,35 +254,24 @@ abstract class DeclarationImpl(
 
     data class AnonymousStruct(val offset: Long?) : Declaration.Attribute {
         companion object {
-            fun with(scoped: Declaration.Scoped, offset: Long?) {
-                scoped.addAttribute(AnonymousStruct(offset))
-            }
-            fun getOrThrow(scoped: Declaration.Scoped): AnonymousStruct =
-                scoped.getAttribute(AnonymousStruct::class.java)!!
-            fun isPresent(scoped: Declaration.Scoped): Boolean =
-                scoped.getAttribute(AnonymousStruct::class.java) != null
-            fun anonName(scoped: Declaration.Scoped): String =
-                "\$anon\$${scoped.pos().line}:${scoped.pos().col}"
+            fun with(scoped: Declaration.Scoped, offset: Long?) = scoped.addAttribute(AnonymousStruct(offset))
+            fun getOrThrow(scoped: Declaration.Scoped): AnonymousStruct = scoped.getAttribute<AnonymousStruct>()!!
+            fun isPresent(scoped: Declaration.Scoped): Boolean = scoped.hasAttribute<AnonymousStruct>()
+            fun anonName(scoped: Declaration.Scoped): String = "\$anon\$${scoped.pos().line}:${scoped.pos().col}"
         }
     }
 
     data class EnumConstant(val enumName: String) : Declaration.Attribute {
         companion object {
-            fun with(constant: Declaration.Constant, enumName: String) {
-                constant.addAttribute(EnumConstant(enumName))
-            }
-            fun get(constant: Declaration.Constant): String? =
-                constant.getAttribute(EnumConstant::class.java)?.enumName
+            fun with(constant: Declaration.Constant, enumName: String) = constant.addAttribute(EnumConstant(enumName))
+            fun get(constant: Declaration.Constant): String? = constant.getAttribute<EnumConstant>()?.enumName
         }
     }
 
     data class ClangEnumType(val type: Type) : Declaration.Attribute {
         companion object {
-            fun with(enumDecl: Declaration.Scoped, type: Type) {
-                enumDecl.addAttribute(ClangEnumType(type))
-            }
-            fun get(enumDecl: Declaration.Scoped): Type? =
-                enumDecl.getAttribute(ClangEnumType::class.java)?.type
+            fun with(enumDecl: Declaration.Scoped, type: Type) = enumDecl.addAttribute(ClangEnumType(type))
+            fun get(enumDecl: Declaration.Scoped): Type? = enumDecl.getAttribute<ClangEnumType>()?.type
         }
     }
 
@@ -288,93 +279,69 @@ abstract class DeclarationImpl(
     data class Skip(private val _compat: Int = 0) : Declaration.Attribute {
         companion object {
             private val INSTANCE = Skip()
-            fun with(declaration: Declaration) {
-                declaration.addAttribute(INSTANCE)
-            }
-            fun isPresent(declaration: Declaration): Boolean =
-                declaration.getAttribute(Skip::class.java) != null
+            fun with(declaration: Declaration) = declaration.addAttribute(INSTANCE)
+            fun isPresent(declaration: Declaration): Boolean = declaration.hasAttribute<Skip>()
         }
     }
 
     data class JavaName(val names: List<String>) : Declaration.Attribute {
         companion object {
-            fun with(declaration: Declaration, names: List<String>) {
-                declaration.addAttribute(JavaName(names))
-            }
-            fun getOrThrow(declaration: Declaration): String =
-                declaration.getAttribute(JavaName::class.java)!!.names.last()
+            fun with(declaration: Declaration, names: List<String>) = declaration.addAttribute(JavaName(names))
+            fun getOrThrow(declaration: Declaration): String = declaration.getAttribute<JavaName>()!!.names.last()
             fun getFullNameOrThrow(declaration: Declaration): String =
-                declaration.getAttribute(JavaName::class.java)!!.names.joinToString(".")
-            fun isPresent(declaration: Declaration): Boolean =
-                declaration.getAttribute(JavaName::class.java) != null
+                declaration.getAttribute<JavaName>()!!.names.joinToString(".")
+            fun isPresent(declaration: Declaration): Boolean = declaration.hasAttribute<JavaName>()
         }
     }
 
     data class JavaFunctionalInterfaceName(val fiName: String) : Declaration.Attribute {
         companion object {
-            fun with(declaration: Declaration, fiName: String) {
+            fun with(declaration: Declaration, fiName: String) =
                 declaration.addAttribute(JavaFunctionalInterfaceName(fiName))
-            }
             fun getOrThrow(declaration: Declaration): String =
-                declaration.getAttribute(JavaFunctionalInterfaceName::class.java)!!.fiName
+                declaration.getAttribute<JavaFunctionalInterfaceName>()!!.fiName
         }
     }
 
     data class ClangAlignOf(val align: Long) : Declaration.Attribute {
         companion object {
-            fun with(declaration: Declaration, align: Long) {
-                declaration.addAttribute(ClangAlignOf(align))
-            }
-            fun get(declaration: Declaration): Long? =
-                declaration.getAttribute(ClangAlignOf::class.java)?.align
-            fun getOrThrow(declaration: Declaration): Long =
-                declaration.getAttribute(ClangAlignOf::class.java)!!.align
+            fun with(declaration: Declaration, align: Long) = declaration.addAttribute(ClangAlignOf(align))
+            fun get(declaration: Declaration): Long? = declaration.getAttribute<ClangAlignOf>()?.align
+            fun getOrThrow(declaration: Declaration): Long = declaration.getAttribute<ClangAlignOf>()!!.align
         }
     }
 
     data class ClangSizeOf(val size: Long) : Declaration.Attribute {
         companion object {
-            fun with(declaration: Declaration, size: Long) {
-                declaration.addAttribute(ClangSizeOf(size))
-            }
-            fun get(declaration: Declaration): Long? =
-                declaration.getAttribute(ClangSizeOf::class.java)?.size
-            fun getOrThrow(declaration: Declaration): Long =
-                declaration.getAttribute(ClangSizeOf::class.java)!!.size
+            fun with(declaration: Declaration, size: Long) = declaration.addAttribute(ClangSizeOf(size))
+            fun get(declaration: Declaration): Long? = declaration.getAttribute<ClangSizeOf>()?.size
+            fun getOrThrow(declaration: Declaration): Long = declaration.getAttribute<ClangSizeOf>()!!.size
         }
     }
 
     data class ClangOffsetOf(val offset: Long) : Declaration.Attribute {
         companion object {
-            fun with(declaration: Declaration, offset: Long) {
-                declaration.addAttribute(ClangOffsetOf(offset))
-            }
-            fun get(declaration: Declaration): Long? =
-                declaration.getAttribute(ClangOffsetOf::class.java)?.offset
-            fun getOrThrow(declaration: Declaration): Long =
-                declaration.getAttribute(ClangOffsetOf::class.java)!!.offset
+            fun with(declaration: Declaration, offset: Long) = declaration.addAttribute(ClangOffsetOf(offset))
+            fun get(declaration: Declaration): Long? = declaration.getAttribute<ClangOffsetOf>()?.offset
+            fun getOrThrow(declaration: Declaration): Long = declaration.getAttribute<ClangOffsetOf>()!!.offset
         }
     }
 
     data class NestedDeclarations(val nestedDeclarations: List<Declaration.Scoped>) : Declaration.Attribute {
         companion object {
-            fun with(declaration: Declaration, nestedDeclarations: List<Declaration.Scoped>) {
+            fun with(declaration: Declaration, nestedDeclarations: List<Declaration.Scoped>) =
                 declaration.addAttribute(NestedDeclarations(nestedDeclarations))
-            }
             fun get(declaration: Declaration): List<Declaration.Scoped>? =
-                declaration.getAttribute(NestedDeclarations::class.java)?.nestedDeclarations
+                declaration.getAttribute<NestedDeclarations>()?.nestedDeclarations
         }
     }
 
     data class DeclarationString(val declString: String) : Declaration.Attribute {
         companion object {
-            fun with(declaration: Declaration, declString: String) {
+            fun with(declaration: Declaration, declString: String) =
                 declaration.addAttribute(DeclarationString(declString))
-            }
-            fun get(declaration: Declaration): String? =
-                declaration.getAttribute(DeclarationString::class.java)?.declString
-            fun getOrThrow(declaration: Declaration): String =
-                declaration.getAttribute(DeclarationString::class.java)!!.declString
+            fun get(declaration: Declaration): String? = declaration.getAttribute<DeclarationString>()?.declString
+            fun getOrThrow(declaration: Declaration): String = declaration.getAttribute<DeclarationString>()!!.declString
         }
     }
 }
