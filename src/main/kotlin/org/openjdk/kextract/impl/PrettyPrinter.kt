@@ -73,7 +73,7 @@ class PrettyPrinter : Declaration.Visitor<Unit> {
         fun type(type: Type): String = type.accept(typeVisitor)
 
         fun position(pos: Position): String =
-            "${if (pos.path == null) "N/A" else pos.path.toString()}:${pos.line}:${pos.col}"
+            "${pos.path ?: "N/A"}:${pos.line}:${pos.col}"
     }
 
     private var align = 0

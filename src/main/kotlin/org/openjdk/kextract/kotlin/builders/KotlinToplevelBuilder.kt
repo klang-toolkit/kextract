@@ -91,17 +91,17 @@ class KotlinToplevelBuilder(
         headerBuilder.visitConstant(decl)
     }
 
-    override fun visitObjCClass(decl: Declaration.ObjCClass): Unit {
+    override fun visitObjCClass(decl: Declaration.ObjCClass) {
         needsObjCRuntime = true
         objcClassBuilder.visitClass(decl)
     }
 
-    override fun visitObjCProtocol(decl: Declaration.ObjCProtocol): Unit {
+    override fun visitObjCProtocol(decl: Declaration.ObjCProtocol) {
         needsObjCRuntime = true
         objcProtocolBuilder.visitProtocol(decl)
     }
 
-    override fun visitObjCCategory(decl: Declaration.ObjCCategory): Unit {
+    override fun visitObjCCategory(decl: Declaration.ObjCCategory) {
         needsObjCRuntime = true
         objcCategoryBuilder.visitCategory(decl)
     }
