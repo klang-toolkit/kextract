@@ -124,7 +124,7 @@ internal class MacroParserImpl private constructor(
         }
 
         fun processDiagnostics(diag: Diagnostic) {
-            if (java.lang.Boolean.getBoolean("kextract.debug")) {
+            if (System.getProperty("kextract.debug") == "true") {
                 logger.info("kextract.debug.macro.error", diag.spelling())
             }
         }

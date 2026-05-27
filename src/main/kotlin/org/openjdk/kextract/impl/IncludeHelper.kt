@@ -30,7 +30,6 @@ import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.util.Comparator
 import java.util.EnumMap
 import java.util.TreeMap
 import java.util.TreeSet
@@ -126,7 +125,7 @@ class IncludeHelper {
                     .groupingBy { it.pos().path!! }
                     .foldTo(
                         TreeMap<Path, TreeSet<Declaration>>(Path::compareTo),
-                        { _, _ -> TreeSet(Comparator.comparing(Declaration::name)) },
+                        { _, _ -> TreeSet(compareBy { it.name() }) },
                         { _, acc, d -> acc.also { it.add(d) } }
                     )
                 var lineSep = ""
@@ -139,11 +138,7 @@ class IncludeHelper {
                     for ((kind, kindDecls) in declsByKind) {
                         for (d in kindDecls) {
                             writer.append(
-                                String.format(
-                                    "%-${maxLengthOptionCol}s %s",
-                                    "--${kind.optionName()} ${d.name()}",
-                                    "# header: $path\n"
-                                )
+                                "--${kind.optionName()} ${d.name()}".padEnd(maxLengthOptionCol) + " # header: $path\n"
                             )
                         }
                     }
