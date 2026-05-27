@@ -135,13 +135,15 @@ tasks.named<Jar>("jar") {
 }
 
 tasks.register<Sync>("copyLibClang") {
+    doFirst { delete("$buildDirectory/jmod_inputs/libs") }
     into("$buildDirectory/jmod_inputs")
     val isAix = Os.isName("AIX") || Os.isName("aix")
     val isUnixNotMac = Os.isFamily(Os.FAMILY_UNIX) && !Os.isFamily(Os.FAMILY_MAC)
     val clang_path_include = when {
         isAix -> "libclang.a"
         isUnixNotMac -> "libclang.so.$clang_version"
-        else -> "*clang*"
+        Os.isFamily(Os.FAMILY_WINDOWS) -> "libclang.dll"
+        else -> "libclang.dylib"  // macOS — only the shared dylib, not static archives
     }
     from(libclang_dir) {
         include(clang_path_include)
@@ -149,6 +151,7 @@ tasks.register<Sync>("copyLibClang") {
         exclude("clang.exe")
         into("libs")
         rename("libclang.so.*", "libclang.so")
+        filePermissions { unix("rw-r--r--") }
     }
     from(clang_include_dir) {
         include("*.h")
@@ -192,11 +195,12 @@ tasks.register("createKextractImage") {
         val jlinkExit = jlinkProc.waitFor()
         if (jlinkExit != 0) throw GradleException("jlink failed with exit code $jlinkExit")
 
-        // 2. App JAR + kotlin-stdlib on classpath
+        // 2. App JAR + all runtime dependencies on classpath
         val jarFile = jarTask.get().archiveFile.get().asFile
         Files.copy(jarFile.toPath(), Path.of("$libDir/org.graphiks.kextract.jar"))
-        if (kotlinStdlib != null) {
-            Files.copy(kotlinStdlib.toPath(), Path.of("$libDir/${kotlinStdlib.name}"))
+        configurations["kmainRuntimeClasspath"].files.forEach { dep ->
+            val dest = Path.of("$libDir/${dep.name}")
+            if (!Files.exists(dest)) Files.copy(dep.toPath(), dest)
         }
 
         // 3. Native library

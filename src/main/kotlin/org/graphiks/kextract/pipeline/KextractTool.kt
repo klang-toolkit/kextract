@@ -136,7 +136,10 @@ class KextractTool(private val logger: Logger) {
         if (logger.hasErrors()) return emptyList()
 
         val transformed = NameMangler(headerName).scan(d)
-        return KotlinGenerator().generate(transformed, headerName, options.targetPackage)
+        return KotlinGenerator().generate(
+            transformed, headerName, options.targetPackage,
+            options.libraries, options.useSystemLoadLibrary
+        )
     }
 
     private fun writeKotlin(results: List<KotlinSourceFile>, outputDir: Path): Int {

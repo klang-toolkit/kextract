@@ -26,12 +26,9 @@ class KotlinHeaderBuilder(private val builder: SourceBuilder, private val toplev
 
         // Function descriptor, address and handle (toplevel properties)
         builder.appendLine("private val ${name}_DESC: FunctionDescriptor = ${functionDescriptorString(decl)}")
+        val lookupExpr = if (toplevel.hasLookup) "LOOKUP" else "SymbolLookup.loaderLookup()"
         builder.appendLine(
-            "private val ${name}_ADDR: MemorySegment = SymbolLookup.loaderLookup().findOrThrow(\"${
-                toplevel.lookupName(
-                    decl
-                )
-            }\")"
+            "private val ${name}_ADDR: MemorySegment = $lookupExpr.findOrThrow(\"${toplevel.lookupName(decl)}\")"
         )
         builder.appendLine("private val ${name}_HANDLE: MethodHandle = Linker.nativeLinker().downcallHandle(${name}_ADDR, ${name}_DESC)")
         builder.appendLine()
@@ -91,12 +88,9 @@ class KotlinHeaderBuilder(private val builder: SourceBuilder, private val toplev
 
         // Variable Layout, Segment and Handle (toplevel properties)
         builder.appendLine("private val ${name}_LAYOUT: ValueLayout = ${layoutString(decl.type())}")
+        val varLookupExpr = if (toplevel.hasLookup) "LOOKUP" else "SymbolLookup.loaderLookup()"
         builder.appendLine(
-            "private val ${name}_SEGMENT: MemorySegment = SymbolLookup.loaderLookup().findOrThrow(\"${
-                toplevel.lookupName(
-                    decl
-                )
-            }\")"
+            "private val ${name}_SEGMENT: MemorySegment = $varLookupExpr.findOrThrow(\"${toplevel.lookupName(decl)}\")"
         )
         builder.appendLine("private val ${name}_VH: VarHandle = ${name}_LAYOUT.varHandle()")
         builder.appendLine()

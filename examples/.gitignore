@@ -1,0 +1,10 @@
+# Generated Kotlin bindings
+generated/
+
+# Compiled native libraries
+*.dylib
+*.so
+*.dll
+
+# Compiled Kotlin output
+out/

@@ -4,6 +4,7 @@ package org.graphiks.kextract.kotlin.builders
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.kotlin.models.KotlinSourceFile
 import org.graphiks.kextract.kotlin.utils.KotlinNameMangler
+import org.graphiks.kextract.pipeline.Options
 
 /**
  * Top-level builder for Kotlin files.
@@ -12,7 +13,9 @@ import org.graphiks.kextract.kotlin.utils.KotlinNameMangler
 class KotlinToplevelBuilder(
     private val targetPackage: String,
     val className: String,
-    private val headerName: String
+    private val headerName: String,
+    private val libraries: List<Options.Library> = emptyList(),
+    private val useSystemLoadLibrary: Boolean = false
 ) : Declaration.Visitor<Unit> {
     private val builder = SourceBuilder()
     private val files = mutableListOf<KotlinSourceFile>()
@@ -26,6 +29,9 @@ class KotlinToplevelBuilder(
     /** True if any ObjC declaration was encountered — triggers ObjCRuntime.kt emission. */
     var needsObjCRuntime: Boolean = false
         private set
+
+    /** True when a LOOKUP val was generated (libraries were provided). */
+    val hasLookup: Boolean get() = libraries.isNotEmpty()
 
     init {
         // Package declaration
@@ -55,6 +61,33 @@ class KotlinToplevelBuilder(
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
+
+        // Symbol lookup — loads native libraries and exposes a single LOOKUP
+        if (libraries.isNotEmpty()) {
+            builder.appendLine("private val LOOKUP: SymbolLookup = run {")
+            builder.indent()
+            if (useSystemLoadLibrary) {
+                for (lib in libraries) {
+                    builder.appendLine("System.loadLibrary(\"${lib.libSpec}\")")
+                }
+                builder.appendLine("SymbolLookup.loaderLookup()")
+            } else {
+                builder.appendLine("var lu: SymbolLookup = SymbolLookup.loaderLookup()")
+                for (lib in libraries) {
+                    val lookup = when (lib.specKind) {
+                        Options.Library.SpecKind.PATH ->
+                            "SymbolLookup.libraryLookup(\"${Options.Library.toQuotedName(lib)}\", Arena.global())"
+                        Options.Library.SpecKind.NAME ->
+                            "SymbolLookup.libraryLookup(\"${lib.libSpec}\", Arena.global())"
+                    }
+                    builder.appendLine("lu = $lookup.or(lu)")
+                }
+                builder.appendLine("lu")
+            }
+            builder.unindent()
+            builder.appendLine("}")
+            builder.appendLine()
+        }
     }
 
     override fun visitScoped(decl: Declaration.Scoped) {
