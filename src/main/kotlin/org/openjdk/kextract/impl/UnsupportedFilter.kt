@@ -37,7 +37,6 @@ import org.openjdk.kextract.Type.Declared
 import org.openjdk.kextract.impl.DeclarationImpl.AnonymousStruct
 import org.openjdk.kextract.impl.DeclarationImpl.ClangSizeOf
 import org.openjdk.kextract.impl.DeclarationImpl.Skip
-import org.openjdk.kextract.impl.TypeImpl
 
 class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> {
 
