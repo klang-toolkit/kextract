@@ -128,7 +128,7 @@ tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>("compileKmainKot
 }
 
 tasks.named<Jar>("jar") {
-    archiveBaseName = "org.openjdk.kextract"
+    archiveBaseName = "org.graphiks.kextract"
     archiveVersion = project.version.toString()
     from(sourceSets["kmain"].output)
 }
@@ -193,7 +193,7 @@ tasks.register("createKextractImage") {
 
         // 2. App JAR + kotlin-stdlib on classpath
         val jarFile = jarTask.get().archiveFile.get().asFile
-        Files.copy(jarFile.toPath(), Path.of("$libDir/org.openjdk.kextract.jar"))
+        Files.copy(jarFile.toPath(), Path.of("$libDir/org.graphiks.kextract.jar"))
         if (kotlinStdlib != null) {
             Files.copy(kotlinStdlib.toPath(), Path.of("$libDir/${kotlinStdlib.name}"))
         }
