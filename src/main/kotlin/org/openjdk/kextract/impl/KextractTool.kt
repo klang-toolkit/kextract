@@ -29,6 +29,7 @@ import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.impl.Parser
 import org.openjdk.kextract.impl.NameMangler
 import org.openjdk.kextract.kotlin.KotlinGenerator
+import org.openjdk.kextract.kotlin.models.KotlinSourceFile
 import org.openjdk.kextract.impl.IncludeHelper
 import org.openjdk.kextract.impl.IncludeFilter
 import org.openjdk.kextract.impl.DuplicateFilter
@@ -339,7 +340,7 @@ class KextractTool constructor(private val loggerNew: Logger) {
         useSystemLoadLibrary: Boolean,
         includeHelper: IncludeHelper,
         sharedClassName: String? = null
-    ): List<Any> {
+    ): List<KotlinSourceFile> {
         // Run the filter pipeline
         var d: Declaration.Scoped = decl
         d = IncludeFilter(includeHelper).scan(d)
@@ -355,19 +356,12 @@ class KextractTool constructor(private val loggerNew: Logger) {
     /**
      * Write Kotlin files.
      */
-    private fun writeKotlin(results: List<Any>, outputDir: Path): Int {
+    private fun writeKotlin(results: List<KotlinSourceFile>, outputDir: Path): Int {
         return try {
             for (result in results) {
-                val klass = result::class.java
-                val pathMethod = klass.getMethod("getPath")
-                val contentsMethod = klass.getMethod("getContents")
-                
-                val path = pathMethod.invoke(result) as Path
-                val contents = contentsMethod.invoke(result) as String
-                
-                val outputPath = outputDir.resolve(path)
+                val outputPath = outputDir.resolve(result.getPath())
                 Files.createDirectories(outputPath.parent)
-                Files.writeString(outputPath, contents)
+                Files.writeString(outputPath, result.contents)
             }
             SUCCESS
         } catch (e: Exception) {
