@@ -58,18 +58,10 @@ class KotlinToplevelBuilder(
         builder.appendLine()
     }
 
-    override fun visitScoped(decl: Declaration.Scoped): Unit {
-        // Check if this is a struct or union by looking at kind
+    override fun visitScoped(decl: Declaration.Scoped) {
         when (decl.kind()) {
-            Declaration.Scoped.Kind.STRUCT, Declaration.Scoped.Kind.UNION -> {
-                // Delegate to structBuilder (which handles both structs and unions)
-                if (decl.kind() == Declaration.Scoped.Kind.STRUCT) {
-                    structBuilder.visitStruct(decl)
-                } else {
-                    structBuilder.visitUnion(decl)
-                }
-            }
-
+            Declaration.Scoped.Kind.STRUCT -> structBuilder.visitStruct(decl)
+            Declaration.Scoped.Kind.UNION  -> structBuilder.visitUnion(decl)
             else -> {
                 // For TOPLEVEL, process all members
                 for (d in decl.members()) {
@@ -80,35 +72,24 @@ class KotlinToplevelBuilder(
 
         // Only add file for TOPLEVEL scoped (not for nested structs/unions)
         if (decl.kind() == Declaration.Scoped.Kind.TOPLEVEL) {
-            files.add(
-                KotlinSourceFile(
-                    targetPackage,
-                    className,
-                    builder.toString()
-                )
-            )
+            files.add(KotlinSourceFile(targetPackage, className, builder.toString()))
         }
-        return Unit
     }
 
-    override fun visitFunction(decl: Declaration.Function): Unit {
+    override fun visitFunction(decl: Declaration.Function) {
         headerBuilder.visitFunction(decl)
-        return Unit
     }
 
-    override fun visitVariable(decl: Declaration.Variable): Unit {
+    override fun visitVariable(decl: Declaration.Variable) {
         headerBuilder.visitVariable(decl)
-        return Unit
     }
 
-    override fun visitTypedef(decl: Declaration.Typedef): Unit {
+    override fun visitTypedef(decl: Declaration.Typedef) {
         typedefBuilder.visitTypedef(decl)
-        return Unit
     }
 
-    override fun visitConstant(decl: Declaration.Constant): Unit {
+    override fun visitConstant(decl: Declaration.Constant) {
         headerBuilder.visitConstant(decl)
-        return Unit
     }
 
     override fun visitObjCClass(decl: Declaration.ObjCClass): Unit {
