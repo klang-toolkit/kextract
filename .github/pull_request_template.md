@@ -9,9 +9,10 @@ Please add the following to the description of the pull request:
 For 1 and 2 it is also okay to refer to the JBS ticket, if that already contains a comprehensive
 problem description.
 
-Please test your pull request before submitting it by running `./gradlew jtreg`. If you're
-not able to test locally on your machine, please indicate this in the pull request description,
-and indicate which testing has been done instead (or indicate that no testing has been done).
+Please test your pull request before submitting it by running `./gradlew test verifyExamples`.
+If you're not able to test locally on your machine, please indicate this in the pull request
+description, and indicate which testing has been done instead (or indicate that no testing has
+been done).
 
 It is possible to run tests through Github actions if you enable them for your fork (this is free).
 Github actions can be enabled for your fork from the 'Actions' tab. The tests will then run

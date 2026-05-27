@@ -1,0 +1,45 @@
+name: 'Setup kextract build environment'
+description: 'Installs the toolchain JDK, the Gradle JDK and primes the LLVM caches.'
+
+inputs:
+  toolchain-version:
+    description: 'JDK version baked into the kextract runtime image.'
+    required: true
+  gradle-java-version:
+    description: 'JDK version used to run Gradle itself.'
+    required: true
+  llvm-version:
+    description: 'LLVM release used for libclang.'
+    required: true
+  platform:
+    description: 'Stable platform identifier used as part of the LLVM cache keys (e.g. linux-x86_64).'
+    required: true
+
+outputs:
+  toolchain-path:
+    description: 'Absolute path to the installed toolchain JDK.'
+    value: ${{ steps.toolchain.outputs.path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: toolchain
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: ${{ inputs.toolchain-version }}
+
+    - uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: ${{ inputs.gradle-java-version }}
+
+    - uses: actions/cache@v4
+      with:
+        path: ~/.gradle/kextract-llvm
+        key: kextract-llvm-${{ inputs.llvm-version }}-${{ inputs.platform }}
+
+    - uses: actions/cache@v4
+      with:
+        path: build/llvm/${{ inputs.llvm-version }}
+        key: kextract-llvm-extracted-${{ inputs.llvm-version }}-${{ inputs.platform }}

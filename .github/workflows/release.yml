@@ -45,41 +45,26 @@ jobs:
             platform: macos-aarch64
 
     steps:
-      - name: 'Check out repository'
-        uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4
         with:
           ref: ${{ needs.resolve-tag.outputs.tag }}
           fetch-depth: 1
 
-      - name: 'Setup Toolchain JDK'
-        id: setup-toolchain
-        uses: actions/setup-java@v4
+      - id: setup
+        uses: ./.github/actions/setup-kextract-build
         with:
-          distribution: 'temurin'
-          java-version: ${{ env.TOOLCHAIN_VERSION }}
+          toolchain-version: ${{ env.TOOLCHAIN_VERSION }}
+          gradle-java-version: ${{ env.GRADLE_JAVA_VERSION }}
+          llvm-version: ${{ env.LLVM_VERSION }}
+          platform: ${{ matrix.platform }}
 
-      - name: 'Setup Gradle Java'
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: ${{ env.GRADLE_JAVA_VERSION }}
-
-      - name: 'Cache LLVM archive'
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/kextract-llvm
-          key: kextract-llvm-${{ env.LLVM_VERSION }}-${{ matrix.platform }}
-
-      - name: 'Cache extracted LLVM'
-        uses: actions/cache@v4
-        with:
-          path: build/llvm/${{ env.LLVM_VERSION }}
-          key: kextract-llvm-extracted-${{ env.LLVM_VERSION }}-${{ matrix.platform }}
-
-      - name: 'Build Kextract'
+      - name: 'Build kextract'
         shell: bash
         run: |
-          ./gradlew -Pjdk_home="${{ steps.setup-toolchain.outputs.path }}" -Pllvm_home= assemble
+          ./gradlew \
+            -Pjdk_home="${{ steps.setup.outputs.toolchain-path }}" \
+            -Pllvm_home= \
+            assemble
 
       - name: 'Smoke-test the produced image (Unix)'
         if: ${{ matrix.os != 'windows-latest' }}

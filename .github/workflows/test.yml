@@ -1,111 +1,101 @@
-name: Build and test Kextract
+name: Build and test kextract
 
 on:
   push:
-    branches-ignore:
-      - master
-      - pr/*
+    branches: [kextract]
+  pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   TOOLCHAIN_VERSION: 25
   GRADLE_JAVA_VERSION: 21
   LLVM_VERSION: 22.1.6
-  JTREG_VERSION: 7.3.1+1
+  KOTLIN_VERSION: 2.3.21
 
 jobs:
   validate-gradle-wrapper:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - uses: gradle/actions/wrapper-validation@v4
 
-  build-jtreg:
-    runs-on: ubuntu-latest
-    steps:
-    - name: 'Check cache for JTReg'
-      id: get-cached-jtreg
-      uses: actions/cache@v4
-      with:
-        path: ./deps/jtreg/build/images/jtreg
-        key: jtreg-${{ env.JTREG_VERSION }}
-
-    - name: 'Check out JTReg'
-      if: ${{ steps.get-cached-jtreg.outputs.cache-hit != 'true' }}
-      uses: actions/checkout@v4.1.1
-      with:
-        repository: 'openjdk/jtreg'
-        ref: 'jtreg-${{ env.JTREG_VERSION }}'
-        fetch-depth: 1
-        path: ./deps/jtreg
-
-    - name: 'Build JTReg'
-      if: ${{ steps.get-cached-jtreg.outputs.cache-hit != 'true' }}
-      shell: bash
-      working-directory: ./deps/jtreg
-      run: |
-        bash ./make/build.sh --jdk ${JAVA_HOME_11_X64}
-        ls build/images/jtreg
-
   build-and-test:
+    needs: [validate-gradle-wrapper]
     runs-on: ${{ matrix.os }}
-    needs: [build-jtreg]
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             platform: linux-x86_64
+            run-examples: true
+          - os: macos-14
+            platform: macos-aarch64
+            run-examples: true
           - os: windows-latest
             platform: windows-x86_64
+            run-examples: false
 
     steps:
-    - name: 'Check out repository'
-      uses: actions/checkout@v4.1.1
-      with:
-        fetch-depth: 1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-    - name: 'Setup Toolchain JDK'
-      id: setup-toolchain
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: ${{ env.TOOLCHAIN_VERSION }}
+      - id: setup
+        uses: ./.github/actions/setup-kextract-build
+        with:
+          toolchain-version: ${{ env.TOOLCHAIN_VERSION }}
+          gradle-java-version: ${{ env.GRADLE_JAVA_VERSION }}
+          llvm-version: ${{ env.LLVM_VERSION }}
+          platform: ${{ matrix.platform }}
 
-    - name: 'Setup Gradle Java'
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: ${{ env.GRADLE_JAVA_VERSION }}
+      - name: 'Install kotlinc'
+        if: matrix.run-examples
+        shell: bash
+        run: |
+          curl -fsSL -o /tmp/kotlin.zip \
+            "https://github.com/JetBrains/kotlin/releases/download/v${KOTLIN_VERSION}/kotlin-compiler-${KOTLIN_VERSION}.zip"
+          unzip -q /tmp/kotlin.zip -d "$HOME"
+          echo "$HOME/kotlinc/bin" >> "$GITHUB_PATH"
+          "$HOME/kotlinc/bin/kotlinc" -version
 
-    - name: 'Cache LLVM archive'
-      uses: actions/cache@v4
-      with:
-        path: ~/.gradle/kextract-llvm
-        key: kextract-llvm-${{ env.LLVM_VERSION }}-${{ matrix.platform }}
+      - name: 'Build'
+        shell: bash
+        run: |
+          ./gradlew \
+            -Pjdk_home="${{ steps.setup.outputs.toolchain-path }}" \
+            -Pllvm_home= \
+            assemble
 
-    - name: 'Cache extracted LLVM'
-      uses: actions/cache@v4
-      with:
-        path: build/llvm/${{ env.LLVM_VERSION }}
-        key: kextract-llvm-extracted-${{ env.LLVM_VERSION }}-${{ matrix.platform }}
+      - name: 'Unit tests'
+        shell: bash
+        run: |
+          ./gradlew \
+            -Pjdk_home="${{ steps.setup.outputs.toolchain-path }}" \
+            -Pllvm_home= \
+            test
 
-    - name: 'Build Kextract'
-      shell: bash
-      run: |
-        ./gradlew -Pjdk_home="${{ steps.setup-toolchain.outputs.path }}" -Pllvm_home= assemble
+      - name: 'Examples smoke test'
+        if: matrix.run-examples
+        shell: bash
+        run: |
+          ./gradlew \
+            -Pjdk_home="${{ steps.setup.outputs.toolchain-path }}" \
+            -Pllvm_home= \
+            verifyExamples
 
-    - name: 'Get cached JTReg'
-      uses: actions/cache@v4
-      with:
-        path: ./deps/jtreg/build/images/jtreg
-        enableCrossOsArchive: true
-        fail-on-cache-miss: true
-        key: jtreg-${{ env.JTREG_VERSION }}
-
-    - name: 'Run tests'
-      shell: bash
-      run: |
-        ./gradlew -Pjdk_home="${{ steps.setup-toolchain.outputs.path }}" -Pllvm_home= -Pjtreg_home=./deps/jtreg/build/images/jtreg jtreg
+      - name: 'Upload test reports'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.platform }}
+          path: |
+            build/reports/tests/**
+            build/test-results/**
+          if-no-files-found: ignore
