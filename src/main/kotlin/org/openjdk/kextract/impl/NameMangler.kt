@@ -34,7 +34,6 @@ import org.openjdk.kextract.Type.Function
 import org.openjdk.kextract.impl.DeclarationImpl.AnonymousStruct
 import org.openjdk.kextract.impl.DeclarationImpl.JavaFunctionalInterfaceName
 import org.openjdk.kextract.impl.DeclarationImpl.JavaName
-import org.openjdk.kextract.impl.Utils
 import java.lang.reflect.Modifier
 import java.util.concurrent.ConcurrentHashMap
 import javax.lang.model.SourceVersion
@@ -99,7 +98,7 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
         JavaName.with(func, makeJavaName(func))
         var i = 0
         for (param in func.parameters()) {
-            val f = Utils.getAsFunctionPointer(param.type())
+            val f = param.type().asFunctionPointer()
             if (f != null) {
                 val fiName = func.name() + "\$" + (if (param.name().isEmpty()) "x$i" else param.name())
                 JavaFunctionalInterfaceName.with(param, fiName)
@@ -108,27 +107,27 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
             JavaName.with(param, makeJavaName(param))
             val saved = currentParent
             currentParent = func
-            Utils.forEachNested(param) { it.accept(this) }
+            param.forEachNested { it.accept(this) }
             currentParent = saved
         }
-        val returnFunc = Utils.getAsFunctionPointer(func.type().returnType())
+        val returnFunc = func.type().returnType().asFunctionPointer()
         if (returnFunc != null) {
             JavaFunctionalInterfaceName.with(func, func.name() + "\$return")
         }
         val saved = currentParent
         currentParent = func
-        Utils.forEachNested(func) { it.accept(this) }
+        func.forEachNested { it.accept(this) }
         currentParent = saved
     }
 
     override fun visitScoped(scoped: Declaration.Scoped) {
         val parent = currentParent   // capture the parent before we change it
-        if (Utils.isEnum(scoped)) {
+        if (scoped.isEnum()) {
             val saved = currentParent
             currentParent = null
             scoped.members().forEach { it.accept(this) }
             currentParent = saved
-        } else if (Utils.isStructOrUnion(scoped)) {
+        } else if (scoped.isStructOrUnion()) {
             if (JavaName.isPresent(scoped)) return
 
             val oldScope = curScope
@@ -161,14 +160,14 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
 
         val javaName = curScope.uniqueNestedClassName(typedef.name())
         JavaName.with(typedef, listOf(javaName))
-        val func = Utils.getAsFunctionPointer(typedef.type())
+        val func = typedef.type().asFunctionPointer()
         if (func != null) {
             JavaFunctionalInterfaceName.with(typedef, javaName)
             functionTypeDefNames[typedef.type()] = javaName
         }
         val saved = currentParent
         currentParent = typedef
-        Utils.forEachNested(typedef) { it.accept(this) }
+        typedef.forEachNested { it.accept(this) }
         currentParent = saved
     }
 
@@ -176,8 +175,8 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
         var nestedName = parent?.name() ?: ""
         val func: Function? = when (parent) {
             is Declaration.Function -> parent.type()
-            is Variable -> Utils.getAsFunctionPointer(parent.type())
-            is Typedef -> Utils.getAsFunctionPointer(parent.type())
+            is Variable -> parent.type().asFunctionPointer()
+            is Typedef -> parent.type().asFunctionPointer()
             else -> null
         }
         if (func != null) {
@@ -197,7 +196,7 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
     override fun visitVariable(variable: Declaration.Variable) {
         JavaName.with(variable, makeJavaName(variable))
         val type = variable.type()
-        val func = Utils.getAsFunctionPointer(type)
+        val func = type.asFunctionPointer()
         if (func != null) {
             val declFiName = curScope.uniqueNestedClassName(variable.name())
             JavaFunctionalInterfaceName.with(variable, declFiName)
@@ -209,7 +208,7 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
         }
         val saved = currentParent
         currentParent = variable
-        Utils.forEachNested(variable) { it.accept(this) }
+        variable.forEachNested { it.accept(this) }
         currentParent = saved
     }
 

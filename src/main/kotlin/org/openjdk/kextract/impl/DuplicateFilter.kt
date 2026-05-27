@@ -26,7 +26,6 @@ package org.openjdk.kextract.impl
 
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.impl.DeclarationImpl.Skip
-import org.openjdk.kextract.impl.Utils
 
 class DuplicateFilter : Declaration.Visitor<Unit> {
 
@@ -60,7 +59,7 @@ class DuplicateFilter : Declaration.Visitor<Unit> {
     }
 
     override fun visitScoped(d: Declaration.Scoped) {
-        if (Utils.isEnum(d)) {
+        if (d.isEnum()) {
             d.members().forEach { it.accept(this) }
         }
     }

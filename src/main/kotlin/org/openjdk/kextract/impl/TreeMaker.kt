@@ -158,7 +158,7 @@ internal class TreeMaker {
         var valueString = value.toString()
         if (value is String) {
             valueString = "\"$valueString\""
-        } else if (Utils.isPointer(type)) {
+        } else if (type.isPointer()) {
             valueString = "(void*) $valueString"
         }
         DeclarationString.with(macro, "#define $name $valueString")
@@ -193,7 +193,7 @@ internal class TreeMaker {
         val pendingBitfieldsPos: AtomicReference<Position?> = AtomicReference(null)
 
         recordCursor.forEach { fc ->
-            if (Utils.isFlattenable(fc)) {
+            if (fc.isFlattenable()) {
                 if (fc.isBitField()) {
                     if (pendingBitfieldsPos.get() == null) {
                         pendingBitfieldsPos.set(CursorPosition.of(fc))
@@ -248,7 +248,7 @@ internal class TreeMaker {
     private fun offsetOfAnonymousRecordNew(outermostParent: Cursor, anonRecord: Cursor, record: Cursor): Long? {
         val result: AtomicReference<Long?> = AtomicReference(null)
         record.forEachShortCircuit { fc ->
-            if (Utils.isFlattenable(fc)) {
+            if (fc.isFlattenable()) {
                 if (fc.spelling().isNotEmpty()) {
                     val offsetToOutermost = outermostParent.type().getOffsetOf(fc.spelling())
                     val offsetToAnon = anonRecord.type().getOffsetOf(fc.spelling())
@@ -292,7 +292,7 @@ internal class TreeMaker {
 
     private fun filterHeaderDeclarationsNew(declarations: List<Declaration>): List<Declaration> {
         return declarations.filter { d ->
-            Utils.isEnum(d) ||
+            d.isEnum() ||
             d is Declaration.ObjCClass ||
             d is Declaration.ObjCProtocol ||
             d is Declaration.ObjCCategory ||
@@ -313,7 +313,7 @@ internal class TreeMaker {
         var isFuncPtrType = false
         if (canonicalType is Type.Function) {
             funcType = canonicalType
-        } else if (Utils.isPointer(canonicalType)) {
+        } else if (canonicalType.isPointer()) {
             val pointeeType = (canonicalType as Type.Delegated).type()
             if (pointeeType is Type.Function) {
                 funcType = pointeeType

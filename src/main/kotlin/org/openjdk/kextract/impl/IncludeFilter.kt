@@ -27,7 +27,6 @@ package org.openjdk.kextract.impl
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.impl.DeclarationImpl.Skip
 import org.openjdk.kextract.impl.IncludeHelper
-import org.openjdk.kextract.impl.Utils
 
 class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visitor<Unit> {
 
@@ -47,7 +46,7 @@ class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visi
     }
 
     override fun visitScoped(d: Declaration.Scoped) {
-        if (Utils.isStructOrUnion(d)) {
+        if (d.isStructOrUnion()) {
             val name = d.name()
             // A named struct from "typedef struct { ... } Foo" has its redundant typedef filtered out,
             // so users specify --include-typedef Foo. Accept if either STRUCT or TYPEDEF set contains the name.

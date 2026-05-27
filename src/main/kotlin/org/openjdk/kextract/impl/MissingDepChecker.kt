@@ -29,7 +29,6 @@ import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Type
 import org.openjdk.kextract.Type.Delegated
 import org.openjdk.kextract.impl.DeclarationImpl.Skip
-import org.openjdk.kextract.impl.Utils
 
 class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Unit> {
 
@@ -47,7 +46,7 @@ class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Unit> 
         val saved = currentParent
         currentParent = posDecl
         funcTree.parameters().forEach { it.accept(this) }
-        Utils.forEachNested(funcTree) { it.accept(this) }
+        funcTree.forEachNested { it.accept(this) }
         currentParent = saved
         checkMissingDep(posDecl, funcTree.type())
     }
@@ -68,10 +67,10 @@ class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Unit> 
         val posDecl = currentParent ?: tree
         val saved = currentParent
         currentParent = posDecl
-        Utils.forEachNested(tree) { it.accept(this) }
+        tree.forEachNested { it.accept(this) }
         currentParent = saved
         checkMissingDep(posDecl, tree.type())
-        Utils.getAsFunctionPointer(tree.type())?.let { checkMissingDep(posDecl, it) }
+        tree.type().asFunctionPointer()?.let { checkMissingDep(posDecl, it) }
     }
 
     override fun visitVariable(tree: Declaration.Variable) {
@@ -80,10 +79,10 @@ class MissingDepChecker(private val logger: Logger) : Declaration.Visitor<Unit> 
         val posDecl = currentParent ?: tree
         val saved = currentParent
         currentParent = posDecl
-        Utils.forEachNested(tree) { it.accept(this) }
+        tree.forEachNested { it.accept(this) }
         currentParent = saved
         checkMissingDep(posDecl, tree.type())
-        Utils.getAsFunctionPointer(tree.type())?.let { checkMissingDep(posDecl, it) }
+        tree.type().asFunctionPointer()?.let { checkMissingDep(posDecl, it) }
     }
 
     // ObjC: all types reduce to MemorySegment — no missing dep checks needed

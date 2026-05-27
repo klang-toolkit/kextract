@@ -37,7 +37,7 @@ object LayoutUtils {
     fun layoutString(type: Type): String = fieldLayoutString(type, -1, -1)
 
     fun functionDescriptorString(functionType: Type.Function): String {
-        val type = Utils.methodTypeFor(functionType)
+        val type = functionType.methodType()
         val noArgs = type.parameterCount() == 0
         val builder = StringBuilder()
         if (type.returnType() != Void.TYPE) {
@@ -59,12 +59,12 @@ object LayoutUtils {
         if (type.isErroneous()) return "ValueLayout.ADDRESS"
         return when {
             type is Type.Primitive -> primitiveLayoutString(type, typeAlign, expectedAlign)
-            type is Type.Declared && Utils.isEnum(type) -> {
+            type is Type.Declared && type.isEnum() -> {
                 val enumType = ClangEnumType.get(type.tree())
                 if (enumType != null) fieldLayoutString(enumType, typeAlign, expectedAlign)
                 else "ValueLayout.JAVA_INT"
             }
-            type is Type.Declared && Utils.isStructOrUnion(type) -> {
+            type is Type.Declared && type.isStructOrUnion() -> {
                 val name = JavaName.getFullNameOrThrow(type.tree())
                 "${name}.layout"
             }

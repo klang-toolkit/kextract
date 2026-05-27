@@ -39,7 +39,6 @@ import org.openjdk.kextract.impl.DeclarationImpl.AnonymousStruct
 import org.openjdk.kextract.impl.DeclarationImpl.ClangSizeOf
 import org.openjdk.kextract.impl.DeclarationImpl.Skip
 import org.openjdk.kextract.impl.TypeImpl
-import org.openjdk.kextract.impl.Utils
 
 class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> {
 
@@ -52,7 +51,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> 
 
     override fun visitFunction(funcTree: Function) {
         if (Skip.isPresent(funcTree)) return
-        Utils.forEachNested(funcTree) { it.accept(this) }
+        funcTree.forEachNested { it.accept(this) }
 
         val unsupportedType = firstUnsupportedType(funcTree.type(), false)
         if (unsupportedType != null) {
@@ -62,15 +61,15 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> 
         }
 
         for (param in funcTree.parameters()) {
-            Utils.forEachNested(param) { it.accept(this) }
-            val f = Utils.getAsFunctionPointer(param.type())
+            param.forEachNested { it.accept(this) }
+            val f = param.type().asFunctionPointer()
             if (f != null && !checkFunctionTypeSupported(param, f, funcTree.name())) {
                 Skip.with(funcTree)
                 return
             }
         }
 
-        val returnFunc = Utils.getAsFunctionPointer(funcTree.type().returnType())
+        val returnFunc = funcTree.type().returnType().asFunctionPointer()
         if (returnFunc != null && !checkFunctionTypeSupported(funcTree, returnFunc, funcTree.name())) {
             Skip.with(funcTree)
         }
@@ -82,7 +81,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> 
         val incomingParent = firstNamedParent
         val saved = firstNamedParent
         firstNamedParent = varTree
-        Utils.forEachNested(varTree) { it.accept(this) }
+        varTree.forEachNested { it.accept(this) }
         firstNamedParent = saved
 
         val name = fieldName(incomingParent, varTree)
@@ -93,7 +92,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> 
             return
         }
 
-        val func = Utils.getAsFunctionPointer(varTree.type())
+        val func = varTree.type().asFunctionPointer()
         if (func != null && !checkFunctionTypeSupported(varTree, func, name)) {
             Skip.with(varTree)
         }
@@ -140,7 +139,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Unit> 
             return
         }
 
-        val func = Utils.getAsFunctionPointer(typedefTree.type())
+        val func = typedefTree.type().asFunctionPointer()
         if (func != null && !checkFunctionTypeSupported(typedefTree, func, typedefTree.name())) {
             Skip.with(typedefTree)
         }
