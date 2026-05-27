@@ -41,7 +41,6 @@ import org.openjdk.kextract.newimpl.Logger
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.LinkedHashMap
 import java.util.stream.Collectors
 
 internal class MacroParserImpl private constructor(
@@ -154,7 +153,7 @@ internal class MacroParserImpl private constructor(
      */
     inner class MacroTable {
 
-        val macrosByMangledName: MutableMap<String, Entry> = LinkedHashMap()
+        val macrosByMangledName: MutableMap<String, Entry> = linkedMapOf()
 
         abstract inner class Entry(
             val name: String,

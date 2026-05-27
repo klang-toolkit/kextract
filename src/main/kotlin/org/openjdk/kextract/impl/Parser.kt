@@ -34,8 +34,6 @@ import org.openjdk.kextract.clang.LibClang
 import org.openjdk.kextract.clang.SourceLocation
 import org.openjdk.kextract.newimpl.Logger
 
-import java.util.ArrayList
-
 class Parser(private val logger: Logger) {
 
     private val treeMaker: TreeMaker = TreeMaker()
@@ -44,7 +42,7 @@ class Parser(private val logger: Logger) {
         tu: org.openjdk.kextract.clang.TranslationUnit,
         macroParser: MacroParserImpl
     ): Declaration.Scoped {
-        val decls = ArrayList<Declaration>()
+        val decls = mutableListOf<Declaration>()
         val tuCursor = tu.getCursor()
         tuCursor.forEach { c ->
             val loc = c.getSourceLocation() ?: return@forEach

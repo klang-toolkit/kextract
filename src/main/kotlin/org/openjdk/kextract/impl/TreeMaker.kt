@@ -49,12 +49,8 @@ import org.openjdk.kextract.impl.DeclarationImpl.NestedDeclarations
 import org.openjdk.kextract.impl.DeclarationImpl.DeclarationString
 
 import java.nio.file.Path
-import java.util.ArrayList
-import java.util.Collections
-import java.util.HashMap
 import java.util.Objects
 import java.util.concurrent.atomic.AtomicReference
-import java.util.stream.Collectors
 
 /**
  * Kotlin port of TreeMaker.
@@ -62,19 +58,19 @@ import java.util.stream.Collectors
  */
 internal class TreeMaker {
 
-    private val declarationCacheNew: MutableMap<Cursor.Key, Declaration> = HashMap()
+    private val declarationCacheNew: MutableMap<Cursor.Key, Declaration> = mutableMapOf()
 
     fun addAttributes(d: Declaration?, c: Cursor): Declaration? {
         if (d == null) return null
-        val attributes: MutableMap<String, MutableList<String>> = HashMap()
+        val attributes: MutableMap<String, MutableList<String>> = mutableMapOf()
         c.forEach { child ->
             if (child.isAttribute()) {
-                val attrs = attributes.computeIfAbsent(child.kind().name) { ArrayList() }
+                val attrs = attributes.getOrPut(child.kind().name) { mutableListOf() }
                 attrs.add(child.spelling())
             }
         }
         if (attributes.isNotEmpty()) {
-            d.addAttribute(Declaration.ClangAttributes(Collections.unmodifiableMap(attributes)))
+            d.addAttribute(Declaration.ClangAttributes(attributes.toMap()))
         }
         return d
     }
@@ -144,7 +140,7 @@ internal class TreeMaker {
 
     fun createFunction(c: Cursor): Declaration.Function {
         checkCursorNew(c, CursorKind.FunctionDecl)
-        val params: MutableList<Declaration.Variable> = ArrayList()
+        val params: MutableList<Declaration.Variable> = mutableListOf()
         for (i in 0 until c.numberOfArgs()) {
             params.add(createTree(c.getArgument(i)) as Declaration.Variable)
         }
@@ -192,8 +188,8 @@ internal class TreeMaker {
     }
 
     fun recordDeclarationNew(parent: Cursor, recordCursor: Cursor): Type.Declared {
-        val pendingFields: MutableList<Declaration> = ArrayList()
-        val pendingBitFields: MutableList<Variable> = ArrayList()
+        val pendingFields: MutableList<Declaration> = mutableListOf()
+        val pendingBitFields: MutableList<Variable> = mutableListOf()
         val pendingBitfieldsPos: AtomicReference<Position?> = AtomicReference(null)
 
         recordCursor.forEach { fc ->
@@ -278,7 +274,7 @@ internal class TreeMaker {
 
     fun createEnum(c: Cursor): Declaration.Scoped? {
         return if (c.isDefinition()) {
-            val decls: MutableList<Declaration> = ArrayList()
+            val decls: MutableList<Declaration> = mutableListOf()
             c.forEach { child ->
                 if (child.kind() == CursorKind.EnumConstantDecl) {
                     val enumConstantDecl = createTree(child)!!
@@ -295,16 +291,13 @@ internal class TreeMaker {
     }
 
     private fun filterHeaderDeclarationsNew(declarations: List<Declaration>): List<Declaration> {
-        return declarations.stream()
-            .filter { it != null }
-            .filter { d ->
-                Utils.isEnum(d) ||
-                d is Declaration.ObjCClass ||
-                d is Declaration.ObjCProtocol ||
-                d is Declaration.ObjCCategory ||
-                (d.name().isNotEmpty() && !isRedundantTypedefNew(d))
-            }
-            .collect(Collectors.toList())
+        return declarations.filter { d ->
+            Utils.isEnum(d) ||
+            d is Declaration.ObjCClass ||
+            d is Declaration.ObjCProtocol ||
+            d is Declaration.ObjCCategory ||
+            (d.name().isNotEmpty() && !isRedundantTypedefNew(d))
+        }
     }
 
     private fun isRedundantTypedefNew(d: Declaration): Boolean {
@@ -328,7 +321,7 @@ internal class TreeMaker {
             }
         }
         if (funcType != null) {
-            val params: MutableList<String> = ArrayList()
+            val params: MutableList<String> = mutableListOf()
             c.forEach { child ->
                 if (child.kind() == CursorKind.ParmDecl) {
                     params.add(createTree(child)!!.name())
@@ -360,7 +353,7 @@ internal class TreeMaker {
     }
 
     private fun <D : Declaration> withNestedTypesNew(d: D, c: Cursor, ignoreNestedParams: Boolean): D {
-        val nestedDefinitions: MutableList<Declaration> = ArrayList()
+        val nestedDefinitions: MutableList<Declaration> = mutableListOf()
         collectNestedTypesNew(c, nestedDefinitions, ignoreNestedParams)
         val nestedDecls = nestedDefinitions.stream()
             .filter { m -> m is Scoped }

@@ -28,7 +28,6 @@ package org.openjdk.kextract.impl
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
-import java.util.HashMap
 import java.util.Objects
 
 abstract class DeclarationImpl(
@@ -36,7 +35,7 @@ abstract class DeclarationImpl(
     private val _pos: Position
 ) : Declaration {
 
-    private val attributes: MutableMap<Class<*>, Declaration.Attribute> = HashMap()
+    private val attributes: MutableMap<Class<*>, Declaration.Attribute> = mutableMapOf()
 
     override fun toString(): String = PrettyPrinter().print(this)
     override fun name(): String = _name

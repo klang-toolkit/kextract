@@ -66,11 +66,11 @@ class IncludeHelper {
 
     private val includesSymbolNamesByKind: EnumMap<IncludeKind, MutableSet<String>> =
         EnumMap(IncludeKind::class.java)
-    private val usedDeclarations: MutableSet<Declaration> = HashSet()
+    private val usedDeclarations: MutableSet<Declaration> = mutableSetOf()
     var dumpIncludesFile: String? = null
 
     fun addSymbol(kind: IncludeKind, symbolName: String) {
-        includesSymbolNamesByKind.getOrPut(kind) { HashSet() }.add(symbolName)
+        includesSymbolNamesByKind.getOrPut(kind) { mutableSetOf() }.add(symbolName)
     }
 
     fun isIncludedAsTypedef(name: String): Boolean {
@@ -113,7 +113,7 @@ class IncludeHelper {
 
     private fun isIncludedInternal(kind: IncludeKind, declaration: Declaration): Boolean {
         if (!isEnabled()) return true
-        val names = includesSymbolNamesByKind.getOrPut(kind) { HashSet() }
+        val names = includesSymbolNamesByKind.getOrPut(kind) { mutableSetOf() }
         return names.contains(declaration.name())
     }
 

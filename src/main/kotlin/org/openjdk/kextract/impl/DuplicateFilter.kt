@@ -30,13 +30,13 @@ import org.openjdk.kextract.impl.Utils
 
 class DuplicateFilter : Declaration.Visitor<Unit> {
 
-    private val constants = HashSet<String>()
-    private val variables = HashSet<String>()
-    private val typedefs = HashSet<String>()
-    private val functions = HashSet<String>()
-    private val objcClasses = HashSet<String>()
-    private val objcProtocols = HashSet<String>()
-    private val objcCategories = HashSet<String>()
+    private val constants = mutableSetOf<String>()
+    private val variables = mutableSetOf<String>()
+    private val typedefs = mutableSetOf<String>()
+    private val functions = mutableSetOf<String>()
+    private val objcClasses = mutableSetOf<String>()
+    private val objcProtocols = mutableSetOf<String>()
+    private val objcCategories = mutableSetOf<String>()
 
     fun scan(header: Declaration.Scoped): Declaration.Scoped {
         header.members().forEach { it.accept(this) }

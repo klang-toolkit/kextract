@@ -41,7 +41,7 @@ import javax.lang.model.SourceVersion
 
 class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
 
-    private val functionTypeDefNames = HashMap<Type, String>()
+    private val functionTypeDefNames = mutableMapOf<Type, String>()
 
     private class Scope private constructor(
         val parent: Scope?,
@@ -49,7 +49,7 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
         val isStruct: Boolean
     ) {
         val className: String = NameMangler.javaSafeIdentifier(name)
-        private val nestedClassNames = HashSet<String>()
+        private val nestedClassNames = mutableSetOf<String>()
         private var nestedClassNameCount = 0
 
         private fun isEnclosedBySameName(name: String): Boolean =
