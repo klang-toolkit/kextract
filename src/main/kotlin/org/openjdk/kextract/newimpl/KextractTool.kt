@@ -44,7 +44,7 @@ import kotlin.io.use
 
 /**
  * Main entry point for kextract tool - Kotlin version.
- * Fully Kotlin pipeline: Parser → NameMangler → OutputFactory.
+ * Fully Kotlin pipeline: Parser → NameMangler → KotlinGenerator.
  */
 class KextractTool constructor(private val loggerNew: Logger) {
 
