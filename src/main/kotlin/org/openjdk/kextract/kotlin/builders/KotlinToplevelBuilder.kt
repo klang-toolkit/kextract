@@ -19,7 +19,6 @@ class KotlinToplevelBuilder(
     private val headerBuilder = KotlinHeaderBuilder(builder, this)
     private val structBuilder = KotlinStructBuilder(builder, this)
     private val typedefBuilder = KotlinTypedefBuilder(builder, this)
-    private val functionalBuilder = KotlinFunctionalBuilder(builder, this)
     private val objcClassBuilder = KotlinObjCClassBuilder(builder, this)
     private val objcProtocolBuilder = KotlinObjCProtocolBuilder(builder, this)
     private val objcCategoryBuilder = KotlinObjCCategoryBuilder(builder, this)
