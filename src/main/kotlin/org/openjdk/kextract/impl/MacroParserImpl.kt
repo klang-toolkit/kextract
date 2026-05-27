@@ -280,24 +280,15 @@ internal class MacroParserImpl private constructor(
             }
         }
 
-        fun macroDecl(recovery: Boolean): String {
-            val buf = StringBuilder()
-            if (recovery) {
-                buf.append("#include <stdint.h>\n")
-            }
+        fun macroDecl(recovery: Boolean): String = buildString {
+            if (recovery) append("#include <stdint.h>\n")
             macrosByMangledName.values
                 .filter { !it.isSuccess() && (if (recovery) it.isRecoverableFailure() else it.isUnparsed()) }
                 .forEach { e ->
-                    buf.append("__auto_type ")
-                        .append(e.mangledName())
-                        .append(" = ")
-                    if (recovery) {
-                        buf.append("(uintptr_t)")
-                    }
-                    buf.append(e.name)
-                        .append(";\n")
+                    append("__auto_type ").append(e.mangledName()).append(" = ")
+                    if (recovery) append("(uintptr_t)")
+                    append(e.name).append(";\n")
                 }
-            return buf.toString()
         }
     }
 

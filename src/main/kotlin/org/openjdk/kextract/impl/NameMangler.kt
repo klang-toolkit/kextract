@@ -236,13 +236,13 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
 
         fun javaSafeIdentifier(name: String, checkAllChars: Boolean): String {
             if (checkAllChars) {
-                val buf = StringBuilder()
                 val chars = name.toCharArray()
-                buf.append(if (Character.isJavaIdentifierStart(chars[0])) chars[0] else '_')
-                for (i in 1 until chars.size) {
-                    buf.append(if (Character.isJavaIdentifierPart(chars[i])) chars[i] else '_')
+                return buildString {
+                    append(if (Character.isJavaIdentifierStart(chars[0])) chars[0] else '_')
+                    for (i in 1 until chars.size) {
+                        append(if (Character.isJavaIdentifierPart(chars[i])) chars[i] else '_')
+                    }
                 }
-                return buf.toString()
             } else {
                 assert(SourceVersion.isIdentifier(name))
                 return if (SourceVersion.isKeyword(name) || isRestrictedTypeName(name) || isJavaTypeName(name))
