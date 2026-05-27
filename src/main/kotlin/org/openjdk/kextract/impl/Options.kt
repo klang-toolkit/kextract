@@ -22,8 +22,6 @@
  */
 package org.openjdk.kextract.impl
 
-import java.util.*
-
 /**
  * Configuration options for kextract (Kotlin version).
  * Immutable data class built via Builder pattern.
@@ -102,8 +100,8 @@ class Options private constructor(
             check(!built) { "Builder can only be used once" }
             built = true
             return Options(
-                clangArgs = Collections.unmodifiableList(clangArgs),
-                libraries = Collections.unmodifiableList(libraries),
+                clangArgs = clangArgs.toList(),
+                libraries = libraries.toList(),
                 useSystemLoadLibrary = useSystemLoadLibrary,
                 targetPackage = targetPackage,
                 outputDir = outputDir,
