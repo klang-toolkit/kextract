@@ -26,28 +26,17 @@
 package org.openjdk.kextract.impl
 
 import org.openjdk.kextract.Declaration
-import org.openjdk.kextract.impl.Parser
-import org.openjdk.kextract.impl.NameMangler
 import org.openjdk.kextract.kotlin.KotlinGenerator
 import org.openjdk.kextract.kotlin.models.KotlinSourceFile
-import org.openjdk.kextract.impl.IncludeHelper
-import org.openjdk.kextract.impl.IncludeFilter
-import org.openjdk.kextract.impl.DuplicateFilter
-import org.openjdk.kextract.impl.UnsupportedFilter
-import org.openjdk.kextract.impl.MissingDepChecker
-import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.nio.charset.StandardCharsets
-import kotlin.io.path.useLines
-import kotlin.io.use
 
 /**
  * Main entry point for kextract tool - Kotlin version.
  * Fully Kotlin pipeline: Parser → NameMangler → KotlinGenerator.
  */
-class KextractTool constructor(private val loggerNew: Logger) {
+class KextractTool(private val logger: Logger) {
 
     companion object {
         val DEBUG: Boolean = System.getProperty("kextract.debug") == "true"
@@ -100,7 +89,7 @@ class KextractTool constructor(private val loggerNew: Logger) {
         }
 
         if (args.isEmpty()) {
-            loggerNew.err("kextract.no.headers")
+            logger.err("kextract.no.headers")
             return FAILURE
         }
 
@@ -111,38 +100,38 @@ class KextractTool constructor(private val loggerNew: Logger) {
         try {
             parseArgs(args.toList(), optionsBuilder, positional)
         } catch (e: Exception) {
-            loggerNew.err("kextract.option.parse.failed", e.message ?: "")
+            logger.err("kextract.option.parse.failed", e.message ?: "")
             return OPTION_ERROR
         }
 
         val builtOptions = try {
             optionsBuilder.build()
         } catch (e: Exception) {
-            loggerNew.err("kextract.option.build.failed", e.message ?: "")
+            logger.err("kextract.option.build.failed", e.message ?: "")
             return OPTION_ERROR
         }
 
         // Validate options
         if (positional.isEmpty()) {
-            loggerNew.err("kextract.no.headers")
+            logger.err("kextract.no.headers")
             return FAILURE
         }
 
         val headers = positional.toList()
-        val outputDir = Paths.get(builtOptions.outputDir)
+        val outputDir = Path.of(builtOptions.outputDir)
 
         try {
             Files.createDirectories(outputDir)
         } catch (e: Exception) {
-            loggerNew.err("kextract.output.dir.create.failed", outputDir.toString(), e.message ?: "")
+            logger.err("kextract.output.dir.create.failed", outputDir.toString(), e.message ?: "")
             return OUTPUT_ERROR
         }
 
         // Parse headers
         val decl: Declaration.Scoped = try {
-            Parser(loggerNew).parse("kextract\$tmp.h", generateTmpSource(headers), builtOptions.clangArgs)
+            Parser(logger).parse("kextract\$tmp.h", generateTmpSource(headers), builtOptions.clangArgs)
         } catch (e: Exception) {
-            loggerNew.err("kextract.parse.failed", e.message ?: "")
+            logger.err("kextract.parse.failed", e.message ?: "")
             if (DEBUG) {
                 e.printStackTrace()
             }
@@ -156,7 +145,7 @@ class KextractTool constructor(private val loggerNew: Logger) {
 
         // ObjC guard: warn if ObjC declarations found on a non-macOS platform
         if (hasObjCDeclarations(decl) && !isMacOSX) {
-            loggerNew.warn("kextract.objc.non.macos.warning")
+            logger.warn("kextract.objc.non.macos.warning")
         }
 
         // Generate bindings
@@ -164,7 +153,7 @@ class KextractTool constructor(private val loggerNew: Logger) {
             generate(decl, headers[0], builtOptions.targetPackage, builtOptions.libraries,
                 builtOptions.useSystemLoadLibrary, builtOptions.includeHelper, builtOptions.sharedClassName)
         } catch (e: Exception) {
-            loggerNew.err("kextract.generation.failed", e.message ?: "")
+            logger.err("kextract.generation.failed", e.message ?: "")
             return FAILURE
         }
 
@@ -246,7 +235,7 @@ class KextractTool constructor(private val loggerNew: Logger) {
                         options.addClangArg("objective-c")
                         options.addClangArg("-fobjc-arc")
                     } else {
-                        loggerNew.warn("kextract.objc.non.macos.warning")
+                        logger.warn("kextract.objc.non.macos.warning")
                     }
                 }
                 arg.startsWith("--include-") -> {
@@ -330,9 +319,9 @@ class KextractTool constructor(private val loggerNew: Logger) {
         var d: Declaration.Scoped = decl
         d = IncludeFilter(includeHelper).scan(d)
         d = DuplicateFilter().scan(d)
-        d = UnsupportedFilter(loggerNew).scan(d)
-        d = MissingDepChecker(loggerNew).scan(d)
-        if (loggerNew.hasErrors()) return emptyList()
+        d = UnsupportedFilter(logger).scan(d)
+        d = MissingDepChecker(logger).scan(d)
+        if (logger.hasErrors()) return emptyList()
 
         val transformedDecl = NameMangler(headerName).scan(d)
         return KotlinGenerator().generate(transformedDecl, headerName, targetPkg)
