@@ -244,7 +244,7 @@ class NameMangler(private val headerName: String) : Declaration.Visitor<Unit> {
                     }
                 }
             } else {
-                assert(SourceVersion.isIdentifier(name))
+                check(SourceVersion.isIdentifier(name)) { "Not a valid Java identifier: $name" }
                 return if (SourceVersion.isKeyword(name) || isRestrictedTypeName(name) || isJavaTypeName(name))
                     "${name}_" else name
             }
