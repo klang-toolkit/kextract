@@ -1,6 +1,8 @@
 import org.apache.tools.ant.taskdefs.condition.Os
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermission
 
 plugins {
@@ -18,18 +20,33 @@ fun checkPath(p: String) {
     }
 }
 
-val llvm_home = project.property("llvm_home") as String
+val llvmVersion = "22.1.6"
+val explicitLlvmHome = (project.findProperty("llvm_home") as String?)
+    ?.takeIf { it.isNotBlank() && Files.exists(Path.of(it)) }
+val autoLlvmDir = layout.buildDirectory.dir("llvm/$llvmVersion").get().asFile.absolutePath
+val llvm_home: String = explicitLlvmHome ?: autoLlvmDir
 val jdk_home = project.property("jdk_home") as String
-checkPath(llvm_home)
-checkPath("$llvm_home/lib/clang")
-val clang_versions = File("$llvm_home/lib/clang/").list()
-    ?: throw IllegalArgumentException("Could not list $llvm_home/lib/clang/")
-if (clang_versions.isEmpty()) {
-    throw IllegalArgumentException(
-        "Could not detect clang version. Make sure a $llvm_home/lib/clang/<VERSION> directory exists"
-    )
+checkPath(jdk_home)
+if (explicitLlvmHome != null) {
+    checkPath("$llvm_home/lib/clang")
 }
-val clang_version = clang_versions[0]
+
+val clang_version: String by lazy {
+    val clangDir = File("$llvm_home/lib/clang/")
+    if (!clangDir.exists()) {
+        throw GradleException(
+            "LLVM not found at $llvm_home. Run './gradlew downloadLLVM' first, " +
+            "or pass -Pllvm_home=<path> (e.g. \$(brew --prefix llvm))."
+        )
+    }
+    val versions = clangDir.list()
+    if (versions.isNullOrEmpty()) {
+        throw GradleException(
+            "Could not detect clang version. Make sure $llvm_home/lib/clang/<VERSION> exists."
+        )
+    }
+    versions[0]
+}
 
 val buildDirectory = layout.buildDirectory.get()
 @Suppress("UNUSED_VARIABLE")
@@ -38,13 +55,92 @@ val kextract_jmod_inputs = "$buildDirectory/jmod_inputs"
 val kextract_app_dir = "$buildDirectory/kextract"
 val kextract_runtime_dir = "$kextract_app_dir/runtime"
 val kextract_bin_dir = "$kextract_app_dir/bin"
-val clang_include_dir = "$llvm_home/lib/clang/$clang_version/include"
-checkPath(clang_include_dir)
 val os_lib_dir = if (Os.isFamily(Os.FAMILY_WINDOWS)) "bin" else "lib"
 val os_script_extension = if (Os.isFamily(Os.FAMILY_WINDOWS)) ".bat" else ""
 val os_exe_suffix = if (Os.isFamily(Os.FAMILY_WINDOWS)) ".exe" else ""
 val libclang_dir = "$llvm_home/$os_lib_dir"
-checkPath(libclang_dir)
+
+tasks.register("downloadLLVM") {
+    description = "Downloads and extracts the LLVM $llvmVersion binary distribution for the current OS/arch"
+    onlyIf { explicitLlvmHome == null }
+
+    val targetDir = File(autoLlvmDir)
+    val marker = File(targetDir, ".extracted-$llvmVersion")
+    outputs.file(marker)
+
+    doLast {
+        val osArch = System.getProperty("os.arch")
+        val isArm = osArch == "aarch64" || osArch == "arm64"
+        val assetName = when {
+            Os.isFamily(Os.FAMILY_WINDOWS) ->
+                "clang+llvm-$llvmVersion-x86_64-pc-windows-msvc.tar.xz"
+            Os.isFamily(Os.FAMILY_MAC) -> {
+                if (!isArm) throw GradleException(
+                    "No upstream LLVM $llvmVersion binary for macOS x86_64. " +
+                    "Pass -Pllvm_home=<path> (e.g. \$(brew --prefix llvm))."
+                )
+                "LLVM-$llvmVersion-macOS-ARM64.tar.xz"
+            }
+            else ->
+                if (isArm) "LLVM-$llvmVersion-Linux-ARM64.tar.xz"
+                else "LLVM-$llvmVersion-Linux-X64.tar.xz"
+        }
+        val url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$llvmVersion/$assetName"
+
+        // Cache the archive in the Gradle user home so it survives `./gradlew clean`
+        val archiveCacheDir = File(gradle.gradleUserHomeDir, "kextract-llvm")
+        archiveCacheDir.mkdirs()
+        val archive = File(archiveCacheDir, assetName)
+
+        if (!archive.exists()) {
+            logger.lifecycle("Downloading $url (one-time, ~1.5 GB)")
+            val tmp = File(archiveCacheDir, "$assetName.part")
+            URI(url).toURL().openStream().use { input ->
+                tmp.outputStream().use { output -> input.copyTo(output) }
+            }
+            tmp.renameTo(archive)
+        } else {
+            logger.lifecycle("Using cached LLVM archive at $archive")
+        }
+
+        delete(targetDir)
+        targetDir.mkdirs()
+        logger.lifecycle("Extracting $assetName to $targetDir")
+        val proc = ProcessBuilder(
+            "tar", "--strip-components=1",
+            "-xf", archive.absolutePath,
+            "-C", targetDir.absolutePath
+        ).inheritIO().start()
+        val exit = proc.waitFor()
+        if (exit != 0) throw GradleException("tar extraction failed with exit code $exit")
+
+        // Trim down: keep libclang + libLLVM (which libclang depends on) + builtin headers.
+        val keepPatterns = listOf(
+            Regex("^$os_lib_dir/libclang\\..*"),
+            Regex("^$os_lib_dir/libLLVM\\..*"),
+            Regex("^lib/clang/[^/]+/include/.*"),
+        )
+        val sizeBefore = targetDir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+        targetDir.walkBottomUp()
+            .filter { it.isFile }
+            .filter { f ->
+                val rel = f.toRelativeString(targetDir).replace('\\', '/')
+                keepPatterns.none { it.matches(rel) }
+            }
+            .forEach { it.delete() }
+        var changed = true
+        while (changed) {
+            changed = false
+            targetDir.walkBottomUp()
+                .filter { it.isDirectory && it != targetDir && (it.list()?.isEmpty() == true) }
+                .forEach { it.delete(); changed = true }
+        }
+        val sizeAfter = targetDir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+        logger.lifecycle("Trimmed LLVM: ${sizeBefore / 1024 / 1024} MB → ${sizeAfter / 1024 / 1024} MB")
+
+        marker.writeText("ok\n")
+    }
+}
 
 sourceSets {
     main {
@@ -99,9 +195,10 @@ dependencies {
 }
 
 tasks.withType<Test>().configureEach {
+    dependsOn("downloadLLVM")
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
-    systemProperty("java.library.path", "${findProperty("llvm_home") ?: ""}/lib")
+    systemProperty("java.library.path", "$llvm_home/$os_lib_dir")
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -134,32 +231,52 @@ tasks.named<Jar>("jar") {
     from(sourceSets["kmain"].output)
 }
 
-tasks.register<Sync>("copyLibClang") {
-    doFirst {
-        delete("$buildDirectory/jmod_inputs/libs")
-        delete("$buildDirectory/jmod_inputs/conf")
-    }
-    into("$buildDirectory/jmod_inputs")
-    val isAix = Os.isName("AIX") || Os.isName("aix")
-    val isUnixNotMac = Os.isFamily(Os.FAMILY_UNIX) && !Os.isFamily(Os.FAMILY_MAC)
-    val clang_path_include = when {
-        isAix -> "libclang.a"
-        isUnixNotMac -> "libclang.so.$clang_version"
-        Os.isFamily(Os.FAMILY_WINDOWS) -> "libclang.dll"
-        else -> "libclang.dylib"  // macOS — only the shared dylib, not static archives
-    }
-    from(libclang_dir) {
-        include(clang_path_include)
-        include("libLLVM.*")
-        exclude("clang.exe")
-        into("libs")
-        rename("libclang.so.*", "libclang.so")
-        filePermissions { unix("rw-r--r--") }
-    }
-    from(clang_include_dir) {
-        include("*.h")
-        into("conf/kextract")
-        filePermissions { unix("rw-r--r--") }
+tasks.register("copyLibClang") {
+    dependsOn("downloadLLVM")
+    outputs.dir("$buildDirectory/jmod_inputs")
+    doLast {
+        val outDir = file("$buildDirectory/jmod_inputs")
+        val libsDir = File(outDir, "libs").apply { deleteRecursively(); mkdirs() }
+        val confDir = File(outDir, "conf/kextract").apply { deleteRecursively(); mkdirs() }
+
+        val isAix = Os.isName("AIX") || Os.isName("aix")
+        val isUnixNotMac = Os.isFamily(Os.FAMILY_UNIX) && !Os.isFamily(Os.FAMILY_MAC)
+        val clangPathInclude = when {
+            isAix -> "libclang.a"
+            isUnixNotMac -> "libclang.so.$clang_version"
+            Os.isFamily(Os.FAMILY_WINDOWS) -> "libclang.dll"
+            else -> "libclang.dylib"
+        }
+
+        val srcLibDir = File(libclang_dir)
+        if (!srcLibDir.isDirectory) {
+            throw GradleException("libclang directory not found at $srcLibDir")
+        }
+
+        srcLibDir.listFiles { f -> f.isFile }?.forEach { src ->
+            val n = src.name
+            if (n == "clang.exe") return@forEach
+            val keep = n == clangPathInclude || n.startsWith("libLLVM.")
+            if (!keep) return@forEach
+            val targetName = if (n.startsWith("libclang.so.")) "libclang.so" else n
+            Files.copy(
+                src.toPath(),
+                File(libsDir, targetName).toPath(),
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        }
+
+        val includeDir = File("$llvm_home/lib/clang/$clang_version/include")
+        if (!includeDir.isDirectory) {
+            throw GradleException("Clang builtin headers not found at $includeDir")
+        }
+        includeDir.listFiles { f -> f.isFile && f.name.endsWith(".h") }?.forEach { src ->
+            Files.copy(
+                src.toPath(),
+                File(confDir, src.name).toPath(),
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        }
     }
 }
 
@@ -291,10 +408,11 @@ tasks.register("verifyExamples") {
 }
 
 tasks.register("writeLibClangVersion") {
+    dependsOn("downloadLLVM")
     val confDir = file("$buildDirectory/jmod_inputs/conf/kextract")
     outputs.file("$confDir/libclang.version")
-    val clang_major_version = clang_version.split(".")[0]
     doLast {
+        val clang_major_version = clang_version.split(".")[0]
         confDir.mkdirs()
         file("$confDir/libclang.version").writeText(clang_major_version + "\n")
     }
