@@ -89,6 +89,18 @@ enum class CursorKind(val value: Int) {
     WarnUnusedAttr(CXCursor_WarnUnusedAttr()),
     WarnUnusedResultAttr(CXCursor_WarnUnusedResultAttr()),
     AlignedAttr(CXCursor_AlignedAttr()),
+    // ObjC declaration kinds
+    ObjCInterfaceDecl(CXCursor_ObjCInterfaceDecl()),
+    ObjCCategoryDecl(CXCursor_ObjCCategoryDecl()),
+    ObjCProtocolDecl(CXCursor_ObjCProtocolDecl()),
+    ObjCPropertyDecl(CXCursor_ObjCPropertyDecl()),
+    ObjCIvarDecl(CXCursor_ObjCIvarDecl()),
+    ObjCInstanceMethodDecl(CXCursor_ObjCInstanceMethodDecl()),
+    ObjCClassMethodDecl(CXCursor_ObjCClassMethodDecl()),
+    // ObjC reference kinds (used as children during traversal)
+    ObjCSuperClassRef(CXCursor_ObjCSuperClassRef()),
+    ObjCProtocolRef(CXCursor_ObjCProtocolRef()),
+    // Preprocessor
     MacroDefinition(CXCursor_MacroDefinition()),
     MacroExpansion(CXCursor_MacroExpansion()),
     MacroInstantiation(CXCursor_MacroInstantiation()),
@@ -101,5 +113,9 @@ enum class CursorKind(val value: Int) {
         @JvmStatic
         fun valueOf(value: Int): CursorKind =
             lookup[value] ?: throw NoSuchElementException("Invalid Cursor kind value: $value")
+
+        /** Like [valueOf] but returns null for unknown cursor kind integers instead of throwing. */
+        @JvmStatic
+        fun valueOfOrNull(value: Int): CursorKind? = lookup[value]
     }
 }

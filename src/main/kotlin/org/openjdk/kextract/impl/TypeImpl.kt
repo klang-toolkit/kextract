@@ -33,27 +33,22 @@ import java.lang.foreign.MemoryLayout
 import java.lang.foreign.ValueLayout
 import java.lang.foreign.ValueLayout.ADDRESS
 import java.util.Objects
-import java.util.Optional
-import java.util.OptionalLong
-import java.util.function.Supplier
 
 abstract class TypeImpl : Type {
 
     companion object {
-        @JvmField
         val IS_WINDOWS: Boolean = System.getProperty("os.name").startsWith("Windows")
 
         /** Package-private equality helper: TYPEDEF delegation. */
-        @JvmStatic
         internal fun equals(t1: Type, t2: Type.Delegated): Boolean =
             t2.kind() == Delegated.Kind.TYPEDEF && t1 == t2.type()
     }
 
     override fun isErroneous(): Boolean = false
 
-    class ErronrousTypeImpl(@JvmField val erroneousName: String) : TypeImpl() {
-        override fun <R, D> accept(visitor: Type.Visitor<R, D>, data: D): R =
-            visitor.visitType(this, data)
+    class ErronrousTypeImpl(val erroneousName: String) : TypeImpl() {
+        override fun <R> accept(visitor: Type.Visitor<R>): R =
+            visitor.visitType(this)
         override fun isErroneous(): Boolean = true
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -63,8 +58,8 @@ abstract class TypeImpl : Type {
     }
 
     class PrimitiveImpl(private val _kind: Type.Primitive.Kind) : TypeImpl(), Type.Primitive {
-        override fun <R, D> accept(visitor: Type.Visitor<R, D>, data: D): R =
-            visitor.visitPrimitive(this, data)
+        override fun <R> accept(visitor: Type.Visitor<R>): R =
+            visitor.visitPrimitive(this)
         override fun kind(): Type.Primitive.Kind = _kind
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -77,12 +72,12 @@ abstract class TypeImpl : Type {
 
     abstract class DelegatedBase(
         private val _kind: Delegated.Kind,
-        private val _name: Optional<String>
+        private val _name: String?
     ) : TypeImpl(), Type.Delegated {
-        override fun <R, D> accept(visitor: Type.Visitor<R, D>, data: D): R =
-            visitor.visitDelegated(this, data)
+        override fun <R> accept(visitor: Type.Visitor<R>): R =
+            visitor.visitDelegated(this)
         final override fun kind(): Delegated.Kind = _kind
-        final override fun name(): Optional<String> = _name
+        final override fun name(): String? = _name
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is Type.Delegated)
@@ -95,10 +90,10 @@ abstract class TypeImpl : Type {
     class QualifiedImpl : DelegatedBase {
         private val _type: Type
 
-        constructor(kind: Delegated.Kind, type: Type) : super(kind, Optional.empty()) {
+        constructor(kind: Delegated.Kind, type: Type) : super(kind, null) {
             _type = type
         }
-        constructor(kind: Delegated.Kind, name: String, type: Type) : super(kind, Optional.of(name)) {
+        constructor(kind: Delegated.Kind, name: String, type: Type) : super(kind, name) {
             _type = type
         }
 
@@ -117,24 +112,23 @@ abstract class TypeImpl : Type {
 
     class PointerImpl : DelegatedBase {
         companion object {
-            @JvmField
             val POINTER_LAYOUT: AddressLayout = ADDRESS
                 .withTargetLayout(MemoryLayout.sequenceLayout(Long.MAX_VALUE, ValueLayout.JAVA_BYTE))
         }
 
-        private val _pointeeFactory: Supplier<Type>
+        private val _pointeeFactory: () -> Type
 
-        constructor(pointeeFactory: Supplier<Type>) : super(Delegated.Kind.POINTER, Optional.empty()) {
-            _pointeeFactory = Objects.requireNonNull(pointeeFactory)
+        constructor(pointeeFactory: () -> Type) : super(Delegated.Kind.POINTER, null) {
+            _pointeeFactory = pointeeFactory
         }
-        constructor(pointee: Type) : this(Supplier { pointee })
+        constructor(pointee: Type) : this({ pointee })
 
-        override fun type(): Type = _pointeeFactory.get()
+        override fun type(): Type = _pointeeFactory()
     }
 
     class DeclaredImpl(private val _declaration: Declaration.Scoped) : TypeImpl(), Type.Declared {
-        override fun <R, D> accept(visitor: Type.Visitor<R, D>, data: D): R =
-            visitor.visitDeclared(this, data)
+        override fun <R> accept(visitor: Type.Visitor<R>): R =
+            visitor.visitDeclared(this)
         override fun tree(): Declaration.Scoped = _declaration
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -149,27 +143,26 @@ abstract class TypeImpl : Type {
         private val _varargs: Boolean
         private val _argtypes: List<Type>
         private val _restype: Type
-        private val _paramNames: Optional<List<String>>
+        private val _paramNames: List<String>?
 
         constructor(varargs: Boolean, argtypes: List<Type>, restype: Type, paramNames: List<String>?) : super() {
             _varargs = varargs
-            _argtypes = Objects.requireNonNull(argtypes)
-            _restype = Objects.requireNonNull(restype)
-            _paramNames = Optional.ofNullable(paramNames)
+            _argtypes = argtypes
+            _restype = restype
+            _paramNames = paramNames
         }
         constructor(varargs: Boolean, argtypes: List<Type>, restype: Type) :
             this(varargs, argtypes, restype, null)
 
-        override fun <R, D> accept(visitor: Type.Visitor<R, D>, data: D): R =
-            visitor.visitFunction(this, data)
+        override fun <R> accept(visitor: Type.Visitor<R>): R =
+            visitor.visitFunction(this)
         override fun varargs(): Boolean = _varargs
         override fun argumentTypes(): List<Type> = _argtypes
         override fun returnType(): Type = _restype
         override fun withParameterNames(paramNames: List<String>): Type.Function {
-            Objects.requireNonNull(paramNames)
             return FunctionImpl(_varargs, _argtypes, _restype, paramNames)
         }
-        override fun parameterNames(): Optional<List<String>> = _paramNames
+        override fun parameterNames(): List<String>? = _paramNames
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (other !is Type.Function)
@@ -183,23 +176,23 @@ abstract class TypeImpl : Type {
 
     class ArrayImpl : TypeImpl, Type.Array {
         private val _kind: Type.Array.Kind
-        private val _elemCount: OptionalLong
+        private val _elemCount: Long?
         private val _elemType: Type
 
         constructor(kind: Type.Array.Kind, count: Long, elemType: Type) : super() {
-            _kind = Objects.requireNonNull(kind)
-            _elemCount = OptionalLong.of(count)
-            _elemType = Objects.requireNonNull(elemType)
+            _kind = kind
+            _elemCount = count
+            _elemType = elemType
         }
         constructor(kind: Type.Array.Kind, elemType: Type) : super() {
-            _kind = Objects.requireNonNull(kind)
-            _elemCount = OptionalLong.empty()
-            _elemType = Objects.requireNonNull(elemType)
+            _kind = kind
+            _elemCount = null
+            _elemType = elemType
         }
 
-        override fun <R, D> accept(visitor: Type.Visitor<R, D>, data: D): R =
-            visitor.visitArray(this, data)
-        override fun elementCount(): OptionalLong = _elemCount
+        override fun <R> accept(visitor: Type.Visitor<R>): R =
+            visitor.visitArray(this)
+        override fun elementCount(): Long? = _elemCount
         override fun elementType(): Type = _elemType
         override fun kind(): Type.Array.Kind = _kind
         override fun equals(other: Any?): Boolean {

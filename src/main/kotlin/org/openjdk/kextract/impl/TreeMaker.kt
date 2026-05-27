@@ -53,8 +53,6 @@ import java.util.ArrayList
 import java.util.Collections
 import java.util.HashMap
 import java.util.Objects
-import java.util.Optional
-import java.util.OptionalLong
 import java.util.concurrent.atomic.AtomicReference
 import java.util.stream.Collectors
 
@@ -81,8 +79,8 @@ internal class TreeMaker {
         return d
     }
 
-    fun lookup(key: Cursor.Key): Optional<Declaration> {
-        return Optional.ofNullable(declarationCacheNew[key])
+    fun lookup(key: Cursor.Key): Declaration? {
+        return declarationCacheNew[key]
     }
 
     fun createTree(c: Cursor): Declaration? {
@@ -90,8 +88,8 @@ internal class TreeMaker {
         val lang: CursorLanguage = c.language()
         val linkage: LinkageKind = c.linkage()
 
-        if (lang != CursorLanguage.C && lang != CursorLanguage.Invalid &&
-            c.kind() != CursorKind.StaticAssert) {
+        if (lang != CursorLanguage.C && lang != CursorLanguage.ObjC &&
+            lang != CursorLanguage.Invalid && c.kind() != CursorKind.StaticAssert) {
             throw RuntimeException("Unsupported language: ${c.language()}")
         }
 
@@ -111,8 +109,8 @@ internal class TreeMaker {
         if (pos === Position.NO_POSITION) return null
         val key = c.toKey()
         val cachedDecl = lookup(key)
-        if (cachedDecl.isPresent) {
-            return cachedDecl.get()
+        if (cachedDecl != null) {
+            return cachedDecl
         }
         val decl: Declaration? = when (c.kind()) {
             CursorKind.EnumDecl -> createEnum(c)
@@ -124,6 +122,10 @@ internal class TreeMaker {
             CursorKind.UnionDecl -> createRecord(c, Declaration.Scoped.Kind.UNION)
             CursorKind.TypedefDecl -> createTypedefNew(c)
             CursorKind.VarDecl -> createVar(c, Declaration.Variable.Kind.GLOBAL)
+            // Objective-C declarations
+            CursorKind.ObjCInterfaceDecl -> createObjCClass(c)
+            CursorKind.ObjCProtocolDecl  -> createObjCProtocol(c)
+            CursorKind.ObjCCategoryDecl  -> createObjCCategory(c)
             else -> null
         }
         if (decl != null) {
@@ -132,44 +134,11 @@ internal class TreeMaker {
         return decl
     }
 
-    class CursorPosition private constructor(val cursor: Cursor) : Position {
-        private val posPath: Path
-        private val posLine: Int
-        private val posColumn: Int
-
-        init {
-            val loc: SourceLocation.Location = cursor.getSourceLocation()!!.getFileLocation()
-            posPath = loc.path!!.toAbsolutePath()
-            posLine = loc.line
-            posColumn = loc.column
-        }
-
-        override fun path(): Path = posPath
-        override fun line(): Int = posLine
-        override fun col(): Int = posColumn
-        fun cursor(): Cursor = cursor
-
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (other is Position) {
-                return Objects.equals(posPath, other.path()) &&
-                    Objects.equals(posLine, other.line()) &&
-                    Objects.equals(posColumn, other.col())
-            }
-            return false
-        }
-
-        override fun hashCode(): Int = Objects.hash(posPath, posLine, posColumn)
-
-        override fun toString(): String = PrettyPrinter.position(this)
-
-        companion object {
-            @JvmStatic
-            fun of(cursor: Cursor): Position {
-                val loc: SourceLocation = cursor.getSourceLocation() ?: return Position.NO_POSITION
-                loc.getFileLocation() ?: return Position.NO_POSITION
-                return CursorPosition(cursor)
-            }
+    object CursorPosition {
+        fun of(cursor: Cursor): Position {
+            val loc: SourceLocation = cursor.getSourceLocation() ?: return Position.NO_POSITION
+            val fileLoc = loc.getFileLocation() ?: return Position.NO_POSITION
+            return Position(fileLoc.path?.toAbsolutePath(), fileLoc.line, fileLoc.column)
         }
     }
 
@@ -280,18 +249,18 @@ internal class TreeMaker {
         return Type.declared(structOrUnionDecl)
     }
 
-    private fun offsetOfAnonymousRecordNew(outermostParent: Cursor, anonRecord: Cursor, record: Cursor): OptionalLong {
-        val result: AtomicReference<OptionalLong> = AtomicReference(OptionalLong.empty())
+    private fun offsetOfAnonymousRecordNew(outermostParent: Cursor, anonRecord: Cursor, record: Cursor): Long? {
+        val result: AtomicReference<Long?> = AtomicReference(null)
         record.forEachShortCircuit { fc ->
             if (Utils.isFlattenable(fc)) {
                 if (fc.spelling().isNotEmpty()) {
                     val offsetToOutermost = outermostParent.type().getOffsetOf(fc.spelling())
                     val offsetToAnon = anonRecord.type().getOffsetOf(fc.spelling())
-                    result.set(OptionalLong.of(offsetToOutermost - offsetToAnon))
+                    result.set(offsetToOutermost - offsetToAnon)
                     false
                 } else if (fc.isAnonymousStruct()) {
                     val nestedResult = offsetOfAnonymousRecordNew(outermostParent, anonRecord, fc)
-                    if (nestedResult.isPresent) {
+                    if (nestedResult != null) {
                         result.set(nestedResult)
                         false
                     } else {
@@ -328,7 +297,13 @@ internal class TreeMaker {
     private fun filterHeaderDeclarationsNew(declarations: List<Declaration>): List<Declaration> {
         return declarations.stream()
             .filter { it != null }
-            .filter { d -> Utils.isEnum(d) || (d.name().isNotEmpty() && !isRedundantTypedefNew(d)) }
+            .filter { d ->
+                Utils.isEnum(d) ||
+                d is Declaration.ObjCClass ||
+                d is Declaration.ObjCProtocol ||
+                d is Declaration.ObjCCategory ||
+                (d.name().isNotEmpty() && !isRedundantTypedefNew(d))
+            }
             .collect(Collectors.toList())
     }
 
@@ -462,5 +437,119 @@ internal class TreeMaker {
     private fun enumConstantStringNew(enumName: String, enumConstant: Declaration.Constant): String {
         val name = if (enumName.isEmpty()) "<anonymous>" else enumName
         return "enum $name.${enumConstant.name()} = ${enumConstant.value()}"
+    }
+
+    // ── Objective-C declaration builders ─────────────────────────────────────
+
+    /** Build Declaration.ObjCClass from an ObjCInterfaceDecl cursor. */
+    private fun createObjCClass(c: Cursor): Declaration.ObjCClass? {
+        // In ObjC, @interface is the header declaration and @implementation is the "definition"
+        // in clang's sense. When parsing headers without @implementation, isDefinition() is
+        // always false, so we cannot rely on it.
+        //
+        // Strategy: skip this cursor only if a DIFFERENT canonical definition exists elsewhere
+        // (i.e., this is a @class Foo; forward-ref whose @interface is defined elsewhere, or a
+        // duplicate @interface). When getDefinition() is invalid there is no other definition and
+        // we process this cursor as the canonical interface.
+        val defCursor = c.getDefinition()
+        if (!defCursor.isInvalid() && !c.equalCursor(defCursor)) {
+            // A canonical definition exists elsewhere; this is a forward-ref or redeclaration.
+            return null
+        }
+        var superClass: String? = null
+        val protocols = mutableListOf<String>()
+        val methods = mutableListOf<Declaration.ObjCMethod>()
+        val properties = mutableListOf<Declaration.ObjCProperty>()
+        c.forEach { child ->
+            when (child.kindOrNull()) {
+                CursorKind.ObjCSuperClassRef    -> superClass = child.spelling()
+                CursorKind.ObjCProtocolRef      -> protocols.add(child.spelling())
+                CursorKind.ObjCInstanceMethodDecl -> createObjCMethod(child, false)?.let { methods.add(it) }
+                CursorKind.ObjCClassMethodDecl  -> createObjCMethod(child, true)?.let { methods.add(it) }
+                CursorKind.ObjCPropertyDecl     -> createObjCProperty(child)?.let { properties.add(it) }
+                else -> {} // Unknown cursor kinds (e.g. OverloadedDeclRef) or ObjCIvarDecl — skip
+            }
+        }
+        return Declaration.objcClass(CursorPosition.of(c), c.spelling(), superClass, protocols, methods, properties)
+    }
+
+    /** Build Declaration.ObjCProtocol from an ObjCProtocolDecl cursor. */
+    private fun createObjCProtocol(c: Cursor): Declaration.ObjCProtocol? {
+        // Same rationale as createObjCClass: @protocol ... @end has isDefinition()==false
+        // in many libclang configurations. Process the cursor unless a different canonical
+        // definition exists elsewhere.
+        val defCursor = c.getDefinition()
+        if (!defCursor.isInvalid() && !c.equalCursor(defCursor)) return null
+        val protocols = mutableListOf<String>()
+        val methods = mutableListOf<Declaration.ObjCMethod>()
+        val properties = mutableListOf<Declaration.ObjCProperty>()
+        c.forEach { child ->
+            when (child.kindOrNull()) {
+                CursorKind.ObjCProtocolRef         -> protocols.add(child.spelling())
+                CursorKind.ObjCInstanceMethodDecl  -> createObjCMethod(child, false)?.let { methods.add(it) }
+                CursorKind.ObjCClassMethodDecl     -> createObjCMethod(child, true)?.let { methods.add(it) }
+                CursorKind.ObjCPropertyDecl        -> createObjCProperty(child)?.let { properties.add(it) }
+                else -> {} // Unknown cursor kinds — skip safely
+            }
+        }
+        return Declaration.objcProtocol(CursorPosition.of(c), c.spelling(), protocols, methods, properties)
+    }
+
+    /**
+     * Build Declaration.ObjCCategory from an ObjCCategoryDecl cursor.
+     * For a category "@interface ClassName (CatName)", c.spelling() = "ClassName"
+     * and c.displayName() = "ClassName(CatName)".
+     */
+    private fun createObjCCategory(c: Cursor): Declaration.ObjCCategory? {
+        val extendedClass = c.spelling()
+        val displayName = c.displayName()
+        val catName = if (displayName.contains('(') && displayName.contains(')')) {
+            displayName.substringAfter('(').substringBefore(')')
+        } else ""
+        val methods = mutableListOf<Declaration.ObjCMethod>()
+        val properties = mutableListOf<Declaration.ObjCProperty>()
+        c.forEach { child ->
+            when (child.kindOrNull()) {
+                CursorKind.ObjCInstanceMethodDecl -> createObjCMethod(child, false)?.let { methods.add(it) }
+                CursorKind.ObjCClassMethodDecl    -> createObjCMethod(child, true)?.let { methods.add(it) }
+                CursorKind.ObjCPropertyDecl       -> createObjCProperty(child)?.let { properties.add(it) }
+                else -> {} // Unknown cursor kinds — skip safely
+            }
+        }
+        val declName = if (catName.isEmpty()) extendedClass else "${extendedClass}_${catName}"
+        return Declaration.objcCategory(CursorPosition.of(c), declName, extendedClass, catName, methods, properties)
+    }
+
+    /** Build Declaration.ObjCMethod from an ObjCInstanceMethodDecl or ObjCClassMethodDecl cursor. */
+    private fun createObjCMethod(c: Cursor, isClassMethod: Boolean): Declaration.ObjCMethod? {
+        val selector = c.spelling()   // libclang returns the full selector here
+        val numArgs = c.numberOfArgs()
+        val params = mutableListOf<Declaration.Variable>()
+        for (i in 0 until numArgs) {
+            val argCursor = c.getArgument(i)
+            val argName = argCursor.spelling().ifEmpty { "arg$i" }
+            val argType = toType(argCursor.type())
+            params.add(Declaration.parameter(CursorPosition.of(argCursor), argName, argType))
+        }
+        // Return type is the result type of the method's function type
+        val returnType = toType(c.type().resultType())
+        return Declaration.objcMethod(
+            CursorPosition.of(c), selector, selector, isClassMethod,
+            returnType, params, c.isObjCOptional()
+        )
+    }
+
+    /** Build Declaration.ObjCProperty from an ObjCPropertyDecl cursor. */
+    private fun createObjCProperty(c: Cursor): Declaration.ObjCProperty? {
+        val attrs = c.getObjCPropertyAttributes()
+        val isReadOnly = (attrs and 1) != 0   // CXObjCPropertyAttr_readonly = 1
+        val type = toType(c.type())
+        val propName = c.spelling()
+        val getter = c.getObjCPropertyGetterName().ifEmpty { propName }
+        val setter = if (isReadOnly) "" else
+            c.getObjCPropertySetterName().ifEmpty {
+                "set${propName.replaceFirstChar { it.uppercaseChar() }}:"
+            }
+        return Declaration.objcProperty(CursorPosition.of(c), propName, type, isReadOnly, getter, setter)
     }
 }

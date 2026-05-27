@@ -38,17 +38,21 @@ import java.util.TreeSet
 class IncludeHelper {
 
     enum class IncludeKind {
-        CONSTANT, VAR, FUNCTION, TYPEDEF, STRUCT, UNION;
+        CONSTANT, VAR, FUNCTION, TYPEDEF, STRUCT, UNION,
+        OBJC_CLASS, OBJC_PROTOCOL, OBJC_CATEGORY;
 
-        fun optionName(): String = "include-" + name.lowercase()
+        fun optionName(): String = "include-" + name.lowercase().replace('_', '-')
 
         companion object {
             fun fromDeclaration(d: Declaration): IncludeKind = when (d) {
-                is Declaration.Constant -> CONSTANT
-                is Declaration.Variable -> VAR
-                is Declaration.Function -> FUNCTION
-                is Declaration.Typedef  -> TYPEDEF
-                is Declaration.Scoped   -> fromScoped(d)
+                is Declaration.Constant    -> CONSTANT
+                is Declaration.Variable    -> VAR
+                is Declaration.Function    -> FUNCTION
+                is Declaration.Typedef     -> TYPEDEF
+                is Declaration.ObjCClass   -> OBJC_CLASS
+                is Declaration.ObjCProtocol -> OBJC_PROTOCOL
+                is Declaration.ObjCCategory -> OBJC_CATEGORY
+                is Declaration.Scoped      -> fromScoped(d)
                 else -> throw IllegalStateException("Cannot get here!")
             }
 
@@ -90,6 +94,15 @@ class IncludeHelper {
     fun isIncluded(scoped: Declaration.Scoped): Boolean =
         checkIncludedAndAddIfNeeded(IncludeKind.fromScoped(scoped), scoped)
 
+    fun isIncluded(objcClass: Declaration.ObjCClass): Boolean =
+        checkIncludedAndAddIfNeeded(IncludeKind.OBJC_CLASS, objcClass)
+
+    fun isIncluded(objcProtocol: Declaration.ObjCProtocol): Boolean =
+        checkIncludedAndAddIfNeeded(IncludeKind.OBJC_PROTOCOL, objcProtocol)
+
+    fun isIncluded(objcCategory: Declaration.ObjCCategory): Boolean =
+        checkIncludedAndAddIfNeeded(IncludeKind.OBJC_CATEGORY, objcCategory)
+
     private fun checkIncludedAndAddIfNeeded(kind: IncludeKind, declaration: Declaration): Boolean {
         val included = isIncludedInternal(kind, declaration)
         if (included && dumpIncludesFile != null) {
@@ -109,8 +122,8 @@ class IncludeHelper {
     fun dumpIncludes() {
         try {
             Files.newBufferedWriter(Path.of(dumpIncludesFile!!), StandardOpenOption.CREATE).use { writer ->
-                val declsByPath = usedDeclarations.filter { it.pos().path() != null }
-                    .groupingBy { it.pos().path()!! }
+                val declsByPath = usedDeclarations.filter { it.pos().path != null }
+                    .groupingBy { it.pos().path!! }
                     .foldTo(
                         TreeMap<Path, TreeSet<Declaration>>(Path::compareTo),
                         { _, _ -> TreeSet(Comparator.comparing(Declaration::name)) },

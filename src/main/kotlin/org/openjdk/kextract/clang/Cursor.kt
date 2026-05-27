@@ -39,6 +39,9 @@ class Cursor internal constructor(segment: MemorySegment, owner: ClangDisposable
 
     private val kind: Int = clang_getCursorKind(segment)
 
+    /** Returns this cursor's kind, or null if the kind integer is not in the [CursorKind] enum. */
+    fun kindOrNull(): CursorKind? = CursorKind.valueOfOrNull(kind)
+
     fun isDeclaration(): Boolean      = clang_isDeclaration(kind) != 0
     fun isPreprocessing(): Boolean     = clang_isPreprocessing(kind) != 0
     fun isInvalid(): Boolean           = clang_isInvalid(kind) != 0
@@ -98,6 +101,22 @@ class Cursor internal constructor(segment: MemorySegment, owner: ClangDisposable
     fun getEnumConstantUnsignedValue(): Long  = clang_getEnumConstantDeclUnsignedValue(segment)
     fun isBitField(): Boolean                = clang_Cursor_isBitField(segment) != 0
     fun getBitFieldWidth(): Int              = clang_getFieldDeclBitWidth(segment)
+
+    // ObjC-specific accessors
+    /** Bitmask of CXObjCPropertyAttr_* values (readonly=1, readwrite=8, etc.) */
+    fun getObjCPropertyAttributes(): Int     = clang_Cursor_getObjCPropertyAttributes(segment, 0)
+    /** Custom getter selector name, or empty string if not specified. */
+    fun getObjCPropertyGetterName(): String {
+        val s = clang_Cursor_getObjCPropertyGetterName(LibClang.STRING_ALLOCATOR.get(), segment)
+        return LibClang.CXStrToString(s)
+    }
+    /** Custom setter selector name, or empty string if not specified. */
+    fun getObjCPropertySetterName(): String {
+        val s = clang_Cursor_getObjCPropertySetterName(LibClang.STRING_ALLOCATOR.get(), segment)
+        return LibClang.CXStrToString(s)
+    }
+    /** Returns true for @optional protocol methods. */
+    fun isObjCOptional(): Boolean            = clang_Cursor_isObjCOptional(segment) != 0
 
     fun kind(): CursorKind      = CursorKind.valueOf(kind)
     fun language(): CursorLanguage = CursorLanguage.valueOf(clang_getCursorLanguage(segment))

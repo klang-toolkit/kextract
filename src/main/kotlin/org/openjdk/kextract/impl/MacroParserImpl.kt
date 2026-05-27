@@ -42,7 +42,6 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.LinkedHashMap
-import java.util.Optional
 import java.util.stream.Collectors
 
 internal class MacroParserImpl private constructor(
@@ -54,7 +53,6 @@ internal class MacroParserImpl private constructor(
     val macroTable: MacroTable = MacroTable()
 
     companion object {
-        @JvmStatic
         fun make(treeMaker: TreeMaker, logger: Logger, tu: TranslationUnit, args: Collection<String>): MacroParserImpl {
             val reparser: ClangReparser = try {
                 ClangReparser(tu, args, logger)
@@ -73,18 +71,18 @@ internal class MacroParserImpl private constructor(
      * If that is not possible (e.g. because the macro refers to other macro, or has a more complex grammar), fall
      * back to use clang evaluation support.
      */
-    fun parseConstant(cursor: Cursor, name: String, tokens: Array<String>): Optional<Declaration.Constant> {
+    fun parseConstant(cursor: Cursor, name: String, tokens: Array<String>): Declaration.Constant? {
         if (cursor.isMacroFunctionLike()) {
-            return Optional.empty()
+            return null
         } else if (tokens.size == 2) {
             // check for fast path
             val num = toNumber(tokens[1])
             if (num != null) {
-                return Optional.of(treeMaker.createMacro(TreeMaker.CursorPosition.of(cursor), name, Type.primitive(Type.Primitive.Kind.Int), num.toLong()))
+                return treeMaker.createMacro(TreeMaker.CursorPosition.of(cursor), name, Type.primitive(Type.Primitive.Kind.Int), num.toLong())
             }
         }
         macroTable.enterMacro(name, tokens, TreeMaker.CursorPosition.of(cursor))
-        return Optional.empty()
+        return null
     }
 
     private fun toNumber(str: String): Int? {

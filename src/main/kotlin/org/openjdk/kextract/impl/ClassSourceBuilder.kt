@@ -65,7 +65,6 @@ internal abstract class ClassSourceBuilder(
     companion object {
         private const val NO_ALIGN_REQUIRED_MARKER = -1L
 
-        @JvmStatic
         fun declarationComment(decl: Declaration): String {
             Objects.requireNonNull(decl)
             val declString = DeclarationString.getOrThrow(decl)
@@ -190,7 +189,7 @@ internal abstract class ClassSourceBuilder(
         return when {
             type is Primitive -> primitiveLayoutString(type, typeAlign, expectedAlign)
             type is Declared && Utils.isEnum(type) ->
-                fieldLayoutString(ClangEnumType.get(type.tree()).get(), typeAlign, expectedAlign)
+                fieldLayoutString(ClangEnumType.get(type.tree())!!, typeAlign, expectedAlign)
             type is Declared && Utils.isStructOrUnion(type) ->
                 alignIfNeeded(JavaName.getFullNameOrThrow(type.tree()) + ".layout()", typeAlign, expectedAlign)
             type is Delegated && type.kind() == Delegated.Kind.POINTER ->
@@ -199,7 +198,7 @@ internal abstract class ClassSourceBuilder(
             type is Function -> alignIfNeeded(runtimeHelperName() + ".C_POINTER", typeAlign, expectedAlign)
             type is Type.Array -> String.format(
                 "MemoryLayout.sequenceLayout(%1\$d, %2\$s)",
-                type.elementCount().orElse(0L),
+                type.elementCount() ?: 0L,
                 fieldLayoutString(type.elementType(), typeAlign, expectedAlign)
             )
             else -> throw UnsupportedOperationException()
@@ -272,7 +271,6 @@ internal abstract class ClassSourceBuilder(
 
     data class IndexList(val decl: String, val use: String) {
         companion object {
-            @JvmStatic
             fun of(dims: Int): IndexList {
                 val indexNames = IntStream.range(0, dims).mapToObj { i -> "index$i" }.toList()
                 val indexDecls = indexNames.stream()

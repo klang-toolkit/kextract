@@ -168,6 +168,11 @@ class KextractTool constructor(private val loggerNew: Logger) {
             decl.members().forEach { m -> System.err.println("  ${m.javaClass.simpleName} name=${m.name()}") }
         }
 
+        // ObjC guard: warn if ObjC declarations found on a non-macOS platform
+        if (hasObjCDeclarations(decl) && !isMacOSX) {
+            loggerNew.warn("kextract.objc.non.macos.warning")
+        }
+
         // Generate bindings
         val results = try {
             generate(decl, headers[0], builtOptions.targetPackage, builtOptions.libraries,
@@ -248,6 +253,16 @@ class KextractTool constructor(private val loggerNew: Logger) {
                     if (!iterator.hasNext()) throw IllegalArgumentException("Missing argument for $arg")
                     options.setSharedClassName(iterator.next())
                 }
+                arg == "--objc" -> {
+                    // Force Objective-C parsing mode: treat headers as ObjC and enable ARC
+                    if (isMacOSX) {
+                        options.addClangArg("-x")
+                        options.addClangArg("objective-c")
+                        options.addClangArg("-fobjc-arc")
+                    } else {
+                        loggerNew.warn("kextract.objc.non.macos.warning")
+                    }
+                }
                 arg.startsWith("--include-") -> {
                     val kindName = arg.removePrefix("--include-").uppercase()
                     val kind = IncludeHelper.IncludeKind.entries.firstOrNull { it.name == kindName }
@@ -293,6 +308,8 @@ class KextractTool constructor(private val loggerNew: Logger) {
             |        target package for generated classes
             |    --symbols-class-name <name>
             |        name for the symbols class
+            |    --objc
+            |        enable Objective-C parsing mode (-x objective-c -fobjc-arc); macOS only
         """.trimMargin())
     }
 
@@ -358,6 +375,17 @@ class KextractTool constructor(private val loggerNew: Logger) {
             OUTPUT_ERROR
         }
     }
+
+    /**
+     * Returns true if any top-level member of [decl] is an ObjC declaration.
+     * Used to emit a warning when ObjC bindings are generated on non-macOS platforms.
+     */
+    private fun hasObjCDeclarations(decl: Declaration.Scoped): Boolean =
+        decl.members().any { m ->
+            m is Declaration.ObjCClass ||
+            m is Declaration.ObjCProtocol ||
+            m is Declaration.ObjCCategory
+        }
 
     /**
      * Sanitize header name.

@@ -26,7 +26,6 @@
 package org.openjdk.kextract
 
 import org.openjdk.kextract.impl.DeclarationImpl
-import java.util.Optional
 
 /**
  * Instances of this class are used to model declaration elements in the foreign language.
@@ -42,19 +41,22 @@ interface Declaration {
     fun name(): String
 
     /** Entry point for visiting declaration instances. */
-    fun <R, D> accept(visitor: Visitor<R, D>, data: D): R
+    fun <R> accept(visitor: Visitor<R>): R
 
     override fun equals(other: Any?): Boolean
     override fun hashCode(): Int
 
+    /** Marker for declaration attributes attached via [addAttribute] / [getAttribute]. */
+    interface Attribute
+
     /** The attributes associated with this declaration. */
-    fun attributes(): Collection<java.lang.Record>
+    fun attributes(): Collection<Attribute>
 
     /** Obtains an attribute from this declaration. */
-    fun <R : java.lang.Record> getAttribute(attributeClass: Class<R>): Optional<R>
+    fun <R : Attribute> getAttribute(attributeClass: Class<R>): R?
 
     /** Adds a new attribute to this declaration. */
-    fun <R : java.lang.Record> addAttribute(attribute: R)
+    fun <R : Attribute> addAttribute(attribute: R)
 
     /** A function declaration. */
     interface Function : Declaration {
@@ -100,67 +102,146 @@ interface Declaration {
         fun type(): Type
     }
 
+    // ── Objective-C declarations ──────────────────────────────────────────────
+
+    /** An Objective-C class declaration (@interface without category name). */
+    interface ObjCClass : Declaration {
+        fun superClass(): String?                    // null for root classes
+        fun protocols(): List<String>                // adopted protocol names
+        fun methods(): List<ObjCMethod>
+        fun properties(): List<ObjCProperty>
+    }
+
+    /** An Objective-C protocol declaration (@protocol). */
+    interface ObjCProtocol : Declaration {
+        fun protocols(): List<String>                // parent protocol names
+        fun methods(): List<ObjCMethod>
+        fun properties(): List<ObjCProperty>
+    }
+
+    /** An Objective-C category declaration (@interface ClassName (CategoryName)). */
+    interface ObjCCategory : Declaration {
+        fun extendedClass(): String                  // name of the class being extended
+        fun categoryName(): String                   // the category name (in parens), may be empty
+        fun methods(): List<ObjCMethod>
+        fun properties(): List<ObjCProperty>
+    }
+
+    /** An Objective-C method (instance or class method). */
+    interface ObjCMethod : Declaration {
+        fun isClassMethod(): Boolean                 // true = class (+) method, false = instance (-)
+        fun selector(): String                       // full selector, e.g. "stringWithUTF8String:"
+        fun returnType(): Type
+        fun parameters(): List<Variable>
+        fun isOptional(): Boolean                    // true for @optional protocol methods
+    }
+
+    /** An Objective-C property declaration (@property). */
+    interface ObjCProperty : Declaration {
+        fun type(): Type
+        fun isReadOnly(): Boolean
+        fun getterSelector(): String
+        fun setterSelector(): String                 // empty if isReadOnly
+    }
+
     /**
      * Declaration visitor interface.
      * @param R the visitor's return type.
-     * @param P the visitor's parameter type.
      */
-    interface Visitor<R, P> {
-        fun visitScoped(d: Scoped, p: P): R = visitDeclaration(d, p)
-        fun visitFunction(d: Function, p: P): R = visitDeclaration(d, p)
-        fun visitVariable(d: Variable, p: P): R = visitDeclaration(d, p)
-        fun visitConstant(d: Constant, p: P): R = visitDeclaration(d, p)
-        fun visitTypedef(d: Typedef, p: P): R = visitDeclaration(d, p)
-        fun visitDeclaration(d: Declaration, p: P): R = throw UnsupportedOperationException()
+    interface Visitor<R> {
+        fun visitScoped(d: Scoped): R = visitDeclaration(d)
+        fun visitFunction(d: Function): R = visitDeclaration(d)
+        fun visitVariable(d: Variable): R = visitDeclaration(d)
+        fun visitConstant(d: Constant): R = visitDeclaration(d)
+        fun visitTypedef(d: Typedef): R = visitDeclaration(d)
+        // Objective-C visitor methods (default: delegate to visitDeclaration)
+        fun visitObjCClass(d: ObjCClass): R = visitDeclaration(d)
+        fun visitObjCProtocol(d: ObjCProtocol): R = visitDeclaration(d)
+        fun visitObjCCategory(d: ObjCCategory): R = visitDeclaration(d)
+        fun visitDeclaration(d: Declaration): R = throw UnsupportedOperationException()
     }
 
     companion object {
-        @JvmStatic fun constant(pos: Position, name: String, value: Any, type: Type): Constant =
+        fun constant(pos: Position, name: String, value: Any, type: Type): Constant =
             DeclarationImpl.ConstantImpl(type, value, name, pos)
 
-        @JvmStatic fun globalVariable(pos: Position, name: String, type: Type): Variable =
+        fun globalVariable(pos: Position, name: String, type: Type): Variable =
             DeclarationImpl.VariableImpl(type, Variable.Kind.GLOBAL, name, pos)
 
-        @JvmStatic fun field(pos: Position, name: String, type: Type): Variable =
+        fun field(pos: Position, name: String, type: Type): Variable =
             DeclarationImpl.VariableImpl(type, Variable.Kind.FIELD, name, pos)
 
-        @JvmStatic fun bitfield(pos: Position, name: String, width: Long, type: Type): Variable =
+        fun bitfield(pos: Position, name: String, width: Long, type: Type): Variable =
             DeclarationImpl.BitfieldImpl(type, width, name, pos)
 
-        @JvmStatic fun parameter(pos: Position, name: String, type: Type): Variable =
+        fun parameter(pos: Position, name: String, type: Type): Variable =
             DeclarationImpl.VariableImpl(type, Variable.Kind.PARAMETER, name, pos)
 
-        @JvmStatic fun `var`(kind: Variable.Kind, pos: Position, name: String, type: Type): Variable =
+        fun `var`(kind: Variable.Kind, pos: Position, name: String, type: Type): Variable =
             DeclarationImpl.VariableImpl(type, kind, name, pos)
 
-        @JvmStatic fun toplevel(pos: Position, vararg decls: Declaration): Scoped =
+        fun toplevel(pos: Position, vararg decls: Declaration): Scoped =
             DeclarationImpl.ScopedImpl(Scoped.Kind.TOPLEVEL, listOf(*decls), "<toplevel>", pos)
 
-        @JvmStatic fun bitfields(pos: Position, vararg bitfields: Variable): Scoped =
+        fun bitfields(pos: Position, vararg bitfields: Variable): Scoped =
             DeclarationImpl.ScopedImpl(Scoped.Kind.BITFIELDS, listOf(*bitfields), "", pos)
 
-        @JvmStatic fun struct(pos: Position, name: String, vararg decls: Declaration): Scoped =
+        fun struct(pos: Position, name: String, vararg decls: Declaration): Scoped =
             DeclarationImpl.ScopedImpl(Scoped.Kind.STRUCT, listOf(*decls), name, pos)
 
-        @JvmStatic fun union(pos: Position, name: String, vararg decls: Declaration): Scoped =
+        fun union(pos: Position, name: String, vararg decls: Declaration): Scoped =
             DeclarationImpl.ScopedImpl(Scoped.Kind.UNION, listOf(*decls), name, pos)
 
-        @JvmStatic fun enum_(pos: Position, name: String, vararg decls: Declaration): Scoped =
+        fun enum_(pos: Position, name: String, vararg decls: Declaration): Scoped =
             DeclarationImpl.ScopedImpl(Scoped.Kind.ENUM, listOf(*decls), name, pos)
 
-        @JvmStatic fun scoped(kind: Scoped.Kind, pos: Position, name: String, vararg decls: Declaration): Scoped =
+        fun scoped(kind: Scoped.Kind, pos: Position, name: String, vararg decls: Declaration): Scoped =
             DeclarationImpl.ScopedImpl(kind, listOf(*decls), name, pos)
 
-        @JvmStatic fun function(pos: Position, name: String, type: Type.Function, vararg params: Variable): Function =
+        fun function(pos: Position, name: String, type: Type.Function, vararg params: Variable): Function =
             DeclarationImpl.FunctionImpl(type, listOf(*params), name, pos)
 
-        @JvmStatic fun typedef(pos: Position, name: String, type: Type): Typedef =
+        fun typedef(pos: Position, name: String, type: Type): Typedef =
             DeclarationImpl.TypedefImpl(type, name, pos)
+
+        // Objective-C factory methods
+        fun objcClass(
+            pos: Position, name: String, superClass: String?,
+            protocols: List<String>, methods: List<ObjCMethod>, properties: List<ObjCProperty>
+        ): ObjCClass = DeclarationImpl.ObjCClassImpl(superClass, protocols, methods, properties, name, pos)
+
+        fun objcProtocol(
+            pos: Position, name: String,
+            protocols: List<String>, methods: List<ObjCMethod>, properties: List<ObjCProperty>
+        ): ObjCProtocol = DeclarationImpl.ObjCProtocolImpl(protocols, methods, properties, name, pos)
+
+        fun objcCategory(
+            pos: Position, name: String, extendedClass: String, categoryName: String,
+            methods: List<ObjCMethod>, properties: List<ObjCProperty>
+        ): ObjCCategory = DeclarationImpl.ObjCCategoryImpl(extendedClass, categoryName, methods, properties, name, pos)
+
+        fun objcMethod(
+            pos: Position, name: String, selector: String, isClassMethod: Boolean,
+            returnType: Type, params: List<Variable>, isOptional: Boolean
+        ): ObjCMethod = DeclarationImpl.ObjCMethodImpl(isClassMethod, selector, returnType, params, isOptional, name, pos)
+
+        fun objcProperty(
+            pos: Position, name: String, type: Type,
+            isReadOnly: Boolean, getterSelector: String, setterSelector: String
+        ): ObjCProperty = DeclarationImpl.ObjCPropertyImpl(type, isReadOnly, getterSelector, setterSelector, name, pos)
+
+        /** Retrieves an attribute of type [R], or null if absent. */
+        inline fun <reified R : Attribute> Declaration.getAttribute(): R? =
+            getAttribute(R::class.java)
+
+        /** Returns true if an attribute of type [R] is present. */
+        inline fun <reified R : Attribute> Declaration.hasAttribute(): Boolean =
+            getAttribute<R>() != null
     }
 
     /**
      * A record used to capture clang attributes attached to a declaration.
      * @param attributes a map from attribute name to attribute values.
      */
-    @JvmRecord data class ClangAttributes(val attributes: Map<String, List<String>>)
+    data class ClangAttributes(val attributes: Map<String, List<String>>) : Attribute
 }

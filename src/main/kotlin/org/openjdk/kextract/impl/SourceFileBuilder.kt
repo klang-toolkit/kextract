@@ -10,7 +10,6 @@ internal class SourceFileBuilder private constructor(
     companion object {
         private val SHOW_GENERATING_CLASS = java.lang.Boolean.getBoolean("kextract.showGeneratingClass")
 
-        @JvmStatic
         fun newSourceFile(packageName: String, className: String): SourceFileBuilder {
             val sfb = SourceFileBuilder(packageName, className)
             sfb.emitPackagePrefix()

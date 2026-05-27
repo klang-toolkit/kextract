@@ -116,21 +116,13 @@ class Logger @JvmOverloads constructor(
     }
 
     private fun formatPos(pos: Position?): String? {
-        if (pos == null || pos === Position.NO_POSITION || pos.path() == null) return null
-        return "${pos.path()!!.fileName}:${pos.line()}:${pos.col()}"
+        if (pos == null || pos === Position.NO_POSITION || pos.path == null) return null
+        return "${pos.path.fileName}:${pos.line}:${pos.col}"
     }
 
     private fun isDebugEnabled(): Boolean = System.getProperty("kextract.debug") == "true"
 
     companion object {
-        @JvmStatic
         val DEFAULT: Logger = Logger()
-    }
-
-    data class PositionWrapper(val filePath: String, val lineNum: Int, val colNum: Int) : Position {
-        override fun path(): java.nio.file.Path = java.nio.file.Path.of(filePath)
-        override fun line(): Int = lineNum
-        override fun col(): Int = colNum
-        override fun toString() = "$filePath:$lineNum:$colNum"
     }
 }

@@ -44,16 +44,13 @@ import java.util.function.Consumer
  */
 internal object Utils {
 
-    @JvmStatic
     fun isFlattenable(c: Cursor): Boolean =
         c.isAnonymousStruct() || c.kind() == CursorKind.FieldDecl
 
-    @JvmStatic
     fun quote(s: String): String = buildString {
         for (ch in s) append(quote(ch))
     }
 
-    @JvmStatic
     fun quote(ch: Char): String = when (ch) {
         '\b' -> "\\b"
         '' -> "\\f"
@@ -66,56 +63,45 @@ internal object Utils {
         else -> if (isPrintableAscii(ch)) ch.toString() else "\\u%04x".format(ch.code)
     }
 
-    @JvmStatic
     fun forEachNested(declaration: Declaration, nestedDeclAction: Consumer<Declaration>) {
-        NestedDeclarations.get(declaration).ifPresent { decls ->
-            decls.forEach(nestedDeclAction)
-        }
+        NestedDeclarations.get(declaration)?.forEach(nestedDeclAction)
     }
 
-    @JvmStatic
     fun isStructOrUnion(declaration: Declaration): Boolean =
         declaration is Declaration.Scoped &&
             (declaration.kind() == Declaration.Scoped.Kind.STRUCT ||
              declaration.kind() == Declaration.Scoped.Kind.UNION)
 
-    @JvmStatic
     fun isEnum(declaration: Declaration): Boolean =
         declaration is Declaration.Scoped &&
             declaration.kind() == Declaration.Scoped.Kind.ENUM
 
-    @JvmStatic
     fun isArray(type: Type): Boolean = when {
         type is Type.Array -> true
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> isArray(type.type())
         else -> false
     }
 
-    @JvmStatic
     fun isEnum(type: Type): Boolean = when {
         type is Type.Declared -> isEnum(type.tree())
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> isEnum(type.type())
         else -> false
     }
 
-    @JvmStatic
     fun isStructOrUnion(type: Type): Boolean = structOrUnionDecl(type) != null
 
-    @JvmStatic
     fun structOrUnionDecl(type: Type): Declaration.Scoped? = when {
         type is Type.Declared && isStructOrUnion(type.tree()) -> type.tree()
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> structOrUnionDecl(type.type())
         else -> null
     }
 
-    @JvmStatic
     fun isPointer(type: Type): Boolean = when {
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> isPointer(type.type())
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> true
         else -> false
     }
 
-    @JvmStatic
     fun isPrimitive(type: Type): Boolean = when {
         type is Type.Declared && type.tree().kind() == Declaration.Scoped.Kind.ENUM -> true
         type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER -> isPrimitive(type.type())
@@ -123,14 +109,12 @@ internal object Utils {
         else -> false
     }
 
-    @JvmStatic
     fun getAsFunctionPointer(type: Type): Type.Function? = when {
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> getAsFunctionPointer(type.type())
         type is Type.Function -> type
         else -> null
     }
 
-    @JvmStatic
     fun getAsSignedOrUnsigned(type: Type): Type.Primitive? {
         if (type is Type.Delegated && type.type() is Type.Primitive) {
             val kind = type.kind()
@@ -141,19 +125,17 @@ internal object Utils {
         return null
     }
 
-    @JvmStatic
     fun dimensions(type: Type): List<Long> {
         val dims = mutableListOf<Long>()
         var current = type
         while (current is Type.Array) {
-            if (current.elementCount().isEmpty) return emptyList()
-            dims.add(current.elementCount().asLong)
+            if (current.elementCount() == null) return emptyList()
+            dims.add(current.elementCount()!!)
             current = current.elementType()
         }
         return dims
     }
 
-    @JvmStatic
     fun typeOrElemType(type: Type): Type = when (type) {
         is Type.Array -> typeOrElemType(type.elementType())
         else -> type
@@ -161,14 +143,13 @@ internal object Utils {
 
     private fun isPrintableAscii(ch: Char): Boolean = ch >= ' ' && ch <= '~'
 
-    @JvmStatic
     fun carrierFor(type: Type): Class<*> {
         if (type.isErroneous()) return MemorySegment::class.java
         return when {
             type is Type.Array -> MemorySegment::class.java
             type is Type.Primitive -> carrierFor(type)
             type is Type.Declared && type.tree().kind() == Declaration.Scoped.Kind.ENUM ->
-                carrierFor(ClangEnumType.get(type.tree()).get())
+                carrierFor(ClangEnumType.get(type.tree())!!)
             type is Type.Declared -> MemorySegment::class.java
             type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> MemorySegment::class.java
             type is Type.Delegated -> carrierFor(type.type())
@@ -177,7 +158,6 @@ internal object Utils {
         }
     }
 
-    @JvmStatic
     fun carrierFor(p: Type.Primitive): Class<*> = when (p.kind()) {
         Type.Primitive.Kind.Void -> Void.TYPE
         Type.Primitive.Kind.Bool -> java.lang.Boolean.TYPE
@@ -195,7 +175,6 @@ internal object Utils {
         else -> throw UnsupportedOperationException(p.toString())
     }
 
-    @JvmField
     val CARRIERS_TO_LAYOUT_CARRIERS: Map<Class<*>, Class<*>> = mapOf(
         java.lang.Byte.TYPE      to ValueLayout.OfByte::class.java,
         java.lang.Boolean.TYPE   to ValueLayout.OfBoolean::class.java,
@@ -207,7 +186,6 @@ internal object Utils {
         java.lang.Double.TYPE    to ValueLayout.OfDouble::class.java
     )
 
-    @JvmStatic
     fun layoutCarrierFor(t: Type): Class<*> = when {
         t is Type.Array -> SequenceLayout::class.java
         t is Type.Delegated && t.kind() == Type.Delegated.Kind.POINTER -> AddressLayout::class.java
@@ -217,11 +195,10 @@ internal object Utils {
             CARRIERS_TO_LAYOUT_CARRIERS[clazz]!!
         }
         t is Type.Declared && isStructOrUnion(t) -> GroupLayout::class.java
-        t is Type.Declared && isEnum(t) -> layoutCarrierFor(ClangEnumType.get(t.tree()).get())
+        t is Type.Declared && isEnum(t) -> layoutCarrierFor(ClangEnumType.get(t.tree())!!)
         else -> throw UnsupportedOperationException(t.toString())
     }
 
-    @JvmStatic
     fun methodTypeFor(type: Type.Function): MethodType =
         MethodType.methodType(
             carrierFor(type.returnType()),

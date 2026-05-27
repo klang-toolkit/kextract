@@ -42,7 +42,6 @@ import org.openjdk.kextract.clang.TypeKind
  */
 internal object TypeMaker {
 
-    @JvmStatic
     fun makeType(t: org.openjdk.kextract.clang.Type, treeMaker: TreeMaker): Type {
         return when (t.kind()) {
             TypeKind.Auto -> makeType(t.canonicalType(), treeMaker)
@@ -122,11 +121,11 @@ internal object TypeMaker {
                     val key: Cursor.Key = declCursor.toKey()
                     Type.pointer {
                         val decl = treeMaker.lookup(key)
-                        if (decl.isEmpty) {
+                        if (decl == null) {
                             // no declaration, maybe an opaque type, give up and downgrade to void pointer
                             Type.void_()
                         } else {
-                            when (val d = decl.get()) {
+                            when (val d = decl) {
                                 is Declaration.Scoped -> Type.declared(d)
                                 is Declaration.Typedef -> Type.typedef(d.name(), d.type())
                                 else -> throw UnsupportedOperationException()
@@ -160,28 +159,36 @@ internal object TypeMaker {
                 val aType = makeType(t.getValueType(), treeMaker)
                 Type.qualified(Delegated.Kind.ATOMIC, aType)
             }
+            // Objective-C types — all map to opaque pointer (MemorySegment in Kotlin)
+            TypeKind.ObjCId,
+            TypeKind.ObjCClass,
+            TypeKind.ObjCSel,
+            TypeKind.ObjCObjectPointer,
+            TypeKind.ObjCInterface,
+            TypeKind.ObjCObject,
+            TypeKind.ObjCTypeParam -> Type.pointer(Type.void_())
             else -> Type.error(t.spelling())
         }
     }
 
     private fun lowerFunctionType(t: org.openjdk.kextract.clang.Type, treeMaker: TreeMaker): Type {
         val t2 = makeType(t, treeMaker)
-        return t2.accept(lowerFunctionTypeVisitor, null)
+        return t2.accept(lowerFunctionTypeVisitor)
     }
 
-    private val lowerFunctionTypeVisitor = object : Type.Visitor<Type, Void?> {
-        override fun visitArray(t: Type.Array, aVoid: Void?): Type {
+    private val lowerFunctionTypeVisitor = object : Type.Visitor<Type> {
+        override fun visitArray(t: Type.Array): Type {
             return Type.pointer(t.elementType())
         }
 
-        override fun visitDelegated(t: Type.Delegated, aVoid: Void?): Type {
+        override fun visitDelegated(t: Type.Delegated): Type {
             if (t.kind() == Delegated.Kind.TYPEDEF && t.type() is Type.Array) {
-                return visitArray(t.type() as Type.Array, aVoid)
+                return visitArray(t.type() as Type.Array)
             }
-            return visitType(t, aVoid)
+            return visitType(t)
         }
 
-        override fun visitType(t: Type, aVoid: Void?): Type {
+        override fun visitType(t: Type): Type {
             return t
         }
     }

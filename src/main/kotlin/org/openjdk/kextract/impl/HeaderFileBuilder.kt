@@ -95,8 +95,8 @@ internal class HeaderFileBuilder(
 
     private fun lookupName(decl: Declaration): String {
         val attrs = decl.getAttribute(Declaration.ClangAttributes::class.java)
-        return if (attrs.isPresent && attrs.get().attributes.containsKey(ASMLABEL)) {
-            val asmLabel = attrs.get().attributes[ASMLABEL]!![0]
+        return if (attrs != null && attrs.attributes.containsKey(ASMLABEL)) {
+            val asmLabel = attrs.attributes[ASMLABEL]!![0]
             if (isMacOSX)
                 asmLabel.substring(1) // skip leading "_"
             else

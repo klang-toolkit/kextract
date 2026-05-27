@@ -29,6 +29,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.io.PrintWriter
+import java.nio.file.Path
+import org.openjdk.kextract.Position
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -63,7 +65,7 @@ class LoggerTest {
 
     @Test
     fun `test err with position`() {
-        val pos = Logger.PositionWrapper("test.h", 10, 5)
+        val pos = Position(Path.of("test.h"), 10, 5)
         logger.err("test.error", "msg", pos = pos)
         assertTrue(logger.hasErrors())
         assertContains(errStream.toString(), "test.h:10:5")
@@ -78,14 +80,14 @@ class LoggerTest {
 
     @Test
     fun `test clangErr increments clang error count`() {
-        logger.clangErr(Logger.PositionWrapper("test.h", 1, 1), "clang error")
+        logger.clangErr(Position(Path.of("test.h"), 1, 1), "clang error")
         assertTrue(logger.hasClangErrors())
         assertEquals(1, logger.nClangErrors)
     }
 
     @Test
     fun `test clangWarn does not increment clang error count`() {
-        logger.clangWarn(Logger.PositionWrapper("test.h", 1, 1), "clang warning")
+        logger.clangWarn(Position(Path.of("test.h"), 1, 1), "clang warning")
         assertFalse(logger.hasClangErrors())
         assertEquals(0, logger.nClangErrors)
     }
@@ -123,8 +125,8 @@ class LoggerTest {
     }
 
     @Test
-    fun `test PositionWrapper toString`() {
-        val pos = Logger.PositionWrapper("path/to/file.h", 42, 10)
+    fun `test Position toString`() {
+        val pos = Position(Path.of("path/to/file.h"), 42, 10)
         assertEquals("path/to/file.h:42:10", pos.toString())
     }
 

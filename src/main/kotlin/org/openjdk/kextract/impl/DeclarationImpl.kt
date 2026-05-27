@@ -30,15 +30,13 @@ import org.openjdk.kextract.Position
 import org.openjdk.kextract.Type
 import java.util.HashMap
 import java.util.Objects
-import java.util.Optional
-import java.util.OptionalLong
 
 abstract class DeclarationImpl(
     private val _name: String,
     private val _pos: Position
 ) : Declaration {
 
-    private val attributes: MutableMap<Class<*>, java.lang.Record> = HashMap()
+    private val attributes: MutableMap<Class<*>, Declaration.Attribute> = HashMap()
 
     override fun toString(): String = PrettyPrinter().print(this)
     override fun name(): String = _name
@@ -53,13 +51,13 @@ abstract class DeclarationImpl(
 
     override fun hashCode(): Int = Objects.hash(_name, attributes)
 
-    override fun attributes(): Collection<java.lang.Record> = attributes.values
+    override fun attributes(): Collection<Declaration.Attribute> = attributes.values
 
     @Suppress("UNCHECKED_CAST")
-    override fun <R : java.lang.Record> getAttribute(attributeClass: Class<R>): Optional<R> =
-        Optional.ofNullable(attributes[attributeClass] as R?)
+    override fun <R : Declaration.Attribute> getAttribute(attributeClass: Class<R>): R? =
+        attributes[attributeClass] as R?
 
-    override fun <R : java.lang.Record> addAttribute(attribute: R) {
+    override fun <R : Declaration.Attribute> addAttribute(attribute: R) {
         val existing = attributes[attribute.javaClass]
         if (existing != null && existing != attribute) {
             throw IllegalStateException("Attribute already exists: ${attribute.javaClass.simpleName}")
@@ -70,12 +68,12 @@ abstract class DeclarationImpl(
     // ── Concrete declaration types ──────────────────────────────────────────
 
     class TypedefImpl(
-        @JvmField val type: Type,
+        val type: Type,
         name: String,
         pos: Position
     ) : DeclarationImpl(name, pos), Declaration.Typedef {
-        override fun <R, D> accept(visitor: Declaration.Visitor<R, D>, data: D): R =
-            visitor.visitTypedef(this, data)
+        override fun <R> accept(visitor: Declaration.Visitor<R>): R =
+            visitor.visitTypedef(this)
         override fun type(): Type = type
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -85,14 +83,14 @@ abstract class DeclarationImpl(
     }
 
     open class VariableImpl(
-        @JvmField val type: Type,
-        @JvmField val kind: Declaration.Variable.Kind,
+        val type: Type,
+        val kind: Declaration.Variable.Kind,
         name: String,
         pos: Position
     ) : DeclarationImpl(name, pos), Declaration.Variable {
         override fun kind(): Declaration.Variable.Kind = kind
-        override fun <R, D> accept(visitor: Declaration.Visitor<R, D>, data: D): R =
-            visitor.visitVariable(this, data)
+        override fun <R> accept(visitor: Declaration.Visitor<R>): R =
+            visitor.visitVariable(this)
         override fun type(): Type = type
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -106,7 +104,7 @@ abstract class DeclarationImpl(
 
     class BitfieldImpl(
         type: Type,
-        @JvmField val width: Long,
+        val width: Long,
         name: String,
         pos: Position
     ) : VariableImpl(type, Declaration.Variable.Kind.BITFIELD, name, pos), Declaration.Bitfield {
@@ -119,13 +117,13 @@ abstract class DeclarationImpl(
     }
 
     class FunctionImpl(
-        @JvmField val type: Type.Function,
-        @JvmField val params: List<Declaration.Variable>,
+        val type: Type.Function,
+        val params: List<Declaration.Variable>,
         name: String,
         pos: Position
     ) : DeclarationImpl(name, pos), Declaration.Function {
-        override fun <R, D> accept(visitor: Declaration.Visitor<R, D>, data: D): R =
-            visitor.visitFunction(this, data)
+        override fun <R> accept(visitor: Declaration.Visitor<R>): R =
+            visitor.visitFunction(this)
         override fun parameters(): List<Declaration.Variable> = params
         override fun type(): Type.Function = type
         override fun equals(other: Any?): Boolean {
@@ -139,13 +137,13 @@ abstract class DeclarationImpl(
     }
 
     open class ScopedImpl(
-        @JvmField val kind: Declaration.Scoped.Kind,
-        @JvmField val declarations: List<Declaration>,
+        val kind: Declaration.Scoped.Kind,
+        val declarations: List<Declaration>,
         name: String,
         pos: Position
     ) : DeclarationImpl(name, pos), Declaration.Scoped {
-        override fun <R, D> accept(visitor: Declaration.Visitor<R, D>, data: D): R =
-            visitor.visitScoped(this, data)
+        override fun <R> accept(visitor: Declaration.Visitor<R>): R =
+            visitor.visitScoped(this)
         override fun members(): List<Declaration> = declarations
         override fun kind(): Declaration.Scoped.Kind = kind
         override fun equals(other: Any?): Boolean {
@@ -159,13 +157,13 @@ abstract class DeclarationImpl(
     }
 
     class ConstantImpl(
-        @JvmField val type: Type,
-        @JvmField val value: Any,
+        val type: Type,
+        val value: Any,
         name: String,
         pos: Position
     ) : DeclarationImpl(name, pos), Declaration.Constant {
-        override fun <R, D> accept(visitor: Declaration.Visitor<R, D>, data: D): R =
-            visitor.visitConstant(this, data)
+        override fun <R> accept(visitor: Declaration.Visitor<R>): R =
+            visitor.visitConstant(this)
         override fun value(): Any = value
         override fun type(): Type = type
         override fun equals(other: Any?): Boolean {
@@ -178,186 +176,206 @@ abstract class DeclarationImpl(
         override fun hashCode(): Int = Objects.hash(super.hashCode(), value, type)
     }
 
-    // ── Attribute record classes ────────────────────────────────────��───────
+    // ── Objective-C concrete declaration types ─────────────────────────────
 
-    @JvmRecord
-    data class AnonymousStruct(val offset: OptionalLong) {
+    class ObjCClassImpl(
+        private val superClass: String?,
+        private val protocols: List<String>,
+        private val methods: List<Declaration.ObjCMethod>,
+        private val properties: List<Declaration.ObjCProperty>,
+        name: String, pos: Position
+    ) : DeclarationImpl(name, pos), Declaration.ObjCClass {
+        override fun <R> accept(v: Declaration.Visitor<R>): R = v.visitObjCClass(this)
+        override fun superClass(): String? = superClass
+        override fun protocols(): List<String> = protocols
+        override fun methods(): List<Declaration.ObjCMethod> = methods
+        override fun properties(): List<Declaration.ObjCProperty> = properties
+    }
+
+    class ObjCProtocolImpl(
+        private val protocols: List<String>,
+        private val methods: List<Declaration.ObjCMethod>,
+        private val properties: List<Declaration.ObjCProperty>,
+        name: String, pos: Position
+    ) : DeclarationImpl(name, pos), Declaration.ObjCProtocol {
+        override fun <R> accept(v: Declaration.Visitor<R>): R = v.visitObjCProtocol(this)
+        override fun protocols(): List<String> = protocols
+        override fun methods(): List<Declaration.ObjCMethod> = methods
+        override fun properties(): List<Declaration.ObjCProperty> = properties
+    }
+
+    class ObjCCategoryImpl(
+        private val extendedClass: String,
+        private val categoryName: String,
+        private val methods: List<Declaration.ObjCMethod>,
+        private val properties: List<Declaration.ObjCProperty>,
+        name: String, pos: Position
+    ) : DeclarationImpl(name, pos), Declaration.ObjCCategory {
+        override fun <R> accept(v: Declaration.Visitor<R>): R = v.visitObjCCategory(this)
+        override fun extendedClass(): String = extendedClass
+        override fun categoryName(): String = categoryName
+        override fun methods(): List<Declaration.ObjCMethod> = methods
+        override fun properties(): List<Declaration.ObjCProperty> = properties
+    }
+
+    class ObjCMethodImpl(
+        private val isClassMethod: Boolean,
+        private val selector: String,
+        private val returnType: Type,
+        private val params: List<Declaration.Variable>,
+        private val isOptional: Boolean,
+        name: String, pos: Position
+    ) : DeclarationImpl(name, pos), Declaration.ObjCMethod {
+        override fun <R> accept(v: Declaration.Visitor<R>): R = v.visitDeclaration(this)
+        override fun isClassMethod(): Boolean = isClassMethod
+        override fun selector(): String = selector
+        override fun returnType(): Type = returnType
+        override fun parameters(): List<Declaration.Variable> = params
+        override fun isOptional(): Boolean = isOptional
+    }
+
+    class ObjCPropertyImpl(
+        private val type: Type,
+        private val isReadOnly: Boolean,
+        private val getterSelector: String,
+        private val setterSelector: String,
+        name: String, pos: Position
+    ) : DeclarationImpl(name, pos), Declaration.ObjCProperty {
+        override fun <R> accept(v: Declaration.Visitor<R>): R =
+            v.visitDeclaration(this)
+        override fun type(): Type = type
+        override fun isReadOnly(): Boolean = isReadOnly
+        override fun getterSelector(): String = getterSelector
+        override fun setterSelector(): String = setterSelector
+    }
+
+    // ── Attribute record classes ───────────────────────────────────────────
+
+    data class AnonymousStruct(val offset: Long?) : Declaration.Attribute {
         companion object {
-            @JvmStatic
-            fun with(scoped: Declaration.Scoped, offset: OptionalLong) {
+            fun with(scoped: Declaration.Scoped, offset: Long?) {
                 scoped.addAttribute(AnonymousStruct(offset))
             }
-            @JvmStatic
             fun getOrThrow(scoped: Declaration.Scoped): AnonymousStruct =
-                scoped.getAttribute(AnonymousStruct::class.java).orElseThrow()
-            @JvmStatic
+                scoped.getAttribute(AnonymousStruct::class.java)!!
             fun isPresent(scoped: Declaration.Scoped): Boolean =
-                scoped.getAttribute(AnonymousStruct::class.java).isPresent
-            @JvmStatic
+                scoped.getAttribute(AnonymousStruct::class.java) != null
             fun anonName(scoped: Declaration.Scoped): String =
-                "\$anon\$${scoped.pos().line()}:${scoped.pos().col()}"
+                "\$anon\$${scoped.pos().line}:${scoped.pos().col}"
         }
     }
 
-    @JvmRecord
-    data class EnumConstant(val enumName: String) {
+    data class EnumConstant(val enumName: String) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(constant: Declaration.Constant, enumName: String) {
                 constant.addAttribute(EnumConstant(enumName))
             }
-            @JvmStatic
-            fun get(constant: Declaration.Constant): Optional<String> =
-                constant.getAttribute(EnumConstant::class.java).map { it.enumName }
+            fun get(constant: Declaration.Constant): String? =
+                constant.getAttribute(EnumConstant::class.java)?.enumName
         }
     }
 
-    @JvmRecord
-    data class ClangEnumType(val type: Type) {
+    data class ClangEnumType(val type: Type) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(enumDecl: Declaration.Scoped, type: Type) {
                 enumDecl.addAttribute(ClangEnumType(type))
             }
-            @JvmStatic
-            fun get(enumDecl: Declaration.Scoped): Optional<Type> =
-                enumDecl.getAttribute(ClangEnumType::class.java).map { it.type }
+            fun get(enumDecl: Declaration.Scoped): Type? =
+                enumDecl.getAttribute(ClangEnumType::class.java)?.type
         }
     }
 
     /** Marker attribute: no code should be generated for this declaration. */
-    @JvmRecord
-    data class Skip(private val _compat: Int = 0) {
+    data class Skip(private val _compat: Int = 0) : Declaration.Attribute {
         companion object {
             private val INSTANCE = Skip()
-            @JvmStatic
             fun with(declaration: Declaration) {
                 declaration.addAttribute(INSTANCE)
             }
-            @JvmStatic
             fun isPresent(declaration: Declaration): Boolean =
-                declaration.getAttribute(Skip::class.java).isPresent
+                declaration.getAttribute(Skip::class.java) != null
         }
     }
 
-    @JvmRecord
-    data class JavaName(val names: List<String>) {
+    data class JavaName(val names: List<String>) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(declaration: Declaration, names: List<String>) {
                 declaration.addAttribute(JavaName(names))
             }
-            @JvmStatic
             fun getOrThrow(declaration: Declaration): String =
-                declaration.getAttribute(JavaName::class.java)
-                    .map { it.names.last() }.get()
-            @JvmStatic
+                declaration.getAttribute(JavaName::class.java)!!.names.last()
             fun getFullNameOrThrow(declaration: Declaration): String =
-                declaration.getAttribute(JavaName::class.java)
-                    .map { it.names.joinToString(".") }.get()
-            @JvmStatic
+                declaration.getAttribute(JavaName::class.java)!!.names.joinToString(".")
             fun isPresent(declaration: Declaration): Boolean =
-                declaration.getAttribute(JavaName::class.java).isPresent
+                declaration.getAttribute(JavaName::class.java) != null
         }
     }
 
-    @JvmRecord
-    data class JavaFunctionalInterfaceName(val fiName: String) {
+    data class JavaFunctionalInterfaceName(val fiName: String) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(declaration: Declaration, fiName: String) {
                 declaration.addAttribute(JavaFunctionalInterfaceName(fiName))
             }
-            @JvmStatic
             fun getOrThrow(declaration: Declaration): String =
-                declaration.getAttribute(JavaFunctionalInterfaceName::class.java)
-                    .map { it.fiName }.get()
+                declaration.getAttribute(JavaFunctionalInterfaceName::class.java)!!.fiName
         }
     }
 
-    @JvmRecord
-    data class ClangAlignOf(val align: Long) {
+    data class ClangAlignOf(val align: Long) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(declaration: Declaration, align: Long) {
                 declaration.addAttribute(ClangAlignOf(align))
             }
-            @JvmStatic
-            fun get(declaration: Declaration): OptionalLong =
-                declaration.getAttribute(ClangAlignOf::class.java)
-                    .stream().mapToLong { it.align }.findFirst()
-            @JvmStatic
+            fun get(declaration: Declaration): Long? =
+                declaration.getAttribute(ClangAlignOf::class.java)?.align
             fun getOrThrow(declaration: Declaration): Long =
-                declaration.getAttribute(ClangAlignOf::class.java)
-                    .stream().mapToLong { it.align }.findFirst().asLong
+                declaration.getAttribute(ClangAlignOf::class.java)!!.align
         }
     }
 
-    @JvmRecord
-    data class ClangSizeOf(val size: Long) {
+    data class ClangSizeOf(val size: Long) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(declaration: Declaration, size: Long) {
                 declaration.addAttribute(ClangSizeOf(size))
             }
-            @JvmStatic
-            fun get(declaration: Declaration): OptionalLong =
-                declaration.getAttribute(ClangSizeOf::class.java)
-                    .stream().mapToLong { it.size }.findFirst()
-            @JvmStatic
+            fun get(declaration: Declaration): Long? =
+                declaration.getAttribute(ClangSizeOf::class.java)?.size
             fun getOrThrow(declaration: Declaration): Long =
-                declaration.getAttribute(ClangSizeOf::class.java)
-                    .stream().mapToLong { it.size }.findFirst().asLong
+                declaration.getAttribute(ClangSizeOf::class.java)!!.size
         }
     }
 
-    @JvmRecord
-    data class ClangOffsetOf(val offset: Long) {
+    data class ClangOffsetOf(val offset: Long) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(declaration: Declaration, offset: Long) {
                 declaration.addAttribute(ClangOffsetOf(offset))
             }
-            @JvmStatic
-            fun get(declaration: Declaration): OptionalLong =
-                declaration.getAttribute(ClangOffsetOf::class.java)
-                    .stream().mapToLong { it.offset }.findFirst()
-            @JvmStatic
+            fun get(declaration: Declaration): Long? =
+                declaration.getAttribute(ClangOffsetOf::class.java)?.offset
             fun getOrThrow(declaration: Declaration): Long =
-                declaration.getAttribute(ClangOffsetOf::class.java)
-                    .stream().mapToLong { it.offset }.findFirst().asLong
+                declaration.getAttribute(ClangOffsetOf::class.java)!!.offset
         }
     }
 
-    @JvmRecord
-    data class NestedDeclarations(val nestedDeclarations: List<Declaration.Scoped>) {
+    data class NestedDeclarations(val nestedDeclarations: List<Declaration.Scoped>) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(declaration: Declaration, nestedDeclarations: List<Declaration.Scoped>) {
                 declaration.addAttribute(NestedDeclarations(nestedDeclarations))
             }
-            @JvmStatic
-            fun get(declaration: Declaration): Optional<List<Declaration.Scoped>> =
-                declaration.getAttribute(NestedDeclarations::class.java)
-                    .stream().map { it.nestedDeclarations }.findFirst()
+            fun get(declaration: Declaration): List<Declaration.Scoped>? =
+                declaration.getAttribute(NestedDeclarations::class.java)?.nestedDeclarations
         }
     }
 
-    @JvmRecord
-    data class DeclarationString(val declString: String) {
+    data class DeclarationString(val declString: String) : Declaration.Attribute {
         companion object {
-            @JvmStatic
             fun with(declaration: Declaration, declString: String) {
                 declaration.addAttribute(DeclarationString(declString))
             }
-            @JvmStatic
-            fun get(declaration: Declaration): Optional<String> =
-                declaration.getAttribute(DeclarationString::class.java)
-                    .stream().map { it.declString }.findFirst()
-            @JvmStatic
+            fun get(declaration: Declaration): String? =
+                declaration.getAttribute(DeclarationString::class.java)?.declString
             fun getOrThrow(declaration: Declaration): String =
-                declaration.getAttribute(DeclarationString::class.java)
-                    .stream().map { it.declString }.findFirst().get()
+                declaration.getAttribute(DeclarationString::class.java)!!.declString
         }
     }
 }

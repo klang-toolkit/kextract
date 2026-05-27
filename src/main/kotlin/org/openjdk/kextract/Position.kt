@@ -28,28 +28,14 @@ package org.openjdk.kextract
 import java.nio.file.Path
 
 /**
- * Instances of this class model are used to model source code positions.
+ * Represents a source-code position (file, line, column).
+ * [NO_POSITION] is the sentinel for unknown / unavailable positions.
  */
-interface Position {
-    fun path(): Path?
-    fun line(): Int
-    fun col(): Int
+data class Position(val path: Path?, val line: Int, val col: Int) {
+    override fun toString(): String =
+        if (path == null) "NO_POSITION" else "$path:$line:$col"
 
     companion object {
-        @JvmField
-        val NO_POSITION: Position = object : Position {
-            override fun path(): Path? = null
-            override fun line(): Int = 0
-            override fun col(): Int = 0
-            override fun equals(other: Any?): Boolean {
-                if (this === other) return true
-                return other is Position &&
-                    path() == other.path() &&
-                    line() == other.line() &&
-                    col() == other.col()
-            }
-            override fun hashCode(): Int = 0
-            override fun toString(): String = "NO_POSITION"
-        }
+        val NO_POSITION = Position(null, 0, 0)
     }
 }

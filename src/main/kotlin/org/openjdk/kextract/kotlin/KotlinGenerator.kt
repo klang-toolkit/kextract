@@ -4,6 +4,7 @@ package org.openjdk.kextract.kotlin
 import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.kotlin.builders.KotlinToplevelBuilder
 import org.openjdk.kextract.kotlin.models.KotlinSourceFile
+import org.openjdk.kextract.kotlin.objc.ObjCRuntimeTemplate
 
 /**
  * Main entry point for Kotlin code generation.
@@ -11,8 +12,13 @@ import org.openjdk.kextract.kotlin.models.KotlinSourceFile
  */
 class KotlinGenerator {
     /**
-     * Generates Kotlin source files from a C AST.
-     * @param scoped The root declaration (parsed from C headers).
+     * Generates Kotlin source files from a C/ObjC AST.
+     *
+     * When Objective-C declarations are present an additional `ObjCRuntime.kt`
+     * helper file is automatically included in the result so callers can use
+     * `ObjCRuntime.msgSend` / `ObjCRuntime.sel` / `ObjCRuntime.getClass`.
+     *
+     * @param scoped The root declaration (parsed from C/ObjC headers).
      * @param headerName The name of the header file (e.g., "mylib.h").
      * @param targetPackage The target package (e.g., "org.mylib").
      * @return List of generated Kotlin source files.
@@ -24,8 +30,12 @@ class KotlinGenerator {
     ): List<KotlinSourceFile> {
         val className = sanitizeClassName(headerName)
         val toplevel = KotlinToplevelBuilder(targetPackage, className, headerName)
-        scoped.accept(toplevel, scoped)
-        return toplevel.getFiles()
+        scoped.accept(toplevel)
+        val files = toplevel.getFiles().toMutableList()
+        if (toplevel.needsObjCRuntime) {
+            files.add(ObjCRuntimeTemplate.generate(targetPackage))
+        }
+        return files
     }
 
     private fun sanitizeClassName(name: String): String =

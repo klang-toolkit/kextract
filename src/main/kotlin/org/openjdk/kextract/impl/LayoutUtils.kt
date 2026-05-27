@@ -34,10 +34,8 @@ import org.openjdk.kextract.impl.DeclarationImpl.JavaName
  */
 object LayoutUtils {
 
-    @JvmStatic
     fun layoutString(type: Type): String = fieldLayoutString(type, -1, -1)
 
-    @JvmStatic
     fun functionDescriptorString(functionType: Type.Function): String {
         val type = Utils.methodTypeFor(functionType)
         val noArgs = type.parameterCount() == 0
@@ -63,7 +61,7 @@ object LayoutUtils {
             type is Type.Primitive -> primitiveLayoutString(type, typeAlign, expectedAlign)
             type is Type.Declared && Utils.isEnum(type) -> {
                 val enumType = ClangEnumType.get(type.tree())
-                if (enumType.isPresent) fieldLayoutString(enumType.get(), typeAlign, expectedAlign)
+                if (enumType != null) fieldLayoutString(enumType, typeAlign, expectedAlign)
                 else "ValueLayout.JAVA_INT"
             }
             type is Type.Declared && Utils.isStructOrUnion(type) -> {
@@ -73,7 +71,7 @@ object LayoutUtils {
             type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> "ValueLayout.ADDRESS"
             type is Type.Delegated -> fieldLayoutString(type.type(), typeAlign, expectedAlign)
             type is Type.Function -> "ValueLayout.ADDRESS"
-            type is Type.Array -> "MemoryLayout.sequenceLayout(${type.elementCount().orElse(0L)}, ${fieldLayoutString(type.elementType(), typeAlign, expectedAlign)})"
+            type is Type.Array -> "MemoryLayout.sequenceLayout(${type.elementCount() ?: 0L}, ${fieldLayoutString(type.elementType(), typeAlign, expectedAlign)})"
             else -> throw UnsupportedOperationException("Unexpected type: $type")
         }
     }

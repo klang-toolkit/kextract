@@ -29,7 +29,6 @@ import org.openjdk.kextract.Declaration
 import org.openjdk.kextract.Type
 
 import java.lang.invoke.MethodType
-import java.util.Optional
 import java.util.stream.Collectors
 import java.util.stream.IntStream
 
@@ -50,12 +49,11 @@ internal class FunctionalInterfaceBuilder private constructor(
     runtimeHelperName
 ) {
 
-    private val parameterNames: Optional<List<String>> =
-        funcType.parameterNames().map { NameMangler.javaSafeIdentifiers(it) }
+    private val parameterNames: List<String>? =
+        funcType.parameterNames()?.let { NameMangler.javaSafeIdentifiers(it) }
     private val methodType: MethodType = Utils.methodTypeFor(funcType)
 
     companion object {
-        @JvmStatic
         fun generate(
             builder: SourceFileBuilder,
             className: String,
@@ -145,8 +143,8 @@ internal class FunctionalInterfaceBuilder private constructor(
     // private generation
     private fun parameterName(i: Int): String {
         var name = ""
-        if (parameterNames.isPresent) {
-            name = parameterNames.get()[i]
+        if (parameterNames != null) {
+            name = parameterNames[i]
         }
         return if (name.isEmpty()) "_x$i" else name
     }

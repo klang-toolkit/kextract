@@ -75,12 +75,11 @@ internal interface Builder {
 
 internal class OutputFactory private constructor(
     private val toplevelBuilder: ToplevelBuilder
-) : Declaration.Visitor<Void?, Declaration?> {
+) : Declaration.Visitor<Void?> {
 
     private var currentBuilder: Builder = toplevelBuilder
 
     companion object {
-        @JvmStatic
         fun generateWrapped(
             decl: Declaration.Scoped,
             pkgName: String,
@@ -105,10 +104,10 @@ internal class OutputFactory private constructor(
     }
 
     private fun generateDecl(tree: Declaration) {
-        tree.accept(this, null)
+        tree.accept(this)
     }
 
-    override fun visitConstant(constant: Declaration.Constant, parent: Declaration?): Void? {
+    override fun visitConstant(constant: Declaration.Constant): Void? {
         if (Skip.isPresent(constant)) {
             return null
         }
@@ -117,7 +116,7 @@ internal class OutputFactory private constructor(
         return null
     }
 
-    override fun visitScoped(d: Declaration.Scoped, parent: Declaration?): Void? {
+    override fun visitScoped(d: Declaration.Scoped): Void? {
         if (Skip.isPresent(d)) {
             return null
         }
@@ -132,7 +131,7 @@ internal class OutputFactory private constructor(
             currentBuilder = structBuilder
         }
         try {
-            d.members().forEach { fieldTree -> fieldTree.accept(this, d) }
+            d.members().forEach { fieldTree -> fieldTree.accept(this) }
         } finally {
             if (isStructKind) {
                 structBuilder!!.end()
@@ -146,21 +145,21 @@ internal class OutputFactory private constructor(
         currentBuilder.addFunctionalInterface(parentDecl, func)
     }
 
-    override fun visitFunction(funcTree: Declaration.Function, parent: Declaration?): Void? {
+    override fun visitFunction(funcTree: Declaration.Function): Void? {
         if (Skip.isPresent(funcTree)) {
             return null
         }
 
         // check for function pointer type arguments
         for (param in funcTree.parameters()) {
-            Utils.forEachNested(param) { s -> s.accept(this, param) }
+            Utils.forEachNested(param) { s -> s.accept(this) }
             val f = Utils.getAsFunctionPointer(param.type())
             if (f != null) {
                 generateFunctionalInterface(param, f)
             }
         }
 
-        Utils.forEachNested(funcTree) { s -> s.accept(this, funcTree) }
+        Utils.forEachNested(funcTree) { s -> s.accept(this) }
 
         // return type could be a function pointer type
         val returnFunc = Utils.getAsFunctionPointer(funcTree.type().returnType())
@@ -172,17 +171,17 @@ internal class OutputFactory private constructor(
         return null
     }
 
-    override fun visitTypedef(tree: Declaration.Typedef, parent: Declaration?): Void? {
+    override fun visitTypedef(tree: Declaration.Typedef): Void? {
         if (Skip.isPresent(tree)) {
             return null
         }
         val type = tree.type()
-        Utils.forEachNested(tree) { s -> s.accept(this, null) }
+        Utils.forEachNested(tree) { s -> s.accept(this) }
 
         val structOrUnionDecl = Utils.structOrUnionDecl(type)
         if (structOrUnionDecl != null) {
             if (!structOrUnionDecl.name().isEmpty() ||
-                !NestedDeclarations.get(tree).orElse(listOf()).contains(structOrUnionDecl)
+                !(NestedDeclarations.get(tree) ?: listOf()).contains(structOrUnionDecl)
             ) {
                 // Only generate a typedef class if (a) struct/union name is non-empty,
                 // or if (b) the declaration of the struct/union is not nested inside this typedef,
@@ -207,13 +206,13 @@ internal class OutputFactory private constructor(
         return null
     }
 
-    override fun visitVariable(tree: Declaration.Variable, parent: Declaration?): Void? {
+    override fun visitVariable(tree: Declaration.Variable): Void? {
         if (Skip.isPresent(tree)) {
             return null
         }
         val type = tree.type()
 
-        Utils.forEachNested(tree) { s -> s.accept(this, tree) }
+        Utils.forEachNested(tree) { s -> s.accept(this) }
 
         val fieldName = tree.name()
         assert(fieldName.isNotEmpty())

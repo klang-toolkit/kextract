@@ -34,18 +34,7 @@ import org.openjdk.kextract.clang.LibClang
 import org.openjdk.kextract.clang.SourceLocation
 import org.openjdk.kextract.newimpl.Logger
 
-import java.nio.file.Path
 import java.util.ArrayList
-
-private class PositionRecord(
-    private val posPath: Path?,
-    private val posLine: Int,
-    private val posCol: Int
-) : Position {
-    override fun path(): Path? = posPath
-    override fun line(): Int = posLine
-    override fun col(): Int = posCol
-}
 
 class Parser(private val logger: Logger) {
 
@@ -80,8 +69,8 @@ class Parser(private val logger: Logger) {
                 val range = c.getExtent() ?: return@forEach
                 val tokens = c.getTranslationUnit().tokens(range)
                 val constant = macroParser.parseConstant(c, c.spelling(), tokens)
-                if (constant.isPresent) {
-                    decls.add(constant.get())
+                if (constant != null) {
+                    decls.add(constant)
                 }
             }
         }
@@ -113,10 +102,9 @@ class Parser(private val logger: Logger) {
         }
     }
 
-    private fun asPosition(loc: SourceLocation.Location): Position {
-        return if (loc.path == null) Position.NO_POSITION
-        else PositionRecord(loc.path, loc.line, loc.column)
-    }
+    private fun asPosition(loc: SourceLocation.Location): Position =
+        if (loc.path == null) Position.NO_POSITION
+        else Position(loc.path, loc.line, loc.column)
 
     private fun isMacro(c: org.openjdk.kextract.clang.Cursor): Boolean {
         return c.isPreprocessing() && c.kind() == CursorKind.MacroDefinition

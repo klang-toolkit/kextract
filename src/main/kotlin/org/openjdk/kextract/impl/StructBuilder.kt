@@ -450,10 +450,10 @@ internal class StructBuilder(
     companion object {
         private fun recordMemberOffset(member: Declaration): Long {
             return if (member is Declaration.Variable) {
-                ClangOffsetOf.get(member).orElseThrow()
+                ClangOffsetOf.get(member)!!
             } else {
                 // anonymous struct
-                AnonymousStruct.getOrThrow(member as Scoped).offset.orElseThrow()
+                AnonymousStruct.getOrThrow(member as Scoped).offset!!
             }
         }
     }

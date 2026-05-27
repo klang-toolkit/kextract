@@ -26,9 +26,6 @@
 package org.openjdk.kextract
 
 import org.openjdk.kextract.impl.TypeImpl
-import java.util.Optional
-import java.util.OptionalLong
-import java.util.function.Supplier
 
 /**
  * Instances of this class are used to model types in the foreign language.
@@ -40,7 +37,7 @@ interface Type {
     fun isErroneous(): Boolean
 
     /** Entry point for visiting type instances. */
-    fun <R, D> accept(visitor: Visitor<R, D>, data: D): R
+    fun <R> accept(visitor: Visitor<R>): R
 
     override fun equals(other: Any?): Boolean
     override fun hashCode(): Int
@@ -82,7 +79,7 @@ interface Type {
         fun varargs(): Boolean
         fun argumentTypes(): List<Type>
         fun returnType(): Type
-        fun parameterNames(): Optional<List<String>>
+        fun parameterNames(): List<String>?
         fun withParameterNames(paramNames: List<String>): Function
     }
 
@@ -92,7 +89,7 @@ interface Type {
     interface Array : Type {
         enum class Kind { VECTOR, ARRAY, INCOMPLETE_ARRAY }
         fun kind(): Kind
-        fun elementCount(): OptionalLong
+        fun elementCount(): Long?
         fun elementType(): Type
     }
 
@@ -102,62 +99,61 @@ interface Type {
     interface Delegated : Type {
         enum class Kind { TYPEDEF, POINTER, SIGNED, UNSIGNED, ATOMIC, VOLATILE, COMPLEX }
         fun kind(): Kind
-        fun name(): Optional<String>
+        fun name(): String?
         fun type(): Type
     }
 
     /**
      * Type visitor interface.
      * @param R the visitor's return type.
-     * @param P the visitor's parameter type.
      */
-    interface Visitor<R, P> {
-        fun visitPrimitive(t: Primitive, p: P): R = visitType(t, p)
-        fun visitFunction(t: Function, p: P): R = visitType(t, p)
-        fun visitDeclared(t: Declared, p: P): R = visitType(t, p)
-        fun visitDelegated(t: Delegated, p: P): R = visitType(t, p)
-        fun visitArray(t: Array, p: P): R = visitType(t, p)
-        fun visitType(t: Type, p: P): R = throw UnsupportedOperationException()
+    interface Visitor<R> {
+        fun visitPrimitive(t: Primitive): R = visitType(t)
+        fun visitFunction(t: Function): R = visitType(t)
+        fun visitDeclared(t: Declared): R = visitType(t)
+        fun visitDelegated(t: Delegated): R = visitType(t)
+        fun visitArray(t: Array): R = visitType(t)
+        fun visitType(t: Type): R = throw UnsupportedOperationException()
     }
 
     companion object {
-        @JvmStatic fun void_(): Primitive =
+        fun void_(): Primitive =
             TypeImpl.PrimitiveImpl(Primitive.Kind.Void)
 
-        @JvmStatic fun primitive(kind: Primitive.Kind): Primitive =
+        fun primitive(kind: Primitive.Kind): Primitive =
             TypeImpl.PrimitiveImpl(kind)
 
-        @JvmStatic fun qualified(kind: Delegated.Kind, type: Type): Delegated =
+        fun qualified(kind: Delegated.Kind, type: Type): Delegated =
             TypeImpl.QualifiedImpl(kind, type)
 
-        @JvmStatic fun typedef(name: String, aliased: Type): Delegated =
+        fun typedef(name: String, aliased: Type): Delegated =
             TypeImpl.QualifiedImpl(Delegated.Kind.TYPEDEF, name, aliased)
 
-        @JvmStatic fun pointer(): Delegated =
-            TypeImpl.PointerImpl(Supplier { TypeImpl.PrimitiveImpl(Primitive.Kind.Void) })
+        fun pointer(): Delegated =
+            TypeImpl.PointerImpl { TypeImpl.PrimitiveImpl(Primitive.Kind.Void) }
 
-        @JvmStatic fun pointer(pointee: Type): Delegated =
-            TypeImpl.PointerImpl(Supplier { pointee })
+        fun pointer(pointee: Type): Delegated =
+            TypeImpl.PointerImpl { pointee }
 
-        @JvmStatic fun pointer(pointee: Supplier<Type>): Delegated =
+        fun pointer(pointee: () -> Type): Delegated =
             TypeImpl.PointerImpl(pointee)
 
-        @JvmStatic fun function(varargs: Boolean, returnType: Type, vararg arguments: Type): Function =
+        fun function(varargs: Boolean, returnType: Type, vararg arguments: Type): Function =
             TypeImpl.FunctionImpl(varargs, arguments.toList(), returnType, null)
 
-        @JvmStatic fun declared(tree: Declaration.Scoped): Declared =
+        fun declared(tree: Declaration.Scoped): Declared =
             TypeImpl.DeclaredImpl(tree)
 
-        @JvmStatic fun vector(elementCount: Long, elementType: Type): Array =
+        fun vector(elementCount: Long, elementType: Type): Array =
             TypeImpl.ArrayImpl(Array.Kind.VECTOR, elementCount, elementType)
 
-        @JvmStatic fun array(elementCount: Long, elementType: Type): Array =
+        fun array(elementCount: Long, elementType: Type): Array =
             TypeImpl.ArrayImpl(Array.Kind.ARRAY, elementCount, elementType)
 
-        @JvmStatic fun array(elementType: Type): Array =
+        fun array(elementType: Type): Array =
             TypeImpl.ArrayImpl(Array.Kind.INCOMPLETE_ARRAY, elementType)
 
-        @JvmStatic fun error(erroneousName: String): Type =
+        fun error(erroneousName: String): Type =
             TypeImpl.ErronrousTypeImpl(erroneousName)
     }
 }

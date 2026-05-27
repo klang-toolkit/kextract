@@ -41,16 +41,18 @@ import org.openjdk.kextract.impl.DeclarationImpl.Skip
 import org.openjdk.kextract.impl.TypeImpl
 import org.openjdk.kextract.impl.Utils
 
-class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?, Declaration?> {
+class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?> {
+
+    private var firstNamedParent: Declaration? = null
 
     fun scan(header: Scoped): Scoped {
-        header.members().forEach { it.accept(this, null) }
+        header.members().forEach { it.accept(this) }
         return header
     }
 
-    override fun visitFunction(funcTree: Function, firstNamedParent: Declaration?): Void? {
+    override fun visitFunction(funcTree: Function): Void? {
         if (Skip.isPresent(funcTree)) return null
-        Utils.forEachNested(funcTree) { it.accept(this, firstNamedParent) }
+        Utils.forEachNested(funcTree) { it.accept(this) }
 
         val unsupportedType = firstUnsupportedType(funcTree.type(), false)
         if (unsupportedType != null) {
@@ -60,7 +62,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?,
         }
 
         for (param in funcTree.parameters()) {
-            Utils.forEachNested(param) { it.accept(this, firstNamedParent) }
+            Utils.forEachNested(param) { it.accept(this) }
             val f = Utils.getAsFunctionPointer(param.type())
             if (f != null && !checkFunctionTypeSupported(param, f, funcTree.name())) {
                 Skip.with(funcTree)
@@ -75,11 +77,16 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?,
         return null
     }
 
-    override fun visitVariable(varTree: Variable, firstNamedParent: Declaration?): Void? {
+    override fun visitVariable(varTree: Variable): Void? {
         if (Skip.isPresent(varTree)) return null
-        Utils.forEachNested(varTree) { it.accept(this, varTree) }
 
-        val name = fieldName(firstNamedParent, varTree)
+        val incomingParent = firstNamedParent
+        val saved = firstNamedParent
+        firstNamedParent = varTree
+        Utils.forEachNested(varTree) { it.accept(this) }
+        firstNamedParent = saved
+
+        val name = fieldName(incomingParent, varTree)
         val unsupportedType = firstUnsupportedType(varTree.type(), false)
         if (unsupportedType != null) {
             warnSkip(varTree.pos(), name, unsupportedType(unsupportedType))
@@ -94,7 +101,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?,
         return null
     }
 
-    override fun visitScoped(scoped: Scoped, firstNamedParent: Declaration?): Void? {
+    override fun visitScoped(scoped: Scoped): Void? {
         if (Skip.isPresent(scoped)) return null
 
         val unsupportedType = firstUnsupportedType(Type.declared(scoped), false)
@@ -115,15 +122,18 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?,
         }
 
         val newNamedParent = if (scoped.name().isNotEmpty()) scoped else firstNamedParent
-        scoped.members().forEach { it.accept(this, newNamedParent) }
+        val saved = firstNamedParent
+        firstNamedParent = newNamedParent
+        scoped.members().forEach { it.accept(this) }
+        firstNamedParent = saved
         return null
     }
 
-    override fun visitTypedef(typedefTree: Typedef, firstNamedParent: Declaration?): Void? {
+    override fun visitTypedef(typedefTree: Typedef): Void? {
         if (Skip.isPresent(typedefTree)) return null
 
         if (typedefTree.type() is Declared) {
-            visitScoped((typedefTree.type() as Declared).tree(), null)
+            visitScoped((typedefTree.type() as Declared).tree())
         }
 
         val unsupportedType = firstUnsupportedType(typedefTree.type(), false)
@@ -140,7 +150,7 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?,
         return null
     }
 
-    override fun visitConstant(d: Constant, firstNamedParent: Declaration?): Void? {
+    override fun visitConstant(d: Constant): Void? {
         if (Skip.isPresent(d)) return null
 
         val name = fieldName(firstNamedParent, d)
@@ -152,7 +162,12 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?,
         return null
     }
 
-    override fun visitDeclaration(d: Declaration, firstNamedParent: Declaration?): Void? = null
+    // ObjC declarations: all types are normalized to MemorySegment pointers — no unsupported types
+    override fun visitObjCClass(d: Declaration.ObjCClass): Void? = null
+    override fun visitObjCProtocol(d: Declaration.ObjCProtocol): Void? = null
+    override fun visitObjCCategory(d: Declaration.ObjCCategory): Void? = null
+
+    override fun visitDeclaration(d: Declaration): Void? = null
 
     private fun checkFunctionTypeSupported(decl: Declaration, func: Type.Function, nameOfSkipped: String): Boolean {
         val unsupportedType = firstUnsupportedType(func, false)
@@ -184,53 +199,42 @@ class UnsupportedFilter(private val logger: Logger) : Declaration.Visitor<Void?,
             return prefix + decl.name()
         }
 
-        fun firstUnsupportedType(type: Type, allowVoid: Boolean): Type? =
-            type.accept(UNSUPPORTED_VISITOR, allowVoid)
-
-        private val UNSUPPORTED_VISITOR = object : Type.Visitor<Type?, Boolean> {
-            override fun visitPrimitive(t: Type.Primitive, allowVoid: Boolean): Type? = when (t.kind()) {
+        fun firstUnsupportedType(type: Type, allowVoid: Boolean): Type? = when (type) {
+            is Type.Primitive -> when (type.kind()) {
                 Type.Primitive.Kind.Char16,
                 Type.Primitive.Kind.Float128,
                 Type.Primitive.Kind.HalfFloat,
                 Type.Primitive.Kind.Int128,
-                Type.Primitive.Kind.WChar -> t
-                Type.Primitive.Kind.LongDouble -> if (TypeImpl.IS_WINDOWS) null else t
-                Type.Primitive.Kind.Void -> if (allowVoid) null else t
+                Type.Primitive.Kind.WChar -> type
+                Type.Primitive.Kind.LongDouble -> if (TypeImpl.IS_WINDOWS) null else type
+                Type.Primitive.Kind.Void -> if (allowVoid) null else type
                 else -> null
             }
-
-            override fun visitFunction(t: Type.Function, allowVoid: Boolean): Type? {
-                for (arg in t.argumentTypes()) {
+            is Type.Function -> {
+                for (arg in type.argumentTypes()) {
                     firstUnsupportedType(arg, false)?.let { return it }
                 }
-                return firstUnsupportedType(t.returnType(), true)
+                firstUnsupportedType(type.returnType(), true)
             }
-
-            override fun visitDeclared(t: Declared, allowVoid: Boolean): Type? {
-                if (t.tree().kind() == Kind.STRUCT || t.tree().kind() == Kind.UNION) {
-                    if (!isValidStructOrUnion(t.tree())) return t
-                }
-                return null
+            is Declared -> {
+                if (type.tree().kind() == Kind.STRUCT || type.tree().kind() == Kind.UNION) {
+                    if (!isValidStructOrUnion(type.tree())) type else null
+                } else null
             }
-
-            private fun isValidStructOrUnion(scoped: Scoped): Boolean {
-                if (ClangSizeOf.get(scoped).isEmpty) return false
-                if (AnonymousStruct.isPresent(scoped) &&
-                    AnonymousStruct.getOrThrow(scoped).offset.isEmpty) return false
-                return true
-            }
-
-            override fun visitDelegated(t: Type.Delegated, allowVoid: Boolean): Type? =
-                if (t.kind() != Type.Delegated.Kind.POINTER)
-                    firstUnsupportedType(t.type(), allowVoid)
+            is Type.Delegated -> {
+                if (type.kind() != Type.Delegated.Kind.POINTER)
+                    firstUnsupportedType(type.type(), allowVoid)
                 else null
-
-            override fun visitArray(t: Type.Array, allowVoid: Boolean): Type? =
-                firstUnsupportedType(t.elementType(), false)
-
-            override fun visitType(t: Type, allowVoid: Boolean): Type? =
-                if (t.isErroneous()) t else null
+            }
+            is Type.Array -> firstUnsupportedType(type.elementType(), false)
+            else -> if (type.isErroneous()) type else null
         }
 
+        private fun isValidStructOrUnion(scoped: Scoped): Boolean {
+            if (ClangSizeOf.get(scoped) == null) return false
+            if (AnonymousStruct.isPresent(scoped) &&
+                AnonymousStruct.getOrThrow(scoped).offset == null) return false
+            return true
+        }
     }
 }

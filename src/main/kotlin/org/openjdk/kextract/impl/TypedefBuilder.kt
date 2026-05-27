@@ -35,7 +35,6 @@ internal class TypedefBuilder private constructor(
 ) : ClassSourceBuilder(builder, "public", Kind.CLASS, className, superClass, null, runtimeHelperName) {
 
     companion object {
-        @JvmStatic
         fun generate(
             builder: SourceFileBuilder,
             className: String,

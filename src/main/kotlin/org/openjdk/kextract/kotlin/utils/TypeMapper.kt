@@ -20,7 +20,7 @@ object TypeMapper {
         }
 
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> {
-            val name = type.name().orElse("Any")
+            val name = type.name() ?: "Any"
             sanitizeName(name)
         }
 
