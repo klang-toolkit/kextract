@@ -39,20 +39,19 @@ object LayoutUtils {
     fun functionDescriptorString(functionType: Type.Function): String {
         val type = functionType.methodType()
         val noArgs = type.parameterCount() == 0
-        val builder = StringBuilder()
-        if (type.returnType() != Void.TYPE) {
-            builder.append("FunctionDescriptor.of(")
-            builder.append(layoutString(functionType.returnType()))
-            if (!noArgs) builder.append(", ")
-        } else {
-            builder.append("FunctionDescriptor.ofVoid(")
+        return buildString {
+            if (type.returnType() != Void.TYPE) {
+                append("FunctionDescriptor.of(")
+                append(layoutString(functionType.returnType()))
+                if (!noArgs) append(", ")
+            } else {
+                append("FunctionDescriptor.ofVoid(")
+            }
+            if (!noArgs) {
+                append(functionType.argumentTypes().joinToString(", ") { layoutString(it) })
+            }
+            append(")")
         }
-        if (!noArgs) {
-            val args = functionType.argumentTypes().joinToString(", ") { layoutString(it) }
-            builder.append(args)
-        }
-        builder.append(")")
-        return builder.toString()
     }
 
     private fun fieldLayoutString(type: Type, typeAlign: Long, expectedAlign: Long): String {
