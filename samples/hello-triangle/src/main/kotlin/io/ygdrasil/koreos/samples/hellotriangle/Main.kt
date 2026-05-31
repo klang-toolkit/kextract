@@ -146,7 +146,7 @@ class HelloTriangleApp : ApplicationHandler {
         // 1. Fenêtre Koreos
         val win = eventLoop.createWindow(
             WindowAttributes(
-                title = "Hello Triangle — Koreos + wgpu4k",
+                title = "Hello Triangle — Kadre + wgpu4k",
                 size = PhysicalSize(width = 800, height = 600),
                 visible = true,
                 resizable = true,
@@ -526,7 +526,7 @@ fun main(args: Array<String>) {
         return
     }
 
-    println("[hello-triangle] Démarrage — Koreos + wgpu4k triangle RGB (GRA-138)")
+    println("[hello-triangle] Démarrage — Kadre + wgpu4k triangle RGB (GRA-138)")
     EventLoop().runApp(HelloTriangleApp())
     println("[hello-triangle] Terminé")
 }

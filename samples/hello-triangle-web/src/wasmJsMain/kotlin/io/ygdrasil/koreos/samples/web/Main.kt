@@ -323,6 +323,6 @@ class HelloTriangleWebApp : ApplicationHandler {
  * Point d'entrée du sample hello-triangle-web (wasmJs).
  */
 fun main() {
-    println("[hello-triangle-web] Démarrage — Koreos + wgpu4k Web triangle RGB (Redmine #27)")
+    println("[hello-triangle-web] Démarrage — Kadre + wgpu4k Web triangle RGB (Redmine #27)")
     EventLoop().runApp(HelloTriangleWebApp())
 }

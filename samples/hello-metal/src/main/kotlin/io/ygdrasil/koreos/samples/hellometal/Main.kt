@@ -38,7 +38,7 @@ class HelloApp : ApplicationHandler {
 
         val window = eventLoop.createWindow(
             WindowAttributes(
-                title = "Hello Koreos M1",
+                title = "Hello Kadre M1",
                 size = PhysicalSize(width = 800, height = 600),
                 visible = true,
                 resizable = true,
@@ -82,7 +82,7 @@ class HelloApp : ApplicationHandler {
  * l'argument JVM `-XstartOnFirstThread` (ajouté dans build.gradle.kts).
  */
 fun main() {
-    println("[hello-metal] Démarrage — Koreos M1 POC")
+    println("[hello-metal] Démarrage — Kadre M1 POC")
     EventLoop().runApp(HelloApp())
     println("[hello-metal] Terminé")
 }

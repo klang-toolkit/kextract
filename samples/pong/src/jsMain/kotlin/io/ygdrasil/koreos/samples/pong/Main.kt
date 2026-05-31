@@ -11,7 +11,7 @@ package io.ygdrasil.koreos.samples.pong
 import io.ygdrasil.koreos.EventLoop
 
 fun main() {
-    println("[pong-web] Démarrage — Koreos + wgpu4k Web Pong")
+    println("[pong-web] Démarrage — Kadre + wgpu4k Web Pong")
     // On utilise PongAppWeb au lieu de PongGame commonMain : le backend Web
     // dispatch des WebWindowEvent.* (pas des WindowEvent.*) → PongGame
     // ne capte pas RedrawRequested et le rendu ne s'amorce jamais.
