@@ -1,9 +1,13 @@
 name: web-e2e
 
-# Test E2E smoke Web (Redmine #22) : « au moins une frame présentée » sur
-# hello-triangle-web. Build le bundle JS de production (toolchain Node/webpack
-# activée par #91), le sert, puis lance Playwright + Chromium headless (WebGPU
-# SwiftShader, sans GPU physique).
+# Test E2E smoke Web (Redmine #22 + #88) : « au moins une frame présentée »
+# + diff visuel sur hello-triangle-web. Build le bundle JS de production, le
+# sert, puis lance **Chrome stable** sur macOS (Metal) et Windows (D3D12).
+#
+# Pourquoi pas Linux/SwiftShader ?
+# - WebGPU encore expérimental sur Linux, rendu logiciel pouvant différer.
+# - Chrome stable sur macOS/Windows = WebGPU stable depuis Chrome 113 +
+#   GPU réel (Metal/D3D12) = reflète mieux l'usage des end-users.
 
 on:
   push:
@@ -24,8 +28,27 @@ on:
 
 jobs:
   web-e2e:
-    name: web-e2e
-    runs-on: ubuntu-latest
+    name: web-e2e (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows-latest exclu : les runners GitHub Actions Windows sont des VMs
+        # Hyper-V sans GPU passthrough, et ni Chrome stable ni Chromium ne
+        # parviennent à initialiser un adapter WebGPU exploitable (testé avec
+        # toutes les combinaisons --enable-unsafe-webgpu / SwiftShader ANGLE /
+        # SwiftShader Vulkan / --use-vulkan=swiftshader — `requestAdapter()`
+        # retourne `null` à chaque fois). Cf. PR #131 pour l'historique des
+        # 3 tentatives. À revisiter quand des runners Windows avec GPU
+        # passthrough seront disponibles (ou via self-hosted).
+        # La couverture compile/tests Windows reste assurée par `Koreos CI`
+        # (job `windows-build`).
+        os: [macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # Bash sur tous les runners (Git Bash sur Windows) pour homogénéiser
+        # les commandes (./gradlew, redirections, [ -f ... ]).
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,13 +71,17 @@ jobs:
       - name: Build hello-triangle-web (production JS bundle)
         run: ./gradlew :samples:hello-triangle-web:jsBrowserDistribution --no-daemon --stacktrace
 
-      - name: Install E2E deps + Chromium
+      - name: Install E2E deps
         working-directory: samples/hello-triangle-web/e2e
-        run: |
-          npm install
-          npx playwright install --with-deps chromium
+        run: npm install
 
-      - name: Run Playwright smoke test
+      - name: Install Chrome stable
+        working-directory: samples/hello-triangle-web/e2e
+        # Chrome stable (canal release) installé par Playwright. Pas de
+        # `--with-deps` (Linux-only, on est sur macOS).
+        run: npx playwright install chrome
+
+      - name: Run Playwright smoke + visual tests
         working-directory: samples/hello-triangle-web/e2e
         run: npx playwright test
 
@@ -67,15 +94,20 @@ jobs:
             cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # Captures (smoke + régression visuelle) — visibles via les artefacts du run.
-      - name: Upload captures (screenshots + diff)
+      # Captures (smoke + régression visuelle) — séparées par OS pour pouvoir
+      # comparer macOS Metal vs Windows SwiftShader. Inclut également les
+      # `error-context.md` produits par Playwright en cas d'échec (console
+      # logs, page errors, network) pour faciliter le débogage à distance.
+      - name: Upload captures + debug context
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hello-triangle-web-captures
+          name: hello-triangle-web-captures-${{ matrix.os }}
           path: |
             samples/hello-triangle-web/e2e/triangle.png
             samples/hello-triangle-web/e2e/baselines/hello-triangle-web.png
             samples/hello-triangle-web/e2e/test-results/hello-triangle-web.actual.png
             samples/hello-triangle-web/e2e/test-results/hello-triangle-web.diff.png
+            samples/hello-triangle-web/e2e/test-results/**/error-context.md
+            samples/hello-triangle-web/e2e/test-results/**/trace.zip
           if-no-files-found: ignore
