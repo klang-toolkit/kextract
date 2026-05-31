@@ -24,6 +24,9 @@ jobs:
   windows-visual:
     name: windows-visual
     runs-on: windows-latest
+    permissions:
+      contents: write        # push des captures sur la branche orpheline ci-visual-reports
+      pull-requests: write   # commentaire de PR avec la galerie inline
     defaults:
       run:
         shell: bash
@@ -63,11 +66,15 @@ jobs:
             tests/visual/baselines/windows/hello-triangle.png \
             "$DIR/hello-triangle.diff.png" \
             0.02 \
-            "$DIR/summary.md" \
+            "$DIR/report.json" \
             Windows || true
-          if [ -f "$DIR/summary.md" ]; then
-            cat "$DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
-          fi
+
+      - name: Publier le rapport visuel (inline)
+        if: always()
+        uses: ./.github/actions/visual-report
+        with:
+          report: samples/hello-triangle/build/visual/report.json
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload captures
         if: always()

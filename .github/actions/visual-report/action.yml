@@ -1,0 +1,65 @@
+name: visual-report
+description: >-
+  Publie un rapport de régression visuelle dans l'UI GitHub CI : héberge les captures
+  (baseline/courante/diff) sur une branche orpheline et les rend inline dans le Job Summary
+  et un commentaire de PR via des URLs raw.githubusercontent.com (Redmine #88).
+
+inputs:
+  report:
+    description: Chemin du report.json produit par diff-cli.js
+    required: true
+  token:
+    description: Token avec contents:write (push branche) et pull-requests:write (commentaire)
+    required: true
+  branch:
+    description: Branche orpheline d'hébergement des captures
+    required: false
+    default: ci-visual-reports
+
+runs:
+  using: composite
+  steps:
+    - name: Publier le rapport visuel
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -u
+        REPORT='${{ inputs.report }}'
+        BRANCH='${{ inputs.branch }}'
+        if [ ! -f "$REPORT" ]; then
+          echo "[visual-report] report absent ($REPORT), skip"; exit 0
+        fi
+
+        STAGING="$RUNNER_TEMP/visual-staging"
+        SUMMARY="$RUNNER_TEMP/visual-summary.md"
+        COMMENT="$RUNNER_TEMP/visual-comment.md"
+        rm -rf "$STAGING"; mkdir -p "$STAGING"
+
+        # 1) Copie les PNG dans le staging + génère summary/comment avec les URLs raw définitives.
+        node tests/visual/publish-report.js \
+          "$REPORT" "$STAGING" "$GITHUB_REPOSITORY" "$BRANCH" "$GITHUB_RUN_ID" \
+          "$SUMMARY" "$COMMENT" || true
+
+        # 2) Pousse les captures sur la branche orpheline (non bloquant, retry anti-course).
+        bash tests/visual/push-orphan.sh "$STAGING" "$GITHUB_REPOSITORY" "$BRANCH" "$GH_TOKEN" || true
+
+        # 3) Job Summary.
+        if [ -f "$SUMMARY" ]; then cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"; fi
+
+        # 4) Commentaire de PR « collant » (upsert par marqueur plateforme).
+        if [ -f "$COMMENT" ] && [ -n "${GITHUB_EVENT_PATH:-}" ]; then
+          PR=$(node -e "try{const e=require(process.env.GITHUB_EVENT_PATH);console.log(e.pull_request?e.pull_request.number:'')}catch{}" 2>/dev/null)
+          if [ -n "$PR" ]; then
+            MARKER=$(head -1 "$COMMENT")
+            EXISTING=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+              --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" 2>/dev/null | head -1)
+            if [ -n "$EXISTING" ]; then
+              gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$EXISTING" \
+                -F body=@"$COMMENT" >/dev/null && echo "[visual-report] commentaire PR maj ($EXISTING)"
+            else
+              gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+                -F body=@"$COMMENT" >/dev/null && echo "[visual-report] commentaire PR créé"
+            fi
+          fi
+        fi

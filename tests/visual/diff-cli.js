@@ -5,16 +5,21 @@
 // différents. Conçu pour être appelé par n'importe quel job CI de plateforme, quelle
 // que soit la source de la capture (readback GPU desktop, Playwright web, etc.).
 //
-// Usage : node diff-cli.js <actual.png> <baseline.png> <diffOut.png> [tolerance] [summaryOut.md]
+// Usage : node diff-cli.js <actual.png> <baseline.png> <diffOut.png> [tolerance] [reportOut.json] [label]
 //
-// NON BLOQUANT : affiche le verdict et écrit le diff/summary, mais sort toujours en 0
-// (le rendu GPU n'est pas déterministe au pixel près entre machines).
+// NON BLOQUANT : affiche le verdict et écrit le diff + un report.json, mais sort toujours
+// en 0 (le rendu GPU n'est pas déterministe au pixel près entre machines).
+//
+// Le rendu inline des captures dans l'UI GitHub n'est PAS fait ici : les `data:` URI sont
+// assainies par GitHub. À la place, on émet un report.json que l'action `visual-report`
+// consomme pour héberger les PNG (branche orpheline) et bâtir un Job Summary + commentaire
+// de PR avec de vraies URLs `raw.githubusercontent.com` (rendues inline sur repo public).
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
 const pixelmatch = require('pixelmatch').default || require('pixelmatch');
 
-const [actualPath, baselinePath, diffOut, toleranceArg, summaryOut, label] = process.argv.slice(2);
+const [actualPath, baselinePath, diffOut, toleranceArg, reportOut, label] = process.argv.slice(2);
 const tolerance = toleranceArg ? parseFloat(toleranceArg) : 0.02;
 const platform = label || 'inconnu';
 
@@ -52,26 +57,22 @@ const icon = status === 'match' ? '✅' : status === 'no-baseline' ? '🆕' : '�
 const line = `${icon} ${status} — diff ${pct}% (tolérance ${tolerance * 100}%${total ? `, ${diffPixels}/${total} px` : ''})${reason ? ` — ${reason}` : ''}`;
 console.log(`[visual] ${line}`);
 
-if (summaryOut) {
-  // Intègre les captures en base64 directement dans le Job Summary GitHub pour les
-  // visualiser sans télécharger les artefacts (avec repli texte si non rendu).
-  const imgTag = (p, alt) => {
-    if (!p || !fs.existsSync(p)) return '';
-    const b64 = fs.readFileSync(p).toString('base64');
-    return `<figure style="display:inline-block;margin:4px;text-align:center">` +
-      `<img alt="${alt}" width="320" src="data:image/png;base64,${b64}"><figcaption>${alt}</figcaption></figure>`;
+if (reportOut) {
+  // Émet un manifeste consommé par l'action `visual-report` (hébergement + rendu inline).
+  const report = {
+    platform,
+    sample: 'hello-triangle',
+    status, icon, line,
+    pct: Number(pct), tolerance, diffPixels, total,
+    reason: reason || null,
+    images: {
+      baseline: fs.existsSync(baselinePath || '') ? path.resolve(baselinePath) : null,
+      actual: fs.existsSync(actualPath || '') ? path.resolve(actualPath) : null,
+      diff: fs.existsSync(diffOut || '') ? path.resolve(diffOut) : null,
+    },
   };
-  const gallery = [
-    imgTag(baselinePath, 'baseline'),
-    imgTag(actualPath, 'courante'),
-    fs.existsSync(diffOut || '') ? imgTag(diffOut, 'diff') : '',
-  ].filter(Boolean).join('\n');
-
-  fs.mkdirSync(path.dirname(summaryOut), { recursive: true });
-  fs.writeFileSync(summaryOut,
-    `### Régression visuelle — hello-triangle (${platform}, readback GPU)\n\n${line}\n\n` +
-    `${gallery}\n\n` +
-    `_Captures aussi disponibles en artefacts du run._\n`);
+  fs.mkdirSync(path.dirname(reportOut), { recursive: true });
+  fs.writeFileSync(reportOut, JSON.stringify(report, null, 2));
 }
 
 // Non bloquant.
