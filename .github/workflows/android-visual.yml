@@ -57,3 +57,13 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
           disable-animations: true
           script: ./gradlew :samples:hello-triangle-android-capture:connectedDebugAndroidTest --no-daemon --stacktrace
+
+      # La capture PNG, écrite via TestStorage, est rapatriée par le runner sous
+      # build/outputs/.../additional_output. On l'upload en artefact.
+      - name: Upload capture Android
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hello-triangle-android-capture
+          path: samples/hello-triangle-android-capture/build/outputs/**/hello-triangle-android.png
+          if-no-files-found: warn

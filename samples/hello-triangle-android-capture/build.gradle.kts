@@ -16,6 +16,9 @@ android {
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // TestStorage : permet au test d'écrire des fichiers de sortie (la capture PNG)
+        // que le runner rapatrie automatiquement sur l'hôte (scoped storage contourné).
+        testInstrumentationRunnerArguments["useTestStorageService"] = "true"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -36,4 +39,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+    // TestStorage : API d'écriture de sorties + service rapatrié par le runner.
+    androidTestImplementation("androidx.test.services:storage:1.5.0")
+    androidTestUtil("androidx.test.services:test-services:1.5.0")
 }

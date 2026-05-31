@@ -6,3 +6,5 @@ out/
 local.properties
 .DS_Store
 *.dylib
+.claude/
+__pycache__/
