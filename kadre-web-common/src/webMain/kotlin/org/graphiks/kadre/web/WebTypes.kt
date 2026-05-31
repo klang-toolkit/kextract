@@ -115,6 +115,30 @@ sealed interface WebMouseButton {
 }
 
 // ---------------------------------------------------------------------------
+// Touch phase
+// ---------------------------------------------------------------------------
+
+/**
+ * Phase of a touch contact (web mirror of kadre-core.TouchPhase).
+ *
+ * Maps the DOM touch event types: `touchstart` → [Started], `touchmove` →
+ * [Moved], `touchend` → [Ended], `touchcancel` → [Cancelled].
+ */
+enum class WebTouchPhase {
+    /** The contact has just been placed on the surface (`touchstart`). */
+    Started,
+
+    /** The contact has moved (`touchmove`). */
+    Moved,
+
+    /** The contact has been lifted (`touchend`). */
+    Ended,
+
+    /** The contact has been cancelled by the browser (`touchcancel`). */
+    Cancelled,
+}
+
+// ---------------------------------------------------------------------------
 // Web window events
 // ---------------------------------------------------------------------------
 
@@ -125,7 +149,13 @@ sealed interface WebMouseButton {
  */
 sealed interface WebWindowEvent {
 
-    /** The user requested to close / navigate away from the page. */
+    /**
+     * The user requested to close / navigate away from the page.
+     *
+     * **Web-specific**: emitted from the `beforeunload` DOM event. The browser
+     * does not let the application veto the navigation programmatically, so this
+     * is purely informational (counterpart of a desktop window's × button).
+     */
     data object CloseRequested : WebWindowEvent
 
     /**
@@ -184,6 +214,41 @@ sealed interface WebWindowEvent {
     /** The window gained or lost focus. */
     data class Focused(val gained: Boolean) : WebWindowEvent
 
+    /**
+     * A touch contact changed state.
+     *
+     * @property phase Contact phase.
+     * @property x     X position in physical pixels (client coordinates).
+     * @property y     Y position in physical pixels (client coordinates).
+     * @property id    Contact identifier (DOM `Touch.identifier`), stable between
+     *   [WebTouchPhase.Started] and [WebTouchPhase.Ended] / [WebTouchPhase.Cancelled].
+     */
+    data class Touch(
+        val phase: WebTouchPhase,
+        val x: Double,
+        val y: Double,
+        val id: Long,
+    ) : WebWindowEvent
+
+    /**
+     * The DPI scale factor changed.
+     *
+     * **Web-specific**: derived from `window.devicePixelRatio`, observed via a
+     * re-arming `matchMedia('(resolution: <dpr>dppx)')` listener. Fires on zoom
+     * changes or when the page moves to a screen with a different pixel ratio.
+     *
+     * @property factor New scale factor (e.g. `2.0` on a Retina display).
+     */
+    data class ScaleFactorChanged(val factor: Double) : WebWindowEvent
+
     /** A redraw is requested (requestAnimationFrame). */
     data object RedrawRequested : WebWindowEvent
+
+    /**
+     * The page is being unloaded and the renderer should release its resources.
+     *
+     * **Web-specific**: emitted from the `pagehide` DOM event (counterpart of a
+     * desktop window's `Destroyed`). No further event is emitted afterwards.
+     */
+    data object Destroyed : WebWindowEvent
 }

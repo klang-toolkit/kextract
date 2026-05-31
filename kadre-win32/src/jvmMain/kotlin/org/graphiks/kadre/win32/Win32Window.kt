@@ -278,6 +278,11 @@ class Win32Window private constructor(
 
             val window = Win32Window(hwnd, hInstance, attrs)
 
+            // Register for WM_TOUCH so touchscreen contacts arrive as touch events
+            // instead of being emulated as mouse input. Best-effort: ignored on
+            // platforms/devices without touch support.
+            registerTouchWindow?.let { it.invokeExact(hwnd, 0) as Int }
+
             // Initial display.
             // ShowWindow/UpdateWindow return BOOL (int) — invokeExact requires the exact
             // return type, so the result must be captured (as Int) or it throws

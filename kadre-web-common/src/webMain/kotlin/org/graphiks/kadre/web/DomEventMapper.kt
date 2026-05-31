@@ -157,6 +157,22 @@ internal fun domKeyStateFromEventType(eventType: String): WebKeyState = when (ev
 }
 
 /**
+ * Maps a DOM touch event type into a [WebTouchPhase].
+ *
+ * @param eventType Value of `event.type` (`"touchstart"`, `"touchmove"`,
+ *   `"touchend"` or `"touchcancel"`).
+ * @return The corresponding [WebTouchPhase]; unrecognized types fall back to
+ *   [WebTouchPhase.Cancelled] (the safest "release" semantics).
+ */
+internal fun domTouchTypeToPhase(eventType: String): WebTouchPhase = when (eventType) {
+    "touchstart"  -> WebTouchPhase.Started
+    "touchmove"   -> WebTouchPhase.Moved
+    "touchend"    -> WebTouchPhase.Ended
+    "touchcancel" -> WebTouchPhase.Cancelled
+    else          -> WebTouchPhase.Cancelled
+}
+
+/**
  * Normalizes a DOM wheel delta into logical pixels.
  *
  * The DOM exposes three scroll modes:

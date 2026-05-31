@@ -20,6 +20,15 @@
  *
  * GRA-154: added keyboard support via sendEvent: NSEvent interception.
  * Refactored eventLoop from static → scoped instance.
+ *
+ * ## Touch events — intentionally not mapped
+ * [WindowEvent.Touch] is **not** emitted on AppKit. macOS exposes no
+ * touchscreen API; the only touch source is the trackpad (`NSTouch` via
+ * `touchesBeganWithEvent:`), which reports *indirect* contacts in a normalized
+ * 0..1 space with no relation to window/client pixels. Mapping those to
+ * [WindowEvent.Touch] (which carries physical-pixel locations from a direct
+ * touchscreen) would be misleading, so it is left out. Touch is supported on
+ * the touchscreen-capable backends (Web and Win32 via WM_TOUCH).
  */
 package org.graphiks.kadre.appkit
 

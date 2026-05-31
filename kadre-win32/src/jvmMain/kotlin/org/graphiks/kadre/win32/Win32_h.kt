@@ -479,6 +479,73 @@ internal const val TRACKMOUSEEVENT_SIZE: Int = 24 // 4+4+8+4+4 (with padding)
 /** TME_LEAVE: dwFlags flag to receive WM_MOUSELEAVE. */
 internal const val TME_LEAVE: Int = 0x00000002
 
+// ── RegisterTouchWindow ───────────────────────────────────────────────────────
+
+/**
+ * BOOL RegisterTouchWindow(HWND hWnd, ULONG ulFlags);
+ *
+ * Registers a window to receive WM_TOUCH messages instead of the legacy
+ * WM_GESTURE / mouse-emulation messages. Must be called once after the
+ * window is created. ulFlags = 0 for the default behavior.
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registertouchwindow
+ */
+internal val registerTouchWindow: MethodHandle? by lazy {
+    user32.downcall(
+        "RegisterTouchWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.JAVA_INT,   // ULONG ulFlags
+        )
+    )
+}
+
+// ── GetTouchInputInfo ─────────────────────────────────────────────────────────
+
+/**
+ * BOOL GetTouchInputInfo(HTOUCHINPUT hTouchInput, UINT cInputs, PTOUCHINPUT pInputs, int cbSize);
+ *
+ * Fills [pInputs] with [cInputs] TOUCHINPUT structures describing the contacts
+ * of the current WM_TOUCH message. `hTouchInput` is the WM_TOUCH `lParam`.
+ * `cbSize` is the size of a single TOUCHINPUT ([TOUCHINPUT_SIZE]).
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-gettouchinputinfo
+ */
+internal val getTouchInputInfo: MethodHandle? by lazy {
+    user32.downcall(
+        "GetTouchInputInfo",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HTOUCHINPUT
+            ValueLayout.JAVA_INT,   // UINT cInputs
+            ValueLayout.ADDRESS,    // PTOUCHINPUT pInputs
+            ValueLayout.JAVA_INT,   // int cbSize
+        )
+    )
+}
+
+// ── CloseTouchInputHandle ─────────────────────────────────────────────────────
+
+/**
+ * BOOL CloseTouchInputHandle(HTOUCHINPUT hTouchInput);
+ *
+ * Releases the touch-input handle obtained from a WM_TOUCH message. Must be
+ * called exactly once per WM_TOUCH after GetTouchInputInfo, otherwise the
+ * handle leaks.
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-closetouchinputhandle
+ */
+internal val closeTouchInputHandle: MethodHandle? by lazy {
+    user32.downcall(
+        "CloseTouchInputHandle",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HTOUCHINPUT
+        )
+    )
+}
+
 // ── GetCursorPos ──────────────────────────────────────────────────────────────
 
 /**

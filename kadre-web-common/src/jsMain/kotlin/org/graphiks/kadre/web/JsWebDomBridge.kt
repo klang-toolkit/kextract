@@ -12,6 +12,7 @@
 package org.graphiks.kadre.web
 
 import kotlinx.browser.document
+import kotlinx.browser.window
 import org.w3c.dom.Element
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
@@ -26,8 +27,11 @@ import org.w3c.dom.events.WheelEvent
  * - Pointer: `pointerdown` / `pointerup` → [WebWindowEvent.MouseInput]
  * - Pointer: `pointerenter` / `pointerleave` → [WebWindowEvent.PointerEntered] / [WebWindowEvent.PointerLeft]
  * - Wheel: `wheel` → [WebWindowEvent.MouseWheel]
+ * - Touch: `touchstart` / `touchmove` / `touchend` / `touchcancel` → [WebWindowEvent.Touch]
  * - Resize: `ResizeObserver` on the canvas → [WebWindowEvent.Resized]
  * - Visibility: `visibilitychange` → [WebWindowEvent.Focused]
+ * - Scale: re-arming `matchMedia` on `devicePixelRatio` → [WebWindowEvent.ScaleFactorChanged]
+ * - Unload: `beforeunload` → [WebWindowEvent.CloseRequested], `pagehide` → [WebWindowEvent.Destroyed]
  */
 class JsWebDomBridge : WebDomBridge {
 
@@ -61,11 +65,16 @@ class JsWebDomBridge : WebDomBridge {
     private var targetElement: Element? = null
     private val canvasListeners = mutableListOf<Pair<String, (Event) -> Unit>>()
     private val documentListeners = mutableListOf<Pair<String, (Event) -> Unit>>()
+    private val windowListeners = mutableListOf<Pair<String, (Event) -> Unit>>()
     private var resizeObserver: dynamic = null
+
+    /** `false` once [detach] runs — stops the re-arming devicePixelRatio chain. */
+    private var attached = false
 
     override fun attach(targetElementId: String) {
         val canvas = document.getElementById(targetElementId) ?: return
         targetElement = canvas
+        attached = true
 
         // --- Keyboard ---
         addListener(canvas, "keydown") { e ->
@@ -150,12 +159,90 @@ class JsWebDomBridge : WebDomBridge {
         })(function(w, h) { self.dispatchResized(w, h); })""")
         resizeObserver.observe(canvas)
 
+        // --- Touch (touchscreen / mobile) ---
+        for (type in listOf("touchstart", "touchmove", "touchend", "touchcancel")) {
+            addListener(canvas, type) { e -> dispatchTouches(e) }
+        }
+
         // --- Page visibility → Suspended/Resumed via Focused ---
         addDocumentListener("visibilitychange") { _ ->
             val hidden: Boolean = js("document.hidden")
             dispatch(WebWindowEvent.Focused(gained = !hidden))
         }
+
+        // --- Unload: beforeunload → CloseRequested, pagehide → Destroyed ---
+        addWindowListener("beforeunload") { _ ->
+            dispatch(WebWindowEvent.CloseRequested)
+        }
+        addWindowListener("pagehide") { _ ->
+            dispatch(WebWindowEvent.Destroyed)
+        }
+
+        // --- devicePixelRatio changes → ScaleFactorChanged ---
+        observeDevicePixelRatio()
     }
+
+    /**
+     * Dispatches a [WebWindowEvent.Touch] for each contact in `event.changedTouches`.
+     *
+     * Reads the DOM `TouchEvent` dynamically (the Kotlin/JS stdlib type for
+     * `TouchEvent` is incomplete in IR). `preventDefault()` stops the browser
+     * from also synthesizing mouse events and page scrolling for the contacts.
+     */
+    private fun dispatchTouches(e: Event) {
+        val phase = domTouchTypeToPhase(e.type)
+        val touches = e.asDynamic().changedTouches
+        val count = (touches.length as Number).toInt()
+        for (i in 0 until count) {
+            val t = touches[i]
+            dispatch(
+                WebWindowEvent.Touch(
+                    phase = phase,
+                    x = (t.clientX as Number).toDouble(),
+                    y = (t.clientY as Number).toDouble(),
+                    id = (t.identifier as Number).toDouble().toLong(),
+                )
+            )
+        }
+        e.preventDefault()
+    }
+
+    /**
+     * Observes `window.devicePixelRatio` via a re-arming `matchMedia` listener.
+     *
+     * A `(resolution: <dpr>dppx)` media query only fires once when the ratio
+     * leaves the current value, so the handler re-arms a fresh query each time.
+     * The chain stops when [attached] becomes false (see [detach]).
+     */
+    private fun observeDevicePixelRatio() {
+        val self = this
+        js(
+            """(function(cb, isAttached) {
+                function arm() {
+                    var dpr = window.devicePixelRatio || 1;
+                    var mq = window.matchMedia('(resolution: ' + dpr + 'dppx)');
+                    var handler = function() {
+                        mq.removeEventListener('change', handler);
+                        if (!isAttached()) return;
+                        cb(window.devicePixelRatio || 1);
+                        arm();
+                    };
+                    mq.addEventListener('change', handler);
+                }
+                arm();
+            })(function(f) { self.dispatchScaleFactor(f); }, function() { return self.isAttached(); })"""
+        )
+    }
+
+    /** Called from the re-arming matchMedia handler with the new devicePixelRatio. */
+    @JsName("dispatchScaleFactor")
+    fun dispatchScaleFactor(factor: Double) {
+        dispatch(WebWindowEvent.ScaleFactorChanged(factor))
+    }
+
+    /** Predicate exposed to JS so the re-arming DPR chain stops after [detach]. */
+    @JsName("isAttached")
+    fun isAttached(): Boolean = attached
 
     /**
      * Called from the JS ResizeObserver with the new dimensions.
@@ -166,6 +253,9 @@ class JsWebDomBridge : WebDomBridge {
     }
 
     override fun detach() {
+        // Stop the re-arming devicePixelRatio chain before tearing down listeners.
+        attached = false
+
         val canvas = targetElement
 
         if (canvas != null) {
@@ -180,6 +270,12 @@ class JsWebDomBridge : WebDomBridge {
             docDynamic.removeEventListener(type, handler)
         }
         documentListeners.clear()
+
+        val winDynamic = window.asDynamic()
+        for ((type, handler) in windowListeners) {
+            winDynamic.removeEventListener(type, handler)
+        }
+        windowListeners.clear()
 
         resizeObserver?.disconnect()
         resizeObserver = null
@@ -198,6 +294,11 @@ class JsWebDomBridge : WebDomBridge {
     private fun addDocumentListener(type: String, handler: (Event) -> Unit) {
         document.asDynamic().addEventListener(type, handler)
         documentListeners.add(Pair(type, handler))
+    }
+
+    private fun addWindowListener(type: String, handler: (Event) -> Unit) {
+        window.asDynamic().addEventListener(type, handler)
+        windowListeners.add(Pair(type, handler))
     }
 
     private fun dispatch(event: WebWindowEvent) {

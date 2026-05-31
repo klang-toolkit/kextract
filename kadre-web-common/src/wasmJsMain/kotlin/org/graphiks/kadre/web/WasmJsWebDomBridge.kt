@@ -102,6 +102,57 @@ private external fun disconnectResizeObserver(ro: JsAny)
 @JsFun("(fn) => fn")
 private external fun wrapCallback(fn: (Int, Int) -> Unit): JsAny
 
+@JsFun("() => window")
+private external fun getWindow(): JsEventTarget
+
+/** Wraps a Kotlin `(Double) -> Unit` into a JS-callable closure (see [wrapCallback]). */
+@JsFun("(fn) => fn")
+private external fun wrapDoubleCallback(fn: (Double) -> Unit): JsAny
+
+/** Wraps a Kotlin `() -> Boolean` into a JS-callable closure. */
+@JsFun("(fn) => fn")
+private external fun wrapBoolSupplier(fn: () -> Boolean): JsAny
+
+// --- Touch field extraction (changedTouches is array-like) ---
+
+@JsFun("(e) => e.changedTouches.length")
+private external fun touchCount(e: JsAny): Int
+
+@JsFun("(e, i) => e.changedTouches[i].clientX")
+private external fun touchClientX(e: JsAny, i: Int): Double
+
+@JsFun("(e, i) => e.changedTouches[i].clientY")
+private external fun touchClientY(e: JsAny, i: Int): Double
+
+@JsFun("(e, i) => e.changedTouches[i].identifier")
+private external fun touchIdentifier(e: JsAny, i: Int): Double
+
+@JsFun("(e) => { e.preventDefault(); }")
+private external fun touchPreventDefault(e: JsAny)
+
+/**
+ * Observes `window.devicePixelRatio` via a re-arming `matchMedia` listener.
+ *
+ * `cb` receives the new ratio; `isAttached` lets the chain stop after detach.
+ */
+@JsFun(
+    """(cb, isAttached) => {
+        function arm() {
+            var dpr = window.devicePixelRatio || 1;
+            var mq = window.matchMedia('(resolution: ' + dpr + 'dppx)');
+            var handler = function() {
+                mq.removeEventListener('change', handler);
+                if (!isAttached()) return;
+                cb(window.devicePixelRatio || 1);
+                arm();
+            };
+            mq.addEventListener('change', handler);
+        }
+        arm();
+    }"""
+)
+private external fun observeDevicePixelRatioJs(cb: JsAny, isAttached: JsAny)
+
 /**
  * Wraps a Kotlin `(JsAny) -> Unit` lambda into a JS function callable from
  * `addEventListener`. The `(fn) => fn` of the `@JsFun` triggers the conversion by the
@@ -180,9 +231,13 @@ class WasmJsWebDomBridge : WebDomBridge {
     private val listenerRefs = mutableListOf<Triple<JsEventTarget, String, JsAny>>()
     private var resizeObserverRef: JsAny? = null
 
+    /** `false` once [detach] runs — stops the re-arming devicePixelRatio chain. */
+    private var attached = false
+
     override fun attach(targetElementId: String) {
         val canvas = getElementById(targetElementId.toJsString()) ?: return
         targetElement = canvas
+        attached = true
 
         // --- Keyboard ---
         addDomListener(canvas, "keydown") { e ->
@@ -271,15 +326,60 @@ class WasmJsWebDomBridge : WebDomBridge {
         }
         resizeObserverRef = createResizeObserver(canvas, wrapCallback(callback))
 
+        // --- Touch (touchscreen / mobile) ---
+        for (type in listOf("touchstart", "touchmove", "touchend", "touchcancel")) {
+            addDomListener(canvas, type) { e -> dispatchTouches(e) }
+        }
+
         // --- Visibility ---
         val doc = getDocument()
         addDomListener(doc, "visibilitychange") { _ ->
             val hidden = isDocumentHidden().toBoolean()
             dispatch(WebWindowEvent.Focused(gained = !hidden))
         }
+
+        // --- Unload: beforeunload → CloseRequested, pagehide → Destroyed ---
+        val win = getWindow()
+        addDomListener(win, "beforeunload") { _ ->
+            dispatch(WebWindowEvent.CloseRequested)
+        }
+        addDomListener(win, "pagehide") { _ ->
+            dispatch(WebWindowEvent.Destroyed)
+        }
+
+        // --- devicePixelRatio changes → ScaleFactorChanged ---
+        observeDevicePixelRatioJs(
+            cb = wrapDoubleCallback { factor -> dispatch(WebWindowEvent.ScaleFactorChanged(factor)) },
+            isAttached = wrapBoolSupplier { attached },
+        )
+    }
+
+    /**
+     * Dispatches a [WebWindowEvent.Touch] for each contact in `event.changedTouches`.
+     *
+     * `preventDefault()` stops the browser from also synthesizing mouse events
+     * and page scrolling for the contacts.
+     */
+    private fun dispatchTouches(e: JsAny) {
+        val phase = domTouchTypeToPhase(e.unsafeCast<JsDomEvent>().type.toString())
+        val count = touchCount(e)
+        for (i in 0 until count) {
+            dispatch(
+                WebWindowEvent.Touch(
+                    phase = phase,
+                    x = touchClientX(e, i),
+                    y = touchClientY(e, i),
+                    id = touchIdentifier(e, i).toLong(),
+                )
+            )
+        }
+        touchPreventDefault(e)
     }
 
     override fun detach() {
+        // Stop the re-arming devicePixelRatio chain before tearing down listeners.
+        attached = false
+
         for ((target, type, ref) in listenerRefs) {
             jsRemoveEventListener(target, type.toJsString(), ref)
         }

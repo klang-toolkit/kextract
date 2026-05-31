@@ -42,6 +42,7 @@ import org.graphiks.kadre.core.Modifiers
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
@@ -273,6 +274,15 @@ object KadreWndProc {
                 0L
             }
 
+            // ── Touch ─────────────────────────────────────────────────────────
+            WM_TOUCH.toUInt() -> {
+                handleTouch(hwnd, wParam, lParam)
+                // WM_TOUCH must be passed to DefWindowProcW when not fully handled,
+                // but since we consume every contact and close the handle ourselves,
+                // returning 0 (handled) is correct here.
+                0L
+            }
+
             // ── Close ─────────────────────────────────────────────────────────
             WM_CLOSE.toUInt() -> {
                 emit(hwnd, WindowEvent.CloseRequested)
@@ -384,5 +394,86 @@ object KadreWndProc {
         } catch (_: Throwable) {
             // Graceful degradation: WM_MOUSELEAVE will not be received
         }
+    }
+
+    /**
+     * Handles a WM_TOUCH message: reads every contact via GetTouchInputInfo,
+     * emits a [WindowEvent.Touch] per contact, then releases the touch handle.
+     *
+     * On macOS/Linux (getTouchInputInfo null) this is a no-op — no event is
+     * emitted and the message is silently consumed.
+     *
+     * @param hwnd   Integer address of the source HWND.
+     * @param wParam WM_TOUCH wParam — LOWORD = number of contacts (cInputs).
+     * @param lParam WM_TOUCH lParam — HTOUCHINPUT handle.
+     */
+    private fun handleTouch(hwnd: Long, wParam: Long, lParam: Long) {
+        val getInfo = getTouchInputInfo ?: return
+        val cInputs = (wParam and 0xFFFF).toInt()
+        if (cInputs <= 0) return
+
+        try {
+            val hTouchInput = MemorySegment.ofAddress(lParam)
+            val arena = java.lang.foreign.Arena.ofConfined()
+            arena.use {
+                val buffer = arena.allocate(cInputs.toLong() * TOUCHINPUT_SIZE, 8L)
+                val ok = getInfo.invokeExact(
+                    hTouchInput,
+                    cInputs,
+                    buffer,
+                    TOUCHINPUT_SIZE,
+                ) as Int
+                if (ok != 0) {
+                    for (i in 0 until cInputs) {
+                        emit(hwnd, decodeTouchInput(buffer, i))
+                    }
+                }
+            }
+            // The handle must be closed exactly once whether or not the read succeeded.
+            closeTouchInputHandle?.invokeExact(hTouchInput) as Int?
+        } catch (_: Throwable) {
+            // Graceful degradation: the touch contacts are dropped for this message.
+        }
+    }
+
+    /**
+     * Decodes the TOUCHINPUT at [index] in a buffer of contiguous TOUCHINPUT
+     * structures into a [WindowEvent.Touch].
+     *
+     * Pure function (no native call) so it can be unit-tested with a synthetic
+     * buffer on any platform.
+     *
+     * Coordinates: TOUCHINPUT.x / .y are physical **screen** coordinates in
+     * hundredths of a pixel; they are divided by [TOUCH_COORD_SCALE] to yield
+     * physical pixels. Client-area conversion (ScreenToClient) is left as a
+     * follow-up, mirroring the existing innerSize TODO.
+     *
+     * Phase: TOUCHEVENTF_DOWN → [TouchPhase.Started], TOUCHEVENTF_UP →
+     * [TouchPhase.Ended], otherwise (TOUCHEVENTF_MOVE) → [TouchPhase.Moved].
+     * Windows touch has no dedicated "cancelled" flag, so [TouchPhase.Cancelled]
+     * is never produced here.
+     *
+     * @param buffer Native (or heap) segment holding one or more TOUCHINPUT structs.
+     * @param index  Zero-based index of the contact to decode.
+     */
+    internal fun decodeTouchInput(buffer: MemorySegment, index: Int): WindowEvent.Touch {
+        val base = index.toLong() * TOUCHINPUT_SIZE
+        val rawX = buffer.get(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_X)
+        val rawY = buffer.get(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_Y)
+        // dwID is a DWORD (unsigned 32-bit); widen without sign extension.
+        val id = buffer.get(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_ID).toLong() and 0xFFFF_FFFFL
+        val flags = buffer.get(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_FLAGS)
+
+        val phase = when {
+            flags and TOUCHEVENTF_DOWN != 0 -> TouchPhase.Started
+            flags and TOUCHEVENTF_UP != 0   -> TouchPhase.Ended
+            else                            -> TouchPhase.Moved
+        }
+
+        val location = PhysicalPosition(
+            rawX.toDouble() / TOUCH_COORD_SCALE,
+            rawY.toDouble() / TOUCH_COORD_SCALE,
+        )
+        return WindowEvent.Touch(phase, location, id)
     }
 }

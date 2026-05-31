@@ -88,6 +88,65 @@ internal const val WM_XBUTTONUP: Int = 0x020C
  */
 internal const val WM_MOUSELEAVE: Int = 0x02A3
 
+// ── Touch messages ────────────────────────────────────────────────────────────
+
+/**
+ * WM_TOUCH — one or more touch contacts changed on a touchscreen.
+ *
+ * `wParam` LOWORD = number of touch points (cInputs); `lParam` = HTOUCHINPUT
+ * handle to pass to GetTouchInputInfo. The window must have called
+ * RegisterTouchWindow to receive these messages.
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/wintouch/wm-touch
+ */
+internal const val WM_TOUCH: Int = 0x0240
+
+// ── TOUCHINPUT.dwFlags bits ────────────────────────────────────────────────────
+
+/** TOUCHEVENTF_MOVE — the contact moved. */
+internal const val TOUCHEVENTF_MOVE: Int = 0x0001
+
+/** TOUCHEVENTF_DOWN — the contact was just placed on the surface. */
+internal const val TOUCHEVENTF_DOWN: Int = 0x0002
+
+/** TOUCHEVENTF_UP — the contact was just lifted from the surface. */
+internal const val TOUCHEVENTF_UP: Int = 0x0004
+
+/**
+ * Size of the TOUCHINPUT structure in bytes on Win64.
+ *
+ * Layout (with natural 8-byte alignment):
+ *   LONG       x           (offset 0,  4 bytes — physical screen coords, 1/100 px)
+ *   LONG       y           (offset 4,  4 bytes)
+ *   HANDLE     hSource     (offset 8,  8 bytes)
+ *   DWORD      dwID        (offset 16, 4 bytes — contact identifier)
+ *   DWORD      dwFlags     (offset 20, 4 bytes — TOUCHEVENTF_*)
+ *   DWORD      dwMask      (offset 24, 4 bytes)
+ *   DWORD      dwTime      (offset 28, 4 bytes)
+ *   ULONG_PTR  dwExtraInfo (offset 32, 8 bytes)
+ *   DWORD      cxContact   (offset 40, 4 bytes)
+ *   DWORD      cyContact   (offset 44, 4 bytes)
+ */
+internal const val TOUCHINPUT_SIZE: Int = 48
+
+/** Offset of TOUCHINPUT.x within the structure. */
+internal const val TOUCHINPUT_OFFSET_X: Long = 0L
+
+/** Offset of TOUCHINPUT.y within the structure. */
+internal const val TOUCHINPUT_OFFSET_Y: Long = 4L
+
+/** Offset of TOUCHINPUT.dwID within the structure. */
+internal const val TOUCHINPUT_OFFSET_ID: Long = 16L
+
+/** Offset of TOUCHINPUT.dwFlags within the structure. */
+internal const val TOUCHINPUT_OFFSET_FLAGS: Long = 20L
+
+/**
+ * Divisor converting TOUCHINPUT.x / .y (hundredths of a physical pixel)
+ * into physical pixels.
+ */
+internal const val TOUCH_COORD_SCALE: Double = 100.0
+
 // ── Repeat bit in lParam (keyboard) ───────────────────────────────────────────
 
 /**

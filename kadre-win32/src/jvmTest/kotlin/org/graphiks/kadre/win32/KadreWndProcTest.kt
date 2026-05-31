@@ -17,7 +17,10 @@ import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
+import java.lang.foreign.Arena
+import java.lang.foreign.ValueLayout
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -289,6 +292,100 @@ class KadreWndProcTest {
         assertIs<WindowEvent.ScaleFactorChanged>(capturedEvent).also { event ->
             assertEquals(1.0, event.factor)
         }
+    }
+
+    // ── WM_TOUCH ──────────────────────────────────────────────────────────────
+
+    /**
+     * Builds a one-contact TOUCHINPUT buffer for the decoder tests.
+     *
+     * @param x     screen X in physical pixels (the buffer stores hundredths)
+     * @param y     screen Y in physical pixels
+     * @param id    contact id (dwID)
+     * @param flags TOUCHEVENTF_* bits
+     */
+    private fun touchInputBuffer(arena: Arena, x: Int, y: Int, id: Int, flags: Int) =
+        arena.allocate(TOUCHINPUT_SIZE.toLong(), 8L).also { seg ->
+            seg.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_X, x * 100)
+            seg.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_Y, y * 100)
+            seg.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_ID, id)
+            seg.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_FLAGS, flags)
+        }
+
+    @Test
+    fun `decodeTouchInput maps TOUCHEVENTF_DOWN to Started`() {
+        Arena.ofConfined().use { arena ->
+            val buffer = touchInputBuffer(arena, x = 320, y = 240, id = 7, flags = TOUCHEVENTF_DOWN)
+            val touch = KadreWndProc.decodeTouchInput(buffer, 0)
+            assertEquals(TouchPhase.Started, touch.phase)
+            assertEquals(320.0, touch.location.x)
+            assertEquals(240.0, touch.location.y)
+            assertEquals(7L, touch.id)
+        }
+    }
+
+    @Test
+    fun `decodeTouchInput maps TOUCHEVENTF_MOVE to Moved`() {
+        Arena.ofConfined().use { arena ->
+            val buffer = touchInputBuffer(arena, x = 10, y = 20, id = 1, flags = TOUCHEVENTF_MOVE)
+            val touch = KadreWndProc.decodeTouchInput(buffer, 0)
+            assertEquals(TouchPhase.Moved, touch.phase)
+            assertEquals(1L, touch.id)
+        }
+    }
+
+    @Test
+    fun `decodeTouchInput maps TOUCHEVENTF_UP to Ended`() {
+        Arena.ofConfined().use { arena ->
+            val buffer = touchInputBuffer(arena, x = 0, y = 0, id = 3, flags = TOUCHEVENTF_UP)
+            val touch = KadreWndProc.decodeTouchInput(buffer, 0)
+            assertEquals(TouchPhase.Ended, touch.phase)
+        }
+    }
+
+    @Test
+    fun `decodeTouchInput converts hundredths of a pixel`() {
+        Arena.ofConfined().use { arena ->
+            // Store raw hundredths directly to check the /100 conversion (12345 → 123.45 px).
+            val buffer = arena.allocate(TOUCHINPUT_SIZE.toLong(), 8L)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_X, 12345)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_Y, 6789)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_FLAGS, TOUCHEVENTF_MOVE)
+            val touch = KadreWndProc.decodeTouchInput(buffer, 0)
+            assertEquals(123.45, touch.location.x)
+            assertEquals(67.89, touch.location.y)
+        }
+    }
+
+    @Test
+    fun `decodeTouchInput reads the right contact at a given index`() {
+        Arena.ofConfined().use { arena ->
+            // Two contiguous TOUCHINPUT structs; decode the second one (index 1).
+            val buffer = arena.allocate(2L * TOUCHINPUT_SIZE, 8L)
+            val base = TOUCHINPUT_SIZE.toLong()
+            buffer.set(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_X, 5000)
+            buffer.set(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_Y, 6000)
+            buffer.set(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_ID, 42)
+            buffer.set(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_FLAGS, TOUCHEVENTF_DOWN)
+            val touch = KadreWndProc.decodeTouchInput(buffer, 1)
+            assertEquals(50.0, touch.location.x)
+            assertEquals(60.0, touch.location.y)
+            assertEquals(42L, touch.id)
+        }
+    }
+
+    @Test
+    fun `WM_TOUCH without native binding emits no event and returns 0`() {
+        // On macOS/Linux getTouchInputInfo is null → graceful no-op.
+        val wParam = 1L // LOWORD = 1 contact
+        val result = KadreWndProc.dispatch(TEST_HWND, WM_TOUCH, wParam, 0L)
+        assertEquals(0L, result)
+        assertNull(capturedEvent)
+    }
+
+    @Test
+    fun `WM_TOUCH constant equals 0x0240`() {
+        assertEquals(0x0240, WM_TOUCH)
     }
 
     // ── Unknown message ─────────────────────────────────────────────────────────
