@@ -28,7 +28,7 @@ l'encodage PNG diffère par plateforme.
 | **Web** (JS) | Playwright `page.screenshot()` | ✅ oui (informatif, non bloquant) |
 | **macOS** | **readback GPU** (`hello-triangle --capture`) | ✅ oui — job `macos-visual` (informatif, non bloquant) |
 | **iOS** | readback GPU (Kotlin/Native, wgpu4k Metal) | ⚠️ implémenté — **simulateur headless sans Metal** |
-| Android emu | readback GPU (PNG via `Bitmap`) | 🟡 à brancher — émulateur requis |
+| **Android** | readback GPU (wgpu4k Vulkan, émulateur) | ✅ oui — job `android-visual` (émulateur SwiftShader, non bloquant) |
 | Windows | readback GPU (même code wgpu, PNG via ImageIO) | 🟡 à brancher — runner Windows GPU |
 | Linux X11/Wayland | readback GPU (même code wgpu) | 🟡 à brancher |
 
@@ -102,3 +102,16 @@ Linux, il n'existe pas de Metal logiciel. Le test se saute alors proprement. Le 
 réel du triangle nécessite un **device iOS physique** (`iosArm64`) ou un simulateur avec
 Metal (Simulator.app GUI). Le job CI garantit néanmoins que le code de capture iOS
 **compile et link**.
+
+## Android — readback GPU (`samples/hello-triangle-android-capture`)
+
+Test instrumenté (`connectedDebugAndroidTest`) : `captureTriangle()` crée une `Surface`
+adossée à une `SurfaceTexture` (offscreen), obtient l'`ANativeWindow` via
+`io.ygdrasil.nativeHelper.Helper.nativeWindowFromSurface` (android-native-helper),
+crée une surface wgpu4k Vulkan, rend le triangle dans une texture offscreen et relit le
+framebuffer (`copyTextureToBuffer` + `mapAsync` + `mapInto`). Le test vérifie la présence
+des régions R/G/B (triangle rendu).
+
+Job CI `android-visual` : émulateur API 34 (`reactivecircus/android-emulator-runner`)
+avec **Vulkan logiciel SwiftShader** (`-gpu swiftshader_indirect`), KVM activé. **Non
+bloquant**. Vérifié localement (émulateur API 36) : test vert, triangle rendu.

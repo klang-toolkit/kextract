@@ -1,0 +1,59 @@
+name: android-visual
+
+# Capture GPU offscreen Android (Redmine #88) — test instrumenté sur émulateur.
+# hello-triangle-android-capture rend le triangle wgpu4k Vulkan dans une texture
+# offscreen (Surface adossée à une SurfaceTexture → ANativeWindow via android-native-helper),
+# relit le framebuffer et vérifie le triangle RGB. L'émulateur fournit un Vulkan logiciel
+# (SwiftShader). NON BLOQUANT.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'samples/hello-triangle-android-capture/**'
+      - '.github/workflows/android-visual.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'samples/hello-triangle-android-capture/**'
+      - '.github/workflows/android-visual.yml'
+  workflow_dispatch:
+
+jobs:
+  android-visual:
+    name: android-visual
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '25'
+          cache: 'gradle'
+
+      # KVM pour accélérer l'émulateur sur ubuntu.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # Capture GPU offscreen sur émulateur (Vulkan logiciel SwiftShader). Non bloquant.
+      - name: Capture GPU Android (émulateur, best-effort)
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
+          disable-animations: true
+          script: ./gradlew :samples:hello-triangle-android-capture:connectedDebugAndroidTest --no-daemon --stacktrace
