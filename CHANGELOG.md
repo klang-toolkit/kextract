@@ -11,11 +11,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Sample `hello-compose`** — embeds an interactive **Jetpack Compose (Compose Multiplatform 1.9.3)** UI inside a native Kadre window on macOS. A low-level `ComposeScene` is rendered via **Skiko/Skia on Metal** directly into the `CAMetalLayer` exposed by Kadre (`DirectContext.makeMetal` → `nextDrawable` → `BackendRenderTarget.makeMetal` → `Surface` → `render` → `presentDrawable`), without AWT/Swing. Kadre mouse **and keyboard** events are forwarded to the scene; the Compose `KeyEvent` is built without `java.awt.event.KeyEvent` to stay compatible with `-XstartOnFirstThread`. A `--capture <path>` mode renders the UI to an offscreen raster PNG (headless, useful for CI). Run with: `./gradlew :samples:hello-compose:run`.
+- **Sample `hello-compose`** — embeds an interactive **Jetpack Compose (Compose Multiplatform 1.11.0)** UI inside a native Kadre window on macOS. A low-level `ComposeScene` is rendered via **Skiko/Skia on Metal** directly into the `CAMetalLayer` exposed by Kadre (`DirectContext.makeMetal` → `nextDrawable` → `BackendRenderTarget.makeMetal` → `Surface` → `render` → `presentDrawable`), without AWT/Swing. Kadre mouse **and keyboard** events are forwarded to the scene; keyboard events are converted to real `java.awt.event.KeyEvent`s (required for text-field input) without initializing the AWT toolkit, keeping compatibility with `-XstartOnFirstThread`. A `--capture <path>` mode renders the UI to an offscreen raster PNG and `--keytest` self-tests the keyboard path (both headless, useful for CI). Run with: `./gradlew :samples:hello-compose:run`.
 
 ### Changed
 
-- `compose-multiplatform` 1.7.3 → **1.9.3** (compatible with Kotlin 2.3.21); added the `skiko` 0.9.22.2 version and the `skiko-awt-runtime-macos-arm64` native runtime to the version catalog.
+- `compose-multiplatform` 1.7.3 → **1.11.0** (compatible with Kotlin 2.3.21); added the `skiko` 0.144.6 version and the `skiko-awt-runtime-macos-arm64` native runtime to the version catalog.
 
 ---
 

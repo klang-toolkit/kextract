@@ -7,11 +7,11 @@ kotlin = "2.3.21"
 # Download: https://github.com/klang-toolkit/kextract/releases/tag/v0.0.2
 kextract = "0.0.2"
 agp = "9.0.0"
-compose-multiplatform = "1.9.3"
-# skiko — moteur Skia bas niveau (org.jetbrains.skia.*) embarqué par Compose MP 1.9.3.
+compose-multiplatform = "1.11.0"
+# skiko — moteur Skia bas niveau (org.jetbrains.skia.*) embarqué par Compose MP 1.11.0.
 # Le sample hello-compose l'utilise directement pour rendre une ComposeScene dans
 # le CAMetalLayer de Kadre (DirectContext.makeMetal / BackendRenderTarget.makeMetal).
-skiko = "0.9.22.2"
+skiko = "0.144.6"
 dokka = "2.2.0"
 
 # wgpu4k — WebGPU binding for Kotlin Multiplatform
