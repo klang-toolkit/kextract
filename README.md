@@ -1,4 +1,4 @@
-# Koreos — Kotlin Multiplatform Windowing Library
+# Kadre — Kotlin Multiplatform Windowing Library
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3.21-purple?logo=kotlin)](https://kotlinlang.org)
 [![Gradle](https://img.shields.io/badge/Gradle-9.5.0-blue?logo=gradle)](https://gradle.org)
@@ -10,11 +10,11 @@
 
 ---
 
-## Qu'est-ce que Koreos ?
+## Qu'est-ce que Kadre ?
 
-**Koreos** est une bibliothèque Kotlin Multiplatform (KMP) de fenêtrage et de gestion d'event-loop. Elle expose une API callback-driven inspirée de [winit](https://github.com/rust-windowing/winit) et fournit un accès bas-niveau aux handles de fenêtre natifs, directement consommables par un renderer GPU (wgpu4k, Metal, etc.).
+**Kadre** est une bibliothèque Kotlin Multiplatform (KMP) de fenêtrage et de gestion d'event-loop. Elle expose une API callback-driven inspirée de [winit](https://github.com/rust-windowing/winit) et fournit un accès bas-niveau aux handles de fenêtre natifs, directement consommables par un renderer GPU (wgpu4k, Metal, etc.).
 
-Koreos **ne dépend pas** d'AWT/Swing, JNA ni Rococoa. Les bindings natifs utilisent exclusivement **Panama FFM** (JDK 25) sur macOS/JVM.
+Kadre **ne dépend pas** d'AWT/Swing, JNA ni Rococoa. Les bindings natifs utilisent exclusivement **Panama FFM** (JDK 25) sur macOS/JVM.
 
 **Version publiée** : `0.2.0` — macOS, iOS, Android. Disponible sur [Maven Central](https://central.sonatype.com/artifact/io.ygdrasil.koreos/koreos).
 

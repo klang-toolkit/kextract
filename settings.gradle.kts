@@ -59,7 +59,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "poc-koreos"
+rootProject.name = "kadre"
 
 // Modules Koreos
 include(":koreos-web-common")
