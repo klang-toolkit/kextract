@@ -1,9 +1,9 @@
 /**
  * Tests de smoke pour X11EventLoop et X11EventLoopProxy.
  *
- * Vérifie :
- * - x11Running démarre à false.
- * - runApp active/désactive le flag x11Running (handler qui quitte immédiatement).
+ * Verifies:
+ * - x11Running starts at false.
+ * - runApp enables/disables the x11Running flag (handler that quits immediately).
  * - X11EventLoopProxy.wakeUp() est safe sur non-Linux (no-op).
  *
  * X11EventLoop smoke tests.
@@ -21,16 +21,16 @@ class X11EventLoopSmokeTest {
 
     @Test
     fun `x11Running commence a false`() {
-        // Le flag global doit être false au démarrage (ou après un runApp terminé)
-        // Note : si un autre test a laissé le flag à true, ce test échouera —
-        // mais x11Running est remis à false dans le finally de runApp.
+        // The global flag must be false at startup (or after a finished runApp)
+        // Note: if another test left the flag at true, this test will fail —
+        // but x11Running is reset to false in runApp's finally block.
         assertFalse(x11Running.get(), "x11Running doit être false hors boucle active")
     }
 
     @Test
     fun `runApp reste un no-op sur non-Linux`() {
-        // Sur macOS/Windows, libX11 est null → runApp retourne immédiatement
-        if (libX11 != null) return // Skip sur Linux (nécessite un serveur X)
+        // On macOS/Windows, libX11 is null → runApp returns immediately
+        if (libX11 != null) return // Skip on Linux (requires an X server)
 
         var canCreateSurfacesCalled = false
         val handler = object : ApplicationHandler {
@@ -93,7 +93,7 @@ class X11EventLoopSmokeTest {
         // Sur macOS/Windows, xSendEvent est null → wakeUp ne doit pas lever d'exception
         if (libX11 != null) return // Skip sur Linux
 
-        // Créer un proxy avec un displayPtr fictif et une loop vide
+        // Create a proxy with a fictitious displayPtr and an empty loop
         val fakeLoop = X11EventLoop(displayPtr = 0L, screen = 0)
         val proxy = X11EventLoopProxy(fakeLoop, displayPtr = 0L)
 

@@ -1,10 +1,10 @@
 name: android-visual
 
-# Capture GPU offscreen Android — test instrumenté sur émulateur.
-# hello-triangle-android-capture rend le triangle wgpu4k Vulkan dans une texture
-# offscreen (Surface adossée à une SurfaceTexture → ANativeWindow via android-native-helper),
-# relit le framebuffer et vérifie le triangle RGB. L'émulateur fournit un Vulkan logiciel
-# (SwiftShader). NON BLOQUANT.
+# Offscreen GPU capture on Android — instrumented test on an emulator.
+# hello-triangle-android-capture renders the wgpu4k Vulkan triangle into an offscreen
+# texture (a Surface backed by a SurfaceTexture → ANativeWindow via android-native-helper),
+# reads the framebuffer back and checks the RGB triangle. The emulator provides a software
+# Vulkan (SwiftShader). NON-BLOCKING.
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           java-version: '25'
           cache: 'gradle'
 
-      # KVM pour accélérer l'émulateur sur ubuntu.
+      # KVM to speed up the emulator on ubuntu.
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -45,7 +45,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Capture GPU offscreen sur émulateur (Vulkan logiciel SwiftShader). Non bloquant.
+      # Offscreen GPU capture on an emulator (software SwiftShader Vulkan). Non-blocking.
       - name: Capture GPU Android (émulateur, best-effort)
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
@@ -58,8 +58,8 @@ jobs:
           disable-animations: true
           script: ./gradlew :samples:hello-triangle-android-capture:connectedDebugAndroidTest --no-daemon --stacktrace
 
-      # La capture PNG, écrite via TestStorage, est rapatriée par le runner sous
-      # build/outputs/.../additional_output. On l'upload en artefact.
+      # The PNG capture, written via TestStorage, is pulled back by the runner under
+      # build/outputs/.../additional_output. We upload it as an artifact.
       - name: Upload capture Android
         if: always()
         uses: actions/upload-artifact@v4

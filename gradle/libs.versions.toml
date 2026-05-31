@@ -2,9 +2,9 @@
 # Core Tooling
 kotlin = "2.3.21"
 
-# kextract (CLI tool pour bindings Obj-C/FFM) — version utilisée pour la génération
-# Repo : https://github.com/klang-toolkit/kextract
-# Download : https://github.com/klang-toolkit/kextract/releases/tag/v0.0.2
+# kextract (CLI tool for Obj-C/FFM bindings) — version used for generation
+# Repo: https://github.com/klang-toolkit/kextract
+# Download: https://github.com/klang-toolkit/kextract/releases/tag/v0.0.2
 kextract = "0.0.2"
 agp = "9.0.0"
 compose-multiplatform = "1.7.3"
@@ -12,10 +12,10 @@ dokka = "2.2.0"
 
 # wgpu4k — WebGPU binding for Kotlin Multiplatform
 # Maven Central: io.ygdrasil:wgpu4k:0.1.1
-# Repo : https://github.com/wgpu4k/wgpu4k
+# Repo: https://github.com/wgpu4k/wgpu4k
 wgpu4k = "0.1.1"
-# webgpu-ktypes — version synchronisée avec wgpu4k:0.1.1
-# Les data classes descripteurs (VertexState, FragmentState, etc.) sont dans webgpu-ktypes-descriptors
+# webgpu-ktypes — version synchronized with wgpu4k:0.1.1
+# The descriptor data classes (VertexState, FragmentState, etc.) are in webgpu-ktypes-descriptors
 webgpu-ktypes = "0.0.7"
 
 # Libraries
@@ -44,7 +44,7 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 
 # wgpu4k
 wgpu4k = { module = "io.ygdrasil:wgpu4k", version.ref = "wgpu4k" }
-# Descripteurs wgpu4k (data classes : VertexState, FragmentState, RenderPipelineDescriptor, etc.)
+# wgpu4k descriptors (data classes: VertexState, FragmentState, RenderPipelineDescriptor, etc.)
 webgpu-ktypes-descriptors = { module = "io.ygdrasil:webgpu-ktypes-descriptors", version.ref = "webgpu-ktypes" }
 
 # AndroidX

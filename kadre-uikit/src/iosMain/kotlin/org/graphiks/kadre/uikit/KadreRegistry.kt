@@ -3,15 +3,15 @@ package org.graphiks.kadre.uikit
 import org.graphiks.kadre.core.ApplicationHandler
 
 /**
- * Registre global Kadre pour iOS.
+ * Global Kadre registry for iOS.
  *
- * Stocke l'ApplicationHandler avant le démarrage de UIApplicationMain.
- * Nécessaire car UIApplicationMain instancie KadreAppDelegate lui-même
- * sans permettre l'injection de dépendances au constructeur.
+ * Stores the ApplicationHandler before UIApplicationMain starts.
+ * Necessary because UIApplicationMain instantiates KadreAppDelegate itself
+ * without allowing dependency injection through the constructor.
  *
- * Usage :
+ * Usage:
  * ```kotlin
- * startKadreApplication(myHandler)  // stocke dans KadreRegistry puis lance UIApplicationMain
+ * startKadreApplication(myHandler)  // stores in KadreRegistry then launches UIApplicationMain
  * ```
  */
 object KadreRegistry {

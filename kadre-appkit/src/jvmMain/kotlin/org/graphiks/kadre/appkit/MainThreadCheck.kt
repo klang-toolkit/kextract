@@ -1,9 +1,9 @@
 /**
- * Assertion de thread principal pour les appels AppKit.
+ * Main-thread assertion for AppKit calls.
  *
- * AppKit (NSApplication, NSWindow, etc.) doit être invoqué exclusivement
- * depuis le thread principal du processus. Cette utilitaire interroge
- * `+[NSThread isMainThread]` via le runtime ObjC pour valider l'invariant.
+ * AppKit (NSApplication, NSWindow, etc.) must be invoked exclusively
+ * from the process main thread. This utility queries
+ * `+[NSThread isMainThread]` via the ObjC runtime to validate the invariant.
  */
 package org.graphiks.kadre.appkit
 
@@ -12,8 +12,8 @@ import java.lang.foreign.ValueLayout
 
 object MainThreadCheck {
     /**
-     * Lance [IllegalArgumentException] si l'appel n'est pas effectué depuis
-     * le thread principal du processus.
+     * Throws [IllegalArgumentException] if the call is not made from
+     * the process main thread.
      */
     fun require() {
         val isMainThread = ObjCRuntime.msgSend(

@@ -1,16 +1,16 @@
 /**
- * Modèle d'événements de kadre-core.
+ * kadre-core event model.
  *
- * Ce fichier définit les deux hiérarchies d'événements centrales :
- * - [WindowEvent] : événements relatifs à une fenêtre (redimensionnement, clavier, pointeur, etc.)
- * - [DeviceEvent] : événements bruts de périphérique (mouvement absolu, bouton, touche)
+ * This file defines the two central event hierarchies:
+ * - [WindowEvent]: events related to a window (resize, keyboard, pointer, etc.)
+ * - [DeviceEvent]: raw device events (absolute motion, button, key)
  *
- * Il définit également les types support utilisés par ces événements :
- * [Key], [KeyState], [Modifiers], [MouseButton] et [TouchPhase].
+ * It also defines the support types used by these events:
+ * [Key], [KeyState], [Modifiers], [MouseButton] and [TouchPhase].
  *
- * ## Périmètre
- * Toutes les déclarations sont 100 % commonMain (aucune dépendance native).
- * Le dispatch vers les backends reste hors scope de ce fichier.
+ * ## Scope
+ * All declarations are 100% commonMain (no native dependency).
+ * Dispatch to backends remains out of scope for this file.
  *
  * @since 1.0.0
  * @see WindowEvent
@@ -21,114 +21,114 @@ package org.graphiks.kadre.core
 import kotlin.jvm.JvmInline
 
 // ---------------------------------------------------------------------------
-// Types support
+// Support types
 // ---------------------------------------------------------------------------
 
 /**
- * Touches logiques du clavier.
+ * Logical keyboard keys.
  *
- * Couvre les lettres A–Z, les chiffres Digit0–Digit9, les touches de fonction
- * F1–F12, les touches de navigation et de modification, ainsi qu'une valeur
- * de repli [Unknown] pour les touches non reconnues.
+ * Covers the letters A–Z, the digits Digit0–Digit9, the function keys
+ * F1–F12, the navigation and modifier keys, as well as a fallback value
+ * [Unknown] for unrecognized keys.
  */
 enum class Key {
-    // Lettres
-    /** Touche « A ». */ A,
-    /** Touche « B ». */ B,
-    /** Touche « C ». */ C,
-    /** Touche « D ». */ D,
-    /** Touche « E ». */ E,
-    /** Touche « F ». */ F,
-    /** Touche « G ». */ G,
-    /** Touche « H ». */ H,
-    /** Touche « I ». */ I,
-    /** Touche « J ». */ J,
-    /** Touche « K ». */ K,
-    /** Touche « L ». */ L,
-    /** Touche « M ». */ M,
-    /** Touche « N ». */ N,
-    /** Touche « O ». */ O,
-    /** Touche « P ». */ P,
-    /** Touche « Q ». */ Q,
-    /** Touche « R ». */ R,
-    /** Touche « S ». */ S,
-    /** Touche « T ». */ T,
-    /** Touche « U ». */ U,
-    /** Touche « V ». */ V,
-    /** Touche « W ». */ W,
-    /** Touche « X ». */ X,
-    /** Touche « Y ». */ Y,
-    /** Touche « Z ». */ Z,
+    // Letters
+    /** "A" key. */ A,
+    /** "B" key. */ B,
+    /** "C" key. */ C,
+    /** "D" key. */ D,
+    /** "E" key. */ E,
+    /** "F" key. */ F,
+    /** "G" key. */ G,
+    /** "H" key. */ H,
+    /** "I" key. */ I,
+    /** "J" key. */ J,
+    /** "K" key. */ K,
+    /** "L" key. */ L,
+    /** "M" key. */ M,
+    /** "N" key. */ N,
+    /** "O" key. */ O,
+    /** "P" key. */ P,
+    /** "Q" key. */ Q,
+    /** "R" key. */ R,
+    /** "S" key. */ S,
+    /** "T" key. */ T,
+    /** "U" key. */ U,
+    /** "V" key. */ V,
+    /** "W" key. */ W,
+    /** "X" key. */ X,
+    /** "Y" key. */ Y,
+    /** "Z" key. */ Z,
 
-    // Chiffres
-    /** Touche chiffre « 0 ». */ Digit0,
-    /** Touche chiffre « 1 ». */ Digit1,
-    /** Touche chiffre « 2 ». */ Digit2,
-    /** Touche chiffre « 3 ». */ Digit3,
-    /** Touche chiffre « 4 ». */ Digit4,
-    /** Touche chiffre « 5 ». */ Digit5,
-    /** Touche chiffre « 6 ». */ Digit6,
-    /** Touche chiffre « 7 ». */ Digit7,
-    /** Touche chiffre « 8 ». */ Digit8,
-    /** Touche chiffre « 9 ». */ Digit9,
+    // Digits
+    /** Digit "0" key. */ Digit0,
+    /** Digit "1" key. */ Digit1,
+    /** Digit "2" key. */ Digit2,
+    /** Digit "3" key. */ Digit3,
+    /** Digit "4" key. */ Digit4,
+    /** Digit "5" key. */ Digit5,
+    /** Digit "6" key. */ Digit6,
+    /** Digit "7" key. */ Digit7,
+    /** Digit "8" key. */ Digit8,
+    /** Digit "9" key. */ Digit9,
 
-    // Touches de fonction
-    /** Touche de fonction F1. */ F1,
-    /** Touche de fonction F2. */ F2,
-    /** Touche de fonction F3. */ F3,
-    /** Touche de fonction F4. */ F4,
-    /** Touche de fonction F5. */ F5,
-    /** Touche de fonction F6. */ F6,
-    /** Touche de fonction F7. */ F7,
-    /** Touche de fonction F8. */ F8,
-    /** Touche de fonction F9. */ F9,
-    /** Touche de fonction F10. */ F10,
-    /** Touche de fonction F11. */ F11,
-    /** Touche de fonction F12. */ F12,
+    // Function keys
+    /** F1 function key. */ F1,
+    /** F2 function key. */ F2,
+    /** F3 function key. */ F3,
+    /** F4 function key. */ F4,
+    /** F5 function key. */ F5,
+    /** F6 function key. */ F6,
+    /** F7 function key. */ F7,
+    /** F8 function key. */ F8,
+    /** F9 function key. */ F9,
+    /** F10 function key. */ F10,
+    /** F11 function key. */ F11,
+    /** F12 function key. */ F12,
 
-    // Touches spéciales
-    /** Barre d'espace. */ Space,
-    /** Touche Entrée. */ Enter,
-    /** Touche Échappement. */ Escape,
-    /** Touche Retour arrière. */ Backspace,
-    /** Touche Tabulation. */ Tab,
+    // Special keys
+    /** Space bar. */ Space,
+    /** Enter key. */ Enter,
+    /** Escape key. */ Escape,
+    /** Backspace key. */ Backspace,
+    /** Tab key. */ Tab,
 
-    // Touches de navigation
-    /** Flèche haut. */ ArrowUp,
-    /** Flèche bas. */ ArrowDown,
-    /** Flèche gauche. */ ArrowLeft,
-    /** Flèche droite. */ ArrowRight,
+    // Navigation keys
+    /** Up arrow. */ ArrowUp,
+    /** Down arrow. */ ArrowDown,
+    /** Left arrow. */ ArrowLeft,
+    /** Right arrow. */ ArrowRight,
 
-    // Modificateurs
-    /** Majuscule gauche. */ ShiftLeft,
-    /** Majuscule droite. */ ShiftRight,
-    /** Contrôle gauche. */ ControlLeft,
-    /** Contrôle droite. */ ControlRight,
-    /** Alt gauche. */ AltLeft,
-    /** Alt droite (AltGr). */ AltRight,
-    /** Meta/Commande gauche (⌘/Win). */ MetaLeft,
-    /** Meta/Commande droite (⌘/Win). */ MetaRight,
+    // Modifiers
+    /** Left Shift. */ ShiftLeft,
+    /** Right Shift. */ ShiftRight,
+    /** Left Control. */ ControlLeft,
+    /** Right Control. */ ControlRight,
+    /** Left Alt. */ AltLeft,
+    /** Right Alt (AltGr). */ AltRight,
+    /** Left Meta/Command (⌘/Win). */ MetaLeft,
+    /** Right Meta/Command (⌘/Win). */ MetaRight,
 
-    /** Touche non reconnue par la plateforme. */ Unknown,
+    /** Key not recognized by the platform. */ Unknown,
 }
 
 /**
- * État d'une touche ou d'un bouton.
+ * State of a key or a button.
  */
 enum class KeyState {
-    /** La touche vient d'être enfoncée. */
+    /** The key has just been pressed. */
     Pressed,
 
-    /** La touche vient d'être relâchée. */
+    /** The key has just been released. */
     Released,
 }
 
 /**
- * Ensemble de modificateurs clavier actifs au moment d'un événement.
+ * Set of keyboard modifiers active at the time of an event.
  *
- * Implémenté comme un entier de bits pour minimiser les allocations.
- * Utilisez les constantes du [companion object][Modifiers.Companion] pour
- * construire des valeurs, et l'opérateur [plus] pour les combiner.
+ * Implemented as a bit integer to minimize allocations.
+ * Use the constants from the [companion object][Modifiers.Companion] to
+ * build values, and the [plus] operator to combine them.
  *
  * ```kotlin
  * val mods = Modifiers.SHIFT + Modifiers.CTRL
@@ -137,93 +137,93 @@ enum class KeyState {
  * assert(mods.ctrl)
  * ```
  *
- * @property bits Représentation interne sous forme de champ de bits.
+ * @property bits Internal representation as a bit field.
  */
 @JvmInline
 value class Modifiers(val bits: Int) {
 
-    /** `true` si la touche Majuscule est enfoncée. */
+    /** `true` if the Shift key is pressed. */
     val shift: Boolean get() = bits and 0x1 != 0
 
-    /** `true` si la touche Contrôle est enfoncée. */
+    /** `true` if the Control key is pressed. */
     val ctrl: Boolean get() = bits and 0x2 != 0
 
-    /** `true` si la touche Alt est enfoncée. */
+    /** `true` if the Alt key is pressed. */
     val alt: Boolean get() = bits and 0x4 != 0
 
-    /** `true` si la touche Meta (⌘ / Win) est enfoncée. */
+    /** `true` if the Meta key (⌘ / Win) is pressed. */
     val meta: Boolean get() = bits and 0x8 != 0
 
     /**
-     * Combine ces modificateurs avec [other].
+     * Combines these modifiers with [other].
      *
-     * @return Nouvel ensemble contenant les modificateurs des deux opérandes.
+     * @return New set containing the modifiers of both operands.
      */
     operator fun plus(other: Modifiers): Modifiers = Modifiers(bits or other.bits)
 
     /**
-     * Vérifie si cet ensemble contient tous les modificateurs de [other].
+     * Checks whether this set contains all the modifiers of [other].
      *
-     * @return `true` si chaque bit de [other] est présent dans cet ensemble.
+     * @return `true` if every bit of [other] is present in this set.
      */
     fun contains(other: Modifiers): Boolean = bits and other.bits == other.bits
 
     companion object {
-        /** Aucun modificateur actif. */
+        /** No active modifier. */
         val NONE = Modifiers(0x0)
 
-        /** Seul le modificateur Majuscule est actif. */
+        /** Only the Shift modifier is active. */
         val SHIFT = Modifiers(0x1)
 
-        /** Seul le modificateur Contrôle est actif. */
+        /** Only the Control modifier is active. */
         val CTRL = Modifiers(0x2)
 
-        /** Seul le modificateur Alt est actif. */
+        /** Only the Alt modifier is active. */
         val ALT = Modifiers(0x4)
 
-        /** Seul le modificateur Meta est actif. */
+        /** Only the Meta modifier is active. */
         val META = Modifiers(0x8)
     }
 }
 
 /**
- * Bouton de souris.
+ * Mouse button.
  *
- * Les trois boutons principaux disposent d'objets nommés ; les boutons
- * supplémentaires sont représentés par [Other].
+ * The three main buttons have named objects; additional buttons
+ * are represented by [Other].
  */
 sealed interface MouseButton {
-    /** Bouton gauche (bouton principal). */
+    /** Left button (primary button). */
     data object Left : MouseButton
 
-    /** Bouton droit (bouton secondaire / menu contextuel). */
+    /** Right button (secondary button / context menu). */
     data object Right : MouseButton
 
-    /** Bouton du milieu (molette ou bouton central). */
+    /** Middle button (wheel or center button). */
     data object Middle : MouseButton
 
     /**
-     * Bouton supplémentaire identifié par son index numérique.
+     * Additional button identified by its numeric index.
      *
-     * @property button Indice du bouton (spécifique à la plateforme, commence à 4).
+     * @property button Button index (platform-specific, starts at 4).
      */
     data class Other(val button: Int) : MouseButton
 }
 
 /**
- * Phase d'un contact tactile.
+ * Phase of a touch contact.
  */
 enum class TouchPhase {
-    /** Le contact vient d'être posé sur l'écran. */
+    /** The contact has just been placed on the screen. */
     Started,
 
-    /** Le contact s'est déplacé sur l'écran. */
+    /** The contact has moved on the screen. */
     Moved,
 
-    /** Le contact a été retiré de l'écran. */
+    /** The contact has been removed from the screen. */
     Ended,
 
-    /** Le contact a été annulé (ex. appel entrant, geste système). */
+    /** The contact has been cancelled (e.g. incoming call, system gesture). */
     Cancelled,
 }
 
@@ -232,29 +232,29 @@ enum class TouchPhase {
 // ---------------------------------------------------------------------------
 
 /**
- * Événement émis par une fenêtre.
+ * Event emitted by a window.
  *
- * Chaque variant correspond à un changement d'état ou à une action de
- * l'utilisateur sur la fenêtre ciblée.
+ * Each variant corresponds to a state change or a user action
+ * on the targeted window.
  *
- * ### Utilisation typique
+ * ### Typical usage
  * ```kotlin
  * fun onWindowEvent(event: WindowEvent) {
  *     when (event) {
- *         WindowEvent.CloseRequested    -> quitter()
- *         is WindowEvent.Resized        -> redimensionner(event.size)
- *         is WindowEvent.Moved          -> deplacer(event.position)
- *         is WindowEvent.ScaleFactorChanged -> mettreAJourDpi(event.factor)
- *         is WindowEvent.Focused        -> gererFocus(event.gained)
- *         is WindowEvent.KeyboardInput  -> gererClavier(event.key, event.state, event.modifiers)
- *         is WindowEvent.PointerMoved   -> gererPointeur(event.position)
- *         WindowEvent.PointerEntered    -> gererEntree()
- *         WindowEvent.PointerLeft       -> gererSortie()
- *         is WindowEvent.MouseInput     -> gererSouris(event.button, event.state)
- *         is WindowEvent.MouseWheel     -> gererMolette(event.deltaX, event.deltaY)
- *         is WindowEvent.Touch          -> gererTactile(event.phase, event.location, event.id)
- *         WindowEvent.RedrawRequested   -> redessiner()
- *         WindowEvent.Destroyed         -> libererRessources()
+ *         WindowEvent.CloseRequested    -> quit()
+ *         is WindowEvent.Resized        -> resize(event.size)
+ *         is WindowEvent.Moved          -> move(event.position)
+ *         is WindowEvent.ScaleFactorChanged -> updateDpi(event.factor)
+ *         is WindowEvent.Focused        -> handleFocus(event.gained)
+ *         is WindowEvent.KeyboardInput  -> handleKeyboard(event.key, event.state, event.modifiers)
+ *         is WindowEvent.PointerMoved   -> handlePointer(event.position)
+ *         WindowEvent.PointerEntered    -> handleEnter()
+ *         WindowEvent.PointerLeft       -> handleLeave()
+ *         is WindowEvent.MouseInput     -> handleMouse(event.button, event.state)
+ *         is WindowEvent.MouseWheel     -> handleWheel(event.deltaX, event.deltaY)
+ *         is WindowEvent.Touch          -> handleTouch(event.phase, event.location, event.id)
+ *         WindowEvent.RedrawRequested   -> redraw()
+ *         WindowEvent.Destroyed         -> releaseResources()
  *     }
  * }
  * ```
@@ -262,46 +262,46 @@ enum class TouchPhase {
 sealed interface WindowEvent {
 
     /**
-     * L'utilisateur a demandé la fermeture de la fenêtre (bouton ×, Alt+F4, ⌘W, etc.).
+     * The user requested closing the window (× button, Alt+F4, ⌘W, etc.).
      *
-     * L'application reste libre d'ignorer ou de différer la fermeture.
+     * The application remains free to ignore or defer the close.
      */
     data object CloseRequested : WindowEvent
 
     /**
-     * La fenêtre a été redimensionnée.
+     * The window has been resized.
      *
-     * @property size Nouvelle taille en pixels physiques.
+     * @property size New size in physical pixels.
      */
     data class Resized(val size: PhysicalSize<Int>) : WindowEvent
 
     /**
-     * La fenêtre a été déplacée.
+     * The window has been moved.
      *
-     * @property position Nouvelle position du coin supérieur gauche en pixels physiques.
+     * @property position New position of the top-left corner in physical pixels.
      */
     data class Moved(val position: PhysicalPosition<Int>) : WindowEvent
 
     /**
-     * Le facteur d'échelle DPI de la fenêtre a changé (ex. déplacement vers un autre moniteur).
+     * The window's DPI scale factor changed (e.g. moved to another monitor).
      *
-     * @property factor Nouveau facteur d'échelle (ex. `2.0` sur un écran Retina).
+     * @property factor New scale factor (e.g. `2.0` on a Retina screen).
      */
     data class ScaleFactorChanged(val factor: Double) : WindowEvent
 
     /**
-     * La fenêtre a gagné ou perdu le focus clavier.
+     * The window gained or lost keyboard focus.
      *
-     * @property gained `true` si la fenêtre vient de gagner le focus, `false` si elle l'a perdu.
+     * @property gained `true` if the window just gained focus, `false` if it lost it.
      */
     data class Focused(val gained: Boolean) : WindowEvent
 
     /**
-     * Un événement clavier s'est produit alors que la fenêtre avait le focus.
+     * A keyboard event occurred while the window had focus.
      *
-     * @property key     Touche logique concernée.
-     * @property state   État de la touche ([KeyState.Pressed] ou [KeyState.Released]).
-     * @property modifiers Modificateurs actifs au moment de l'événement.
+     * @property key     Logical key involved.
+     * @property state   Key state ([KeyState.Pressed] or [KeyState.Released]).
+     * @property modifiers Modifiers active at the time of the event.
      */
     data class KeyboardInput(
         val key: Key,
@@ -311,45 +311,45 @@ sealed interface WindowEvent {
     ) : WindowEvent
 
     /**
-     * Le pointeur s'est déplacé au-dessus de la fenêtre.
+     * The pointer moved over the window.
      *
-     * @property position Position courante du pointeur en pixels physiques (virgule flottante
-     *   pour la précision sub-pixel des tablettes et trackpads).
+     * @property position Current pointer position in physical pixels (floating point
+     *   for the sub-pixel precision of tablets and trackpads).
      */
     data class PointerMoved(val position: PhysicalPosition<Double>) : WindowEvent
 
     /**
-     * Le pointeur vient d'entrer dans la zone cliente de la fenêtre.
+     * The pointer just entered the window's client area.
      */
     data object PointerEntered : WindowEvent
 
     /**
-     * Le pointeur vient de quitter la zone cliente de la fenêtre.
+     * The pointer just left the window's client area.
      */
     data object PointerLeft : WindowEvent
 
     /**
-     * Un bouton de souris a été enfoncé ou relâché.
+     * A mouse button has been pressed or released.
      *
-     * @property button Bouton concerné.
-     * @property state  État du bouton ([KeyState.Pressed] ou [KeyState.Released]).
+     * @property button Button involved.
+     * @property state  Button state ([KeyState.Pressed] or [KeyState.Released]).
      */
     data class MouseInput(val button: MouseButton, val state: KeyState) : WindowEvent
 
     /**
-     * La molette de souris (ou le pavé tactile) a produit un défilement.
+     * The mouse wheel (or trackpad) produced a scroll.
      *
-     * @property deltaX Défilement horizontal (positif vers la droite).
-     * @property deltaY Défilement vertical (positif vers le bas).
+     * @property deltaX Horizontal scroll (positive towards the right).
+     * @property deltaY Vertical scroll (positive towards the bottom).
      */
     data class MouseWheel(val deltaX: Double, val deltaY: Double) : WindowEvent
 
     /**
-     * Un contact tactile a changé d'état.
+     * A touch contact changed state.
      *
-     * @property phase    Phase du contact.
-     * @property location Position du contact en pixels physiques.
-     * @property id       Identifiant unique du contact (stable entre [TouchPhase.Started] et
+     * @property phase    Contact phase.
+     * @property location Contact position in physical pixels.
+     * @property id       Unique contact identifier (stable between [TouchPhase.Started] and
      *   [TouchPhase.Ended]/[TouchPhase.Cancelled]).
      */
     data class Touch(
@@ -359,16 +359,16 @@ sealed interface WindowEvent {
     ) : WindowEvent
 
     /**
-     * La fenêtre doit être redessinée.
+     * The window must be redrawn.
      *
-     * Émis par la plateforme (vsync, invalidation de région, etc.).
+     * Emitted by the platform (vsync, region invalidation, etc.).
      */
     data object RedrawRequested : WindowEvent
 
     /**
-     * La fenêtre a été détruite et ses ressources natives libérées.
+     * The window has been destroyed and its native resources released.
      *
-     * Aucun autre événement ne sera émis pour cette fenêtre après [Destroyed].
+     * No further event will be emitted for this window after [Destroyed].
      */
     data object Destroyed : WindowEvent
 }
@@ -378,18 +378,18 @@ sealed interface WindowEvent {
 // ---------------------------------------------------------------------------
 
 /**
- * Événement brut de périphérique d'entrée.
+ * Raw input device event.
  *
- * Contrairement à [WindowEvent], ces événements sont émis indépendamment de
- * la fenêtre active et reflètent l'état brut du périphérique.
+ * Unlike [WindowEvent], these events are emitted independently of the active
+ * window and reflect the raw state of the device.
  *
- * ### Utilisation typique
+ * ### Typical usage
  * ```kotlin
  * fun onDeviceEvent(event: DeviceEvent) {
  *     when (event) {
- *         is DeviceEvent.PointerMotion -> gererMouvement(event.dx, event.dy)
- *         is DeviceEvent.Button        -> gererBouton(event.button, event.state)
- *         is DeviceEvent.Key           -> gererTouche(event.scancode, event.state)
+ *         is DeviceEvent.PointerMotion -> handleMotion(event.dx, event.dy)
+ *         is DeviceEvent.Button        -> handleButton(event.button, event.state)
+ *         is DeviceEvent.Key           -> handleKey(event.scancode, event.state)
  *     }
  * }
  * ```
@@ -397,26 +397,26 @@ sealed interface WindowEvent {
 sealed interface DeviceEvent {
 
     /**
-     * Mouvement brut du pointeur (delta, non limité aux bords de l'écran).
+     * Raw pointer motion (delta, not limited to the screen edges).
      *
-     * @property dx Déplacement horizontal en pixels bruts.
-     * @property dy Déplacement vertical en pixels bruts.
+     * @property dx Horizontal displacement in raw pixels.
+     * @property dy Vertical displacement in raw pixels.
      */
     data class PointerMotion(val dx: Double, val dy: Double) : DeviceEvent
 
     /**
-     * Un bouton physique de périphérique a changé d'état.
+     * A physical device button changed state.
      *
-     * @property button Indice du bouton (spécifique à la plateforme).
-     * @property state  État du bouton ([KeyState.Pressed] ou [KeyState.Released]).
+     * @property button Button index (platform-specific).
+     * @property state  Button state ([KeyState.Pressed] or [KeyState.Released]).
      */
     data class Button(val button: Int, val state: KeyState) : DeviceEvent
 
     /**
-     * Une touche physique du clavier a changé d'état (identifiée par scancode).
+     * A physical keyboard key changed state (identified by scancode).
      *
-     * @property scancode Code physique de la touche (indépendant de la disposition clavier).
-     * @property state    État de la touche ([KeyState.Pressed] ou [KeyState.Released]).
+     * @property scancode Physical key code (independent of the keyboard layout).
+     * @property state    Key state ([KeyState.Pressed] or [KeyState.Released]).
      */
     data class Key(val scancode: Int, val state: KeyState) : DeviceEvent
 }

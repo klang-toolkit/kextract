@@ -8,42 +8,42 @@ import platform.UIKit.UIApplicationDelegateProtocol
 import platform.UIKit.UIResponder
 
 /**
- * AppDelegate Kadre pour iOS.
+ * Kadre AppDelegate for iOS.
  *
- * Déclaré `@ExportObjCClass` pour être visible par l'Objective-C runtime
- * (requis pour `UIApplicationMain`). Le handler est injecté via [KadreRegistry]
- * avant le démarrage de l'application.
+ * Declared `@ExportObjCClass` to be visible to the Objective-C runtime
+ * (required for `UIApplicationMain`). The handler is injected via [KadreRegistry]
+ * before the application starts.
  *
- * ## Ordre strict des callbacks UIKit
+ * ## Strict order of UIKit callbacks
  *
- * ### Démarrage
+ * ### Startup
  * ```
  * application(_:didFinishLaunchingWithOptions:) → canCreateSurfaces
  * applicationDidBecomeActive                   → resumed
  * ```
  *
- * ### Verrouillage écran / interruption courte (appel, Control Center)
+ * ### Screen lock / short interruption (call, Control Center)
  * ```
  * applicationWillResignActive  → suspended
- * applicationDidBecomeActive   → resumed       (déverrouillage / retour)
+ * applicationDidBecomeActive   → resumed       (unlock / return)
  * ```
  *
- * ### Mise en arrière-plan complète (bouton Home, App Switcher)
+ * ### Full backgrounding (Home button, App Switcher)
  * ```
  * applicationWillResignActive  → suspended
  * applicationDidEnterBackground → destroySurfaces
- * applicationWillEnterForeground (pas de callback Kadre — transition)
+ * applicationWillEnterForeground (no Kadre callback — transition)
  * applicationDidBecomeActive   → resumed
  * ```
  *
- * ### Terminaison
+ * ### Termination
  * ```
- * applicationWillTerminate     → destroySurfaces (si pas encore appelé)
+ * applicationWillTerminate     → destroySurfaces (if not already called)
  * ```
  *
- * ## Décision M3
- * AppDelegate-only (pas de `UISceneDelegate`) — évite `UISceneConfiguration`/Info.plist.
- * Scene-based envisagé post-V1 si le multi-fenêtre iOS est requis.
+ * ## M3 decision
+ * AppDelegate-only (no `UISceneDelegate`) — avoids `UISceneConfiguration`/Info.plist.
+ * Scene-based considered post-V1 if iOS multi-window is required.
  */
 @OptIn(BetaInteropApi::class)
 @ExportObjCClass
@@ -51,13 +51,13 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
 
     private var eventLoop: UIKitActiveEventLoop? = null
 
-    // ── Démarrage ─────────────────────────────────────────────────────────────
+    // ── Startup ─────────────────────────────────────────────────────────────
 
     /**
-     * Point d'entrée de l'application.
+     * Application entry point.
      *
-     * Récupère le handler depuis [KadreRegistry], crée l'[UIKitActiveEventLoop]
-     * et déclenche [ApplicationHandler.canCreateSurfaces].
+     * Retrieves the handler from [KadreRegistry], creates the [UIKitActiveEventLoop]
+     * and triggers [ApplicationHandler.canCreateSurfaces].
      */
     override fun application(
         application: UIApplication,
@@ -72,12 +72,12 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
         return true
     }
 
-    // ── Actif / Inactif ───────────────────────────────────────────────────────
+    // ── Active / Inactive ───────────────────────────────────────────────────────
 
     /**
-     * L'application devient active (premier plan, focus clavier).
+     * The application becomes active (foreground, keyboard focus).
      *
-     * Déclenche [ApplicationHandler.resumed].
+     * Triggers [ApplicationHandler.resumed].
      */
     override fun applicationDidBecomeActive(application: UIApplication) {
         println("[KadreAppDelegate] applicationDidBecomeActive → resumed")
@@ -85,24 +85,24 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
     }
 
     /**
-     * L'application va devenir inactive (appel entrant, Control Center, mise en fond).
+     * The application is about to become inactive (incoming call, Control Center, backgrounding).
      *
-     * Déclenche [ApplicationHandler.suspended].
+     * Triggers [ApplicationHandler.suspended].
      */
     override fun applicationWillResignActive(application: UIApplication) {
         println("[KadreAppDelegate] applicationWillResignActive → suspended")
         eventLoop?.let { it.handler.suspended(it) }
     }
 
-    // ── Arrière-plan / Premier plan ───────────────────────────────────────────
+    // ── Background / Foreground ───────────────────────────────────────────
 
     /**
-     * L'application est passée en arrière-plan complet (Home, App Switcher).
+     * The application has moved fully to the background (Home, App Switcher).
      *
-     * Déclenche [ApplicationHandler.destroySurfaces] pour permettre à l'app
-     * de libérer les ressources GPU avant suspension complète du processus.
+     * Triggers [ApplicationHandler.destroySurfaces] to let the app
+     * release GPU resources before the process is fully suspended.
      *
-     * Note : appelé APRÈS [applicationWillResignActive] → [ApplicationHandler.suspended].
+     * Note: called AFTER [applicationWillResignActive] → [ApplicationHandler.suspended].
      */
     override fun applicationDidEnterBackground(application: UIApplication) {
         println("[KadreAppDelegate] applicationDidEnterBackground → destroySurfaces")
@@ -110,25 +110,25 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
     }
 
     /**
-     * L'application va revenir au premier plan (depuis App Switcher ou retour app).
+     * The application is about to return to the foreground (from App Switcher or app return).
      *
-     * Déclenche [ApplicationHandler.canCreateSurfaces] pour permettre la
-     * ré-initialisation des surfaces GPU.
+     * Triggers [ApplicationHandler.canCreateSurfaces] to allow
+     * re-initialization of GPU surfaces.
      *
-     * Note : appelé AVANT [applicationDidBecomeActive] → [ApplicationHandler.resumed].
+     * Note: called BEFORE [applicationDidBecomeActive] → [ApplicationHandler.resumed].
      */
     override fun applicationWillEnterForeground(application: UIApplication) {
         println("[KadreAppDelegate] applicationWillEnterForeground → canCreateSurfaces")
         eventLoop?.let { it.handler.canCreateSurfaces(it) }
     }
 
-    // ── Terminaison ───────────────────────────────────────────────────────────
+    // ── Termination ───────────────────────────────────────────────────────────
 
     /**
-     * L'application va être terminée par le système.
+     * The application is about to be terminated by the system.
      *
-     * Déclenche [ApplicationHandler.destroySurfaces] (si pas déjà appelé depuis
-     * [applicationDidEnterBackground]) puis nettoie le registre.
+     * Triggers [ApplicationHandler.destroySurfaces] (if not already called from
+     * [applicationDidEnterBackground]) then cleans up the registry.
      */
     override fun applicationWillTerminate(application: UIApplication) {
         println("[KadreAppDelegate] applicationWillTerminate → destroySurfaces")

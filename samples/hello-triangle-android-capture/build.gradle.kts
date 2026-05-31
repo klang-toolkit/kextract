@@ -1,9 +1,9 @@
 /**
- * Sample hello-triangle-android-capture — capture GPU offscreen Android.
+ * Sample hello-triangle-android-capture — Android offscreen GPU capture.
  *
- * Rend le triangle wgpu4k (Vulkan) dans une texture offscreen via une Surface
- * (SurfaceTexture), relit le framebuffer et vérifie le triangle. Exécuté comme test
- * instrumenté sur émulateur (Vulkan logiciel SwiftShader).
+ * Renders the wgpu4k triangle (Vulkan) into an offscreen texture via a Surface
+ * (SurfaceTexture), reads back the framebuffer and verifies the triangle. Run as an
+ * instrumented test on emulator (software Vulkan SwiftShader).
  */
 plugins {
     id("com.android.library")
@@ -16,8 +16,8 @@ android {
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // TestStorage : permet au test d'écrire des fichiers de sortie (la capture PNG)
-        // que le runner rapatrie automatiquement sur l'hôte (scoped storage contourné).
+        // TestStorage: lets the test write output files (the PNG capture)
+        // that the runner automatically pulls back to the host (scoped storage bypassed).
         testInstrumentationRunnerArguments["useTestStorageService"] = "true"
     }
     compileOptions {
@@ -33,13 +33,13 @@ kotlin {
 dependencies {
     implementation("io.ygdrasil:wgpu4k-toolkit:0.1.1")
     // android-native-helper : Helper.nativeWindowFromSurface (ANativeWindow via JNI).
-    // Transitif en scope runtime via le toolkit → déclaré en compile.
+    // Transitive in runtime scope via the toolkit → declared in compile.
     implementation("io.ygdrasil:android-native-helper:0.0.1")
     implementation(libs.webgpu.ktypes.descriptors)
     implementation(libs.kotlinx.coroutines.core)
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
-    // TestStorage : API d'écriture de sorties + service rapatrié par le runner.
+    // TestStorage: output-writing API + service pulled back by the runner.
     androidTestImplementation("androidx.test.services:storage:1.5.0")
     androidTestUtil("androidx.test.services:test-services:1.5.0")
 }

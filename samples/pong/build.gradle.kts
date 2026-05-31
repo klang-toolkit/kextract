@@ -1,13 +1,13 @@
 /**
- * Module samples/pong — squelette KMP 6 cibles.
+ * Module samples/pong — 6-target KMP skeleton.
  *
- * Cibles : jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js(IR), wasmJs.
- * setup module (skeleton uniquement, pas d'implémentation).
+ * Targets: jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js(IR), wasmJs.
+ * setup module (skeleton only, no implementation).
  *
- * Tickets liés :
- *   #74 : GameState — commonMain
- *   #79 : PongGame — commonMain
- *   #80 : entry points par plateforme
+ * Related tickets:
+ *   #74: GameState — commonMain
+ *   #79: PongGame — commonMain
+ *   #80: per-platform entry points
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
@@ -20,9 +20,9 @@ android {
 }
 
 kotlin {
-    // Cibles web — en plus des cibles iOS/JVM/Android du plugin de convention.
-    // binaries.executable() : génère un bundle exécutable (webpack) pour servir
-    // le sample en navigateur via jsBrowserDevelopmentRun / wasmJsBrowserDevelopmentRun.
+    // Web targets — in addition to the iOS/JVM/Android targets from the convention plugin.
+    // binaries.executable(): generates an executable bundle (webpack) to serve
+    // the sample in a browser via jsBrowserDevelopmentRun / wasmJsBrowserDevelopmentRun.
     js(IR) {
         browser {
             commonWebpackConfig {
@@ -54,7 +54,7 @@ kotlin {
         }
         jvmMain {
             dependencies {
-                // wgpu4k — rendu WebGPU JVM (PongRenderer)
+                // wgpu4k — JVM WebGPU rendering (PongRenderer)
                 implementation(libs.wgpu4k)
                 implementation(libs.webgpu.ktypes.descriptors)
                 implementation(libs.kotlinx.coroutines.core)
@@ -83,7 +83,7 @@ kotlin {
 }
 
 // JVM run task — uses -XstartOnFirstThread (required for AppKit on macOS)
-// Usage : ./gradlew :samples:pong:run
+// Usage: ./gradlew :samples:pong:run
 tasks.register<JavaExec>("run") {
     group = "application"
     description = "Runs Pong on JVM (macOS AppKit + wgpu4k)"
@@ -93,7 +93,7 @@ tasks.register<JavaExec>("run") {
         kotlin.targets.getByName("jvm").compilations.getByName("main").output.allOutputs,
         configurations.getByName("jvmRuntimeClasspath"),
     )
-    // -XstartOnFirstThread est un flag JVM macOS-only — la JVM Windows/Linux le rejette.
+    // -XstartOnFirstThread is a macOS-only JVM flag — the Windows/Linux JVM rejects it.
     jvmArgs(buildList {
         if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
             add("-XstartOnFirstThread")

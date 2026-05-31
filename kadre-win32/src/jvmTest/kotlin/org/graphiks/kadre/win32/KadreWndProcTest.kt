@@ -1,15 +1,15 @@
 /**
- * Tests unitaires pour KadreWndProc.
+ * Unit tests for KadreWndProc.
  *
- * Vérifie que les messages Win32 (WM_*) sont correctement traduits en [WindowEvent]
- * kadre et transmis au handler installé.
+ * Verifies that the Win32 messages (WM_*) are correctly translated into kadre
+ * [WindowEvent]s and forwarded to the installed handler.
  *
- * Ces tests s'exécutent sur toutes les plateformes (macOS, Linux, Windows) car
- * le dispatch est une logique pure Kotlin. Seul defWindowProcW retourne 0 sur
- * macOS/Linux (MethodHandle FFM null) — comportement documenté et attendu.
+ * These tests run on all platforms (macOS, Linux, Windows) because
+ * the dispatch is pure Kotlin logic. Only defWindowProcW returns 0 on
+ * macOS/Linux (FFM MethodHandle null) — documented and expected behavior.
  *
- * Note : [KadreWndProc] est un singleton. Chaque test doit installer son propre
- * handler et le désinstaller en fin de test pour éviter les interférences.
+ * Note: [KadreWndProc] is a singleton. Each test must install its own
+ * handler and uninstall it at the end of the test to avoid interference.
  */
 package org.graphiks.kadre.win32
 
@@ -25,12 +25,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
-/** Fake HWND pour les tests (valeur arbitraire non nulle). */
+/** Fake HWND for the tests (arbitrary non-zero value). */
 private const val TEST_HWND: Long = 0x1234_5678L
 
 class KadreWndProcTest {
 
-    /** Dernier événement capturé par le handler de test. */
+    /** Last event captured by the test handler. */
     private var capturedHwnd: Long? = null
     private var capturedEvent: WindowEvent? = null
 
@@ -88,7 +88,7 @@ class KadreWndProcTest {
 
     @Test
     fun `WM_KEYDOWN emet KeyboardInput Pressed pour touche A`() {
-        // wParam = VK_A, lParam = 0 (pas de répétition)
+        // wParam = VK_A, lParam = 0 (no repeat)
         KadreWndProc.dispatch(TEST_HWND, WM_KEYDOWN, VK_A.toLong(), 0L)
 
         assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
@@ -100,7 +100,7 @@ class KadreWndProcTest {
 
     @Test
     fun `WM_KEYDOWN detecte la repetition via bit 30 de lParam`() {
-        // Bit 30 = 0x4000_0000 → touche déjà enfoncée (répétition)
+        // Bit 30 = 0x4000_0000 → key already down (repeat)
         val lParamRepeat = KF_REPEAT
         KadreWndProc.dispatch(TEST_HWND, WM_KEYDOWN, VK_SPACE.toLong(), lParamRepeat)
 
@@ -156,7 +156,7 @@ class KadreWndProcTest {
         }
     }
 
-    // ── Boutons de souris ─────────────────────────────────────────────────────
+    // ── Mouse buttons ───────────────────────────────────────────────────────────
 
     @Test
     fun `WM_LBUTTONDOWN emet MouseInput Left Pressed`() {
@@ -216,7 +216,7 @@ class KadreWndProcTest {
 
     @Test
     fun `WM_MOUSEWHEEL emet MouseWheel avec delta positif vers le haut`() {
-        // wParam HIWORD = +120 (un cran vers le haut)
+        // wParam HIWORD = +120 (one notch up)
         val wParam = 120L shl 16
         KadreWndProc.dispatch(TEST_HWND, WM_MOUSEWHEEL, wParam, 0L)
 
@@ -228,7 +228,7 @@ class KadreWndProcTest {
 
     @Test
     fun `WM_MOUSEWHEEL emet MouseWheel avec delta negatif vers le bas`() {
-        // wParam HIWORD = -120 (un cran vers le bas) → SHORT(-120) = 0xFF88
+        // wParam HIWORD = -120 (one notch down) → SHORT(-120) = 0xFF88
         val shortNeg120 = (-120).toShort().toInt() and 0xFFFF
         val wParam = (shortNeg120.toLong() shl 16)
         KadreWndProc.dispatch(TEST_HWND, WM_MOUSEWHEEL, wParam, 0L)
@@ -271,7 +271,7 @@ class KadreWndProcTest {
 
     @Test
     fun `WM_DPICHANGED emet ScaleFactorChanged avec facteur correct`() {
-        // wParam LOWORD = 192 DPI → facteur 2.0 (192 / 96)
+        // wParam LOWORD = 192 DPI → factor 2.0 (192 / 96)
         val wParam = 192L
         KadreWndProc.dispatch(TEST_HWND, WM_DPICHANGED, wParam, 0L)
 
@@ -282,7 +282,7 @@ class KadreWndProcTest {
 
     @Test
     fun `WM_DPICHANGED avec 96 DPI retourne facteur 1 0`() {
-        // wParam LOWORD = 96 DPI → facteur 1.0 (identité)
+        // wParam LOWORD = 96 DPI → factor 1.0 (identity)
         val wParam = 96L
         KadreWndProc.dispatch(TEST_HWND, WM_DPICHANGED, wParam, 0L)
 
@@ -291,28 +291,28 @@ class KadreWndProcTest {
         }
     }
 
-    // ── Message inconnu ───────────────────────────────────────────────────────
+    // ── Unknown message ─────────────────────────────────────────────────────────
 
     @Test
     fun `message inconnu ne transmet pas d evenement au handler`() {
-        // 0xDEAD n'est pas un WM_* connu — doit aller dans else → defWindowProcW
-        // Sur macOS/Linux, defWindowProcW est null → retourne 0
+        // 0xDEAD is not a known WM_* — must go into else → defWindowProcW
+        // On macOS/Linux, defWindowProcW is null → returns 0
         KadreWndProc.dispatch(TEST_HWND, 0xDEAD, 0L, 0L)
-        // Aucun événement ne doit avoir été émis
+        // No event should have been emitted
         assertNull(capturedEvent)
     }
 
-    // ── Handler non installé ──────────────────────────────────────────────────
+    // ── Handler not installed ─────────────────────────────────────────────────
 
     @Test
     fun `dispatch sans handler installe ne leve pas d exception`() {
         KadreWndProc.uninstall()
-        // Ne doit pas lever d'exception — les événements sont silencieusement ignorés
+        // Must not throw an exception — events are silently ignored
         KadreWndProc.dispatch(TEST_HWND, WM_PAINT, 0L, 0L)
         KadreWndProc.dispatch(TEST_HWND, WM_CLOSE, 0L, 0L)
     }
 
-    // ── Constantes Win32 ──────────────────────────────────────────────────────
+    // ── Win32 constants ─────────────────────────────────────────────────────────
 
     @Test
     fun `constantes WM ont les valeurs hexadecimales attendues`() {

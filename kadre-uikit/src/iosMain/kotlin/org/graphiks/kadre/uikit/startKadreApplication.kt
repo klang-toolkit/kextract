@@ -10,14 +10,14 @@ import platform.UIKit.UIApplicationMain
 import platform.objc.objc_getClass
 
 /**
- * Démarre l'application Kadre iOS.
+ * Starts the Kadre iOS application.
  *
- * Enregistre le handler dans [KadreRegistry] puis délègue à [UIApplicationMain]
- * avec [KadreAppDelegate] comme classe de delegate.
+ * Registers the handler in [KadreRegistry] then delegates to [UIApplicationMain]
+ * with [KadreAppDelegate] as the delegate class.
  *
- * Cette fonction ne retourne pas (UIApplicationMain bloque jusqu'à la fin de l'app).
+ * This function does not return (UIApplicationMain blocks until the app ends).
  *
- * @param handler Gestionnaire du cycle de vie de l'application.
+ * @param handler Handler for the application's lifecycle.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 fun startKadreApplication(handler: ApplicationHandler) {

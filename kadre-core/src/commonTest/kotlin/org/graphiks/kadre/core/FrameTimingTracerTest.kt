@@ -1,8 +1,8 @@
 /**
- * Tests pour [FrameTimingTracer].
+ * Tests for [FrameTimingTracer].
  *
- * Vérifie : 0 overhead / aucun log quand désactivé, accumulation + flush des stats
- * quand activé, et journalisation des frames lentes au-delà du seuil.
+ * Verifies: 0 overhead / no log when disabled, accumulation + flush of stats
+ * when enabled, and logging of slow frames above the threshold.
  */
 package org.graphiks.kadre.core
 
@@ -58,11 +58,11 @@ class FrameTimingTracerTest {
         val logs = mutableListOf<String>()
         FrameTimingTracer.sink = { logs += it }
         FrameTimingTracer.enabled = true
-        FrameTimingTracer.slowFrameThresholdMs = 0.0 // toute frame > 0 ms est "lente"
+        FrameTimingTracer.slowFrameThresholdMs = 0.0 // any frame > 0 ms is "slow"
         FrameTimingTracer.reset()
 
         FrameTimingTracer.onRedrawStart()
-        // Petite charge pour garantir une durée mesurable > 0.
+        // Small workload to guarantee a measurable duration > 0.
         var acc = 0L
         repeat(100_000) { acc += it }
         check(acc >= 0)

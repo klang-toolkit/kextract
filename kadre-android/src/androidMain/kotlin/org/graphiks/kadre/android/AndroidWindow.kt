@@ -4,26 +4,26 @@ import android.view.SurfaceView
 import org.graphiks.kadre.core.*
 
 /**
- * Implémentation Android de [Window].
+ * Android implementation of [Window].
  *
- * Encapsule un [SurfaceView] plein écran et expose la [android.view.Surface]
- * brute via [rawWindowHandle] (Strategy A — zéro JNI).
+ * Wraps a full-screen [SurfaceView] and exposes the raw [android.view.Surface]
+ * via [rawWindowHandle] (Strategy A — zero JNI).
  *
- * ## Cycle de vie de la surface
+ * ## Surface lifecycle
  *
- * Un [AndroidWindow] peut être créé **avant** que la surface Android ne soit
- * disponible (pattern "pending window" — voir [AndroidEventLoop.createWindow]).
- * Le cycle de disponibilité est :
+ * An [AndroidWindow] may be created **before** the Android surface is
+ * available ("pending window" pattern — see [AndroidEventLoop.createWindow]).
+ * The availability cycle is:
  *
- * | Événement | État surface | [rawWindowHandle] |
+ * | Event | Surface state | [rawWindowHandle] |
  * |-----------|--------------|-------------------|
- * | Après [AndroidEventLoop.createWindow] | Non disponible | Lance [IllegalStateException] |
- * | Après [onSurfaceAvailable] | Disponible | Retourne [RawWindowHandle.Android] valide |
- * | Après [onSurfaceReleased] | Non disponible | Lance [IllegalStateException] |
+ * | After [AndroidEventLoop.createWindow] | Unavailable | Throws [IllegalStateException] |
+ * | After [onSurfaceAvailable] | Available | Returns valid [RawWindowHandle.Android] |
+ * | After [onSurfaceReleased] | Unavailable | Throws [IllegalStateException] |
  *
- * Les renderers (wgpu4k, etc.) ne doivent accéder à [rawWindowHandle] que dans
- * ou après le callback [org.graphiks.kadre.core.ApplicationHandler.canCreateSurfaces],
- * et doivent relâcher le handle avant [org.graphiks.kadre.core.ApplicationHandler.destroySurfaces].
+ * Renderers (wgpu4k, etc.) must only access [rawWindowHandle] within
+ * or after the [org.graphiks.kadre.core.ApplicationHandler.canCreateSurfaces] callback,
+ * and must release the handle before [org.graphiks.kadre.core.ApplicationHandler.destroySurfaces].
  */
 class AndroidWindow internal constructor(
     internal val surfaceView: SurfaceView,
@@ -35,36 +35,36 @@ class AndroidWindow internal constructor(
     private var _surface: android.view.Surface? = null
 
     /**
-     * Rend la surface disponible pour le rendu.
+     * Makes the surface available for rendering.
      *
-     * Appelé par [AndroidEventLoop.onSurfaceCreated] (qui est lui-même déclenché
-     * par [KadreActivity]) lors de `surfaceCreated`. Après cet appel,
-     * [rawWindowHandle] retourne un [RawWindowHandle.Android] valide.
+     * Called by [AndroidEventLoop.onSurfaceCreated] (which is itself triggered
+     * by [KadreActivity]) on `surfaceCreated`. After this call,
+     * [rawWindowHandle] returns a valid [RawWindowHandle.Android].
      *
-     * @param surface La surface Android fraîchement allouée par le SurfaceHolder.
+     * @param surface The Android surface freshly allocated by the SurfaceHolder.
      */
     internal fun onSurfaceAvailable(surface: android.view.Surface) {
         _surface = surface
     }
 
     /**
-     * Invalide la surface de rendu.
+     * Invalidates the rendering surface.
      *
-     * Appelé par [AndroidEventLoop.onSurfaceDestroyed] (qui est lui-même déclenché
-     * par [KadreActivity]) lors de `surfaceDestroyed`. Après cet appel,
-     * [rawWindowHandle] lance [IllegalStateException] jusqu'à la prochaine
-     * invocation de [onSurfaceAvailable].
+     * Called by [AndroidEventLoop.onSurfaceDestroyed] (which is itself triggered
+     * by [KadreActivity]) on `surfaceDestroyed`. After this call,
+     * [rawWindowHandle] throws [IllegalStateException] until the next
+     * invocation of [onSurfaceAvailable].
      */
     internal fun onSurfaceReleased() {
         _surface = null
     }
 
     /**
-     * Retourne le handle natif de la surface Android.
+     * Returns the native handle of the Android surface.
      *
-     * @return [RawWindowHandle.Android] encapsulant la [android.view.Surface] active.
-     * @throws IllegalStateException si la surface n'est pas encore disponible
-     *   (avant [onSurfaceAvailable]) ou a été libérée (après [onSurfaceReleased]).
+     * @return [RawWindowHandle.Android] wrapping the active [android.view.Surface].
+     * @throws IllegalStateException if the surface is not yet available
+     *   (before [onSurfaceAvailable]) or has been released (after [onSurfaceReleased]).
      */
     override val rawWindowHandle: Any
         get() = RawWindowHandle.Android(
@@ -87,7 +87,7 @@ class AndroidWindow internal constructor(
     }
 
     override fun setTitle(title: String) {
-        // No-op : les SurfaceView n'ont pas de titre ; l'Activity parente gère le titre
+        // No-op: SurfaceViews have no title; the parent Activity handles the title
     }
 
     override val innerSize: PhysicalSize<Int>
@@ -104,6 +104,6 @@ class AndroidWindow internal constructor(
     }
 
     override fun close() {
-        // No-op au niveau library ; la fermeture est à l'app
+        // No-op at the library level; closing is up to the app
     }
 }

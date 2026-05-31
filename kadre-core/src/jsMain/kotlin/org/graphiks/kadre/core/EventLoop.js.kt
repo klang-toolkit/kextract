@@ -1,24 +1,24 @@
 /**
- * Implémentation JS (stub) de la boucle d'événements kadre-core.
+ * JS (stub) implementation of the kadre-core event loop.
  *
- * Ticket #28 : ajout des cibles JS/wasmJs à kadre-core pour permettre
- * à la façade `kadre` d'exposer EventLoop aux cibles navigateur.
- * L'implémentation complète sera réalisée dans le ticket #24 (WebEventLoop).
+ * Ticket #28: adding the JS/wasmJs targets to kadre-core so the `kadre`
+ * facade can expose EventLoop to browser targets.
+ * The complete implementation will be done in ticket #24 (WebEventLoop).
  */
 package org.graphiks.kadre.core
 
 /**
- * Implémentation JS de [EventLoop].
+ * JS implementation of [EventLoop].
  *
- * Stub provisoire — l'implémentation réelle sera apportée dans le ticket #24.
+ * Temporary stub — the real implementation will be provided in ticket #24.
  */
 actual class EventLoop actual constructor() {
 
     /**
-     * Démarre la boucle d'événements et délègue les rappels au gestionnaire fourni.
+     * Starts the event loop and delegates callbacks to the provided handler.
      *
-     * @param handler Gestionnaire du cycle de vie et des événements de l'application.
-     * @throws UnsupportedOperationException Toujours — implémentation complète dans #24.
+     * @param handler Handler for the application lifecycle and events.
+     * @throws UnsupportedOperationException Always — complete implementation in #24.
      */
     actual fun runApp(handler: ApplicationHandler) {
         throw UnsupportedOperationException(

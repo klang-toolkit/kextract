@@ -1,58 +1,58 @@
 /**
- * Pont DOM partagé entre les cibles JS et wasmJs.
+ * DOM bridge shared between the JS and wasmJs targets.
  *
- * Cette interface définit le contrat d'attachement d'un rendu Kadre à un
- * élément HTML. Les implémentations concrètes résident dans jsMain et wasmJsMain
- * afin de pouvoir utiliser les API DOM propres à chaque cible.
+ * This interface defines the contract for attaching a Kadre renderer to an
+ * HTML element. The concrete implementations reside in jsMain and wasmJsMain
+ * so that they can use the DOM APIs specific to each target.
  *
- * ## Contrainte
- * Ce fichier est dans webMain — AUCUN import DOM n'est autorisé ici.
- * Seuls les types Kotlin purs (String, Lambda, types locaux) sont permis.
+ * ## Constraint
+ * This file is in webMain — NO DOM import is allowed here.
+ * Only pure Kotlin types (String, Lambda, local types) are permitted.
  *
- * ## Note sur kadre-core
- * La dépendance sur kadre-core (WindowEvent, Key, etc.) sera activée
- * quand kadre-core exposera des cibles JS/wasmJs (ticket #32).
- * En attendant, [WindowEvent] est défini localement dans ce module.
+ * ## Note on kadre-core
+ * The dependency on kadre-core (WindowEvent, Key, etc.) will be enabled
+ * when kadre-core exposes JS/wasmJs targets (ticket #32).
+ * In the meantime, [WindowEvent] is defined locally in this module.
  *
  * @since 1.0.0
  */
 package org.graphiks.kadre.web
 
 /**
- * Interface de liaison entre le DOM du navigateur et le moteur Kadre.
+ * Binding interface between the browser DOM and the Kadre engine.
  *
- * Implémentée séparément pour JS (via [org.w3c.dom]) et wasmJs (via interop JS Wasm).
+ * Implemented separately for JS (via [org.w3c.dom]) and wasmJs (via Wasm JS interop).
  */
 interface WebDomBridge {
 
     /**
-     * Attache le rendu Kadre à l'élément HTML identifié par [targetElementId].
+     * Attaches the Kadre renderer to the HTML element identified by [targetElementId].
      *
-     * @param targetElementId Valeur de l'attribut `id` de l'élément cible dans le DOM.
+     * @param targetElementId Value of the `id` attribute of the target element in the DOM.
      */
     fun attach(targetElementId: String)
 
     /**
-     * Détache le rendu Kadre de l'élément DOM et libère les ressources associées.
+     * Detaches the Kadre renderer from the DOM element and releases the associated resources.
      */
     fun detach()
 
     /**
-     * Callback invoqué à chaque événement de fenêtre produit par le pont DOM.
+     * Callback invoked on each window event produced by the DOM bridge.
      *
-     * Peut être null si aucun écouteur n'est enregistré.
+     * May be null if no listener is registered.
      */
     var onWindowEvent: ((WebWindowEvent) -> Unit)?
 
     /**
-     * Garantit qu'un canvas DOM correspondant à [attrs] est présent et l'ajoute
-     * au DOM si nécessaire (mode `appendToBody`).
+     * Ensures a DOM canvas matching [attrs] is present and adds it
+     * to the DOM if necessary (`appendToBody` mode).
      *
-     * Implémentation par défaut : no-op (retourne l'id sans toucher au DOM).
-     * Les implémentations concrètes ([JsWebDomBridge], [WasmJsWebDomBridge])
-     * surchargent pour créer un `<canvas>` réel quand demandé.
+     * Default implementation: no-op (returns the id without touching the DOM).
+     * The concrete implementations ([JsWebDomBridge], [WasmJsWebDomBridge])
+     * override it to create a real `<canvas>` when requested.
      *
-     * @return l'identifiant CSS final du canvas (à passer ensuite à [attach]).
+     * @return the final CSS identifier of the canvas (to then pass to [attach]).
      */
     fun ensureCanvas(attrs: WebWindowAttributes): String = attrs.effectiveCanvasId
 }

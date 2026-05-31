@@ -69,7 +69,7 @@ class InputAdapterTest {
     @Test
     fun `touch Started droite haut → UP`() {
         val adapter = InputAdapter()
-        // x > 400 (droite), y < 300 (haut)
+        // x > 400 (right), y < 300 (top)
         adapter.onTouch(touchEvent(TouchPhase.Started, x = 600.0, y = 100.0), screenSize)
         assertEquals(PaddleInput.UP, adapter.playerInput)
     }
@@ -77,7 +77,7 @@ class InputAdapterTest {
     @Test
     fun `touch Started droite bas → DOWN`() {
         val adapter = InputAdapter()
-        // x > 400 (droite), y > 300 (bas)
+        // x > 400 (right), y > 300 (bottom)
         adapter.onTouch(touchEvent(TouchPhase.Started, x = 600.0, y = 500.0), screenSize)
         assertEquals(PaddleInput.DOWN, adapter.playerInput)
     }
@@ -85,7 +85,7 @@ class InputAdapterTest {
     @Test
     fun `touch Started gauche ignoré`() {
         val adapter = InputAdapter()
-        // x < 400 (gauche) → ne change pas l'état
+        // x < 400 (left) → does not change the state
         adapter.onTouch(touchEvent(TouchPhase.Started, x = 100.0, y = 100.0), screenSize)
         assertEquals(PaddleInput.NONE, adapter.playerInput)
     }

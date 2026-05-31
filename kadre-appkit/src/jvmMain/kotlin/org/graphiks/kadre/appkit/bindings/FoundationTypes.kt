@@ -1,29 +1,29 @@
 /**
- * Type aliases pour les types Obj-C/Foundation manquants dans le fichier généré par kextract.
+ * Type aliases for the Obj-C/Foundation types missing from the kextract-generated file.
  *
- * Ces types sont des alias standard de l'API Objective-C qui ne sont pas inclus
- * dans le fichier généré lorsque le filtrage par --include-objc-class est utilisé.
+ * These types are standard Objective-C API aliases that are not included
+ * in the generated file when filtering via --include-objc-class is used.
  *
- * Généré pour kextract v0.0.2 — réduit par rapport à v0.0.0-test6 grâce au bonus
- * de https://github.com/klang-toolkit/kextract/pull/23 qui émet désormais les
- * typealiases primitifs fondamentaux (BOOL, CGFloat, NSInteger, NSTimeInterval).
+ * Generated for kextract v0.0.2 — reduced compared to v0.0.0-test6 thanks to the bonus
+ * from https://github.com/klang-toolkit/kextract/pull/23 which now emits the
+ * fundamental primitive typealiases (BOOL, CGFloat, NSInteger, NSTimeInterval).
  *
- * Reste à fournir manuellement :
- *  - Les typedefs « pointer/struct » (NSPoint, NSSize, NSRect, NSWindowFrameAutosaveName, …)
- *    qui sont écartés par le filtre --include-objc-class (cf. include filter behaviour
- *    documenté dans le commentaire du `isFoundationalTypealias` côté kextract).
- *  - L'override de [NSUInteger] : la v0.0.2 émet `typealias NSUInteger = Any` car
- *    Kotlin n'a pas de type `unsigned long` natif. On le remplace par [Long] —
- *    valable tant que le bit de signe n'est pas significatif. Tracé upstream
+ * Still to be provided manually:
+ *  - The "pointer/struct" typedefs (NSPoint, NSSize, NSRect, NSWindowFrameAutosaveName, …)
+ *    which are dropped by the --include-objc-class filter (see the include filter behaviour
+ *    documented in the `isFoundationalTypealias` comment on the kextract side).
+ *  - The [NSUInteger] override: v0.0.2 emits `typealias NSUInteger = Any` because
+ *    Kotlin has no native `unsigned long` type. We replace it with [Long] —
+ *    valid as long as the sign bit is not significant. Tracked upstream at
  *    https://github.com/klang-toolkit/kextract/issues/29.
  *
- * TODO: Quand kextract génèrera ces types automatiquement, supprimer ce fichier.
+ * TODO: When kextract generates these types automatically, remove this file.
  */
 package org.graphiks.kadre.appkit.bindings
 
 import java.lang.foreign.MemorySegment
 
-// ── Primitives C / CoreFoundation ────────────────────────────────────────────
+// ── C / CoreFoundation primitives ────────────────────────────────────────────
 
 /**
  * NSUInteger (64-bit unsigned integer on 64-bit platforms).
@@ -37,15 +37,15 @@ import java.lang.foreign.MemorySegment
  */
 typealias NSUInteger = Long
 
-// ── Structs passés comme MemorySegment via FFM ────────────────────────────────
+// ── Structs passed as MemorySegment via FFM ───────────────────────────────────
 
-/** NSPoint / CGPoint — struct {x: CGFloat, y: CGFloat} passé via MemorySegment */
+/** NSPoint / CGPoint — struct {x: CGFloat, y: CGFloat} passed via MemorySegment */
 typealias NSPoint = MemorySegment
 
-/** NSSize / CGSize — struct {width: CGFloat, height: CGFloat} passé via MemorySegment */
+/** NSSize / CGSize — struct {width: CGFloat, height: CGFloat} passed via MemorySegment */
 typealias NSSize = MemorySegment
 
-/** NSRect / CGRect — struct {origin: NSPoint, size: NSSize} passé via MemorySegment */
+/** NSRect / CGRect — struct {origin: NSPoint, size: NSSize} passed via MemorySegment */
 typealias NSRect = MemorySegment
 
 // ── NSString typealiases ─────────────────────────────────────────────────────
@@ -62,14 +62,14 @@ typealias NSWindowTabbingIdentifier = MemorySegment
 /** NSPasteboardType (NSString *) */
 typealias NSPasteboardType = MemorySegment
 
-// NSWindowLevel, NSModalResponse, NSToolTipTag — désormais émis par kextract v0.0.2.
+// NSWindowLevel, NSModalResponse, NSToolTipTag — now emitted by kextract v0.0.2.
 
 // ── NSObject protocol ────────────────────────────────────────────────────────
 
 /**
- * Marqueur interface pour les wrappers d'objets Obj-C.
- * Tous les wrappers de classes AppKit doivent implémenter ce interface
- * en exposant leur [ptr] (MemorySegment vers l'objet Obj-C natif).
+ * Marker interface for Obj-C object wrappers.
+ * All AppKit class wrappers must implement this interface
+ * by exposing their [ptr] (MemorySegment to the native Obj-C object).
  */
 interface NSObject {
     val ptr: MemorySegment

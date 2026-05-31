@@ -1,79 +1,79 @@
 /**
- * Interface représentant une fenêtre native gérée par kadre.
+ * Interface representing a native window managed by kadre.
  *
- * Périmètre : interface pure Kotlin, aucune référence native.
+ * Scope: pure Kotlin interface, no native reference.
  */
 package org.graphiks.kadre.core
 
 /**
- * Abstraction d'une fenêtre native créée par la boucle d'événements.
+ * Abstraction of a native window created by the event loop.
  *
- * Les implémentations concrètes sont fournies par les modules de plateforme
+ * The concrete implementations are provided by the platform modules
  * (kadre-appkit, etc.).
  */
 interface Window {
 
-    /** Identifiant unique de la fenêtre. */
+    /** Unique identifier of the window. */
     val id: WindowId
 
     /**
-     * Retourne le handle natif de la surface de rendu.
+     * Returns the native handle of the rendering surface.
      *
-     * Le type concret sera `RawWindowHandle` une fois GRA-122 mergé ;
-     * déclaré `Any` pour que commonMain reste indépendant de la plateforme.
+     * The concrete type will be `RawWindowHandle` once GRA-122 is merged;
+     * declared `Any` so that commonMain remains platform-independent.
      */
     val rawWindowHandle: Any
 
     /**
-     * Retourne le handle natif de l'affichage.
+     * Returns the native handle of the display.
      *
-     * Le type concret sera `RawDisplayHandle` une fois GRA-122 mergé ;
-     * déclaré `Any` pour que commonMain reste indépendant de la plateforme.
+     * The concrete type will be `RawDisplayHandle` once GRA-122 is merged;
+     * declared `Any` so that commonMain remains platform-independent.
      */
     val rawDisplayHandle: Any
 
     /**
-     * Demande un rafraîchissement (redraw) de la fenêtre à la prochaine itération.
+     * Requests a redraw of the window at the next iteration.
      */
     fun requestRedraw()
 
     /**
-     * Définit le titre affiché dans la barre de titre de la fenêtre.
+     * Sets the title shown in the window's title bar.
      *
-     * @param title Nouveau titre de la fenêtre.
+     * @param title New title of the window.
      */
     fun setTitle(title: String)
 
     /**
-     * Retourne la taille interne de la fenêtre en pixels physiques
-     * (surface de rendu, sans les décorations).
+     * Returns the inner size of the window in physical pixels
+     * (rendering surface, without the decorations).
      */
     val innerSize: PhysicalSize<Int>
 
     /**
-     * Retourne la taille externe de la fenêtre en pixels physiques
-     * (surface de rendu plus les décorations de la plateforme).
+     * Returns the outer size of the window in physical pixels
+     * (rendering surface plus the platform decorations).
      */
     val outerSize: PhysicalSize<Int>
 
     /**
-     * Retourne le facteur d'échelle entre les pixels logiques et physiques
-     * pour cette fenêtre.
+     * Returns the scale factor between logical and physical pixels
+     * for this window.
      */
     val scaleFactor: Double
 
     /**
-     * Rend la fenêtre visible ou invisible.
+     * Makes the window visible or invisible.
      *
-     * @param visible true pour afficher la fenêtre, false pour la masquer.
+     * @param visible true to show the window, false to hide it.
      */
     fun setVisible(visible: Boolean)
 
     /**
-     * Ferme la fenêtre.
+     * Closes the window.
      *
-     * Une fois fermée, la fenêtre n'émet plus d'événements et son identifiant
-     * devient invalide.
+     * Once closed, the window no longer emits events and its identifier
+     * becomes invalid.
      */
     fun close()
 }

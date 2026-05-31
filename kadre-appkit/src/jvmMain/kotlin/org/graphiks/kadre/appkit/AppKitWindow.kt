@@ -1,10 +1,10 @@
 /**
- * Implémentation AppKit de l'interface Window pour macOS.
+ * AppKit implementation of the Window interface for macOS.
  *
- * Crée un NSWindow avec une contentView layer-backed CAMetalLayer,
- * conformément au pattern AppKit Metal (wantsLayer + setLayer).
+ * Creates an NSWindow with a CAMetalLayer layer-backed contentView,
+ * following the AppKit Metal pattern (wantsLayer + setLayer).
  *
- * GRA-126 : fenêtre native macOS via FFM, zéro JNA/Rococoa.
+ * GRA-126: native macOS window via FFM, zero JNA/Rococoa.
  */
 package org.graphiks.kadre.appkit
 
@@ -27,11 +27,11 @@ import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
 /**
- * Fenêtre macOS native implémentant [Window].
+ * Native macOS window implementing [Window].
  *
- * Utilise NSWindow + CAMetalLayer via FFM (Foreign Function & Memory API).
- * Le pattern AppKit Metal respecté : `contentView.wantsLayer = true` PUIS
- * `contentView.layer = CAMetalLayer()` — jamais `+layerClass`.
+ * Uses NSWindow + CAMetalLayer via FFM (Foreign Function & Memory API).
+ * The AppKit Metal pattern is respected: `contentView.wantsLayer = true` THEN
+ * `contentView.layer = CAMetalLayer()` — never `+layerClass`.
  */
 class AppKitWindow(attrs: WindowAttributes) : Window {
 
@@ -43,8 +43,8 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     override val id: WindowId
 
     /**
-     * Delegate NSWindowDelegate installé sur cette fenêtre.
-     * Null tant que [setWindowDelegate] n'a pas été appelé.
+     * NSWindowDelegate installed on this window.
+     * Null until [setWindowDelegate] has been called.
      */
     var delegate: KadreWindowDelegate? = null
         private set
@@ -52,7 +52,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     init {
         MainThreadCheck.require()
 
-        // 1. Calculer styleMask depuis les attributs
+        // 1. Compute styleMask from the attributes
         var styleMask = NSWindowStyleMask.NSWindowStyleMaskTitled +
                 NSWindowStyleMask.NSWindowStyleMaskClosable +
                 NSWindowStyleMask.NSWindowStyleMaskMiniaturizable
@@ -60,13 +60,13 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             styleMask = styleMask + NSWindowStyleMask.NSWindowStyleMaskResizable
         }
 
-        // 2. Taille de la fenêtre (en points logiques — la scaleFactor est 1.0 au moment de l'init,
-        //    avant que la fenêtre ne soit rattachée à un écran)
+        // 2. Window size (in logical points — scaleFactor is 1.0 at init time,
+        //    before the window is attached to a screen)
         val width = attrs.size?.width?.toDouble() ?: 800.0
         val height = attrs.size?.height?.toDouble() ?: 600.0
         val contentRect: NSRect = allocNSRect(arena, 100.0, 100.0, width, height)
 
-        // 3. Allouer + initialiser NSWindow via alloc/init
+        // 3. Allocate + initialize NSWindow via alloc/init
         val nsWindowClass = ObjCRuntime.getClass("NSWindow")
         val allocated = ObjCRuntime.msgSend(
             ValueLayout.ADDRESS,
@@ -76,25 +76,25 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
         val backing = NSBackingStoreType.NSBackingStoreBuffered
 
-        // kextract v0.0.2 émet maintenant correctement initWithContentRect:styleMask:backing:defer:
-        // avec NSRect by-value via ObjCStructArg + le GroupLayout du CGRect.
+        // kextract v0.0.2 now correctly emits initWithContentRect:styleMask:backing:defer:
+        // with NSRect by-value via ObjCStructArg + the CGRect GroupLayout.
         val initializedPtr = NSWindow(allocated).initWithContentRect_styleMask_backing_defer(
             contentRect,
             styleMask,
             backing,
-            false, // BOOL defer = NO (BOOL est maintenant Boolean depuis v0.0.2)
+            false, // BOOL defer = NO (BOOL is now Boolean since v0.0.2)
         )
         nsWindowPtr = initializedPtr
         id = WindowId(nsWindowPtr.address())
 
-        // 4. Récupérer la contentView existante de la NSWindow
+        // 4. Get the existing contentView of the NSWindow
         val nsWindow = NSWindow(nsWindowPtr)
         contentViewPtr = nsWindow.contentView()
 
-        // 5. Pattern AppKit Metal correct : layer = CAMetalLayer() PUIS wantsLayer = YES
+        // 5. Correct AppKit Metal pattern: layer = CAMetalLayer() THEN wantsLayer = YES
         //    Apple docs: "If you want to use a custom layer, you must call setLayer: BEFORE
-        //    calling setWantsLayer:YES". L'ordre inverse fait qu'AppKit crée d'abord une
-        //    CALayer générique, rendant [nsView layer] non fiable et nextDrawable impossible.
+        //    calling setWantsLayer:YES". The reverse order makes AppKit first create a
+        //    generic CALayer, making [nsView layer] unreliable and nextDrawable impossible.
         val contentView = NSView(contentViewPtr)
 
         val metalLayerClass = ObjCRuntime.getClass("CAMetalLayer")
@@ -103,10 +103,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             metalLayerClass,
             ObjCRuntime.sel("new"),
         ) as MemorySegment
-        contentView.setLayer(metalLayerPtr) // ← setLayer AVANT setWantsLayer
-        contentView.setWantsLayer(true)     // ← setWantsLayer EN DERNIER (BOOL = Boolean depuis v0.0.2)
+        contentView.setLayer(metalLayerPtr) // ← setLayer BEFORE setWantsLayer
+        contentView.setWantsLayer(true)     // ← setWantsLayer LAST (BOOL = Boolean since v0.0.2)
 
-        // 6. contentsScale = backingScaleFactor pour support HiDPI / Retina
+        // 6. contentsScale = backingScaleFactor for HiDPI / Retina support
         val scale = NSWindow(nsWindowPtr).backingScaleFactor()
         ObjCRuntime.msgSend(
             null,
@@ -115,10 +115,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             scale,
         )
 
-        // 7. Titre initial
+        // 7. Initial title
         nsWindow.setTitle(attrs.title)
 
-        // 8. Affichage si demandé
+        // 8. Display if requested
         if (attrs.visible) {
             nsWindow.makeKeyAndOrderFront(MemorySegment.NULL)
         }
@@ -173,15 +173,15 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         get() = RawDisplayHandle.AppKit
 
     /**
-     * Flag de redraw demandé — lu et reset par [CFRunLoopRedrawObserver]
-     * sur kCFRunLoopBeforeWaiting (GRA-134).
+     * Requested-redraw flag — read and reset by [CFRunLoopRedrawObserver]
+     * on kCFRunLoopBeforeWaiting (GRA-134).
      */
     @Volatile
     internal var needsRedraw: Boolean = false
 
     /**
-     * Demande un redraw : positionne le flag [needsRedraw], qui sera consommé
-     * par l'observer CFRunLoop avant la prochaine mise en veille (coalescing natif).
+     * Requests a redraw: sets the [needsRedraw] flag, which will be consumed
+     * by the CFRunLoop observer before the next sleep (native coalescing).
      */
     override fun requestRedraw() {
         needsRedraw = true
@@ -192,10 +192,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     }
 
     /**
-     * Taille interne de la fenêtre (surface de rendu) en pixels physiques.
+     * Inner size of the window (rendering surface) in physical pixels.
      *
-     * Lit le frame de la contentView (en points logiques) et multiplie
-     * par backingScaleFactor pour obtenir des pixels physiques.
+     * Reads the contentView frame (in logical points) and multiplies
+     * by backingScaleFactor to obtain physical pixels.
      */
     override val innerSize: PhysicalSize<Int>
         get() {
@@ -207,10 +207,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         }
 
     /**
-     * Taille externe de la fenêtre (y compris décorations) en pixels physiques.
+     * Outer size of the window (including decorations) in physical pixels.
      *
-     * Lit le frame de la NSWindow (en points logiques) et multiplie
-     * par backingScaleFactor.
+     * Reads the NSWindow frame (in logical points) and multiplies
+     * by backingScaleFactor.
      */
     override val outerSize: PhysicalSize<Int>
         get() {
@@ -238,17 +238,17 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     }
 
     /**
-     * Installe un [KadreWindowDelegate] sur cette fenêtre.
+     * Installs a [KadreWindowDelegate] on this window.
      *
-     * Doit être appelé depuis le main thread après que la fenêtre a été créée.
-     * Le delegate intercepte `windowShouldClose:` et dispatch
-     * [org.graphiks.kadre.core.WindowEvent.CloseRequested] vers [handler].
+     * Must be called from the main thread after the window has been created.
+     * The delegate intercepts `windowShouldClose:` and dispatches
+     * [org.graphiks.kadre.core.WindowEvent.CloseRequested] to [handler].
      *
-     * GRA-128 appellera cette méthode depuis l'event loop lors de la création
-     * de chaque fenêtre.
+     * GRA-128 will call this method from the event loop when creating
+     * each window.
      *
-     * @param handler   Gestionnaire recevant les événements de fenêtre.
-     * @param eventLoop Boucle d'événements active.
+     * @param handler   Handler receiving the window events.
+     * @param eventLoop Active event loop.
      */
     fun setWindowDelegate(handler: ApplicationHandler, eventLoop: ActiveEventLoop) {
         MainThreadCheck.require()
@@ -260,10 +260,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 }
 
 /**
- * Alloue un NSRect (struct {CGFloat x, CGFloat y, CGFloat width, CGFloat height})
- * dans l'arena fourni.
+ * Allocates an NSRect (struct {CGFloat x, CGFloat y, CGFloat width, CGFloat height})
+ * in the provided arena.
  *
- * NSRect = 4 × CGFloat (Double 64-bit) = 32 bytes, alignement 8 bytes.
+ * NSRect = 4 × CGFloat (64-bit Double) = 32 bytes, 8-byte alignment.
  */
 private fun allocNSRect(arena: Arena, x: Double, y: Double, width: Double, height: Double): MemorySegment {
     val seg = arena.allocate(32L, 8L)
@@ -275,11 +275,11 @@ private fun allocNSRect(arena: Arena, x: Double, y: Double, width: Double, heigh
 }
 
 /**
- * GroupLayout pour NSRect / CGRect — nested struct {origin: CGPoint, size: CGSize}.
+ * GroupLayout for NSRect / CGRect — nested struct {origin: CGPoint, size: CGSize}.
  *
- * Utilisé manuellement pour les classes ObjC NON incluses dans `--include-objc-class`
- * (ex. NSTrackingArea). Les classes incluses bénéficient des layouts inlinés par
- * kextract v0.0.2 dans leurs wrappers.
+ * Used manually for ObjC classes NOT included in `--include-objc-class`
+ * (e.g. NSTrackingArea). Included classes benefit from the layouts inlined by
+ * kextract v0.0.2 in their wrappers.
  */
 private val NS_RECT_LAYOUT: java.lang.foreign.GroupLayout = java.lang.foreign.MemoryLayout.structLayout(
     java.lang.foreign.MemoryLayout.structLayout(

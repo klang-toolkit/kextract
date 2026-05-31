@@ -1,10 +1,10 @@
 /**
- * Tests pour l'activation de la conscience DPI Per-Monitor-V2.
+ * Tests for enabling Per-Monitor-V2 DPI awareness.
  *
- * Sur les plateformes non-Windows (macOS/Linux CI), le lookup de
- * `SetProcessDpiAwarenessContext` dans user32 échoue : [enablePerMonitorV2DpiAwareness]
- * doit alors retourner `false` sans lever d'exception. Sur Windows, l'appel réussit
- * (ou retourne false si déjà fixé) — dans tous les cas, jamais d'exception.
+ * On non-Windows platforms (macOS/Linux CI), the lookup of
+ * `SetProcessDpiAwarenessContext` in user32 fails: [enablePerMonitorV2DpiAwareness]
+ * must then return `false` without throwing an exception. On Windows, the call succeeds
+ * (or returns false if already set) — in all cases, never an exception.
  */
 package org.graphiks.kadre.win32
 
@@ -15,17 +15,17 @@ class DpiAwarenessTest {
 
     @Test
     fun enablePerMonitorV2DpiAwareness_neLevePasDException() {
-        // Ne doit jamais throw, quelle que soit la plateforme.
+        // Must never throw, regardless of the platform.
         val result = enablePerMonitorV2DpiAwareness()
-        // Idempotence : un second appel reste sûr.
+        // Idempotence: a second call remains safe.
         enablePerMonitorV2DpiAwareness()
-        // result est un Boolean valide (true sur Windows 1ʳᵉ fois, false ailleurs).
+        // result is a valid Boolean (true on Windows the first time, false elsewhere).
         check(result || !result)
     }
 
     @Test
     fun constanteDpiAwarenessContext_estLaPseudoHandleAttendue() {
-        // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == -4 (pseudo-handle Win32).
+        // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == -4 (Win32 pseudo-handle).
         assertFalse(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 != -4L)
     }
 }

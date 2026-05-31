@@ -6,16 +6,16 @@ import org.graphiks.kadre.WindowId
 import org.graphiks.kadre.core.WindowEvent
 
 /**
- * Handler de démonstration Hello Touch — partagé entre Android et iOS.
+ * Hello Touch demonstration handler — shared between Android and iOS.
  *
- * Démontre la convergence d'API Kadre sur toutes les plateformes :
- * - [canCreateSurfaces] : signal que le système est prêt pour le rendu
- * - [windowEvent] : réception et log des événements tactiles
- * - [resumed] / [suspended] : cycle de vie de l'application
- * - [destroySurfaces] : libération des surfaces de rendu
+ * Demonstrates Kadre API convergence across all platforms:
+ * - [canCreateSurfaces]: signals that the system is ready for rendering
+ * - [windowEvent]: reception and logging of touch events
+ * - [resumed] / [suspended]: application lifecycle
+ * - [destroySurfaces]: release of render surfaces
  *
- * Sur Android, la fenêtre est gérée par KadreActivity — pas d'appel
- * à `createWindow()` nécessaire ici.
+ * On Android, the window is managed by KadreActivity — no call
+ * to `createWindow()` needed here.
  */
 class HelloTouchHandler : ApplicationHandler {
 

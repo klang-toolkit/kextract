@@ -1,14 +1,14 @@
 /**
- * Mapper X11 pour les événements de dessin/cycle de vie de fenêtre.
+ * X11 mapper for window draw/lifecycle events.
  *
- * Convertit les événements Expose, ConfigureNotify et ClientMessage en
- * événements [org.graphiks.kadre.core.WindowEvent] kadre.
+ * Converts Expose, ConfigureNotify and ClientMessage events into
+ * kadre [org.graphiks.kadre.core.WindowEvent]s.
  *
  * ## Struct XExposeEvent (type = 12 Expose)
  * ```
  *  0 : type   (int, 4)
  * ...
- * 40 : count  (int, 4) — 0 = dernier expose de la séquence
+ * 40 : count  (int, 4) — 0 = last expose of the sequence
  * ```
  *
  * ## Struct XConfigureEvent (type = 22 ConfigureNotify)
@@ -27,12 +27,12 @@
  *  0 : type         (int,  4)
  * ...
  * 56 : message_type (Atom = long, 8)
- * 64 : data.l[0]   (long, 8) — premier atome du message
+ * 64 : data.l[0]   (long, 8) — first atom of the message
  * ```
  *
- * ## Lecture Xft.dpi
- * La fonction [readXftDpi] utilise XResourceManagerString pour lire la base
- * de données de ressources X11 et en extraire "Xft.dpi: <valeur>".
+ * ## Reading Xft.dpi
+ * The [readXftDpi] function uses XResourceManagerString to read the X11
+ * resource database and extract "Xft.dpi: <value>".
  *
  * X11DrawMapper.
  */
@@ -44,34 +44,34 @@ import org.graphiks.kadre.core.WindowEvent
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
-// ── Offsets XExposeEvent ──────────────────────────────────────────────────────
+// ── XExposeEvent offsets ──────────────────────────────────────────────────────
 
 private const val EXPOSE_OFFSET_COUNT: Long = 40L
 
-// ── Offsets XConfigureEvent ───────────────────────────────────────────────────
+// ── XConfigureEvent offsets ───────────────────────────────────────────────────
 
 private const val CONFIGURE_OFFSET_X: Long      = 24L
 private const val CONFIGURE_OFFSET_Y: Long      = 28L
 private const val CONFIGURE_OFFSET_WIDTH: Long  = 32L
 private const val CONFIGURE_OFFSET_HEIGHT: Long = 36L
 
-// ── Offsets XClientMessageEvent ───────────────────────────────────────────────
+// ── XClientMessageEvent offsets ───────────────────────────────────────────────
 
 private const val CLIENT_MSG_OFFSET_DATA_L0: Long = 64L
 
 /**
- * Mapper stateless pour les événements Expose, ConfigureNotify et ClientMessage.
+ * Stateless mapper for Expose, ConfigureNotify and ClientMessage events.
  */
 object X11DrawMapper {
 
     /**
-     * Convertit un XEvent relatif au cycle de vie d'une fenêtre en [WindowEvent] kadre.
+     * Converts a window-lifecycle XEvent into a kadre [WindowEvent].
      *
-     * @param eventSegment  Segment de 96 octets contenant le XEvent.
-     * @param eventType     Type d'événement X11 (extrait en amont à l'offset 0).
-     * @param window        Fenêtre X11 associée (pour mise à jour de la taille interne).
-     * @param wmDeleteWindow Atome WM_DELETE_WINDOW de la session.
-     * @return [WindowEvent] correspondant, ou null si le type/la condition ne correspond pas.
+     * @param eventSegment  96-byte segment containing the XEvent.
+     * @param eventType     X11 event type (extracted beforehand at offset 0).
+     * @param window        Associated X11 window (for updating the inner size).
+     * @param wmDeleteWindow The session's WM_DELETE_WINDOW atom.
+     * @return The corresponding [WindowEvent], or null if the type/condition does not match.
      */
     fun fromXEvent(
         eventSegment: MemorySegment,
@@ -87,17 +87,17 @@ object X11DrawMapper {
         }
     }
 
-    // ── Helpers privés ────────────────────────────────────────────────────────
+    // ── Private helpers ─────────────────────────────────────────────────────────
 
     /**
-     * Gère un événement Expose.
+     * Handles an Expose event.
      *
-     * X11 peut envoyer plusieurs événements Expose consécutifs pour la même
-     * région. Le champ `count` indique combien d'Expose supplémentaires vont
-     * suivre. On émet [WindowEvent.RedrawRequested] uniquement lorsque `count == 0`
-     * (i.e. le dernier de la séquence), pour éviter les redessinages intermédiaires.
+     * X11 may send several consecutive Expose events for the same
+     * region. The `count` field indicates how many additional Expose events will
+     * follow. We emit [WindowEvent.RedrawRequested] only when `count == 0`
+     * (i.e. the last of the sequence), to avoid intermediate redraws.
      *
-     * @param eventSegment Segment XEvent.
+     * @param eventSegment XEvent segment.
      */
     private fun handleExpose(eventSegment: MemorySegment): WindowEvent? {
         val count = eventSegment.get(ValueLayout.JAVA_INT, EXPOSE_OFFSET_COUNT)
@@ -105,18 +105,18 @@ object X11DrawMapper {
     }
 
     /**
-     * Gère un événement ConfigureNotify.
+     * Handles a ConfigureNotify event.
      *
-     * Émet :
-     * - [WindowEvent.Resized] si la taille a changé par rapport à [X11Window.innerSize].
-     * - [WindowEvent.Moved] avec la nouvelle position (x, y).
+     * Emits:
+     * - [WindowEvent.Resized] if the size changed compared to [X11Window.innerSize].
+     * - [WindowEvent.Moved] with the new position (x, y).
      *
-     * Note : on retourne uniquement le premier événement significatif. La boucle
-     * d'événements peut appeler cette fonction deux fois si besoin, ou on pourrait
-     * retourner une liste. Pour rester simple, on priorise Resized sur Moved.
+     * Note: we return only the first significant event. The event loop
+     * may call this function twice if needed, or we could
+     * return a list. To keep it simple, we prioritize Resized over Moved.
      *
-     * @param eventSegment Segment XEvent.
-     * @param window       Fenêtre X11 dont la taille est mise à jour.
+     * @param eventSegment XEvent segment.
+     * @param window       X11 window whose size is updated.
      */
     private fun handleConfigureNotify(
         eventSegment: MemorySegment,
@@ -127,12 +127,12 @@ object X11DrawMapper {
         val width  = eventSegment.get(ValueLayout.JAVA_INT, CONFIGURE_OFFSET_WIDTH)
         val height = eventSegment.get(ValueLayout.JAVA_INT, CONFIGURE_OFFSET_HEIGHT)
 
-        // Vérifier si la taille a changé par rapport à la taille connue de la fenêtre
+        // Check whether the size changed compared to the window's known size
         val sizeChanged = window == null ||
             window.innerSize.width  != width ||
             window.innerSize.height != height
 
-        // Mettre à jour la taille interne de la fenêtre
+        // Update the window's inner size
         window?.onConfigureNotify(width, height)
 
         return when {
@@ -144,13 +144,13 @@ object X11DrawMapper {
     }
 
     /**
-     * Gère un événement ClientMessage.
+     * Handles a ClientMessage event.
      *
-     * Si data.l[0] correspond à l'atome WM_DELETE_WINDOW, émet
-     * [WindowEvent.CloseRequested] pour demander la fermeture propre.
+     * If data.l[0] matches the WM_DELETE_WINDOW atom, emits
+     * [WindowEvent.CloseRequested] to request a clean close.
      *
-     * @param eventSegment   Segment XEvent.
-     * @param wmDeleteWindow Atome WM_DELETE_WINDOW (Long, unsigned long X11).
+     * @param eventSegment   XEvent segment.
+     * @param wmDeleteWindow WM_DELETE_WINDOW atom (Long, X11 unsigned long).
      */
     private fun handleClientMessage(
         eventSegment: MemorySegment,
@@ -161,25 +161,25 @@ object X11DrawMapper {
     }
 }
 
-// ── Lecture Xft.dpi ───────────────────────────────────────────────────────────
+// ── Reading Xft.dpi ───────────────────────────────────────────────────────────
 
 /**
- * Lit le facteur DPI depuis la base de données de ressources X11.
+ * Reads the DPI factor from the X11 resource database.
  *
- * Utilise [xResourceManagerString] pour obtenir la chaîne RESOURCE_MANAGER du
- * serveur X, puis cherche la propriété "Xft.dpi:" et en retourne la valeur
- * sous forme de [Double].
+ * Uses [xResourceManagerString] to obtain the X server's RESOURCE_MANAGER
+ * string, then looks for the "Xft.dpi:" property and returns its value
+ * as a [Double].
  *
- * La chaîne de ressources a typiquement la forme :
+ * The resource string typically has the form:
  * ```
  * Xft.dpi:	96
  * Xft.antialias:	1
  * ...
  * ```
  *
- * @param displayPtr Adresse du Display* (Long, opaque).
- * @return Valeur DPI divisée par 96.0 (ex. 1.0 pour 96 dpi, 2.0 pour 192 dpi),
- *         ou 1.0 si XResourceManagerString retourne NULL ou si Xft.dpi est absent.
+ * @param displayPtr Address of the Display* (Long, opaque).
+ * @return DPI value divided by 96.0 (e.g. 1.0 for 96 dpi, 2.0 for 192 dpi),
+ *         or 1.0 if XResourceManagerString returns NULL or if Xft.dpi is absent.
  */
 fun readXftDpi(displayPtr: Long): Double {
     val handle = xResourceManagerString ?: return 1.0
@@ -188,11 +188,11 @@ fun readXftDpi(displayPtr: Long): Double {
         val result = handle.invokeExact(display) as MemorySegment
         if (result == MemorySegment.NULL) return 1.0
 
-        // Lire la chaîne null-terminée retournée par XResourceManagerString
+        // Read the null-terminated string returned by XResourceManagerString
         val resourceString = result.reinterpret(Long.MAX_VALUE)
             .getString(0, Charsets.UTF_8)
 
-        // Chercher "Xft.dpi:" dans la chaîne de ressources
+        // Look for "Xft.dpi:" in the resource string
         parseXftDpi(resourceString)
     } catch (_: Throwable) {
         1.0
@@ -200,13 +200,13 @@ fun readXftDpi(displayPtr: Long): Double {
 }
 
 /**
- * Extrait la valeur de Xft.dpi depuis une chaîne de ressources X11.
+ * Extracts the Xft.dpi value from an X11 resource string.
  *
- * Cherche le pattern "Xft.dpi:" suivi d'un nombre (entier ou décimal).
- * La valeur est retournée divisée par 96.0 pour obtenir un facteur d'échelle.
+ * Looks for the pattern "Xft.dpi:" followed by a number (integer or decimal).
+ * The value is returned divided by 96.0 to obtain a scale factor.
  *
- * @param resourceString Contenu de la chaîne RESOURCE_MANAGER.
- * @return Facteur d'échelle DPI (valeur/96), ou 1.0 si absent/invalide.
+ * @param resourceString Content of the RESOURCE_MANAGER string.
+ * @return DPI scale factor (value/96), or 1.0 if absent/invalid.
  */
 internal fun parseXftDpi(resourceString: String): Double {
     for (line in resourceString.lineSequence()) {

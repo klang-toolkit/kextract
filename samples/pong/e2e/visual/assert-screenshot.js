@@ -1,21 +1,21 @@
-// Helper de diff visuel — équivalent Roborazzi pour le Web.
+// Visual diff helper — Roborazzi equivalent for the Web.
 //
-// Compare une capture PNG à une baseline avec une tolérance en % de pixels différents.
-// Si la baseline est absente, elle est créée (premier run). Le diff est écrit sur
-// disque en cas d'écart pour archivage CI.
+// Compares a PNG capture to a baseline with a tolerance in % of differing pixels.
+// If the baseline is missing, it is created (first run). The diff is written to
+// disk on mismatch for CI archival.
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
 const pixelmatch = require('pixelmatch').default || require('pixelmatch');
 
 /**
- * Compare `actualPng` (Buffer PNG) à la baseline `baselinePath`.
+ * Compares `actualPng` (PNG Buffer) to the baseline `baselinePath`.
  *
- * @param {Buffer} actualPng    Capture courante (PNG encodé).
- * @param {string} baselinePath Chemin de la baseline de référence.
+ * @param {Buffer} actualPng    Current capture (encoded PNG).
+ * @param {string} baselinePath Path of the reference baseline.
  * @param {object} [opts]
- * @param {number} [opts.tolerance=0.02] Fraction max de pixels différents tolérée.
- * @param {string} [opts.diffPath]       Où écrire l'image de diff en cas d'écart.
+ * @param {number} [opts.tolerance=0.02] Max fraction of differing pixels tolerated.
+ * @param {string} [opts.diffPath]       Where to write the diff image on mismatch.
  * @returns {{status:'created'|'match'|'mismatch', ratio:number, diffPixels:number, total:number}}
  */
 function assertScreenshotMatches(actualPng, baselinePath, opts = {}) {

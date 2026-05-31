@@ -1,9 +1,9 @@
 /**
- * Implémentation Android de la boucle d'événements — délègue à kadre-android.
+ * Android implementation of the event loop — delegates to kadre-android.
  *
- * Sur Android, le point d'entrée est l'Activity. [runApp] enregistre le
- * [ApplicationHandler] dans [org.graphiks.kadre.android.AndroidKadreRuntime]
- * pour qu'il soit récupéré par [org.graphiks.kadre.android.KadreActivity].
+ * On Android, the entry point is the Activity. [runApp] registers the
+ * [ApplicationHandler] in [org.graphiks.kadre.android.AndroidKadreRuntime]
+ * so that it is retrieved by [org.graphiks.kadre.android.KadreActivity].
  */
 package org.graphiks.kadre
 

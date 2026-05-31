@@ -1,19 +1,19 @@
 /**
- * PongAppWeb — gestionnaire d'application Pong côté navigateur.
+ * PongAppWeb — Pong application handler on the browser side.
  *
- * NOTE D'ARCHITECTURE
- * -------------------
- * Le [PongGame] commonMain filtre les `WindowEvent.*` (kadre-core), mais le
- * backend Web de Kadre dispatch des `WebWindowEvent.*` (kadre-web-common).
- * Les deux hiérarchies ne sont pas unifiées → le `when` de PongGame ne matche
- * aucun event sur Web, donc le rendu n'est jamais déclenché.
+ * ARCHITECTURE NOTE
+ * -----------------
+ * The commonMain [PongGame] filters `WindowEvent.*` (kadre-core), but the
+ * Kadre Web backend dispatches `WebWindowEvent.*` (kadre-web-common).
+ * The two hierarchies are not unified → PongGame's `when` matches
+ * no event on Web, so rendering is never triggered.
  *
- * Ce fichier contourne ce trou en réécrivant un [ApplicationHandler] dédié
- * Web qui filtre `WebWindowEvent.*` directement. Un suivi côté backend doit
- * unifier les hiérarchies (ou exposer un mapping commonMain).
+ * This file works around that gap by rewriting a dedicated Web
+ * [ApplicationHandler] that filters `WebWindowEvent.*` directly. A backend follow-up should
+ * unify the hierarchies (or expose a commonMain mapping).
  *
- * Sinon, la logique est identique au [PongGame] commonMain : GameState, PongAi,
- * boucle aboutToWait → tick → draw.
+ * Otherwise, the logic is identical to the commonMain [PongGame]: GameState, PongAi,
+ * aboutToWait → tick → draw loop.
  */
 package org.graphiks.kadre.samples.pong
 
@@ -41,10 +41,10 @@ class PongAppWeb : ApplicationHandler {
     private var lastFrameMs: Long = 0L
 
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
-        // Pattern winit (WindowAttributesExtWebSys) : on cible explicitement le
-        // canvas du sample par son id CSS, sans détourner `WindowAttributes.title`.
-        // Si le canvas n'existe pas dans le DOM (cas d'une page sans <canvas>
-        // pré-déclaré), `appendToBody = true` demande à Kadre de le créer.
+        // winit pattern (WindowAttributesExtWebSys): we explicitly target the
+        // sample's canvas by its CSS id, without hijacking `WindowAttributes.title`.
+        // If the canvas does not exist in the DOM (case of a page without a pre-declared
+        // <canvas>), `appendToBody = true` asks Kadre to create it.
         val webLoop = eventLoop as? WebEventLoop
             ?: error("[pong-web] PongAppWeb requires a WebEventLoop")
         val win = webLoop.createWindow(
@@ -60,9 +60,9 @@ class PongAppWeb : ApplicationHandler {
         if (handle is RawWindowHandle) {
             renderer = PongRendererWeb(handle)
         }
-        // Mode Poll : aboutToWait est rappelé à chaque tick (RAF) pour animer
-        // sans dépendre d'events DOM. Sans cela, en mode Wait par défaut, on
-        // n'aurait un draw que sur input utilisateur → écran noir au repos.
+        // Poll mode: aboutToWait is called back on each tick (RAF) to animate
+        // without depending on DOM events. Without this, in the default Wait mode, we
+        // would only draw on user input → black screen at rest.
         eventLoop.setControlFlow(ControlFlow.Poll)
     }
 
@@ -76,12 +76,12 @@ class PongAppWeb : ApplicationHandler {
                 eventLoop.exit()
             }
             is WebWindowEvent.KeyboardInput -> onKey(event)
-            else -> { /* PointerMoved/Entered/Left/MouseInput/MouseWheel/Focused ignorés */ }
+            else -> { /* PointerMoved/Entered/Left/MouseInput/MouseWheel/Focused ignored */ }
         }
     }
 
     private fun onKey(event: WebWindowEvent.KeyboardInput) {
-        // Log de debug : confirme l'arrivée des events clavier côté handler.
+        // Debug log: confirms the arrival of keyboard events on the handler side.
         println("[pong-web] key ${event.key} ${event.state}")
         playerInput = when {
             event.key == WebKey.ArrowUp && event.state == WebKeyState.Pressed -> PaddleInput.UP
@@ -93,9 +93,9 @@ class PongAppWeb : ApplicationHandler {
     }
 
     override fun aboutToWait(eventLoop: ActiveEventLoop) {
-        // Tick + draw direct ; pas de requestRedraw (le PongRendererWeb est appelé
-        // synchroniquement depuis ici, et la boucle web rappelle aboutToWait à la
-        // frame suivante via le mode Poll que le backend gère).
+        // Direct tick + draw; no requestRedraw (the PongRendererWeb is called
+        // synchronously from here, and the web loop calls aboutToWait back on the
+        // next frame via the Poll mode that the backend manages).
         val now = currentTimeMs()
         val dt = if (lastFrameMs == 0L) 0.016
                   else min((now - lastFrameMs) / 1000.0, 0.05)
@@ -107,6 +107,6 @@ class PongAppWeb : ApplicationHandler {
     }
 }
 
-/** Horloge JS — `Date.now()` retourne le temps Unix en ms. */
+/** JS clock — `Date.now()` returns the Unix time in ms. */
 private fun currentTimeMs(): Long =
     js("Date.now()").unsafeCast<Double>().toLong()

@@ -1,11 +1,11 @@
 /**
- * Implémentation [EventLoopProxy] pour AppKit (GRA-136).
+ * [EventLoopProxy] implementation for AppKit (GRA-136).
  *
- * [wakeUp] est sûr à appeler depuis n'importe quel thread : il invoque
+ * [wakeUp] is safe to call from any thread: it invokes
  * `CFRunLoopWakeUp(CFRunLoopGetMain())` via Panama FFM. `CFRunLoopWakeUp`
- * est documenté thread-safe (manipulation d'un mach port). Plusieurs appels
- * consécutifs avant que la boucle ne se réveille sont coalescés naturellement
- * par le comportement du mach port — pas d'overhead supplémentaire.
+ * is documented as thread-safe (manipulating a mach port). Several
+ * consecutive calls before the loop wakes up are naturally coalesced
+ * by the mach port behavior — no additional overhead.
  */
 package org.graphiks.kadre.appkit
 
@@ -24,11 +24,11 @@ internal class AppKitEventLoopProxy private constructor(
 ) : EventLoopProxy {
 
     /**
-     * Réveille la boucle d'événements principale.
+     * Wakes up the main event loop.
      *
-     * Thread-safe : `CFRunLoopWakeUp` peut être appelé depuis n'importe quel
-     * thread. Coalescent : plusieurs appels avant le réveil effectif n'ajoutent
-     * aucun overhead (mach port interne).
+     * Thread-safe: `CFRunLoopWakeUp` can be called from any thread.
+     * Coalescing: several calls before the actual wake-up add no
+     * overhead (internal mach port).
      */
     override fun wakeUp() {
         wakeUpHandle.invokeExact(mainRunLoop)

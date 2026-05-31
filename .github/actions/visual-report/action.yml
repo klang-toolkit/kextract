@@ -36,18 +36,18 @@ runs:
         COMMENT="$RUNNER_TEMP/visual-comment.md"
         rm -rf "$STAGING"; mkdir -p "$STAGING"
 
-        # 1) Copie les PNG dans le staging + génère summary/comment avec les URLs raw définitives.
+        # 1) Copy the PNGs into staging + generate summary/comment with the final raw URLs.
         node tests/visual/publish-report.js \
           "$REPORT" "$STAGING" "$GITHUB_REPOSITORY" "$BRANCH" "$GITHUB_RUN_ID" \
           "$SUMMARY" "$COMMENT" || true
 
-        # 2) Pousse les captures sur la branche orpheline (non bloquant, retry anti-course).
+        # 2) Push the captures to the orphan branch (non-blocking, anti-race retry).
         bash tests/visual/push-orphan.sh "$STAGING" "$GITHUB_REPOSITORY" "$BRANCH" "$GH_TOKEN" || true
 
         # 3) Job Summary.
         if [ -f "$SUMMARY" ]; then cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"; fi
 
-        # 4) Commentaire de PR « collant » (upsert par marqueur plateforme).
+        # 4) "Sticky" PR comment (upsert by platform marker).
         if [ -f "$COMMENT" ] && [ -n "${GITHUB_EVENT_PATH:-}" ]; then
           PR=$(node -e "try{const e=require(process.env.GITHUB_EVENT_PATH);console.log(e.pull_request?e.pull_request.number:'')}catch{}" 2>/dev/null)
           if [ -n "$PR" ]; then

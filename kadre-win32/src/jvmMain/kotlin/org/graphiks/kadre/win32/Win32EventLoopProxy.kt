@@ -1,15 +1,15 @@
 /**
- * Proxy thread-safe vers la boucle d'événements Win32.
+ * Thread-safe proxy to the Win32 event loop.
  *
- * Permet à des fils d'exécution secondaires de réveiller la boucle
- * de messages Win32 via PostMessageW (ou PostThreadMessageW si le HWND est NULL).
+ * Allows secondary threads to wake the Win32 message
+ * loop via PostMessageW (or PostThreadMessageW if the HWND is NULL).
  *
- * Implémentation :
- * - Utilise un WM_NULL posté au thread de messages Win32 via PostThreadMessageW
- *   pour débloquer MsgWaitForMultipleObjectsEx ou GetMessageW.
- * - Le thread ID est capturé au moment de la création du proxy (thread principal).
+ * Implementation:
+ * - Uses a WM_NULL posted to the Win32 message thread via PostThreadMessageW
+ *   to unblock MsgWaitForMultipleObjectsEx or GetMessageW.
+ * - The thread ID is captured at proxy creation time (main thread).
  *
- * GRA-11 : Win32EventLoopProxy — wakeUp thread-safe.
+ * GRA-11: Win32EventLoopProxy — thread-safe wakeUp.
  */
 package org.graphiks.kadre.win32
 
@@ -20,17 +20,17 @@ import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
 /**
- * WM_NULL — message nul Win32, ignoré par la WndProc.
+ * WM_NULL — Win32 null message, ignored by the WndProc.
  *
- * Posté par [Win32EventLoopProxy.wakeUp] pour réveiller la boucle de messages
- * sans déclencher de traitement applicatif.
+ * Posted by [Win32EventLoopProxy.wakeUp] to wake the message loop
+ * without triggering any application processing.
  */
 private const val WM_NULL: Int = 0x0000
 
 /**
- * Binding lazy pour GetCurrentThreadId (kernel32).
+ * Lazy binding for GetCurrentThreadId (kernel32).
  *
- * Retourne l'identifiant du thread appelant.
+ * Returns the identifier of the calling thread.
  */
 private val getCurrentThreadId by lazy {
     kernel32?.let { lookup ->
@@ -47,10 +47,10 @@ private val getCurrentThreadId by lazy {
 }
 
 /**
- * Binding lazy pour PostThreadMessageW (user32).
+ * Lazy binding for PostThreadMessageW (user32).
  *
  * BOOL PostThreadMessageW(DWORD idThread, UINT Msg, WPARAM wParam, LPARAM lParam);
- * Poste un message dans la file de messages d'un thread spécifique.
+ * Posts a message into the message queue of a specific thread.
  */
 private val postThreadMessageW by lazy {
     user32?.let { lookup ->
@@ -73,22 +73,22 @@ private val postThreadMessageW by lazy {
 }
 
 /**
- * Proxy thread-safe vers une boucle d'événements Win32.
+ * Thread-safe proxy to a Win32 event loop.
  *
- * [wakeUp] poste un WM_NULL au thread de messages Win32 capturé à la construction,
- * ce qui débloque immédiatement [GetMessageW] ou [MsgWaitForMultipleObjectsEx].
+ * [wakeUp] posts a WM_NULL to the Win32 message thread captured at construction,
+ * which immediately unblocks [GetMessageW] or [MsgWaitForMultipleObjectsEx].
  *
- * @param messageThreadId Identifiant du thread de messages Win32 (capturé au démarrage).
+ * @param messageThreadId Identifier of the Win32 message thread (captured at startup).
  */
 internal class Win32EventLoopProxy(
     private val messageThreadId: Int,
 ) : EventLoopProxy {
 
     /**
-     * Réveille la boucle de messages Win32 en postant un WM_NULL au thread de messages.
+     * Wakes the Win32 message loop by posting a WM_NULL to the message thread.
      *
-     * Thread-safe — peut être appelé depuis n'importe quel fil d'exécution.
-     * No-op sur macOS/Linux (PostThreadMessageW est null).
+     * Thread-safe — can be called from any thread.
+     * No-op on macOS/Linux (PostThreadMessageW is null).
      */
     override fun wakeUp() {
         postThreadMessageW?.invokeExact(messageThreadId, WM_NULL, 0L, 0L)
@@ -96,10 +96,10 @@ internal class Win32EventLoopProxy(
 
     companion object {
         /**
-         * Crée un proxy capturant l'identifiant du thread appelant.
+         * Creates a proxy capturing the identifier of the calling thread.
          *
-         * Doit être appelé depuis le thread de messages Win32 (thread principal).
-         * Retourne un proxy no-op si GetCurrentThreadId n'est pas disponible
+         * Must be called from the Win32 message thread (main thread).
+         * Returns a no-op proxy if GetCurrentThreadId is not available
          * (macOS/Linux).
          */
         fun create(): Win32EventLoopProxy {

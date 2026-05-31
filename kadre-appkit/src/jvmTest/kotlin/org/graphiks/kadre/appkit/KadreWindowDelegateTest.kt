@@ -16,17 +16,17 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Tests de typage pour KadreWindowDelegate (GRA-127).
+ * Typing tests for KadreWindowDelegate (GRA-127).
  *
- * Aucun test d'exécution natif : l'instanciation réelle nécessite le thread
- * principal macOS et l'environnement AppKit. Ces tests vérifient uniquement
- * que les types, signatures et contrats de dispatch compilent correctement.
+ * No native runtime test: actual instantiation requires the macOS main
+ * thread and the AppKit environment. These tests only verify that the
+ * types, signatures and dispatch contracts compile correctly.
  */
 class KadreWindowDelegateTest {
 
-    // ── Stubs de test ────────────────────────────────────────────────────────
+    // ── Test stubs ─────────────────────────────────────────────────────────────
 
-    /** ApplicationHandler stub enregistrant les événements reçus. */
+    /** ApplicationHandler stub recording the received events. */
     private class RecordingHandler : ApplicationHandler {
         val events = mutableListOf<Pair<WindowId, Any>>()
 
@@ -37,7 +37,7 @@ class KadreWindowDelegateTest {
         }
     }
 
-    /** ActiveEventLoop stub minimal. */
+    /** Minimal ActiveEventLoop stub. */
     private class StubEventLoop : ActiveEventLoop {
         private var _exiting = false
         override val isExiting: Boolean get() = _exiting
@@ -56,8 +56,8 @@ class KadreWindowDelegateTest {
 
     @Test
     fun `KadreWindowDelegate a un constructeur acceptant handler eventLoop windowId nsWindowPtr metalLayerPtr`() {
-        // Le constructeur public généré pour un param value class (WindowId) a un DefaultConstructorMarker
-        // supplémentaire → paramCount >= 5, les premiers params sont ApplicationHandler, ActiveEventLoop, long/WindowId
+        // The public constructor generated for a value class param (WindowId) has an extra
+        // DefaultConstructorMarker → paramCount >= 5, the first params are ApplicationHandler, ActiveEventLoop, long/WindowId
         val ctor = KadreWindowDelegate::class.java.constructors
             .filter { it.parameterCount >= 5 }
             .firstOrNull { c ->
@@ -83,11 +83,11 @@ class KadreWindowDelegateTest {
         val eventLoop = StubEventLoop()
         val windowId = WindowId(42L)
 
-        // On crée un delegate sans instancier l'ObjC runtime (test de typage uniquement)
-        // → on invoque la méthode via réflexion sur l'objet Callbacks statique
-        // qui est accessible sans instancier KadreWindowDelegate (pas de runtime ObjC).
+        // We create a delegate without instantiating the ObjC runtime (typing test only)
+        // → we invoke the method via reflection on the static Callbacks object
+        // which is accessible without instantiating KadreWindowDelegate (no ObjC runtime).
         //
-        // Ici on vérifie seulement que le Callbacks.windowShouldClose retourne Byte.
+        // Here we only verify that Callbacks.windowShouldClose returns Byte.
         val callbacksClass = Class.forName("org.graphiks.kadre.appkit.KadreWindowDelegate\$Callbacks")
         val method = callbacksClass.methods.firstOrNull { it.name == "windowShouldClose" }
         assertNotNull(method, "Callbacks.windowShouldClose doit exister")

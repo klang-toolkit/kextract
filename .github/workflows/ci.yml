@@ -1,14 +1,14 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Kadre CI — Multi-Platform
 #
-# Stratégie à deux niveaux (GRA-160 + GRA-39) :
+# Two-tier strategy (GRA-160 + GRA-39):
 #
-#   ┌─ Fast-Track (toutes les branches)  ────────────────────────────────────┐
-#   │  build-and-test  JVM uniquement (macos-latest) — feedback < 10 min    │
-#   │  macos-build     AppKit + samples macOS — feedback < 5 min            │
+#   ┌─ Fast-Track (all branches)         ────────────────────────────────────┐
+#   │  build-and-test  JVM only (macos-latest) — feedback < 10 min          │
+#   │  macos-build     AppKit + macOS samples — feedback < 5 min            │
 #   └─────────────────────────────────────────────────────────────────────────┘
 #
-#   ┌─ Deep-Testing (PR → master, push master, ou branches claude/**) ───────┐
+#   ┌─ Deep-Testing (PR → master, push master, or claude/** branches)  ───────┐
 #   │  build-and-test      JVM + allTests (macos-15, iOS simulator)          │
 #   │  ios-build           iOS simulator arm64 — build + link + tests        │
 #   │  android-build       Android (ubuntu-latest) — build + assembleDebug   │
@@ -17,11 +17,11 @@
 #   │  linux-wayland-build Wayland (ubuntu-latest) — jvmTest + build        │
 #   └─────────────────────────────────────────────────────────────────────────┘
 #
-#   Note : ios-build et android-build sont des jobs coûteux (runners macOS /
-#   Ubuntu + compilation native). Ils se déclenchent sur :
-#     • push / PR vers master (Deep-Testing historique)
-#     • push / PR sur les branches claude/** (feature branches CI)
-#   Sur les autres branches, seul le Fast-Track JVM tourne (<10 s).
+#   Note: ios-build and android-build are expensive jobs (macOS / Ubuntu
+#   runners + native compilation). They are triggered on:
+#     • push / PR to master (historical Deep-Testing)
+#     • push / PR on claude/** branches (CI feature branches)
+#   On the other branches, only the Fast-Track JVM runs (<10 s).
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -36,13 +36,13 @@ on:
       - '**'
 
 jobs:
-  # ── Job 1 : build-and-test ────────────────────────────────────────────────
+  # ── Job 1: build-and-test ─────────────────────────────────────────────────
   #
-  # Fast-Track   : JVM uniquement (branches non-master)
-  # Deep-Testing : allTests incluant iOS simulator (PR vers master / master)
+  # Fast-Track   : JVM only (non-master branches)
+  # Deep-Testing : allTests including the iOS simulator (PR to master / master)
   #
-  # Utilise macos-15 car ce runner inclut le simulateur iOS requis pour les
-  # tests Kotlin/Native iosSimulatorArm64 en mode Deep.
+  # Uses macos-15 because this runner includes the iOS simulator required for
+  # the iosSimulatorArm64 Kotlin/Native tests in Deep mode.
   build-and-test:
     name: build-and-test
     runs-on: macos-15
@@ -61,7 +61,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Détection du mode de test
+      # Detect the test mode
       - name: Determine test strategy
         id: strategy
         run: |
@@ -73,7 +73,7 @@ jobs:
             echo "→ Fast-Track JVM only"
           fi
 
-      # Fast-Track : tests JVM uniquement (~3 min cache chaud)
+      # Fast-Track: JVM tests only (~3 min warm cache)
       - name: Fast-Track JVM tests
         if: steps.strategy.outputs.mode == 'fast-track'
         run: |
@@ -88,8 +88,8 @@ jobs:
             --no-daemon \
             --stacktrace
 
-      # Deep-Testing : allTests (JVM + iOS simulator arm64)
-      # Le simulateur iOS est disponible sur macos-15 via Xcode.
+      # Deep-Testing: allTests (JVM + iOS simulator arm64)
+      # The iOS simulator is available on macos-15 via Xcode.
       - name: Deep-Testing (JVM + iOS simulator)
         if: steps.strategy.outputs.mode == 'deep'
         run: |
@@ -107,11 +107,11 @@ jobs:
             --no-daemon \
             --stacktrace
 
-  # ── Job 2 : macos-build ──────────────────────────────────────────────────
+  # ── Job 2: macos-build ───────────────────────────────────────────────────
   #
-  # Compile les modules macOS-spécifiques (AppKit FFM) et les samples JVM/macOS.
-  # Valide que kadre-appkit + samples compilent sur un runner macOS standard.
-  # S'exécute sur toutes les branches pour un feedback rapide.
+  # Compiles the macOS-specific modules (AppKit FFM) and the JVM/macOS samples.
+  # Validates that kadre-appkit + samples compile on a standard macOS runner.
+  # Runs on all branches for fast feedback.
   macos-build:
     name: macos-build
     runs-on: macos-latest
@@ -130,8 +130,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Compile les modules macOS-only + samples JVM
-      # hello-triangle nécessite wgpu4k — compilé mais non exécuté en CI.
+      # Compile the macOS-only modules + JVM samples
+      # hello-triangle requires wgpu4k — compiled but not run in CI.
       - name: Build macOS modules + JVM samples
         run: |
           ./gradlew \
@@ -144,15 +144,15 @@ jobs:
             --no-daemon \
             --stacktrace
 
-  # ── Job 3 : ios-build ────────────────────────────────────────────────────
+  # ── Job 3: ios-build ─────────────────────────────────────────────────────
   #
-  # Build les cibles iOS (iosSimulatorArm64, iosArm64, iosX64) et exécute
-  # les tests Kotlin/Native sur simulateur iosSimulatorArm64.
+  # Builds the iOS targets (iosSimulatorArm64, iosArm64, iosX64) and runs
+  # the Kotlin/Native tests on the iosSimulatorArm64 simulator.
   #
-  # S'exécute sur Deep-Testing :
-  #   • PRs vers master / push sur master
-  #   • push ou PR sur les branches claude/** (feature branches CI)
-  # Évite de consommer les runners macOS coûteux sur toutes les autres branches.
+  # Runs on Deep-Testing:
+  #   • PRs to master / push to master
+  #   • push or PR on claude/** branches (CI feature branches)
+  # Avoids consuming the expensive macOS runners on all the other branches.
   ios-build:
     name: ios-build
     runs-on: macos-15
@@ -176,8 +176,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Compile tous les modules pour la cible iOS simulator arm64.
-      # Les tests Kotlin/Native s'exécutent via le simulateur Xcode intégré.
+      # Compile all modules for the iOS simulator arm64 target.
+      # The Kotlin/Native tests run via the built-in Xcode simulator.
       - name: Build iOS targets (iosSimulatorArm64)
         run: |
           ./gradlew \
@@ -198,18 +198,18 @@ jobs:
             --no-daemon \
             --stacktrace
 
-  # ── Job 4 : android-build ────────────────────────────────────────────────
+  # ── Job 4: android-build ─────────────────────────────────────────────────
   #
-  # Build les modules Android et les samples Android (assembleDebug).
-  # Utilise ubuntu-latest (Android SDK pré-installé sur les runners GitHub).
+  # Builds the Android modules and the Android samples (assembleDebug).
+  # Uses ubuntu-latest (Android SDK pre-installed on the GitHub runners).
   #
-  # S'exécute sur Deep-Testing :
-  #   • PRs vers master / push sur master
-  #   • push ou PR sur les branches claude/** (feature branches CI)
+  # Runs on Deep-Testing:
+  #   • PRs to master / push to master
+  #   • push or PR on claude/** branches (CI feature branches)
   #
-  # Tests instrumentés : les modules Kadre n'ont pas encore de tests
-  # Robolectric — le job valide la compilation et le packaging APK.
-  # À étendre avec Robolectric quand des tests Android seront ajoutés.
+  # Instrumented tests: the Kadre modules do not yet have Robolectric
+  # tests — the job validates compilation and APK packaging.
+  # To be extended with Robolectric once Android tests are added.
   android-build:
     name: android-build
     runs-on: ubuntu-latest
@@ -223,8 +223,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Android SDK est pré-installé sur ubuntu-latest.
-      # JDK 17 est requis par le plugin Android Gradle (AGP 8.x+).
+      # The Android SDK is pre-installed on ubuntu-latest.
+      # JDK 17 is required by the Android Gradle plugin (AGP 8.x+).
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -235,13 +235,13 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Configure le chemin du SDK Android depuis la variable d'environnement
-      # ANDROID_HOME fournie par le runner ubuntu-latest.
+      # Configure the Android SDK path from the ANDROID_HOME environment
+      # variable provided by the ubuntu-latest runner.
       - name: Set up Android SDK path
         run: echo "sdk.dir=$ANDROID_HOME" >> local.properties
 
-      # Build les modules Android + samples Android (APK debug).
-      # AGP génère des APKs compilés pour API 24+ (minSdk=24 sur tous les modules).
+      # Build the Android modules + Android samples (debug APK).
+      # AGP generates APKs compiled for API 24+ (minSdk=24 on all modules).
       - name: Build Android modules + samples
         run: |
           ./gradlew \
@@ -252,10 +252,10 @@ jobs:
             --no-daemon \
             --stacktrace
 
-  # ── Job 5 : web-build ────────────────────────────────────────────────────
+  # ── Job 5: web-build ─────────────────────────────────────────────────────
   #
-  # Compile les modules web (JS/IR + wasmJs).
-  # S'exécute sur Deep-Testing.
+  # Compiles the web modules (JS/IR + wasmJs).
+  # Runs on Deep-Testing.
   web-build:
     name: web-build
     runs-on: ubuntu-latest
@@ -293,17 +293,17 @@ jobs:
             --no-daemon \
             --stacktrace
 
-  # ── Job 6 : windows-build ────────────────────────────────────────────────
+  # ── Job 6: windows-build ─────────────────────────────────────────────────
   #
-  # Build les modules Win32 (kadre-win32 FFM) et exécute les tests JVM Windows.
-  # Valide la compilation Win32-specific et le sample hello-triangle sur Windows.
+  # Builds the Win32 modules (kadre-win32 FFM) and runs the Windows JVM tests.
+  # Validates the Win32-specific compilation and the hello-triangle sample on Windows.
   #
-  # S'exécute sur Deep-Testing :
-  #   • PRs vers master / push sur master
-  #   • push ou PR sur les branches claude/** (feature branches CI)
+  # Runs on Deep-Testing:
+  #   • PRs to master / push to master
+  #   • push or PR on claude/** branches (CI feature branches)
   #
-  # Utilise shell: bash (Git Bash, disponible sur windows-latest) pour
-  # exécuter ./gradlew de manière compatible avec les autres jobs.
+  # Uses shell: bash (Git Bash, available on windows-latest) to run
+  # ./gradlew in a way compatible with the other jobs.
   windows-build:
     name: windows-build
     runs-on: windows-latest
@@ -324,8 +324,8 @@ jobs:
           java-version: '25'
           cache: 'gradle'
 
-      # Build les modules Win32 + JVM core tests + sample hello-triangle.
-      # Git Bash (shell: bash) permet d'utiliser ./gradlew directement sur Windows.
+      # Build the Win32 modules + JVM core tests + hello-triangle sample.
+      # Git Bash (shell: bash) lets us use ./gradlew directly on Windows.
       - name: Build Win32 modules + JVM tests
         shell: bash
         run: |
@@ -337,19 +337,19 @@ jobs:
             --no-daemon \
             --stacktrace
 
-  # ── Job 6 : linux-x11-build ─────────────────────────────────────────────
+  # ── Job 6: linux-x11-build ──────────────────────────────────────────────
   #
-  # Build le module kadre-x11 et exécute les tests JVM sous Xvfb (X11 virtuel).
-  # Utilise ubuntu-latest avec les paquets X11 dev pour fournir libX11 au runtime.
+  # Builds the kadre-x11 module and runs the JVM tests under Xvfb (virtual X11).
+  # Uses ubuntu-latest with the X11 dev packages to provide libX11 at runtime.
   #
-  # S'exécute sur Deep-Testing :
-  #   • PRs vers master / push sur master
-  #   • push ou PR sur les branches claude/** (feature branches CI)
+  # Runs on Deep-Testing:
+  #   • PRs to master / push to master
+  #   • push or PR on claude/** branches (CI feature branches)
   #
-  # Note : kadre-x11:jvmTest détecte automatiquement l'absence de display et
-  # saute les tests nécessitant un serveur X — xvfb-run -a fournit un display
-  # virtuel stable pour les tests qui en ont besoin.
-  # hello-triangle (wgpu native) est exclu pour l'instant.
+  # Note: kadre-x11:jvmTest automatically detects the absence of a display and
+  # skips the tests requiring an X server — xvfb-run -a provides a stable
+  # virtual display for the tests that need one.
+  # hello-triangle (native wgpu) is excluded for now.
   linux-x11-build:
     name: linux-x11-build
     runs-on: ubuntu-latest
@@ -370,16 +370,16 @@ jobs:
           java-version: '25'
           cache: 'gradle'
 
-      # Installe les dépendances X11 requises par kadre-x11 (FFM + JNI).
-      # libX11-dev fournit le .so runtime ; xvfb fournit un serveur X virtuel.
+      # Install the X11 dependencies required by kadre-x11 (FFM + JNI).
+      # libX11-dev provides the runtime .so; xvfb provides a virtual X server.
       - name: Install X11 dependencies
         run: sudo apt-get install -y xvfb libx11-dev libxi-dev libxkbcommon-dev
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # xvfb-run -a démarre un display X virtuel pour les tests qui en ont besoin.
-      # Les tests sans display (compile-only) s'exécutent normalement.
+      # xvfb-run -a starts a virtual X display for the tests that need one.
+      # The display-less tests (compile-only) run normally.
       - name: Build X11 modules + JVM tests (Xvfb)
         run: |
           xvfb-run -a ./gradlew \
@@ -388,19 +388,19 @@ jobs:
             --no-daemon \
             --stacktrace
 
-  # ── Job 7 : linux-wayland-build ─────────────────────────────────────────
+  # ── Job 7: linux-wayland-build ──────────────────────────────────────────
   #
-  # Build le module kadre-wayland et exécute les tests JVM Wayland.
-  # Utilise ubuntu-latest avec les paquets Wayland dev.
+  # Builds the kadre-wayland module and runs the Wayland JVM tests.
+  # Uses ubuntu-latest with the Wayland dev packages.
   #
-  # S'exécute sur Deep-Testing :
-  #   • PRs vers master / push sur master
-  #   • push ou PR sur les branches claude/** (feature branches CI)
+  # Runs on Deep-Testing:
+  #   • PRs to master / push to master
+  #   • push or PR on claude/** branches (CI feature branches)
   #
-  # Note : pas de serveur Wayland disponible en CI — wl_display_connect()
-  # retourne null et les tests nécessitant un compositeur Wayland sont sautés
-  # automatiquement. Le job valide la compilation et les tests indépendants
-  # du compositeur.
+  # Note: no Wayland server available in CI — wl_display_connect()
+  # returns null and the tests requiring a Wayland compositor are skipped
+  # automatically. The job validates compilation and the compositor-independent
+  # tests.
   linux-wayland-build:
     name: linux-wayland-build
     runs-on: ubuntu-latest
@@ -421,15 +421,15 @@ jobs:
           java-version: '25'
           cache: 'gradle'
 
-      # Installe les dépendances Wayland requises par kadre-wayland (FFM + JNI).
+      # Install the Wayland dependencies required by kadre-wayland (FFM + JNI).
       - name: Install Wayland dependencies
         run: sudo apt-get install -y libwayland-dev wayland-protocols libxkbcommon-dev
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Pas de display nécessaire : les tests compilent et s'exécutent sans
-      # compositeur Wayland (wl_display_connect retourne null → tests sautés).
+      # No display needed: the tests compile and run without a Wayland
+      # compositor (wl_display_connect returns null → tests skipped).
       - name: Build Wayland modules + JVM tests
         run: |
           ./gradlew \

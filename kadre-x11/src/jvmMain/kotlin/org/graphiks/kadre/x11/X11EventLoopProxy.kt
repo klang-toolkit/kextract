@@ -1,15 +1,15 @@
 /**
- * Proxy thread-safe vers la boucle d'événements X11.
+ * Thread-safe proxy to the X11 event loop.
  *
- * Permet à des fils d'exécution secondaires de réveiller la boucle
- * d'événements X11 via XSendEvent (ClientMessage synthétique).
+ * Allows secondary threads to wake up the X11 event loop
+ * via XSendEvent (synthetic ClientMessage).
  *
- * Implémentation :
- * - Utilise un ClientMessage X11 envoyé à la première fenêtre disponible
- *   pour débloquer XNextEvent.
- * - Un flag AtomicBoolean évite les envois multiples redondants.
+ * Implementation:
+ * - Uses an X11 ClientMessage sent to the first available window
+ *   to unblock XNextEvent.
+ * - An AtomicBoolean flag avoids redundant multiple sends.
  *
- * X11EventLoopProxy — wakeUp thread-safe.
+ * X11EventLoopProxy — thread-safe wakeUp.
  */
 package org.graphiks.kadre.x11
 
@@ -20,23 +20,22 @@ import java.lang.foreign.ValueLayout
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Type de message ClientMessage utilisé pour le wakeUp interne.
+ * ClientMessage message type used for the internal wakeUp.
  *
- * Valeur arbitraire choisie pour être distinctive. Ce type n'est pas
- * un atome X11 — il est comparé directement dans dispatchEvent pour
- * ignorer les ClientMessage de wakeUp.
+ * Arbitrary value chosen to be distinctive. This type is not
+ * an X11 atom — it is compared directly in dispatchEvent to
+ * ignore wakeUp ClientMessages.
  */
-private const val KADRE_WAKEUP_MESSAGE: Long = 0L  // Non-atome : wakeUp ignoré
+private const val KADRE_WAKEUP_MESSAGE: Long = 0L  // Non-atom: wakeUp ignored
 
 /**
- * Proxy thread-safe vers une boucle d'événements X11.
+ * Thread-safe proxy to an X11 event loop.
  *
- * [wakeUp] envoie un ClientMessage X11 synthétique à la première fenêtre
- * disponible, ce qui débloque immédiatement [XNextEvent] dans le thread
- * principal.
+ * [wakeUp] sends a synthetic X11 ClientMessage to the first available
+ * window, which immediately unblocks [XNextEvent] in the main thread.
  *
- * @param loop       Boucle d'événements X11 cible.
- * @param displayPtr Adresse entière du Display* X11.
+ * @param loop       Target X11 event loop.
+ * @param displayPtr Integer address of the X11 Display*.
  */
 class X11EventLoopProxy internal constructor(
     private val loop: X11EventLoop,
@@ -44,19 +43,19 @@ class X11EventLoopProxy internal constructor(
 ) : EventLoopProxy {
 
     /**
-     * Flag anti-doublon : garantit qu'un seul ClientMessage est envoyé
-     * même si wakeUp() est appelé depuis plusieurs threads simultanément.
+     * Anti-duplicate flag: guarantees that only a single ClientMessage is sent
+     * even if wakeUp() is called from several threads simultaneously.
      *
-     * Remis à false après dispatch par la boucle principale.
+     * Reset to false after dispatch by the main loop.
      */
     private val wakeupPending = AtomicBoolean(false)
 
     /**
-     * Réveille la boucle d'événements X11 en envoyant un ClientMessage synthétique.
+     * Wakes up the X11 event loop by sending a synthetic ClientMessage.
      *
-     * Thread-safe — peut être appelé depuis n'importe quel fil d'exécution.
-     * No-op sur macOS/Windows (xSendEvent est null) ou si aucune fenêtre n'est ouverte.
-     * No-op si un wakeUp est déjà en attente de traitement.
+     * Thread-safe — can be called from any thread.
+     * No-op on macOS/Windows (xSendEvent is null) or if no window is open.
+     * No-op if a wakeUp is already pending processing.
      */
     override fun wakeUp() {
         if (!wakeupPending.compareAndSet(false, true)) return
@@ -64,42 +63,42 @@ class X11EventLoopProxy internal constructor(
         val sendHandle = xSendEvent ?: return
         val flushHandle = xFlush ?: return
 
-        // Trouver une fenêtre cible (la première disponible)
+        // Find a target window (the first available)
         val targetWindowId = loop.windows.values.firstOrNull()?.id?.value ?: return
 
         try {
             Arena.ofConfined().use { arena ->
                 val displaySeg = MemorySegment.ofAddress(displayPtr)
 
-                // Construire un XClientMessageEvent (96 octets, remplis à zéro)
+                // Build an XClientMessageEvent (96 bytes, zero-filled)
                 val event = arena.allocate(96L, 8L)
                 // type = ClientMessage (33)
                 event.set(ValueLayout.JAVA_INT, 0L, ClientMessage)
-                // send_event = True (1) — champ à offset 4
+                // send_event = True (1) — field at offset 4
                 event.set(ValueLayout.JAVA_INT, 4L, 1)
-                // display — pointeur à offset 8
+                // display — pointer at offset 8
                 event.set(ValueLayout.ADDRESS, 8L, displaySeg)
                 // window (XID) — offset 16 (XAnyEvent.window)
                 event.set(ValueLayout.JAVA_LONG, 16L, targetWindowId)
-                // message_type — offset 20 (atome arbitraire, 0 = None)
+                // message_type — offset 20 (arbitrary atom, 0 = None)
                 event.set(ValueLayout.JAVA_LONG, 20L, KADRE_WAKEUP_MESSAGE)
                 // format — offset 28 (32 bits)
                 event.set(ValueLayout.JAVA_INT, 28L, 32)
-                // data.l[0] = 0 (offset 32) — déjà zéro par défaut de l'arène
+                // data.l[0] = 0 (offset 32) — already zero by arena default
 
                 // XSendEvent(display, window, propagate=False, event_mask=0L, event)
                 sendHandle.invokeExact(
                     displaySeg,      // Display*
                     targetWindowId,  // Window
                     0,               // Bool propagate = False
-                    0L,              // long event_mask = 0 (ClientMessage non masqué)
+                    0L,              // long event_mask = 0 (ClientMessage unmasked)
                     event,           // XEvent*
                 ) as Int
 
                 flushHandle.invokeExact(displaySeg) as Int
             }
         } catch (_: Throwable) {
-            // Dégradation gracieuse — le wakeUp échoue silencieusement
+            // Graceful degradation — the wakeUp fails silently
             wakeupPending.set(false)
         }
     }

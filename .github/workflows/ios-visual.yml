@@ -1,10 +1,10 @@
 name: ios-visual
 
-# Capture GPU offscreen iOS — best-effort, NON BLOQUANT.
-# Lance le test Kotlin/Native sur le simulateur iOS. Le simulateur headless n'expose
-# pas de device Metal (MTLCreateSystemDefaultDevice == null) → le test se saute alors
-# proprement. Le rendu réel du triangle nécessite un device iOS (ou un simulateur avec
-# Metal). Le job sert surtout à garantir que le code de capture iOS compile et link.
+# Offscreen GPU capture on iOS — best-effort, NON-BLOCKING.
+# Runs the Kotlin/Native test on the iOS simulator. The headless simulator does not
+# expose a Metal device (MTLCreateSystemDefaultDevice == null) → the test then skips
+# cleanly. Actual rendering of the triangle requires an iOS device (or a simulator with
+# Metal). The job mainly serves to ensure that the iOS capture code compiles and links.
 
 on:
   push:
@@ -37,9 +37,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Compile + link + run sur le simulateur. Non bloquant : le test se saute si pas
-      # de Metal (cas du simulateur headless), donc il PASSE ; on garde continue-on-error
-      # par prudence (toolchain/simulateur).
+      # Compile + link + run on the simulator. Non-blocking: the test skips if there is
+      # no Metal (the headless simulator case), so it PASSES; we keep continue-on-error
+      # as a precaution (toolchain/simulator).
       - name: Capture GPU iOS (simulateur, best-effort)
         continue-on-error: true
         run: |

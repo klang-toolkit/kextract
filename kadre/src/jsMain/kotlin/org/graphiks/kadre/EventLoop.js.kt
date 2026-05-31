@@ -1,23 +1,23 @@
 /**
- * Implémentation JS de la boucle d'événements kadre.
+ * JS implementation of the kadre event loop.
  *
- * Délègue à [org.graphiks.kadre.web.JsWebEventLoop] (kadre-web-common), qui
- * orchestre la boucle `requestAnimationFrame` et le dispatch des événements DOM.
+ * Delegates to [org.graphiks.kadre.web.JsWebEventLoop] (kadre-web-common), which
+ * orchestrates the `requestAnimationFrame` loop and the dispatch of DOM events.
  *
- * façade kadre — cibles jsMain + wasmJsMain.
- * #24 : câblage de la façade vers le WebEventLoop réel.
+ * kadre facade — jsMain + wasmJsMain targets.
+ * #24: wiring the facade to the actual WebEventLoop.
  */
 package org.graphiks.kadre
 
 /**
- * Implémentation JS de [EventLoop] — délègue à [org.graphiks.kadre.web.JsWebEventLoop].
+ * JS implementation of [EventLoop] — delegates to [org.graphiks.kadre.web.JsWebEventLoop].
  */
 actual class EventLoop actual constructor() {
 
     /**
-     * Démarre la boucle d'événements côté navigateur (JS/IR).
+     * Starts the browser-side event loop (JS/IR).
      *
-     * @param handler Gestionnaire du cycle de vie et des événements de l'application.
+     * @param handler Handler for the application's lifecycle and events.
      */
     actual fun runApp(handler: ApplicationHandler) {
         org.graphiks.kadre.web.JsWebEventLoop().runApp(handler)

@@ -1,14 +1,14 @@
 /**
- * Tests unitaires pour Win32EventLoop.
+ * Unit tests for Win32EventLoop.
  *
- * Ces tests vérifient la logique pure Kotlin de Win32EventLoop (gestion du ControlFlow,
- * cycle de vie, isExiting) sans déclencher de vrais appels FFM Win32.
+ * These tests verify the pure Kotlin logic of Win32EventLoop (ControlFlow management,
+ * lifecycle, isExiting) without triggering real Win32 FFM calls.
  *
- * Sur macOS/Linux : tous les tests s'exécutent car la logique testée est indépendante
- * des bindings FFM (peekMessageW, getMessageW sont null → branches fallback).
+ * On macOS/Linux: all tests run because the tested logic is independent
+ * of the FFM bindings (peekMessageW, getMessageW are null → fallback branches).
  *
- * Sur Windows : les tests supplémentaires de runApp peuvent être activés
- * (voir bloc `if (!isWindows()) return`).
+ * On Windows: the additional runApp tests can be enabled
+ * (see the `if (!isWindows()) return` block).
  */
 package org.graphiks.kadre.win32
 
@@ -26,14 +26,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/** Retourne true si le test tourne sur Windows. */
+/** Returns true if the test runs on Windows. */
 private fun isWindows(): Boolean =
     System.getProperty("os.name", "").contains("Windows", ignoreCase = true)
 
-// ── Implémentation ApplicationHandler minimale pour les tests ─────────────────
+// ── Minimal ApplicationHandler implementation for the tests ───────────────────
 
 /**
- * ApplicationHandler de test qui enregistre les callbacks reçus.
+ * Test ApplicationHandler that records the received callbacks.
  */
 private class TestApplicationHandler(
     private val onResumed: (ActiveEventLoop) -> Unit = {},
@@ -50,7 +50,7 @@ private class TestApplicationHandler(
     override fun aboutToWait(eventLoop: ActiveEventLoop) = onAboutToWait(eventLoop)
 }
 
-// ── Tests Win32EventLoop ──────────────────────────────────────────────────────
+// ── Win32EventLoop tests ──────────────────────────────────────────────────────
 
 class Win32EventLoopTest {
 
@@ -116,11 +116,11 @@ class Win32EventLoopTest {
         if (isWindows()) return
         val loop = Win32EventLoop()
         val proxy = loop.createProxy()
-        // Ne doit pas lever d'exception sur macOS/Linux (PostThreadMessageW est null)
+        // Must not throw an exception on macOS/Linux (PostThreadMessageW is null)
         proxy.wakeUp()
     }
 
-    // ── Constantes de boucle de messages ─────────────────────────────────────
+    // ── Message loop constants ────────────────────────────────────────────────
 
     @Test
     fun `PM_REMOVE a la valeur 0x0001`() {
@@ -180,7 +180,7 @@ class Win32EventLoopTest {
         assertEquals(40, MsgLayout.OFFSET_PT_Y)
     }
 
-    // ── Bindings FFM — null sur non-Windows ──────────────────────────────────
+    // ── FFM bindings — null on non-Windows ────────────────────────────────────
 
     @Test
     fun `peekMessageW est null sur plateforme non-Windows`() {
@@ -212,11 +212,11 @@ class Win32EventLoopTest {
         assertEquals(null, msgWaitForMultipleObjectsEx)
     }
 
-    // ── runApp — verrou singleton ─────────────────────────────────────────────
+    // ── runApp — singleton lock ───────────────────────────────────────────────
 
     @Test
     fun `win32Running est false avant runApp`() {
-        // Si un autre test a oublié de remettre le verrou, ce test le détectera
+        // If another test forgot to reset the lock, this test will detect it
         assertFalse(win32Running.get(), "win32Running doit être false au démarrage du test")
     }
 }

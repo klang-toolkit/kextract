@@ -1,24 +1,24 @@
 /**
- * FrameTimingTracer — instrumentation runtime du temps de frame.
+ * FrameTimingTracer — runtime instrumentation of frame timing.
  *
- * Mesure la durée `RedrawRequested → fin de présentation` de chaque frame et publie,
- * une fois par seconde, des statistiques min/p50/p99/max. Désactivé par défaut :
- * **0 % d'overhead** quand [enabled] est `false` (toutes les méthodes retournent
- * immédiatement, aucune allocation, aucune lecture d'horloge).
+ * Measures the `RedrawRequested → end of presentation` duration of each frame and publishes,
+ * once per second, min/p50/p99/max statistics. Disabled by default:
+ * **0% overhead** when [enabled] is `false` (all methods return
+ * immediately, no allocation, no clock read).
  *
- * Activation :
- * - directement : `FrameTimingTracer.enabled = true`
- * - sur JVM : au démarrage, lire `-Dkadre.tracing=true` et positionner [enabled]
- *   (voir l'intégration backend ; non câblé par défaut pour rester sans overhead).
+ * Activation:
+ * - directly: `FrameTimingTracer.enabled = true`
+ * - on JVM: at startup, read `-Dkadre.tracing=true` and set [enabled]
+ *   (see the backend integration; not wired by default to stay overhead-free).
  *
- * Usage côté boucle/rendu :
+ * Usage on the loop/render side:
  * ```kotlin
  * FrameTimingTracer.onRedrawStart()
- * // … rendu …
- * FrameTimingTracer.onPresentEnd()   // calcule la durée et accumule
+ * // … render …
+ * FrameTimingTracer.onPresentEnd()   // computes the duration and accumulates
  * ```
  *
- * Horloge multiplateforme via [kotlin.time.TimeSource.Monotonic].
+ * Cross-platform clock via [kotlin.time.TimeSource.Monotonic].
  */
 package org.graphiks.kadre.core
 
@@ -28,13 +28,13 @@ import kotlin.time.Duration.Companion.seconds
 
 object FrameTimingTracer {
 
-    /** Active/désactive le traçage. `false` = 0 overhead (gardes en tête de méthode). */
+    /** Enables/disables tracing. `false` = 0 overhead (guards at the top of each method). */
     var enabled: Boolean = false
 
-    /** Seuil au-delà duquel une frame lente est journalisée individuellement (ms). */
+    /** Threshold above which a slow frame is logged individually (ms). */
     var slowFrameThresholdMs: Double = 16.7
 
-    /** Sink des lignes de log — surchargeable en test. Défaut : sortie standard. */
+    /** Sink of log lines — overridable in tests. Default: standard output. */
     var sink: (String) -> Unit = ::println
 
     private val clock = TimeSource.Monotonic
@@ -42,7 +42,7 @@ object FrameTimingTracer {
     private var windowStart: TimeSource.Monotonic.ValueTimeMark? = null
     private val samplesMs = ArrayList<Double>(128)
 
-    /** Marque le début d'une frame (réception de RedrawRequested). */
+    /** Marks the start of a frame (reception of RedrawRequested). */
     fun onRedrawStart() {
         if (!enabled) return
         val now = clock.markNow()
@@ -51,9 +51,9 @@ object FrameTimingTracer {
     }
 
     /**
-     * Marque la fin de présentation d'une frame. Calcule la durée depuis
-     * [onRedrawStart], l'accumule, journalise si lente, et publie les stats
-     * agrégées toutes les ~1 s.
+     * Marks the end of presentation of a frame. Computes the duration since
+     * [onRedrawStart], accumulates it, logs it if slow, and publishes the
+     * aggregated stats every ~1 s.
      */
     fun onPresentEnd() {
         if (!enabled) return
@@ -71,7 +71,7 @@ object FrameTimingTracer {
         }
     }
 
-    /** Force la publication immédiate des statistiques courantes (utile en test). */
+    /** Forces immediate publication of the current statistics (useful in tests). */
     fun flush() {
         if (samplesMs.isNotEmpty()) emitStats()
         samplesMs.clear()
@@ -79,7 +79,7 @@ object FrameTimingTracer {
         frameStart = null
     }
 
-    /** Réinitialise l'état interne (utile en test). */
+    /** Resets the internal state (useful in tests). */
     fun reset() {
         samplesMs.clear()
         windowStart = null

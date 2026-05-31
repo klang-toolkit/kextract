@@ -34,9 +34,9 @@ class PongAiTest {
     @Test
     fun `lag empêche mise à jour immédiate`() {
         val ai = PongAi(reactionLagMs = 100L)
-        // Balle au centre → None (target = 0.5)
+        // Ball at center → None (target = 0.5)
         ai.suggest(state, 0L)
-        // Balle monte mais lag pas écoulé → toujours None
+        // Ball moves up but lag not elapsed → still None
         val s2 = state.copy(ball = state.ball.copy(y = 0.1))
         assertEquals(PaddleInput.NONE, ai.suggest(s2, 50L))
     }
@@ -46,7 +46,7 @@ class PongAiTest {
         val ai = PongAi(reactionLagMs = 100L)
         ai.suggest(state, 0L)
         val s2 = state.copy(ball = state.ball.copy(y = 0.1))
-        // Lag écoulé → UP
+        // Lag elapsed → UP
         assertEquals(PaddleInput.UP, ai.suggest(s2, 150L))
     }
 
@@ -56,7 +56,7 @@ class PongAiTest {
         val s = state.copy(ball = state.ball.copy(y = 0.9))
         ai.suggest(s, 0L) // target = 0.9
         ai.reset()
-        // Après reset : target = 0.5, paddle à 0.5 → None
+        // After reset: target = 0.5, paddle at 0.5 → None
         assertEquals(PaddleInput.NONE, ai.suggest(state, 1L))
     }
 }

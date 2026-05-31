@@ -1,10 +1,10 @@
 /**
- * Tests unitaires pour les types DPI et leurs conversions.
+ * Unit tests for the DPI types and their conversions.
  *
- * Vérifie :
- * - Aller-retour identique à scaleFactor = 1.0 (round-trip)
- * - Conversion avec scaleFactor = 2.0 produit le résultat attendu
- * - Couverture des types Int, Float et Double
+ * Verifies:
+ * - Identical round-trip at scaleFactor = 1.0
+ * - Conversion with scaleFactor = 2.0 produces the expected result
+ * - Coverage of the Int, Float and Double types
  */
 package org.graphiks.kadre.core
 

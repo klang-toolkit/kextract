@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Pousse les captures de staging sur la branche orpheline d'hébergement.
+# Pushes the staging captures to the orphan hosting branch.
 #
-# Les 4 jobs de plateforme tournent en parallèle et poussent tous sur la même branche
-# `ci-visual-reports`. Chaque job n'écrit QUE sous <run_id>/<platform>/ (chemins disjoints),
-# donc aucun conflit de contenu — seul le `git push` peut être rejeté (non-fast-forward).
-# On gère ça en re-clonant la branche à jour à chaque tentative puis en re-committant nos
-# fichiers : comme ils sont dans un sous-dossier unique, le push fast-forward finit par passer.
+# The 4 platform jobs run in parallel and all push to the same branch
+# `ci-visual-reports`. Each job writes ONLY under <run_id>/<platform>/ (disjoint paths),
+# so no content conflict — only the `git push` can be rejected (non-fast-forward).
+# We handle this by re-cloning the up-to-date branch on each attempt then re-committing our
+# files: since they are in a unique subfolder, the fast-forward push eventually succeeds.
 #
-# Non bloquant : sort 0 même en cas d'échec (le rapport reste visible en artefact).
+# Non-blocking: exits 0 even on failure (the report stays visible as an artifact).
 #
-# Usage : push-orphan.sh <stagingDir> <repo> <branch> <token>
+# Usage: push-orphan.sh <stagingDir> <repo> <branch> <token>
 set -u
 STAGING="${1:?stagingDir}"; REPO="${2:?repo}"; BRANCH="${3:?branch}"; TOKEN="${4:?token}"
 REMOTE="https://x-access-token:${TOKEN}@github.com/${REPO}.git"
@@ -21,9 +21,9 @@ fi
 for attempt in 1 2 3 4 5; do
   WORK="$(mktemp -d)"
   if git clone --quiet --depth 1 --branch "$BRANCH" "$REMOTE" "$WORK" 2>/dev/null; then
-    : # branche existante clonée
+    : # existing branch cloned
   else
-    # La branche n'existe pas encore : clone par défaut puis crée l'orphelin.
+    # The branch does not exist yet: default clone then create the orphan.
     git clone --quiet --depth 1 "$REMOTE" "$WORK" || { echo "[push-orphan] clone échoué"; exit 0; }
     git -C "$WORK" checkout --quiet --orphan "$BRANCH"
     git -C "$WORK" rm -rqf . >/dev/null 2>&1 || true

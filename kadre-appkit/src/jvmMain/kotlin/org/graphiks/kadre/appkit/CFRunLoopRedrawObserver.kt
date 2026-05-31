@@ -1,16 +1,16 @@
 /**
- * CFRunLoopObserver pour le dispatch de WindowEvent.RedrawRequested (GRA-134)
- * et l'appel à ApplicationHandler.aboutToWait (GRA-135).
+ * CFRunLoopObserver for dispatching WindowEvent.RedrawRequested (GRA-134)
+ * and calling ApplicationHandler.aboutToWait (GRA-135).
  *
- * Installé sur kCFRunLoopBeforeWaiting : pour chaque AppKitWindow ayant
- * needsRedraw=true, dispatch WindowEvent.RedrawRequested et reset le flag.
- * Puis appelle aboutToWait(eventLoop) — après tous les RedrawRequested.
- * Coalescing natif : plusieurs requestRedraw() → un seul event par itération.
+ * Installed on kCFRunLoopBeforeWaiting: for each AppKitWindow with
+ * needsRedraw=true, dispatches WindowEvent.RedrawRequested and resets the flag.
+ * Then calls aboutToWait(eventLoop) — after all the RedrawRequested events.
+ * Native coalescing: several requestRedraw() → a single event per iteration.
  *
- * GRA-136 : suite à aboutToWait, applique le [ControlFlow] courant :
- *  - [ControlFlow.Poll] : réveille immédiatement le run loop (jamais d'attente).
- *  - [ControlFlow.WaitUntil] : programme un CFRunLoopTimer one-shot.
- *  - [ControlFlow.Wait] : annule tout timer en attente (blocage indéfini).
+ * GRA-136: following aboutToWait, applies the current [ControlFlow]:
+ *  - [ControlFlow.Poll]: wakes up the run loop immediately (never waits).
+ *  - [ControlFlow.WaitUntil]: schedules a one-shot CFRunLoopTimer.
+ *  - [ControlFlow.Wait]: cancels any pending timer (indefinite blocking).
  */
 package org.graphiks.kadre.appkit
 
@@ -30,12 +30,12 @@ import java.lang.invoke.MethodType
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Installe un CFRunLoopObserver sur le run loop courant pour :
- * 1. Dispatcher WindowEvent.RedrawRequested (GRA-134) pour les fenêtres en attente
- * 2. Appeler ApplicationHandler.aboutToWait(eventLoop) (GRA-135) — après les redraws
- * 3. Appliquer le [ControlFlow] courant (GRA-136)
+ * Installs a CFRunLoopObserver on the current run loop to:
+ * 1. Dispatch WindowEvent.RedrawRequested (GRA-134) for the pending windows
+ * 2. Call ApplicationHandler.aboutToWait(eventLoop) (GRA-135) — after the redraws
+ * 3. Apply the current [ControlFlow] (GRA-136)
  *
- * Doit être créé et installé depuis le thread principal, avant app.run().
+ * Must be created and installed from the main thread, before app.run().
  */
 internal class CFRunLoopRedrawObserver(
     private val handler: ApplicationHandler,
@@ -47,7 +47,7 @@ internal class CFRunLoopRedrawObserver(
         instance = this
     }
 
-    // GRA-136 — handles/refs résolus dans install() pour l'application de ControlFlow.
+    // GRA-136 — handles/refs resolved in install() for applying ControlFlow.
     private var runLoopPtr: MemorySegment = MemorySegment.NULL
     private var cfRunLoopWakeUpHandle: MethodHandle? = null
     private var cfRunLoopTimerCreateHandle: MethodHandle? = null
@@ -60,16 +60,16 @@ internal class CFRunLoopRedrawObserver(
     private var currentTimer: MemorySegment? = null
 
     /**
-     * Appelé par le CFRunLoopObserver avant chaque mise en veille du run loop.
+     * Called by the CFRunLoopObserver before each sleep of the run loop.
      *
-     * Ordre garanti par la spec :
-     * 1. Dispatch [WindowEvent.RedrawRequested] pour chaque fenêtre avec needsRedraw=true (GRA-134)
-     * 2. Appel [ApplicationHandler.aboutToWait] après tous les redraws (GRA-135)
-     * 3. Applique le [ControlFlow] courant (GRA-136) — APRÈS aboutToWait
-     *    pour que le handler puisse l'avoir mis à jour.
+     * Order guaranteed by the spec:
+     * 1. Dispatch [WindowEvent.RedrawRequested] for each window with needsRedraw=true (GRA-134)
+     * 2. Call [ApplicationHandler.aboutToWait] after all the redraws (GRA-135)
+     * 3. Apply the current [ControlFlow] (GRA-136) — AFTER aboutToWait
+     *    so that the handler may have updated it.
      *
-     * Ne dispatch pas si [ActiveEventLoop.isExiting] — évite des callbacks parasites
-     * entre [ActiveEventLoop.exit] et la sortie effective du run loop.
+     * Does not dispatch if [ActiveEventLoop.isExiting] — avoids spurious callbacks
+     * between [ActiveEventLoop.exit] and the actual exit of the run loop.
      */
     fun onBeforeWaiting() {
         if (eventLoop.isExiting) return
@@ -81,13 +81,13 @@ internal class CFRunLoopRedrawObserver(
             }
         }
 
-        // aboutToWait dispatché après tous les RedrawRequested (GRA-135)
+        // aboutToWait dispatched after all the RedrawRequested events (GRA-135)
         handler.aboutToWait(eventLoop)
 
-        // ControlFlow handling — APRÈS aboutToWait (GRA-136)
+        // ControlFlow handling — AFTER aboutToWait (GRA-136)
         when (val cf = eventLoop.controlFlow) {
             is ControlFlow.Poll -> {
-                // Poll : on ne bloque jamais — réveille immédiatement.
+                // Poll: never blocks — wakes up immediately.
                 cancelScheduledTimer()
                 cfRunLoopWakeUpHandle?.invokeExact(runLoopPtr)
             }
@@ -95,17 +95,17 @@ internal class CFRunLoopRedrawObserver(
                 scheduleWakeUpAt(cf.instant)
             }
             is ControlFlow.Wait -> {
-                // Blocage indéfini : pas de timer.
+                // Indefinite blocking: no timer.
                 cancelScheduledTimer()
             }
         }
     }
 
     /**
-     * Programme un CFRunLoopTimer one-shot pour réveiller le run loop à [instant]
-     * (millisecondes depuis l'epoch Unix). Annule tout timer précédent.
+     * Schedules a one-shot CFRunLoopTimer to wake up the run loop at [instant]
+     * (milliseconds since the Unix epoch). Cancels any previous timer.
      *
-     * CFAbsoluteTime est en secondes depuis le 1er janvier 2001 :
+     * CFAbsoluteTime is in seconds since January 1, 2001:
      * conversion `instant / 1000.0 - 978307200.0`.
      */
     private fun scheduleWakeUpAt(instant: Long) {
@@ -130,7 +130,7 @@ internal class CFRunLoopRedrawObserver(
     }
 
     /**
-     * Invalide tout CFRunLoopTimer en attente.
+     * Invalidates any pending CFRunLoopTimer.
      */
     private fun cancelScheduledTimer() {
         val timer = currentTimer ?: return
@@ -139,7 +139,7 @@ internal class CFRunLoopRedrawObserver(
     }
 
     companion object {
-        /** Instance singleton — un seul observer par application. */
+        /** Singleton instance — a single observer per application. */
         @Volatile
         private var instance: CFRunLoopRedrawObserver? = null
 
@@ -147,8 +147,8 @@ internal class CFRunLoopRedrawObserver(
         private const val kCFRunLoopBeforeWaiting = 0x20L
 
         /**
-         * Crée et installe l'observer sur le run loop courant.
-         * Retourne l'observer (retenu dans Arena.global()).
+         * Creates and installs the observer on the current run loop.
+         * Returns the observer (retained in Arena.global()).
          */
         fun install(
             handler: ApplicationHandler,
@@ -297,8 +297,8 @@ internal class CFRunLoopRedrawObserver(
                 FunctionDescriptor.ofVoid(ValueLayout.ADDRESS),
             )
 
-            // No-op timer callback — la présence du timer suffit à réveiller le run loop ;
-            // l'observer kCFRunLoopBeforeWaiting fera tout le travail.
+            // No-op timer callback — the presence of the timer is enough to wake up the run loop;
+            // the kCFRunLoopBeforeWaiting observer will do all the work.
             val noopHandle = lookup.findStatic(
                 CFRunLoopRedrawObserver::class.java,
                 "noopTimerCallback",
@@ -339,9 +339,9 @@ internal class CFRunLoopRedrawObserver(
         }
 
         /**
-         * Callback no-op pour CFRunLoopTimer (GRA-136). La seule fonction du timer
-         * est de provoquer un réveil du run loop ; l'observer
-         * `kCFRunLoopBeforeWaiting` fait ensuite tout le travail.
+         * No-op callback for CFRunLoopTimer (GRA-136). The timer's only purpose
+         * is to trigger a wake-up of the run loop; the
+         * `kCFRunLoopBeforeWaiting` observer then does all the work.
          */
         @JvmStatic
         fun noopTimerCallback(

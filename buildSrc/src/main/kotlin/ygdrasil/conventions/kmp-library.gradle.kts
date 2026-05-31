@@ -10,9 +10,9 @@ kotlin {
     
     androidTarget()
     
-    jvm() // Cible pour Desktop (JVM)
+    jvm() // Target for Desktop (JVM)
     
-    // Cibles iOS
+    // iOS targets
     iosX64()
     iosArm64()
     iosSimulatorArm64()

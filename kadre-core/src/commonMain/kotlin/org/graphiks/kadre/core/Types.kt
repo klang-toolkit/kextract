@@ -1,77 +1,77 @@
 /**
- * Types de base utilisés dans kadre-core.
+ * Base types used in kadre-core.
  *
- * Contient les identifiants, les types de contrôle de flux et les causes
- * de démarrage de la boucle d'événements.
+ * Contains the identifiers, the control flow types, and the start causes
+ * of the event loop.
  *
- * Périmètre : types purs Kotlin, aucune référence native.
+ * Scope: pure Kotlin types, no native reference.
  */
 package org.graphiks.kadre.core
 
 import kotlin.jvm.JvmInline
 
 /**
- * Identifiant unique d'une fenêtre.
+ * Unique identifier of a window.
  *
- * Encapsule un entier long opaque assigné par la plateforme.
+ * Wraps an opaque long integer assigned by the platform.
  */
 @JvmInline
 value class WindowId(val value: Long)
 
 /**
- * Identifiant unique d'un périphérique d'entrée.
+ * Unique identifier of an input device.
  *
- * Encapsule un entier long opaque assigné par la plateforme.
+ * Wraps an opaque long integer assigned by the platform.
  */
 @JvmInline
 value class DeviceId(val value: Long)
 
 /**
- * Contrôle du flux d'exécution de la boucle d'événements.
+ * Control of the event loop's execution flow.
  *
- * Permet à l'application de dicter le comportement d'attente entre les itérations
- * de la boucle d'événements.
+ * Allows the application to dictate the waiting behavior between iterations
+ * of the event loop.
  */
 sealed class ControlFlow {
-    /** Attend indéfiniment jusqu'au prochain événement. */
+    /** Waits indefinitely until the next event. */
     object Wait : ControlFlow()
 
-    /** Retourne immédiatement sans attendre d'événement. */
+    /** Returns immediately without waiting for an event. */
     object Poll : ControlFlow()
 
     /**
-     * Attend jusqu'à un instant précis (en millisecondes depuis l'époque Unix)
-     * ou jusqu'au prochain événement.
+     * Waits until a specific instant (in milliseconds since the Unix epoch)
+     * or until the next event.
      *
-     * @param instant Instant cible exprimé en millisecondes depuis l'époque Unix.
+     * @param instant Target instant expressed in milliseconds since the Unix epoch.
      */
     data class WaitUntil(val instant: Long) : ControlFlow()
 }
 
 /**
- * Cause du démarrage ou de la reprise d'une itération de la boucle d'événements.
+ * Cause of the start or resumption of an event loop iteration.
  */
 sealed class StartCause {
-    /** La boucle d'événements vient d'être initialisée. */
+    /** The event loop has just been initialized. */
     object Init : StartCause()
 
-    /** La boucle d'événements a été interrogée (mode Poll). */
+    /** The event loop has been polled (Poll mode). */
     object Poll : StartCause()
 
     /**
-     * L'attente a été annulée avant l'instant prévu.
+     * The wait was cancelled before the planned instant.
      *
-     * @param requestedResume Instant cible original, ou null s'il n'était pas défini.
+     * @param requestedResume Original target instant, or null if it was not set.
      */
     data class WaitCancelled(val requestedResume: Long? = null) : StartCause()
 
     /**
-     * L'instant cible d'attente a été atteint.
+     * The target wait instant has been reached.
      *
-     * @param requestedResume Instant cible original.
-     * @param start Instant auquel la reprise a effectivement eu lieu.
+     * @param requestedResume Original target instant.
+     * @param start Instant at which the resumption actually occurred.
      */
     data class ResumeTimeReached(val requestedResume: Long, val start: Long) : StartCause()
 }
 
-// PhysicalSize est défini dans Dpi.kt (GRA-121) — stub supprimé.
+// PhysicalSize is defined in Dpi.kt (GRA-121) — stub removed.

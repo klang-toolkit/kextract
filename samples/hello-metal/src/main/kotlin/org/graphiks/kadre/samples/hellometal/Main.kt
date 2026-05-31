@@ -1,13 +1,13 @@
 /**
- * Sample hello-metal — démonstrateur POC Metal view minimale (Jalon M1).
+ * Sample hello-metal — minimal Metal view POC demonstrator (Milestone M1).
  *
- * Illustre l'utilisation de bout-en-bout de la stack kadre :
+ * Illustrates end-to-end usage of the kadre stack:
  *   EventLoop → AppKitEventLoop → NSWindow + CAMetalLayer
  *
- * Usage : ./gradlew :samples:hello-metal:run
- * Prérequis : macOS avec JDK 25 (thread principal — lancé par Gradle).
+ * Usage: ./gradlew :samples:hello-metal:run
+ * Requirements: macOS with JDK 25 (main thread — launched by Gradle).
  *
- * GRA-130 : première application kadre fonctionnelle.
+ * GRA-130: first functional kadre application.
  */
 package org.graphiks.kadre.samples.hellometal
 
@@ -21,17 +21,17 @@ import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.WindowEvent
 
 /**
- * Gestionnaire d'application hello-metal.
+ * hello-metal application handler.
  *
- * Ouvre une fenêtre 800×600, affiche un log à chaque événement,
- * et quitte proprement sur `CloseRequested`.
+ * Opens an 800×600 window, logs on each event,
+ * and exits cleanly on `CloseRequested`.
  */
 class HelloApp : ApplicationHandler {
 
     /**
-     * Appelé dès qu'AppKit autorise la création de surfaces de rendu.
+     * Called as soon as AppKit allows render surface creation.
      *
-     * Crée la fenêtre principale et vérifie que le layer est bien un CAMetalLayer.
+     * Creates the main window and verifies that the layer is indeed a CAMetalLayer.
      */
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
         println("[HelloApp] canCreateSurfaces — création de la fenêtre")
@@ -60,9 +60,9 @@ class HelloApp : ApplicationHandler {
     }
 
     /**
-     * Appelé à chaque événement de fenêtre.
+     * Called on each window event.
      *
-     * Affiche l'événement et initie la fermeture sur `CloseRequested`.
+     * Logs the event and initiates close on `CloseRequested`.
      */
     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
         println("[HelloApp] windowEvent($windowId) → $event")
@@ -75,11 +75,11 @@ class HelloApp : ApplicationHandler {
 }
 
 /**
- * Point d'entrée du sample hello-metal.
+ * Entry point of the hello-metal sample.
  *
- * Doit être exécuté depuis le thread principal macOS.
- * Gradle assure que `run` s'exécute bien sur le main thread via
- * l'argument JVM `-XstartOnFirstThread` (ajouté dans build.gradle.kts).
+ * Must be run from the main macOS thread.
+ * Gradle ensures `run` executes on the main thread via
+ * the `-XstartOnFirstThread` JVM argument (added in build.gradle.kts).
  */
 fun main() {
     println("[hello-metal] Démarrage — Kadre M1 POC")

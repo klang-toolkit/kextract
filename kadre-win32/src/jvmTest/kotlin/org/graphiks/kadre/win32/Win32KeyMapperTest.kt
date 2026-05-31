@@ -1,11 +1,11 @@
 /**
- * Tests unitaires pour Win32KeyMapper.
+ * Unit tests for Win32KeyMapper.
  *
- * Vérifie que les codes de touches virtuelles Win32 (VK_*) sont correctement
- * traduits en touches logiques kadre [Key].
+ * Verifies that the Win32 virtual key codes (VK_*) are correctly
+ * translated into kadre logical keys [Key].
  *
- * Ces tests s'exécutent sur toutes les plateformes (macOS, Linux, Windows)
- * car Win32KeyMapper est une table de correspondance pure Kotlin sans FFM.
+ * These tests run on all platforms (macOS, Linux, Windows)
+ * because Win32KeyMapper is a pure Kotlin mapping table without FFM.
  */
 package org.graphiks.kadre.win32
 

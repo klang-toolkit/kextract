@@ -1,11 +1,11 @@
 /**
- * Sample hello-window-android — fenêtre Kadre sur Android.
+ * Sample hello-window-android — Kadre window on Android.
  *
- * Miroir Android du sample hello-window (JVM/iOS).
- * Démontre la convergence d'API Kadre : même HelloApp, même comportement
- * sur les trois plateformes.
+ * Android mirror of the hello-window sample (JVM/iOS).
+ * Demonstrates Kadre API convergence: same HelloApp, same behavior
+ * on all three platforms.
  *
- * Usage : ./gradlew :samples:hello-window-android:assembleDebug
+ * Usage: ./gradlew :samples:hello-window-android:assembleDebug
  */
 plugins {
     id("com.android.application")

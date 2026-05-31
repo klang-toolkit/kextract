@@ -1,18 +1,18 @@
 /**
- * Implémentation Wayland de l'interface [Window] pour Linux Desktop.
+ * Wayland implementation of the [Window] interface for Linux Desktop.
  *
- * Utilise la Foreign Function & Memory API (JEP 454, JDK 25) pour interagir
- * avec libwayland-client.so.0 sans JNA ni autre couche intermédiaire.
+ * Uses the Foreign Function & Memory API (JEP 454, JDK 25) to interact
+ * with libwayland-client.so.0 without JNA or any other intermediate layer.
  *
- * Flux de création (simplifié — xdg_shell complet délégué à WaylandEventLoop) :
- *  1. wl_compositor_create_surface  — crée la wl_surface (opcode 0 sur compositor)
- *  2. wl_display_flush              — envoie la requête au serveur
+ * Creation flow (simplified — full xdg_shell delegated to WaylandEventLoop):
+ *  1. wl_compositor_create_surface  — creates the wl_surface (opcode 0 on compositor)
+ *  2. wl_display_flush              — sends the request to the server
  *
- * Les appels xdg_surface / xdg_toplevel nécessitent des pointeurs vers les
- * structures wl_interface (non disponibles via FFM pur) ; ils sont implémentés
- * en stub et délégués à WaylandEventLoop (ticket #66).
+ * The xdg_surface / xdg_toplevel calls require pointers to the wl_interface
+ * structures (not available via pure FFM); they are implemented
+ * as stubs and delegated to WaylandEventLoop (ticket #66).
  *
- * WaylandWindow — implémentation de l'interface Window.
+ * WaylandWindow — implementation of the Window interface.
  */
 package org.graphiks.kadre.wayland
 
@@ -24,24 +24,24 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
 import java.lang.foreign.MemorySegment
 
-/** Opcode wl_compositor.create_surface dans le protocole Wayland de base. */
+/** wl_compositor.create_surface opcode in the core Wayland protocol. */
 private const val WL_COMPOSITOR_CREATE_SURFACE_OPCODE: Int = 0
 
-/** Opcode wl_surface.commit dans le protocole Wayland de base. */
+/** wl_surface.commit opcode in the core Wayland protocol. */
 private const val WL_SURFACE_COMMIT_OPCODE: Int = 6
 
 
 /**
- * Fenêtre Wayland native implémentant [Window].
+ * Native Wayland window implementing [Window].
  *
- * Le constructeur est interne : utilisez [WaylandWindow.create] pour instancier.
- * Les instances sont créées par WaylandEventLoop (ticket #66) qui fournit
- * les pointeurs display, compositor et xdgWmBase déjà initialisés.
+ * The constructor is internal: use [WaylandWindow.create] to instantiate.
+ * Instances are created by WaylandEventLoop (ticket #66), which supplies
+ * the already-initialized display, compositor and xdgWmBase pointers.
  *
- * @param displayPtr   Pointeur wl_display* (adresse Long du MemorySegment).
- * @param compositorPtr Pointeur wl_compositor* (proxy Wayland retourné par wl_registry_bind).
- * @param xdgWmBasePtr  Pointeur xdg_wm_base* (proxy Wayland, ou 0 si non disponible).
- * @param attrs         Attributs de création de la fenêtre.
+ * @param displayPtr   wl_display* pointer (Long address of the MemorySegment).
+ * @param compositorPtr wl_compositor* pointer (Wayland proxy returned by wl_registry_bind).
+ * @param xdgWmBasePtr  xdg_wm_base* pointer (Wayland proxy, or 0 if unavailable).
+ * @param attrs         Window creation attributes.
  */
 class WaylandWindow private constructor(
     private val displayPtr: Long,
@@ -51,7 +51,7 @@ class WaylandWindow private constructor(
     private val attrs: WindowAttributes,
 ) : Window {
 
-    /** Identifiant unique basé sur l'adresse de la wl_surface. */
+    /** Unique identifier based on the address of the wl_surface. */
     override val id: WindowId = WindowId(surfacePtr)
 
     override val rawWindowHandle: Any
@@ -61,9 +61,9 @@ class WaylandWindow private constructor(
         get() = RawDisplayHandle.Wayland(display = displayPtr)
 
     /**
-     * Taille interne courante en pixels physiques.
+     * Current inner size in physical pixels.
      *
-     * Initialisée depuis attrs.size ; mise à jour par les événements xdg_surface.configure
+     * Initialized from attrs.size; updated by xdg_surface.configure events
      * via [onConfigure].
      */
     @Volatile
@@ -73,27 +73,27 @@ class WaylandWindow private constructor(
         get() = _innerSize
 
     /**
-     * Taille externe (surface + décorations WM) en pixels physiques.
+     * Outer size (surface + WM decorations) in physical pixels.
      *
-     * Sur Wayland, les décorations côté serveur (SSD) sont gérées par le compositeur.
-     * Sans accès aux événements de configuration de décoration, on retourne la même
-     * valeur que [innerSize].
+     * On Wayland, server-side decorations (SSD) are managed by the compositor.
+     * Without access to decoration configuration events, we return the same
+     * value as [innerSize].
      */
     override val outerSize: PhysicalSize<Int>
         get() = _innerSize
 
     /**
-     * Facteur d'échelle DPI de cette fenêtre.
+     * DPI scale factor of this window.
      *
-     * Retourne 1.0 par défaut ; mis à jour via les événements wl_output.scale (prévu ultérieurement).
+     * Returns 1.0 by default; updated via wl_output.scale events (planned for later).
      */
     override val scaleFactor: Double = 1.0
 
     /**
-     * Demande un rafraîchissement en commitant la surface Wayland.
+     * Requests a redraw by committing the Wayland surface.
      *
-     * Sur Wayland, le rendu est déclenché par wl_surface.commit (opcode 6).
-     * Si les bindings ne sont pas disponibles (non-Linux), l'appel est ignoré.
+     * On Wayland, rendering is triggered by wl_surface.commit (opcode 6).
+     * If the bindings are not available (non-Linux), the call is ignored.
      */
     override fun requestRedraw() {
         if (surfacePtr == 0L) return
@@ -103,54 +103,54 @@ class WaylandWindow private constructor(
             handle.invokeExact(
                 surfaceSeg,
                 WL_SURFACE_COMMIT_OPCODE,
-                MemorySegment.NULL,  // wl_interface* = NULL pour les appels sans new_id
+                MemorySegment.NULL,  // wl_interface* = NULL for calls without new_id
                 WL_COMPOSITOR_VERSION,
                 0,                   // flags = 0
             )
-            // Flush pour envoyer la requête au serveur
+            // Flush to send the request to the server
             wlDisplayFlush?.let { flush ->
                 val displaySeg = MemorySegment.ofAddress(displayPtr)
                 flush.invokeExact(displaySeg) as Int
             }
         } catch (_: Throwable) {
-            // Ignore — surface invalide ou bibliothèque absente
+            // Ignore — invalid surface or library absent
         }
     }
 
     /**
-     * Définit le titre de la fenêtre via xdg_toplevel.set_title.
+     * Sets the window title via xdg_toplevel.set_title.
      *
-     * L'appel xdg_toplevel.set_title nécessite un pointeur xdg_toplevel* créé
-     * lors de la négociation xdg_shell. Cette implémentation est un stub logué ;
-     * le support complet sera fourni par WaylandEventLoop (ticket #66).
+     * The xdg_toplevel.set_title call requires an xdg_toplevel* pointer created
+     * during xdg_shell negotiation. This implementation is a logged stub;
+     * full support will be provided by WaylandEventLoop (ticket #66).
      *
-     * @param title Nouveau titre de la fenêtre.
+     * @param title New window title.
      */
     override fun setTitle(title: String) {
-        // Stub : xdg_toplevel nécessite une négociation xdg_shell complète (ticket #66)
+        // Stub: xdg_toplevel requires full xdg_shell negotiation (ticket #66)
     }
 
     /**
-     * Rend la fenêtre visible ou invisible.
+     * Makes the window visible or invisible.
      *
-     * Sur Wayland, la visibilité d'une surface toplevel est contrôlée via
-     * xdg_surface / xdg_toplevel. Le commit initial rend la surface visible ;
-     * wl_surface.attach(NULL) + commit la masque.
-     * Cette implémentation effectue un commit pour la rendre visible.
+     * On Wayland, the visibility of a toplevel surface is controlled via
+     * xdg_surface / xdg_toplevel. The initial commit makes the surface visible;
+     * wl_surface.attach(NULL) + commit hides it.
+     * This implementation performs a commit to make it visible.
      *
-     * @param visible true pour afficher la fenêtre, false ignoré (stub).
+     * @param visible true to show the window, false ignored (stub).
      */
     override fun setVisible(visible: Boolean) {
         if (visible) requestRedraw()
-        // setInvisible nécessite wl_surface.attach(NULL) + commit — reporté à plus tard
+        // setInvisible requires wl_surface.attach(NULL) + commit — deferred to later
     }
 
     /**
-     * Ferme la fenêtre en détruisant la wl_surface via wl_proxy_destroy.
+     * Closes the window by destroying the wl_surface via wl_proxy_destroy.
      *
-     * Sur Wayland, la fermeture propre passe par xdg_toplevel.destroy →
-     * xdg_surface.destroy → wl_surface.destroy. Cette implémentation simplifée
-     * appelle directement wl_proxy_destroy sur la surface.
+     * On Wayland, clean shutdown goes through xdg_toplevel.destroy →
+     * xdg_surface.destroy → wl_surface.destroy. This simplified implementation
+     * calls wl_proxy_destroy directly on the surface.
      */
     override fun close() {
         if (surfacePtr == 0L) return
@@ -163,15 +163,15 @@ class WaylandWindow private constructor(
                 flush.invokeExact(displaySeg) as Int
             }
         } catch (_: Throwable) {
-            // Ignore — proxy déjà détruit ou bibliothèque absente
+            // Ignore — proxy already destroyed or library absent
         }
     }
 
     /**
-     * Met à jour la taille interne lors de la réception d'un événement xdg_surface.configure.
+     * Updates the inner size upon receiving an xdg_surface.configure event.
      *
-     * @param width  Nouvelle largeur suggérée par le compositeur en pixels (0 = laisser inchangé).
-     * @param height Nouvelle hauteur suggérée par le compositeur en pixels (0 = laisser inchangé).
+     * @param width  New width suggested by the compositor in pixels (0 = leave unchanged).
+     * @param height New height suggested by the compositor in pixels (0 = leave unchanged).
      */
     fun onConfigure(width: Int, height: Int) {
         if (width > 0 && height > 0) {
@@ -184,17 +184,17 @@ class WaylandWindow private constructor(
     companion object {
 
         /**
-         * Crée une fenêtre Wayland native.
+         * Creates a native Wayland window.
          *
-         * Effectue la création de la wl_surface depuis le wl_compositor.
-         * Les étapes xdg_surface / xdg_toplevel sont déléguées à WaylandEventLoop (ticket #66).
+         * Performs the creation of the wl_surface from the wl_compositor.
+         * The xdg_surface / xdg_toplevel steps are delegated to WaylandEventLoop (ticket #66).
          *
-         * @param display     Pointeur wl_display* (adresse Long du MemorySegment).
-         * @param compositor  Pointeur wl_compositor* (proxy retourné par wl_registry_bind).
-         * @param xdgWmBase   Pointeur xdg_wm_base* (proxy, ou 0 si non disponible).
-         * @param attrs       Attributs de la fenêtre (titre, taille, visibilité, etc.).
-         * @return La fenêtre créée, ou null si les bindings libwayland-client ne sont pas
-         *         disponibles (macOS/Windows) ou si la création de surface échoue.
+         * @param display     wl_display* pointer (Long address of the MemorySegment).
+         * @param compositor  wl_compositor* pointer (proxy returned by wl_registry_bind).
+         * @param xdgWmBase   xdg_wm_base* pointer (proxy, or 0 if unavailable).
+         * @param attrs       Window attributes (title, size, visibility, etc.).
+         * @return The created window, or null if the libwayland-client bindings are not
+         *         available (macOS/Windows) or if surface creation fails.
          */
         fun create(
             display: Long,
@@ -202,10 +202,10 @@ class WaylandWindow private constructor(
             xdgWmBase: Long,
             attrs: WindowAttributes,
         ): WaylandWindow? {
-            // Les bindings sont null sur les plateformes non-Wayland — retourner null.
+            // The bindings are null on non-Wayland platforms — return null.
             val createSurface = wlCompositorCreateSurface ?: return null
-            // wl_proxy_marshal_flags déréférence le wl_interface* pour une requête new_id :
-            // il DOIT être non-NULL, sinon SIGSEGV natif (non rattrapable par try/catch).
+            // wl_proxy_marshal_flags dereferences the wl_interface* for a new_id request:
+            // it MUST be non-NULL, otherwise a native SIGSEGV (not catchable by try/catch).
             val surfaceInterface = wlSurfaceInterface ?: return null
 
             // ── 1. wl_compositor_create_surface ──────────────────────────────
@@ -214,25 +214,25 @@ class WaylandWindow private constructor(
                 (createSurface.invokeExact(
                     compositorSeg,
                     WL_COMPOSITOR_CREATE_SURFACE_OPCODE,
-                    surfaceInterface,    // &wl_surface_interface (symbole libwayland)
+                    surfaceInterface,    // &wl_surface_interface (libwayland symbol)
                     WL_COMPOSITOR_VERSION,
                     0,                   // flags = 0
-                    MemorySegment.NULL,  // new_id placeholder (libwayland crée le proxy)
+                    MemorySegment.NULL,  // new_id placeholder (libwayland creates the proxy)
                 ) as MemorySegment).address()
             } catch (_: Throwable) {
                 0L
             }
 
             if (surface == 0L && compositor != 0L) {
-                // Sur non-Wayland ou en test avec pointeurs mock (compositor = 0),
-                // on autorise surface = 0 pour les tests unitaires.
-                // Si compositor != 0 et surface = 0 : échec réel de création.
+                // On non-Wayland or in tests with mock pointers (compositor = 0),
+                // we allow surface = 0 for unit tests.
+                // If compositor != 0 and surface = 0: real creation failure.
                 return null
             }
 
             val window = WaylandWindow(display, compositor, xdgWmBase, surface, attrs)
 
-            // ── 2. Commit initial (rend la surface visible au compositeur) ────
+            // ── 2. Initial commit (makes the surface visible to the compositor) ──
             if (attrs.visible && surface != 0L) {
                 window.requestRedraw()
             }
@@ -241,16 +241,16 @@ class WaylandWindow private constructor(
         }
 
         /**
-         * Crée une [WaylandWindow] avec des pointeurs mock, pour les tests unitaires.
+         * Creates a [WaylandWindow] with mock pointers, for unit tests.
          *
-         * Utilisable sans libwayland-client.so.0 — ne tente aucun appel FFM.
+         * Usable without libwayland-client.so.0 — performs no FFM calls.
          *
-         * @param display    Pointeur mock wl_display* (peut être 0 en test).
-         * @param compositor Pointeur mock wl_compositor* (peut être 0 en test).
-         * @param xdgWmBase  Pointeur mock xdg_wm_base* (peut être 0 en test).
-         * @param surface    Pointeur mock wl_surface* (peut être 0 en test).
-         * @param attrs      Attributs de la fenêtre.
-         * @return Instance [WaylandWindow] directement construite, sans appels FFM.
+         * @param display    Mock wl_display* pointer (may be 0 in tests).
+         * @param compositor Mock wl_compositor* pointer (may be 0 in tests).
+         * @param xdgWmBase  Mock xdg_wm_base* pointer (may be 0 in tests).
+         * @param surface    Mock wl_surface* pointer (may be 0 in tests).
+         * @param attrs      Window attributes.
+         * @return A [WaylandWindow] instance built directly, without FFM calls.
          */
         internal fun createForTest(
             display: Long = 0L,

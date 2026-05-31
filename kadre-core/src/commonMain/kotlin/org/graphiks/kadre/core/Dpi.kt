@@ -1,26 +1,26 @@
 /**
- * Types DPI pour la gestion des tailles et positions en coordonnées physiques et logiques.
+ * DPI types for handling sizes and positions in physical and logical coordinates.
  *
- * ## Coordonnées physiques vs logiques
+ * ## Physical vs logical coordinates
  *
- * Les **coordonnées physiques** (Physical) représentent des pixels réels sur l'écran,
- * tels qu'ils sont adressés par le matériel. Elles dépendent de la résolution native
- * du moniteur et tiennent compte du facteur d'échelle (DPI scaling).
+ * **Physical coordinates** (Physical) represent real pixels on the screen,
+ * as addressed by the hardware. They depend on the monitor's native resolution
+ * and account for the scale factor (DPI scaling).
  *
- * Les **coordonnées logiques** (Logical) représentent des unités indépendantes de la
- * densité d'affichage (device-independent pixels). Elles correspondent à ce que le
- * développeur manipule conceptuellement, sans se soucier de la densité physique de
- * l'écran. Le système d'exploitation applique un facteur d'échelle (`scaleFactor`)
- * pour convertir entre les deux espaces.
+ * **Logical coordinates** (Logical) represent units independent of the display
+ * density (device-independent pixels). They correspond to what the developer
+ * manipulates conceptually, without worrying about the screen's physical
+ * density. The operating system applies a scale factor (`scaleFactor`)
+ * to convert between the two spaces.
  *
- * ### Exemple
- * Sur un écran Retina avec `scaleFactor = 2.0` :
- * - une fenêtre de taille logique 800 × 600 occupe physiquement 1600 × 1200 pixels.
+ * ### Example
+ * On a Retina screen with `scaleFactor = 2.0`:
+ * - a window of logical size 800 × 600 physically occupies 1600 × 1200 pixels.
  *
  * ## Conversions
  *
- * Utilisez les fonctions d'extension `toPhysical` et `toLogical` pour passer d'un
- * espace de coordonnées à l'autre :
+ * Use the `toPhysical` and `toLogical` extension functions to move from one
+ * coordinate space to the other:
  *
  * ```kotlin
  * val logique = LogicalSize(800, 600)
@@ -33,68 +33,68 @@
 package org.graphiks.kadre.core
 
 // ---------------------------------------------------------------------------
-// Taille physique
+// Physical size
 // ---------------------------------------------------------------------------
 
 /**
- * Taille exprimée en **pixels physiques** (pixels réels du matériel).
+ * Size expressed in **physical pixels** (real hardware pixels).
  *
- * @param T Type numérique des composantes (ex. [Int], [Float], [Double]).
- * @property width Largeur en pixels physiques.
- * @property height Hauteur en pixels physiques.
+ * @param T Numeric type of the components (e.g. [Int], [Float], [Double]).
+ * @property width Width in physical pixels.
+ * @property height Height in physical pixels.
  */
 data class PhysicalSize<T : Number>(val width: T, val height: T)
 
 // ---------------------------------------------------------------------------
-// Taille logique
+// Logical size
 // ---------------------------------------------------------------------------
 
 /**
- * Taille exprimée en **unités logiques** (device-independent pixels).
+ * Size expressed in **logical units** (device-independent pixels).
  *
- * @param T Type numérique des composantes (ex. [Int], [Float], [Double]).
- * @property width Largeur en unités logiques.
- * @property height Hauteur en unités logiques.
+ * @param T Numeric type of the components (e.g. [Int], [Float], [Double]).
+ * @property width Width in logical units.
+ * @property height Height in logical units.
  */
 data class LogicalSize<T : Number>(val width: T, val height: T)
 
 // ---------------------------------------------------------------------------
-// Position physique
+// Physical position
 // ---------------------------------------------------------------------------
 
 /**
- * Position exprimée en **pixels physiques** (pixels réels du matériel).
+ * Position expressed in **physical pixels** (real hardware pixels).
  *
- * @param T Type numérique des composantes (ex. [Int], [Float], [Double]).
- * @property x Coordonnée horizontale en pixels physiques.
- * @property y Coordonnée verticale en pixels physiques.
+ * @param T Numeric type of the components (e.g. [Int], [Float], [Double]).
+ * @property x Horizontal coordinate in physical pixels.
+ * @property y Vertical coordinate in physical pixels.
  */
 data class PhysicalPosition<T : Number>(val x: T, val y: T)
 
 // ---------------------------------------------------------------------------
-// Position logique
+// Logical position
 // ---------------------------------------------------------------------------
 
 /**
- * Position exprimée en **unités logiques** (device-independent pixels).
+ * Position expressed in **logical units** (device-independent pixels).
  *
- * @param T Type numérique des composantes (ex. [Int], [Float], [Double]).
- * @property x Coordonnée horizontale en unités logiques.
- * @property y Coordonnée verticale en unités logiques.
+ * @param T Numeric type of the components (e.g. [Int], [Float], [Double]).
+ * @property x Horizontal coordinate in logical units.
+ * @property y Vertical coordinate in logical units.
  */
 data class LogicalPosition<T : Number>(val x: T, val y: T)
 
 // ---------------------------------------------------------------------------
-// Extensions de conversion — Taille
+// Conversion extensions — Size
 // ---------------------------------------------------------------------------
 
 /**
- * Convertit cette taille logique en taille physique en appliquant le [scaleFactor].
+ * Converts this logical size into a physical size by applying the [scaleFactor].
  *
- * Formule : `physique = logique × scaleFactor`
+ * Formula: `physical = logical × scaleFactor`
  *
- * @param scaleFactor Facteur d'échelle DPI (ex. `2.0` pour un écran Retina).
- * @return [PhysicalSize] dont les composantes sont de type [Double].
+ * @param scaleFactor DPI scale factor (e.g. `2.0` for a Retina screen).
+ * @return [PhysicalSize] whose components are of type [Double].
  */
 fun <T : Number> LogicalSize<T>.toPhysical(scaleFactor: Double): PhysicalSize<Double> =
     PhysicalSize(
@@ -103,12 +103,12 @@ fun <T : Number> LogicalSize<T>.toPhysical(scaleFactor: Double): PhysicalSize<Do
     )
 
 /**
- * Convertit cette taille physique en taille logique en divisant par le [scaleFactor].
+ * Converts this physical size into a logical size by dividing by the [scaleFactor].
  *
- * Formule : `logique = physique ÷ scaleFactor`
+ * Formula: `logical = physical ÷ scaleFactor`
  *
- * @param scaleFactor Facteur d'échelle DPI (ex. `2.0` pour un écran Retina).
- * @return [LogicalSize] dont les composantes sont de type [Double].
+ * @param scaleFactor DPI scale factor (e.g. `2.0` for a Retina screen).
+ * @return [LogicalSize] whose components are of type [Double].
  */
 fun <T : Number> PhysicalSize<T>.toLogical(scaleFactor: Double): LogicalSize<Double> =
     LogicalSize(
@@ -117,16 +117,16 @@ fun <T : Number> PhysicalSize<T>.toLogical(scaleFactor: Double): LogicalSize<Dou
     )
 
 // ---------------------------------------------------------------------------
-// Extensions de conversion — Position
+// Conversion extensions — Position
 // ---------------------------------------------------------------------------
 
 /**
- * Convertit cette position logique en position physique en appliquant le [scaleFactor].
+ * Converts this logical position into a physical position by applying the [scaleFactor].
  *
- * Formule : `physique = logique × scaleFactor`
+ * Formula: `physical = logical × scaleFactor`
  *
- * @param scaleFactor Facteur d'échelle DPI (ex. `2.0` pour un écran Retina).
- * @return [PhysicalPosition] dont les composantes sont de type [Double].
+ * @param scaleFactor DPI scale factor (e.g. `2.0` for a Retina screen).
+ * @return [PhysicalPosition] whose components are of type [Double].
  */
 fun <T : Number> LogicalPosition<T>.toPhysical(scaleFactor: Double): PhysicalPosition<Double> =
     PhysicalPosition(
@@ -135,12 +135,12 @@ fun <T : Number> LogicalPosition<T>.toPhysical(scaleFactor: Double): PhysicalPos
     )
 
 /**
- * Convertit cette position physique en position logique en divisant par le [scaleFactor].
+ * Converts this physical position into a logical position by dividing by the [scaleFactor].
  *
- * Formule : `logique = physique ÷ scaleFactor`
+ * Formula: `logical = physical ÷ scaleFactor`
  *
- * @param scaleFactor Facteur d'échelle DPI (ex. `2.0` pour un écran Retina).
- * @return [LogicalPosition] dont les composantes sont de type [Double].
+ * @param scaleFactor DPI scale factor (e.g. `2.0` for a Retina screen).
+ * @return [LogicalPosition] whose components are of type [Double].
  */
 fun <T : Number> PhysicalPosition<T>.toLogical(scaleFactor: Double): LogicalPosition<Double> =
     LogicalPosition(

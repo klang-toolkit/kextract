@@ -1,22 +1,22 @@
 /**
- * Implémentation wasmJs de [WebDomBridge].
+ * wasmJs implementation of [WebDomBridge].
  *
- * Fournit un stub fonctionnel basé sur l'interop JS Wasm (external interface).
- * Les écouteurs DOM sont enregistrés via [JsAny] et [addEventListener] Wasm,
- * et les champs d'événements sont extraits via les external interfaces ci-dessous.
+ * Provides a functional stub based on Wasm JS interop (external interface).
+ * DOM listeners are registered via [JsAny] and Wasm [addEventListener],
+ * and event fields are extracted via the external interfaces below.
  *
- * Ce fichier PEUT utiliser les interops JS Wasm car il est dans wasmJsMain.
+ * This file MAY use Wasm JS interop since it is in wasmJsMain.
  *
  * @since 1.0.0
  */
 package org.graphiks.kadre.web
 
 // ---------------------------------------------------------------------------
-// External interfaces — accès DOM côté wasmJs
+// External interfaces — wasmJs-side DOM access
 // ---------------------------------------------------------------------------
 
 /**
- * Représentation externe d'un [EventTarget] DOM (canvas, document, etc.).
+ * External representation of a DOM [EventTarget] (canvas, document, etc.).
  */
 @JsName("EventTarget")
 external interface JsEventTarget : JsAny {
@@ -25,7 +25,7 @@ external interface JsEventTarget : JsAny {
 }
 
 /**
- * Propriétés communes à tous les événements DOM.
+ * Properties common to all DOM events.
  */
 @JsName("Event")
 external interface JsDomEvent : JsAny {
@@ -33,7 +33,7 @@ external interface JsDomEvent : JsAny {
 }
 
 /**
- * Propriétés d'un KeyboardEvent DOM.
+ * Properties of a DOM KeyboardEvent.
  */
 @JsName("KeyboardEvent")
 external interface JsKeyboardEvent : JsDomEvent {
@@ -46,7 +46,7 @@ external interface JsKeyboardEvent : JsDomEvent {
 }
 
 /**
- * Propriétés d'un PointerEvent DOM (inclut les champs MouseEvent).
+ * Properties of a DOM PointerEvent (includes the MouseEvent fields).
  */
 @JsName("PointerEvent")
 external interface JsPointerEvent : JsDomEvent {
@@ -56,7 +56,7 @@ external interface JsPointerEvent : JsDomEvent {
 }
 
 /**
- * Propriétés d'un WheelEvent DOM.
+ * Properties of a DOM WheelEvent.
  */
 @JsName("WheelEvent")
 external interface JsWheelEvent : JsDomEvent {
@@ -66,7 +66,7 @@ external interface JsWheelEvent : JsDomEvent {
 }
 
 // ---------------------------------------------------------------------------
-// Fonctions d'interop JS Wasm — accès au DOM global
+// Wasm JS interop functions — global DOM access
 // ---------------------------------------------------------------------------
 
 @JsFun("(id) => document.getElementById(id)")
@@ -103,22 +103,22 @@ private external fun disconnectResizeObserver(ro: JsAny)
 private external fun wrapCallback(fn: (Int, Int) -> Unit): JsAny
 
 /**
- * Wrappe une lambda Kotlin `(JsAny) -> Unit` en une fonction JS appelable depuis
- * `addEventListener`. Le `(fn) => fn` du `@JsFun` enclenche la conversion par le
- * compilateur Kotlin/Wasm qui produit une vraie closure JS — équivalent du pattern
- * utilisé pour le `ResizeObserver` ci-dessus.
+ * Wraps a Kotlin `(JsAny) -> Unit` lambda into a JS function callable from
+ * `addEventListener`. The `(fn) => fn` of the `@JsFun` triggers the conversion by the
+ * Kotlin/Wasm compiler, which produces a real JS closure — equivalent to the pattern
+ * used for the `ResizeObserver` above.
  *
- * Sans ce wrapper, `handler.toJsReference()` produisait une référence opaque non
- * directement appelable par le DOM (les listeners étaient enregistrés mais jamais
- * invoqués → clavier/pointer/wheel inertes côté wasmJs).
+ * Without this wrapper, `handler.toJsReference()` produced an opaque reference not
+ * directly callable by the DOM (the listeners were registered but never
+ * invoked → keyboard/pointer/wheel inert on the wasmJs side).
  */
 @JsFun("(fn) => fn")
 private external fun wrapEventHandler(fn: (JsAny) -> Unit): JsAny
 
 /**
- * Crée un canvas (id + dimensions) et l'append au parent (parentId ou body).
- * Si un canvas portant cet id existe déjà, le retourne tel quel sans recréer.
- * Retourne `true` si le canvas existe désormais dans le DOM (créé ou préexistant).
+ * Creates a canvas (id + dimensions) and appends it to the parent (parentId or body).
+ * If a canvas with that id already exists, returns it as is without recreating.
+ * Returns `true` if the canvas now exists in the DOM (created or pre-existing).
  */
 @JsFun("""(id, width, height, parentId) => {
     let canvas = document.getElementById(id);
@@ -141,14 +141,14 @@ private external fun ensureCanvasInDom(
 ): JsBoolean
 
 // ---------------------------------------------------------------------------
-// Implémentation
+// Implementation
 // ---------------------------------------------------------------------------
 
 /**
- * Pont DOM wasmJs vers le moteur Kadre.
+ * wasmJs DOM bridge to the Kadre engine.
  *
- * Utilise l'interop JS Wasm via [JsFun] pour accéder aux API DOM non directement
- * disponibles dans le runtime wasmJs de Kotlin/Wasm.
+ * Uses Wasm JS interop via [JsFun] to access DOM APIs not directly
+ * available in the Kotlin/Wasm wasmJs runtime.
  */
 class WasmJsWebDomBridge : WebDomBridge {
 
@@ -184,7 +184,7 @@ class WasmJsWebDomBridge : WebDomBridge {
         val canvas = getElementById(targetElementId.toJsString()) ?: return
         targetElement = canvas
 
-        // --- Clavier ---
+        // --- Keyboard ---
         addDomListener(canvas, "keydown") { e ->
             val ke = e.unsafeCast<JsKeyboardEvent>()
             dispatch(
@@ -219,7 +219,7 @@ class WasmJsWebDomBridge : WebDomBridge {
             )
         }
 
-        // --- Pointeur ---
+        // --- Pointer ---
         addDomListener(canvas, "pointermove") { e ->
             val pe = e.unsafeCast<JsPointerEvent>()
             dispatch(WebWindowEvent.PointerMoved(x = pe.clientX.toDouble(), y = pe.clientY.toDouble()))
@@ -253,7 +253,7 @@ class WasmJsWebDomBridge : WebDomBridge {
             dispatch(WebWindowEvent.PointerLeft)
         }
 
-        // --- Molette ---
+        // --- Wheel ---
         addDomListener(canvas, "wheel") { e ->
             val we = e.unsafeCast<JsWheelEvent>()
             val mode = we.deltaMode.toDouble().toInt()
@@ -271,7 +271,7 @@ class WasmJsWebDomBridge : WebDomBridge {
         }
         resizeObserverRef = createResizeObserver(canvas, wrapCallback(callback))
 
-        // --- Visibilité ---
+        // --- Visibility ---
         val doc = getDocument()
         addDomListener(doc, "visibilitychange") { _ ->
             val hidden = isDocumentHidden().toBoolean()
@@ -291,12 +291,12 @@ class WasmJsWebDomBridge : WebDomBridge {
     }
 
     // -----------------------------------------------------------------------
-    // Helpers privés
+    // Private helpers
     // -----------------------------------------------------------------------
 
     private fun addDomListener(target: JsEventTarget, type: String, handler: (JsAny) -> Unit) {
-        // `wrapEventHandler` enclenche le wrapping JS qui rend la lambda Kotlin
-        // appelable depuis `addEventListener` (cf. doc du wrapper plus haut).
+        // `wrapEventHandler` triggers the JS wrapping that makes the Kotlin lambda
+        // callable from `addEventListener` (see the wrapper doc above).
         val ref = wrapEventHandler(handler)
         jsAddEventListener(target, type.toJsString(), ref)
         listenerRefs.add(Triple(target, type, ref))

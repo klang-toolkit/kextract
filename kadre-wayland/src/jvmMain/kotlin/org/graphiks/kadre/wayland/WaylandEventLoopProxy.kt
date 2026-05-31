@@ -1,12 +1,12 @@
 /**
- * WaylandEventLoopProxy — proxy thread-safe vers WaylandEventLoop.
+ * WaylandEventLoopProxy — thread-safe proxy to WaylandEventLoop.
  *
- * Permet à des threads secondaires de réveiller la boucle Wayland en attente
- * via un eventfd (mode compteur, flags=0).
+ * Allows secondary threads to wake up the waiting Wayland loop
+ * via an eventfd (counter mode, flags=0).
  *
- * Utilise un AtomicBoolean pour garantir qu'un seul write() est effectué
- * même si wakeUp() est appelé depuis plusieurs threads simultanément.
- * La boucle principale vide le compteur avec read() et remet le flag à false.
+ * Uses an AtomicBoolean to guarantee that only a single write() is performed
+ * even if wakeUp() is called from several threads simultaneously.
+ * The main loop drains the counter with read() and resets the flag to false.
  *
  * WaylandEventLoop.
  */
@@ -18,30 +18,30 @@ import java.lang.foreign.ValueLayout
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Proxy thread-safe vers la boucle d'événements Wayland.
+ * Thread-safe proxy to the Wayland event loop.
  *
- * @param eventFd Descripteur eventfd créé par [runApp] (int ≥ 0, ou -1 si absent).
+ * @param eventFd eventfd descriptor created by [runApp] (int ≥ 0, or -1 if absent).
  */
 class WaylandEventLoopProxy(private val eventFd: Int) : EventLoopProxy {
 
     /**
-     * Indique qu'un réveil est en attente.
+     * Indicates that a wakeup is pending.
      *
-     * Protège contre les doubles écrits sur l'eventfd : un seul write() est effectué
-     * jusqu'à ce que la boucle principale vide le compteur.
+     * Guards against double writes to the eventfd: only a single write() is performed
+     * until the main loop drains the counter.
      */
     private val wakeupPending = AtomicBoolean(false)
 
     /**
-     * Réveille la boucle Wayland si elle est bloquée dans poll().
+     * Wakes up the Wayland loop if it is blocked in poll().
      *
-     * Écrit 1 dans l'eventfd pour déclencher POLLIN sur le descripteur surveillé
-     * par la boucle principale. L'appel est sans effet si :
-     *  - l'eventfd est invalide (fd < 0)
-     *  - nativeWrite n'est pas disponible (libc.so.6 absent)
-     *  - un réveil est déjà en attente
+     * Writes 1 to the eventfd to trigger POLLIN on the descriptor watched
+     * by the main loop. The call has no effect if:
+     *  - the eventfd is invalid (fd < 0)
+     *  - nativeWrite is not available (libc.so.6 absent)
+     *  - a wakeup is already pending
      *
-     * Sûr à appeler depuis n'importe quel thread.
+     * Safe to call from any thread.
      */
     override fun wakeUp() {
         if (eventFd < 0) return
@@ -53,16 +53,16 @@ class WaylandEventLoopProxy(private val eventFd: Int) : EventLoopProxy {
                 nativeWrite?.invokeExact(eventFd, buf, 8L)
             }
         } catch (_: Throwable) {
-            // Écriture échouée — remettre le flag pour permettre un prochain essai
+            // Write failed — reset the flag to allow a retry
             wakeupPending.set(false)
         }
     }
 
     /**
-     * Réinitialise le flag de réveil en attente.
+     * Resets the pending-wakeup flag.
      *
-     * Appelé par la boucle principale après avoir vidé l'eventfd avec read().
-     * Permet à un prochain [wakeUp] d'écrire à nouveau dans l'eventfd.
+     * Called by the main loop after draining the eventfd with read().
+     * Allows a subsequent [wakeUp] to write to the eventfd again.
      */
     internal fun clearPending() {
         wakeupPending.set(false)

@@ -1,19 +1,19 @@
 /**
- * Mappeur de codes de touches Linux evdev vers les touches logiques [Key] de kadre-core.
+ * Mapper from Linux evdev key codes to kadre-core logical keys [Key].
  *
- * Wayland transmet des keycodes Linux bruts via wl_keyboard.key (événement « key »).
- * Ces keycodes correspondent aux codes evdev définis dans :
+ * Wayland sends raw Linux keycodes via wl_keyboard.key (the "key" event).
+ * These keycodes correspond to the evdev codes defined in:
  *   https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
  *
- * Cette implémentation utilise une table statique pour la conversion, sans
- * dépendance à libxkbcommon (la gestion de disposition clavier complète est
- *planifiée ultérieurement.
+ * This implementation uses a static table for the conversion, without
+ * a dependency on libxkbcommon (full keyboard layout handling is
+ * planned for later).
  *
- * ## États de touche Wayland
+ * ## Wayland key states
  *  - WL_KEYBOARD_KEY_STATE_RELEASED = 0
  *  - WL_KEYBOARD_KEY_STATE_PRESSED  = 1
- * La répétition (key repeat) est transmise avec state = 2 (valeur non normalisée
- * dans le protocole wl_keyboard, gérée par le compositor ou le client).
+ * Key repeat is sent with state = 2 (a value not standardized
+ * in the wl_keyboard protocol, handled by the compositor or the client).
  *
  * WaylandKeyMapper — Linux evdev keycodes → Key.
  */
@@ -25,16 +25,16 @@ import org.graphiks.kadre.core.Modifiers
 import org.graphiks.kadre.core.WindowEvent
 
 // ---------------------------------------------------------------------------
-// Constantes wl_keyboard key state
+// wl_keyboard key state constants
 // ---------------------------------------------------------------------------
 
-/** wl_keyboard_key_state : touche relâchée. */
+/** wl_keyboard_key_state: key released. */
 internal const val WL_KEY_RELEASED: Int = 0
 
-/** wl_keyboard_key_state : touche enfoncée. */
+/** wl_keyboard_key_state: key pressed. */
 internal const val WL_KEY_PRESSED: Int = 1
 
-/** État répétition — envoyé par certains compositeurs au lieu de WL_KEY_PRESSED. */
+/** Repeat state — sent by some compositors instead of WL_KEY_PRESSED. */
 internal const val WL_KEY_REPEATED: Int = 2
 
 // ---------------------------------------------------------------------------
@@ -42,13 +42,13 @@ internal const val WL_KEY_REPEATED: Int = 2
 // ---------------------------------------------------------------------------
 
 /**
- * Table de correspondance keycode Linux evdev → [Key].
+ * Mapping table from Linux evdev keycode → [Key].
  *
- * Les keycodes sont ceux définis dans `input-event-codes.h` du noyau Linux.
- * Les entrées absentes retournent [Key.Unknown].
+ * The keycodes are those defined in the Linux kernel's `input-event-codes.h`.
+ * Missing entries return [Key.Unknown].
  */
 private val KEYCODE_TABLE: Map<Int, Key> = mapOf(
-    // ── Lettres ──────────────────────────────────────────────────────────────
+    // ── Letters ──────────────────────────────────────────────────────────────
     16 to Key.Q,
     17 to Key.W,
     18 to Key.E,
@@ -76,7 +76,7 @@ private val KEYCODE_TABLE: Map<Int, Key> = mapOf(
     49 to Key.N,
     50 to Key.M,
 
-    // ── Chiffres ─────────────────────────────────────────────────────────────
+    // ── Digits ───────────────────────────────────────────────────────────────
     2  to Key.Digit1,
     3  to Key.Digit2,
     4  to Key.Digit3,
@@ -88,14 +88,14 @@ private val KEYCODE_TABLE: Map<Int, Key> = mapOf(
     10 to Key.Digit9,
     11 to Key.Digit0,
 
-    // ── Touches spéciales ────────────────────────────────────────────────────
+    // ── Special keys ─────────────────────────────────────────────────────────
     1  to Key.Escape,
     14 to Key.Backspace,
     15 to Key.Tab,
     28 to Key.Enter,
     57 to Key.Space,
 
-    // ── Touches de fonction ──────────────────────────────────────────────────
+    // ── Function keys ────────────────────────────────────────────────────────
     59 to Key.F1,
     60 to Key.F2,
     61 to Key.F3,
@@ -114,12 +114,12 @@ private val KEYCODE_TABLE: Map<Int, Key> = mapOf(
     105 to Key.ArrowLeft,
     106 to Key.ArrowRight,
     108 to Key.ArrowDown,
-    102 to Key.ArrowUp,    // KEY_HOME — pas de Home dans l'enum, fallback ArrowUp
-    107 to Key.ArrowDown,  // KEY_END  — pas de End dans l'enum, fallback ArrowDown
+    102 to Key.ArrowUp,    // KEY_HOME — no Home in the enum, fallback ArrowUp
+    107 to Key.ArrowDown,  // KEY_END  — no End in the enum, fallback ArrowDown
     104 to Key.ArrowUp,    // KEY_PAGEUP
     109 to Key.ArrowDown,  // KEY_PAGEDOWN
 
-    // ── Modificateurs ────────────────────────────────────────────────────────
+    // ── Modifiers ────────────────────────────────────────────────────────────
     42  to Key.ShiftLeft,
     54  to Key.ShiftRight,
     29  to Key.ControlLeft,
@@ -131,35 +131,35 @@ private val KEYCODE_TABLE: Map<Int, Key> = mapOf(
 )
 
 // ---------------------------------------------------------------------------
-// Fonctions de conversion
+// Conversion functions
 // ---------------------------------------------------------------------------
 
 /**
- * Convertit un keycode Linux evdev en touche logique [Key].
+ * Converts a Linux evdev keycode into a logical key [Key].
  *
- * @param keycode Code Linux evdev reçu dans wl_keyboard.key.
- * @return La touche logique correspondante, ou [Key.Unknown] si non reconnue.
+ * @param keycode Linux evdev code received in wl_keyboard.key.
+ * @return The corresponding logical key, or [Key.Unknown] if unrecognized.
  */
 fun linuxKeycodeToKey(keycode: Int): Key = KEYCODE_TABLE[keycode] ?: Key.Unknown
 
 /**
- * Convertit un état wl_keyboard_key_state en [KeyState] kadre.
+ * Converts a wl_keyboard_key_state value into a kadre [KeyState].
  *
- * @param state État Wayland (0 = released, 1 = pressed, 2 = repeated).
- * @return [KeyState.Pressed] pour pressed ou repeated, [KeyState.Released] pour released.
+ * @param state Wayland state (0 = released, 1 = pressed, 2 = repeated).
+ * @return [KeyState.Pressed] for pressed or repeated, [KeyState.Released] for released.
  */
 fun waylandKeyStateToKeyState(state: Int): KeyState = when (state) {
     WL_KEY_RELEASED -> KeyState.Released
-    else            -> KeyState.Pressed // WL_KEY_PRESSED et WL_KEY_REPEATED → Pressed
+    else            -> KeyState.Pressed // WL_KEY_PRESSED and WL_KEY_REPEATED → Pressed
 }
 
 /**
- * Construit un [WindowEvent.KeyboardInput] à partir d'un événement wl_keyboard.key.
+ * Builds a [WindowEvent.KeyboardInput] from a wl_keyboard.key event.
  *
- * @param keycode   Code Linux evdev reçu dans wl_keyboard.key.
- * @param state     État wl_keyboard_key_state (0/1/2).
- * @param modifiers Modificateurs actifs au moment de l'événement.
- * @return L'événement clavier correspondant.
+ * @param keycode   Linux evdev code received in wl_keyboard.key.
+ * @param state     wl_keyboard_key_state value (0/1/2).
+ * @param modifiers Modifiers active at the time of the event.
+ * @return The corresponding keyboard event.
  */
 fun mapWaylandKeyEvent(
     keycode: Int,

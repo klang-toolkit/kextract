@@ -1,10 +1,10 @@
 /**
- * Bindings FFM pour les fonctions Win32 nécessaires à la gestion de fenêtres.
+ * FFM bindings for the Win32 functions required for window management.
  *
- * Charge user32.dll et kernel32.dll via SymbolLookup.libraryLookup avec un
- * pattern tryCreate (try/catch Throwable) pour que le build passe sur macOS/Linux.
+ * Loads user32.dll and kernel32.dll via SymbolLookup.libraryLookup with a
+ * tryCreate pattern (try/catch Throwable) so the build passes on macOS/Linux.
  *
- * Fonctions exposées :
+ * Exposed functions:
  *  - RegisterClassExW  (user32)
  *  - CreateWindowExW   (user32)
  *  - ShowWindow        (user32)
@@ -16,7 +16,7 @@
  *  - GetKeyState       (user32)
  *  - GetModuleHandleW  (kernel32)
  *
- * Référence : https://learn.microsoft.com/en-us/windows/win32/learnwin32/
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/learnwin32/
  */
 package org.graphiks.kadre.win32
 
@@ -28,14 +28,14 @@ import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
 import java.lang.invoke.MethodHandle
 
-// ── Lazy loading des bibliothèques ────────────────────────────────────────────
+// ── Lazy loading of the libraries ─────────────────────────────────────────────
 
 /**
- * Lookup user32.dll — null sur les plateformes non-Windows.
+ * Lookup of user32.dll — null on non-Windows platforms.
  *
- * Le try/catch sur Throwable est intentionnel : SymbolLookup.libraryLookup
- * peut lever IllegalArgumentException ou UnsatisfiedLinkError sur macOS/Linux,
- * et on veut que le build reste vert dans tous les cas.
+ * The try/catch on Throwable is intentional: SymbolLookup.libraryLookup
+ * may throw IllegalArgumentException or UnsatisfiedLinkError on macOS/Linux,
+ * and we want the build to stay green in all cases.
  */
 internal val user32: SymbolLookup? by lazy {
     try {
@@ -46,7 +46,7 @@ internal val user32: SymbolLookup? by lazy {
 }
 
 /**
- * Lookup kernel32.dll — null sur les plateformes non-Windows.
+ * Lookup of kernel32.dll — null on non-Windows platforms.
  */
 internal val kernel32: SymbolLookup? by lazy {
     try {
@@ -61,8 +61,8 @@ private val linker: Linker = Linker.nativeLinker()
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Recherche un symbole dans un SymbolLookup et crée un MethodHandle downcall.
- * Retourne null si le lookup est null ou si le symbole est introuvable.
+ * Looks up a symbol in a SymbolLookup and creates a downcall MethodHandle.
+ * Returns null if the lookup is null or if the symbol cannot be found.
  */
 private fun SymbolLookup?.downcall(name: String, desc: FunctionDescriptor): MethodHandle? {
     this ?: return null
@@ -74,8 +74,8 @@ private fun SymbolLookup?.downcall(name: String, desc: FunctionDescriptor): Meth
 /**
  * ATOM RegisterClassExW(const WNDCLASSEXW *lpwcx);
  *
- * Enregistre une classe de fenêtre Win32. Prend un pointeur vers WNDCLASSEXW,
- * retourne un ATOM (Short) : non-zéro en cas de succès.
+ * Registers a Win32 window class. Takes a pointer to WNDCLASSEXW,
+ * returns an ATOM (Short): non-zero on success.
  */
 internal val registerClassExW: MethodHandle? by lazy {
     user32.downcall(
@@ -109,8 +109,8 @@ internal val createWindowExW: MethodHandle? by lazy {
     user32.downcall(
         "CreateWindowExW",
         FunctionDescriptor.of(
-            ValueLayout.ADDRESS,    // HWND retour
-            ValueLayout.JAVA_INT,   // dwExStyle (DWORD → int en C sur Win64)
+            ValueLayout.ADDRESS,    // HWND return
+            ValueLayout.JAVA_INT,   // dwExStyle (DWORD → int in C on Win64)
             ValueLayout.ADDRESS,    // lpClassName (LPCWSTR)
             ValueLayout.ADDRESS,    // lpWindowName (LPCWSTR)
             ValueLayout.JAVA_INT,   // dwStyle (DWORD)
@@ -211,8 +211,8 @@ internal val setWindowTextW: MethodHandle? by lazy {
 /**
  * void PostQuitMessage(int nExitCode);
  *
- * Place un message WM_QUIT dans la file de messages du thread courant, ce qui
- * provoque la sortie de la boucle GetMessage.
+ * Places a WM_QUIT message in the current thread's message queue, which
+ * causes the GetMessage loop to exit.
  */
 internal val postQuitMessage: MethodHandle? by lazy {
     user32.downcall(
@@ -228,8 +228,8 @@ internal val postQuitMessage: MethodHandle? by lazy {
 /**
  * SHORT GetKeyState(int nVirtKey);
  *
- * Retourne l'état d'une touche virtuelle au moment du traitement du dernier
- * message extrait par GetMessage. Bit 15 = touche enfoncée, bit 0 = toggle.
+ * Returns the state of a virtual key at the moment the last message
+ * extracted by GetMessage was processed. Bit 15 = key down, bit 0 = toggle.
  */
 internal val getKeyState: MethodHandle? by lazy {
     user32.downcall(
@@ -246,9 +246,9 @@ internal val getKeyState: MethodHandle? by lazy {
 /**
  * BOOL PeekMessageW(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg);
  *
- * Vérifie si un message est disponible dans la file et, si PM_REMOVE est spécifié,
- * le retire. Retourne non-zéro si un message est disponible, 0 sinon.
- * Non-bloquant — retourne immédiatement.
+ * Checks whether a message is available in the queue and, if PM_REMOVE is specified,
+ * removes it. Returns non-zero if a message is available, 0 otherwise.
+ * Non-blocking — returns immediately.
  */
 internal val peekMessageW: MethodHandle? by lazy {
     user32.downcall(
@@ -256,7 +256,7 @@ internal val peekMessageW: MethodHandle? by lazy {
         FunctionDescriptor.of(
             ValueLayout.JAVA_INT,   // BOOL
             ValueLayout.ADDRESS,    // LPMSG lpMsg
-            ValueLayout.ADDRESS,    // HWND hWnd (NULL = tous les messages du thread)
+            ValueLayout.ADDRESS,    // HWND hWnd (NULL = all thread messages)
             ValueLayout.JAVA_INT,   // UINT wMsgFilterMin
             ValueLayout.JAVA_INT,   // UINT wMsgFilterMax
             ValueLayout.JAVA_INT,   // UINT wRemoveMsg
@@ -269,9 +269,9 @@ internal val peekMessageW: MethodHandle? by lazy {
 /**
  * BOOL GetMessageW(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax);
  *
- * Extrait un message de la file de messages du thread. Bloquant — attend jusqu'à
- * ce qu'un message soit disponible.
- * Retourne > 0 si message, 0 si WM_QUIT, -1 en cas d'erreur.
+ * Extracts a message from the thread's message queue. Blocking — waits until
+ * a message is available.
+ * Returns > 0 if message, 0 if WM_QUIT, -1 on error.
  */
 internal val getMessageW: MethodHandle? by lazy {
     user32.downcall(
@@ -279,7 +279,7 @@ internal val getMessageW: MethodHandle? by lazy {
         FunctionDescriptor.of(
             ValueLayout.JAVA_INT,   // BOOL
             ValueLayout.ADDRESS,    // LPMSG lpMsg
-            ValueLayout.ADDRESS,    // HWND hWnd (NULL = tous les messages du thread)
+            ValueLayout.ADDRESS,    // HWND hWnd (NULL = all thread messages)
             ValueLayout.JAVA_INT,   // UINT wMsgFilterMin
             ValueLayout.JAVA_INT,   // UINT wMsgFilterMax
         )
@@ -291,8 +291,8 @@ internal val getMessageW: MethodHandle? by lazy {
 /**
  * BOOL TranslateMessage(const MSG *lpMsg);
  *
- * Traduit les messages virtuels-touche en messages de caractères (WM_CHAR).
- * Doit être appelé avant DispatchMessageW dans la boucle de messages.
+ * Translates virtual-key messages into character messages (WM_CHAR).
+ * Must be called before DispatchMessageW in the message loop.
  */
 internal val translateMessage: MethodHandle? by lazy {
     user32.downcall(
@@ -309,7 +309,7 @@ internal val translateMessage: MethodHandle? by lazy {
 /**
  * LRESULT DispatchMessageW(const MSG *lpMsg);
  *
- * Dispatche un message vers la procédure de fenêtre (WndProc).
+ * Dispatches a message to the window procedure (WndProc).
  */
 internal val dispatchMessageW: MethodHandle? by lazy {
     user32.downcall(
@@ -327,7 +327,7 @@ internal val dispatchMessageW: MethodHandle? by lazy {
  * DWORD MsgWaitForMultipleObjectsEx(DWORD nCount, const HANDLE *pHandles,
  *     DWORD dwMilliseconds, DWORD dwWakeMask, DWORD dwFlags);
  *
- * Attend jusqu'à ce qu'un message arrive ou que le timeout expire.
+ * Waits until a message arrives or the timeout expires.
  */
 internal val msgWaitForMultipleObjectsEx: MethodHandle? by lazy {
     user32.downcall(
@@ -348,7 +348,7 @@ internal val msgWaitForMultipleObjectsEx: MethodHandle? by lazy {
 /**
  * HMODULE GetModuleHandleW(LPCWSTR lpModuleName);
  *
- * Passer NULL pour obtenir le handle du module courant.
+ * Pass NULL to get the handle of the current module.
  */
 internal val getModuleHandleW: MethodHandle? by lazy {
     kernel32.downcall(
@@ -365,13 +365,13 @@ internal val getModuleHandleW: MethodHandle? by lazy {
 /**
  * BOOL SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT value);
  *
- * Définit le mode de conscience DPI du processus. À appeler avant toute
- * création de fenêtre. Disponible depuis Windows 10 RS1 (1607, build 14393).
+ * Sets the process DPI awareness mode. To be called before any
+ * window creation. Available since Windows 10 RS1 (1607, build 14393).
  *
- * DPI_AWARENESS_CONTEXT est un pseudo-handle : une constante entière négative
- * passée comme ADDRESS (pointer-sized) sur Win64.
+ * DPI_AWARENESS_CONTEXT is a pseudo-handle: a negative integer constant
+ * passed as ADDRESS (pointer-sized) on Win64.
  *
- * Constante utile :
+ * Useful constant:
  *   DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
  */
 internal val setProcessDpiAwarenessContext: MethodHandle? by lazy {
@@ -384,21 +384,21 @@ internal val setProcessDpiAwarenessContext: MethodHandle? by lazy {
     )
 }
 
-/** DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 — valeur pseudo-handle Win32. */
+/** DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 — Win32 pseudo-handle value. */
 internal const val DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: Long = -4L
 
 /**
- * Active le mode Per-Monitor-V2 DPI awareness pour le processus.
+ * Enables Per-Monitor-V2 DPI awareness mode for the process.
  *
- * À appeler une seule fois au démarrage de l'EventLoop, avant toute création
- * de fenêtre. Idempotent en pratique : si la conscience DPI est déjà fixée
- * (par le manifest ou un appel précédent), Windows retourne FALSE et positionne
- * `ERROR_ACCESS_DENIED` — on l'ignore silencieusement.
+ * To be called only once at EventLoop startup, before any window
+ * creation. Idempotent in practice: if DPI awareness is already set
+ * (by the manifest or a previous call), Windows returns FALSE and sets
+ * `ERROR_ACCESS_DENIED` — which is silently ignored.
  *
- * Sans effet (no-op) si le binding n'est pas disponible (Windows < 10 RS1) ou
- * sur une plateforme non-Windows où le lookup échoue.
+ * No-op if the binding is not available (Windows < 10 RS1) or
+ * on a non-Windows platform where the lookup fails.
  *
- * @return `true` si l'appel a réussi, `false` sinon (déjà fixé, indisponible…).
+ * @return `true` if the call succeeded, `false` otherwise (already set, unavailable…).
  */
 internal fun enablePerMonitorV2DpiAwareness(): Boolean {
     val handle = setProcessDpiAwarenessContext ?: return false
@@ -415,8 +415,8 @@ internal fun enablePerMonitorV2DpiAwareness(): Boolean {
 /**
  * UINT GetDpiForWindow(HWND hwnd);
  *
- * Retourne le DPI effectif de la fenêtre. Disponible depuis Windows 10 RS1.
- * Retourne 0 si hwnd est invalide.
+ * Returns the effective DPI of the window. Available since Windows 10 RS1.
+ * Returns 0 if hwnd is invalid.
  */
 internal val getDpiForWindow: MethodHandle? by lazy {
     user32.downcall(
@@ -433,15 +433,15 @@ internal val getDpiForWindow: MethodHandle? by lazy {
 /**
  * BOOL TrackMouseEvent(LPTRACKMOUSEEVENT lpEventTrack);
  *
- * Arme la réception de WM_MOUSELEAVE / WM_MOUSEHOVER pour la fenêtre spécifiée.
- * Doit être ré-armé après chaque WM_MOUSELEAVE reçu.
+ * Arms the receipt of WM_MOUSELEAVE / WM_MOUSEHOVER for the specified window.
+ * Must be re-armed after each WM_MOUSELEAVE received.
  *
- * TRACKMOUSEEVENT layout (48 bytes sur Win64) :
+ * TRACKMOUSEEVENT layout (48 bytes on Win64):
  *   DWORD cbSize     (offset 0,  4 bytes)
  *   DWORD dwFlags    (offset 4,  4 bytes)
  *   HWND  hwndTrack  (offset 8,  8 bytes)
  *   DWORD dwHoverTime (offset 16, 4 bytes)
- *   [4 bytes padding pour alignement 8]
+ *   [4 bytes padding for 8-byte alignment]
  */
 internal val trackMouseEvent: MethodHandle? by lazy {
     user32.downcall(
@@ -453,10 +453,10 @@ internal val trackMouseEvent: MethodHandle? by lazy {
     )
 }
 
-/** Taille de la structure TRACKMOUSEEVENT en bytes (DWORD+DWORD+HWND+DWORD+padding). */
-internal const val TRACKMOUSEEVENT_SIZE: Int = 24 // 4+4+8+4+4 (avec padding)
+/** Size of the TRACKMOUSEEVENT structure in bytes (DWORD+DWORD+HWND+DWORD+padding). */
+internal const val TRACKMOUSEEVENT_SIZE: Int = 24 // 4+4+8+4+4 (with padding)
 
-/** TME_LEAVE : flag dwFlags pour recevoir WM_MOUSELEAVE. */
+/** TME_LEAVE: dwFlags flag to receive WM_MOUSELEAVE. */
 internal const val TME_LEAVE: Int = 0x00000002
 
 // ── GetCursorPos ──────────────────────────────────────────────────────────────
@@ -464,7 +464,7 @@ internal const val TME_LEAVE: Int = 0x00000002
 /**
  * BOOL GetCursorPos(LPPOINT lpPoint);
  *
- * Retourne la position courante du curseur en coordonnées écran.
+ * Returns the current cursor position in screen coordinates.
  * POINT = {LONG x, LONG y} = 8 bytes.
  */
 internal val getCursorPos: MethodHandle? by lazy {
@@ -477,32 +477,32 @@ internal val getCursorPos: MethodHandle? by lazy {
     )
 }
 
-// ── Helpers d'encodage Wide String ───────────────────────────────────────────
+// ── Wide String encoding helpers ──────────────────────────────────────────────
 
 /**
- * Alloue une chaîne Wide (UTF-16 LE, null-terminée) dans l'arena fourni.
+ * Allocates a Wide string (UTF-16 LE, null-terminated) in the given arena.
  *
- * Chaque caractère Java (UTF-16) est écrit directement — les caractères hors
- * BMP ne sont pas supportés (suffisant pour les titres de fenêtre).
+ * Each Java character (UTF-16) is written directly — characters outside
+ * the BMP are not supported (sufficient for window titles).
  */
 internal fun Arena.allocateWString(value: String): MemorySegment {
-    // 2 octets par caractère + 2 octets pour le null-terminateur
+    // 2 bytes per character + 2 bytes for the null terminator
     val seg = this.allocate((value.length + 1) * 2L, 2L)
     for (i in value.indices) {
         seg.setAtIndex(ValueLayout.JAVA_SHORT, i.toLong(), value[i].code.toShort())
     }
-    // null-terminateur (déjà 0 par défaut, mais on l'écrit explicitement)
+    // null terminator (already 0 by default, but written explicitly)
     seg.setAtIndex(ValueLayout.JAVA_SHORT, value.length.toLong(), 0)
     return seg
 }
 
-// ── Constantes Win32 ──────────────────────────────────────────────────────────
+// ── Win32 constants ───────────────────────────────────────────────────────────
 
 /** WS_OVERLAPPEDWINDOW = WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX */
 @Suppress("INTEGER_OVERFLOW")
 internal const val WS_OVERLAPPEDWINDOW: Int = 0x00CF0000
 
-/** WS_EX_APPWINDOW — bouton dans la barre des tâches */
+/** WS_EX_APPWINDOW — button in the taskbar */
 internal const val WS_EX_APPWINDOW: Int = 0x00040000
 
 /** SW_SHOW */

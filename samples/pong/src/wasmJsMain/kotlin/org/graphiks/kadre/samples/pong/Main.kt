@@ -1,13 +1,13 @@
 /**
- * Point d'entrée Pong côté navigateur (Kotlin/Wasm).
+ * Pong entry point on the browser side (Kotlin/Wasm).
  *
- * Branche [PongAppWeb] (handler Web-only filtrant `WebWindowEvent.*`) sur
- * [PongRendererWeb] (wgpu4k Web). Code identique à la cible JS/IR — porté
- * sans modification car `kotlinx.browser` / `org.w3c.dom` / `js("...")`
- * fonctionnent dans les deux runtimes web.
+ * Plugs [PongAppWeb] (Web-only handler filtering `WebWindowEvent.*`) onto
+ * [PongRendererWeb] (wgpu4k Web). Code identical to the JS/IR target — ported
+ * without modification because `kotlinx.browser` / `org.w3c.dom` / `js("...")`
+ * work in both web runtimes.
  *
- * Lancement local : `./gradlew :samples:pong:wasmJsBrowserDevelopmentRun`
- *   → page accessible à http://localhost:8080
+ * Local launch: `./gradlew :samples:pong:wasmJsBrowserDevelopmentRun`
+ *   → page accessible at http://localhost:8080
  */
 package org.graphiks.kadre.samples.pong
 
@@ -15,9 +15,9 @@ import org.graphiks.kadre.EventLoop
 
 fun main() {
     println("[pong-wasm] Démarrage — Kadre + wgpu4k Web Pong (Kotlin/Wasm)")
-    // On utilise PongAppWeb au lieu de PongGame commonMain : le backend Web
-    // dispatch des WebWindowEvent.* (pas des WindowEvent.*) → PongGame
-    // ne capte pas RedrawRequested et le rendu ne s'amorce jamais.
-    // À unifier côté backend dans un futur ticket.
+    // We use PongAppWeb instead of commonMain PongGame: the Web backend
+    // dispatches WebWindowEvent.* (not WindowEvent.*) → PongGame
+    // does not catch RedrawRequested and rendering never starts.
+    // To be unified on the backend side in a future ticket.
     EventLoop().runApp(PongAppWeb())
 }

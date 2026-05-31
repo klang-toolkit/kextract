@@ -1,15 +1,15 @@
 /**
- * Implémentation Win32 de l'interface [Window] pour Windows Desktop.
+ * Win32 implementation of the [Window] interface for Windows Desktop.
  *
- * Utilise la Foreign Function & Memory API (JEP 454, JDK 25) pour interagir
- * avec user32.dll et kernel32.dll sans JNA ni autre couche intermédiaire.
+ * Uses the Foreign Function & Memory API (JEP 454, JDK 25) to interact
+ * with user32.dll and kernel32.dll without JNA or any other intermediate layer.
  *
- * Flux de création :
- *  1. [companion.registerClassOnce] → RegisterClassExW (exécuté une seule fois)
+ * Creation flow:
+ *  1. [companion.registerClassOnce] → RegisterClassExW (run only once)
  *  2. [createWindow]                → CreateWindowExW
- *  3. ShowWindow / UpdateWindow     → affichage initial
+ *  3. ShowWindow / UpdateWindow     → initial display
  *
- * GRA-141 : Win32Window — implémentation complète de l'interface Window.
+ * GRA-141: Win32Window — complete implementation of the Window interface.
  */
 package org.graphiks.kadre.win32
 
@@ -29,13 +29,13 @@ import java.lang.invoke.MethodType
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Fenêtre Win32 native implémentant [Window].
+ * Native Win32 window implementing [Window].
  *
- * Le constructeur est privé : utilisez [Win32Window.create] pour instancier.
+ * The constructor is private: use [Win32Window.create] to instantiate.
  *
- * @param hwnd      Handle natif de la fenêtre (HWND), représenté par MemorySegment.
- * @param hInstance Handle du module courant (HINSTANCE), représenté par MemorySegment.
- * @param attrs     Attributs de création de la fenêtre.
+ * @param hwnd      Native window handle (HWND), represented by a MemorySegment.
+ * @param hInstance Handle of the current module (HINSTANCE), represented by a MemorySegment.
+ * @param attrs     Window creation attributes.
  */
 class Win32Window private constructor(
     private val hwnd: MemorySegment,
@@ -55,7 +55,7 @@ class Win32Window private constructor(
         get() = RawDisplayHandle.Win32(hinstance = hInstance.address())
 
     /**
-     * Flag de redraw — positionné par [requestRedraw], consommé par la boucle de messages.
+     * Redraw flag — set by [requestRedraw], consumed by the message loop.
      */
     @Volatile
     private var needsRedraw: Boolean = false
@@ -73,32 +73,32 @@ class Win32Window private constructor(
     }
 
     /**
-     * Taille interne (surface de rendu) en pixels physiques.
+     * Inner size (render surface) in physical pixels.
      *
-     * Sur Windows, on retourne la taille configurée dans les attributs,
-     * ou une valeur par défaut de 800 × 600 si non spécifiée.
+     * On Windows, returns the size configured in the attributes,
+     * or a default of 800 × 600 if not specified.
      *
-     * TODO GRA-142 : utiliser GetClientRect pour lire la taille réelle.
+     * TODO GRA-142: use GetClientRect to read the real size.
      */
     override val innerSize: PhysicalSize<Int>
         get() = attrs.size ?: PhysicalSize(800, 600)
 
     /**
-     * Taille externe (surface + décorations) en pixels physiques.
+     * Outer size (surface + decorations) in physical pixels.
      *
-     * TODO GRA-142 : utiliser GetWindowRect pour lire la taille réelle.
+     * TODO GRA-142: use GetWindowRect to read the real size.
      */
     override val outerSize: PhysicalSize<Int>
         get() = attrs.size ?: PhysicalSize(800, 600)
 
     /**
-     * Facteur d'échelle DPI de cette fenêtre.
+     * DPI scale factor of this window.
      *
-     * Appelle GetDpiForWindow(hwnd) et divise par 96 (DPI logique de référence
-     * Windows). Retourne 1.0 en cas d'indisponibilité (non-Windows ou fenêtre
-     * invalide) pour un comportement gracieux cross-plateforme.
+     * Calls GetDpiForWindow(hwnd) and divides by 96 (Windows reference logical
+     * DPI). Returns 1.0 when unavailable (non-Windows or invalid window)
+     * for graceful cross-platform behavior.
      *
-     * GRA-12 : DPI awareness PerMonitorV2.
+     * GRA-12: DPI awareness PerMonitorV2.
      */
     override val scaleFactor: Double
         get() = try {
@@ -123,41 +123,41 @@ class Win32Window private constructor(
 
     companion object {
 
-        /** Nom de la classe de fenêtre Win32 enregistrée. */
+        /** Name of the registered Win32 window class. */
         private const val CLASS_NAME = "KadreWin32Window"
 
         /**
-         * Garde atomique pour l'enregistrement de la classe de fenêtre.
+         * Atomic guard for window class registration.
          *
-         * RegisterClassExW ne doit être appelé qu'une seule fois par processus
-         * pour un nom de classe donné.
+         * RegisterClassExW must be called only once per process
+         * for a given class name.
          */
         private val classRegistered = AtomicBoolean(false)
 
         /**
-         * Stub d'upcall pour la WndProc — doit rester en vie aussi longtemps
-         * que des fenêtres de cette classe existent.
+         * Upcall stub for the WndProc — must stay alive as long
+         * as windows of this class exist.
          *
-         * Alloué dans [Win32WndProcArena.arena] (Arena.ofShared).
+         * Allocated in [Win32WndProcArena.arena] (Arena.ofShared).
          */
         @Volatile
         private var wndProcStub: MemorySegment? = null
 
         /**
-         * Enregistre la classe de fenêtre Win32 une seule fois.
+         * Registers the Win32 window class only once.
          *
          * Thread-safe via [classRegistered] (AtomicBoolean compare-and-set).
-         * No-op sur macOS/Linux (les MethodHandle sont null).
+         * No-op on macOS/Linux (the MethodHandles are null).
          *
-         * @param hInstance Handle du module courant.
-         * @param classNamePtr Pointeur wide-string vers le nom de la classe.
+         * @param hInstance Handle of the current module.
+         * @param classNamePtr Wide-string pointer to the class name.
          */
         private fun registerClassOnce(hInstance: MemorySegment, classNamePtr: MemorySegment) {
             if (!classRegistered.compareAndSet(false, true)) return
 
             val registerHandle = registerClassExW ?: return
 
-            // Créer le stub d'upcall pour la WndProc
+            // Create the upcall stub for the WndProc
             val wndProcMH = MethodHandles.lookup().findStatic(
                 Win32Window::class.java,
                 "wndProc",
@@ -176,7 +176,7 @@ class Win32Window private constructor(
             val stub = linker.upcallStub(wndProcMH, wndProcDesc, Win32WndProcArena.arena)
             wndProcStub = stub
 
-            // Allouer et remplir la structure WNDCLASSEXW dans une arène temporaire
+            // Allocate and fill the WNDCLASSEXW structure in a temporary arena
             Arena.ofConfined().use { arena ->
                 val wndClass = WndClassExW(arena)
                 wndClass.cbSize = WndClassExW.SIZEOF
@@ -194,7 +194,7 @@ class Win32Window private constructor(
 
                 val atom = registerHandle.invokeExact(wndClass.segment) as Short
                 if (atom.toInt() == 0) {
-                    // Réinitialiser pour permettre une future tentative
+                    // Reset to allow a future attempt
                     classRegistered.set(false)
                     wndProcStub = null
                     error("RegisterClassExW a échoué (atom = 0)")
@@ -203,15 +203,15 @@ class Win32Window private constructor(
         }
 
         /**
-         * Procédure de fenêtre Win32 (WndProc).
+         * Win32 window procedure (WndProc).
          *
-         * Appelée par le système Windows pour chaque message envoyé à une fenêtre
-         * de la classe KadreWin32Window. Délègue l'intégralité du dispatch à
-         * [KadreWndProc.dispatch] qui traduit les messages Win32 en [WindowEvent]
-         * kadre et les transmet au handler installé.
+         * Called by the Windows system for each message sent to a window
+         * of the KadreWin32Window class. Delegates the entire dispatch to
+         * [KadreWndProc.dispatch] which translates the Win32 messages into kadre
+         * [WindowEvent]s and forwards them to the installed handler.
          *
-         * ⚠️ Cette méthode est appelée depuis le thread de messages Win32 —
-         * elle doit être @JvmStatic pour que MethodHandles.lookup() la trouve.
+         * ⚠️ This method is called from the Win32 message thread —
+         * it must be @JvmStatic so that MethodHandles.lookup() can find it.
          */
         @JvmStatic
         fun wndProc(hwnd: MemorySegment, msg: Int, wParam: Long, lParam: Long): Long {
@@ -219,33 +219,33 @@ class Win32Window private constructor(
         }
 
         /**
-         * Crée une fenêtre Win32 native.
+         * Creates a native Win32 window.
          *
-         * Enregistre la classe de fenêtre si nécessaire, puis appelle
-         * CreateWindowExW pour créer la fenêtre native.
+         * Registers the window class if necessary, then calls
+         * CreateWindowExW to create the native window.
          *
-         * @param attrs Attributs de la fenêtre (titre, taille, visibilité, etc.).
-         * @return La fenêtre créée, ou null si les bindings Win32 ne sont pas disponibles
-         *         (macOS/Linux) ou si la création échoue.
+         * @param attrs Window attributes (title, size, visibility, etc.).
+         * @return The created window, or null if the Win32 bindings are not available
+         *         (macOS/Linux) or if creation fails.
          */
         fun create(attrs: WindowAttributes): Win32Window? {
-            // Vérifier la disponibilité des bindings Win32
+            // Check the availability of the Win32 bindings
             val createHandle = createWindowExW ?: return null
             val getModuleHandle = getModuleHandleW ?: return null
 
-            // Obtenir le handle du module courant (GetModuleHandleW(NULL))
+            // Get the handle of the current module (GetModuleHandleW(NULL))
             val hInstance = getModuleHandle.invokeExact(MemorySegment.NULL) as MemorySegment
             if (hInstance == MemorySegment.NULL) return null
 
-            // Allouer le nom de classe dans une arène à longue durée de vie
-            // (doit rester valide pendant toute la durée de vie des fenêtres de la classe)
+            // Allocate the class name in a long-lived arena
+            // (must stay valid for the entire lifetime of the windows of this class)
             val classArena = Win32WndProcArena.arena
             val classNamePtr = classArena.allocateWString(CLASS_NAME)
 
-            // Enregistrer la classe une seule fois
+            // Register the class only once
             registerClassOnce(hInstance, classNamePtr)
 
-            // Créer la fenêtre
+            // Create the window
             val width = attrs.size?.width ?: 800
             val height = attrs.size?.height ?: 600
 
@@ -271,7 +271,7 @@ class Win32Window private constructor(
 
             val window = Win32Window(hwnd, hInstance, attrs)
 
-            // Affichage initial
+            // Initial display
             if (attrs.visible) {
                 showWindow?.invokeExact(hwnd, SW_SHOW)
                 updateWindow?.invokeExact(hwnd)

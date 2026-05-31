@@ -15,10 +15,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Tests de typage pour CFRunLoopRedrawObserver (GRA-134 + GRA-135).
+ * Typing tests for CFRunLoopRedrawObserver (GRA-134 + GRA-135).
  *
- * L'installation réelle de l'observer nécessite le thread principal macOS et
- * un CFRunLoop actif — ces tests vérifient uniquement la structure / signatures.
+ * Actual installation of the observer requires the macOS main thread and
+ * an active CFRunLoop — these tests only verify the structure / signatures.
  */
 class CFRunLoopRedrawObserverTest {
 
@@ -26,7 +26,7 @@ class CFRunLoopRedrawObserverTest {
     fun `WindowEvent RedrawRequested est un data object`() {
         val event: WindowEvent = WindowEvent.RedrawRequested
         assertTrue(event is WindowEvent.RedrawRequested)
-        // data object → toString stable + singleton
+        // data object → stable toString + singleton
         assertEquals(WindowEvent.RedrawRequested, WindowEvent.RedrawRequested)
     }
 
@@ -54,7 +54,7 @@ class CFRunLoopRedrawObserverTest {
 
     @Test
     fun `AppKitWindow expose needsRedraw modifiable via requestRedraw`() {
-        // requestRedraw doit muter le flag needsRedraw (vérifié via getter/setter générés)
+        // requestRedraw must mutate the needsRedraw flag (verified via generated getter/setter)
         val getter = AppKitWindow::class.java.methods
             .firstOrNull { it.name == "getNeedsRedraw\$kadre_appkit" || it.name == "getNeedsRedraw" }
         assertNotNull(getter, "AppKitWindow doit exposer un getter sur needsRedraw (internal)")
@@ -82,7 +82,7 @@ class CFRunLoopRedrawObserverTest {
 
     @Test
     fun `onBeforeWaiting appelle aboutToWait apres RedrawRequested (GRA-135)`() {
-        // Vérifie que onBeforeWaiting dispatch dans le bon ordre en simulant un appel
+        // Verify that onBeforeWaiting dispatches in the right order by simulating a call
         val aboutToWaitCalled = mutableListOf<String>()
         val windowEventsCalled = mutableListOf<String>()
 

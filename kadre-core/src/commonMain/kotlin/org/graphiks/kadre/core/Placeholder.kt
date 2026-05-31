@@ -1,18 +1,18 @@
 /**
- * Squelette du module kadre-core.
+ * Skeleton of the kadre-core module.
  *
- * Les interfaces et types des tickets GRA-120 et GRA-121 sont désormais
- * définis dans leurs fichiers respectifs. Ce fichier conserve uniquement
- * les TODO pour les tickets restants.
+ * The interfaces and types of tickets GRA-120 and GRA-121 are now
+ * defined in their respective files. This file only keeps the TODOs
+ * for the remaining tickets.
  *
- * Périmètre : interfaces pures Kotlin, aucune référence native.
- * Cibles : commonMain (jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64).
+ * Scope: pure Kotlin interfaces, no native reference.
+ * Targets: commonMain (jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64).
  */
 package org.graphiks.kadre.core
 
-// GRA-120 : ApplicationHandler, ActiveEventLoop, Window, EventLoop, EventLoopProxy — TERMINÉ
-// GRA-121 : types DPI (PhysicalSize, LogicalSize, PhysicalPosition, LogicalPosition) — TERMINÉ
-// TODO GRA-122 : RawWindowHandle et RawDisplayHandle
-//               Remplacer les Any dans Window.kt par les types appropriés.
-// TODO GRA-123 : WindowEvent, DeviceEvent
-//               Remplacer les Any dans ApplicationHandler.kt par les types appropriés.
+// GRA-120: ApplicationHandler, ActiveEventLoop, Window, EventLoop, EventLoopProxy — DONE
+// GRA-121: DPI types (PhysicalSize, LogicalSize, PhysicalPosition, LogicalPosition) — DONE
+// TODO GRA-122: RawWindowHandle and RawDisplayHandle
+//               Replace the Any in Window.kt with the appropriate types.
+// TODO GRA-123: WindowEvent, DeviceEvent
+//               Replace the Any in ApplicationHandler.kt with the appropriate types.

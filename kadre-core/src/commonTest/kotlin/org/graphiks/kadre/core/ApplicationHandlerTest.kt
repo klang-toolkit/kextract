@@ -1,11 +1,11 @@
 /**
- * Tests de l'interface ApplicationHandler.
+ * Tests for the ApplicationHandler interface.
  *
- * Vérifie que :
- * - Un ApplicationHandler anonyme peut être instancié en n'implémentant que
- *   les méthodes obligatoires (canCreateSurfaces et windowEvent).
- * - Toutes les méthodes optionnelles ont bien une implémentation par défaut vide.
- * - Les méthodes optionnelles peuvent être surchargées.
+ * Verifies that:
+ * - An anonymous ApplicationHandler can be instantiated by implementing only
+ *   the mandatory methods (canCreateSurfaces and windowEvent).
+ * - All optional methods do have an empty default implementation.
+ * - The optional methods can be overridden.
  */
 package org.graphiks.kadre.core
 
@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 class ApplicationHandlerTest {
 
     // -------------------------------------------------------------------------
-    // Stub minimal d'ActiveEventLoop pour les tests
+    // Minimal ActiveEventLoop stub for the tests
     // -------------------------------------------------------------------------
 
     private val stubEventLoop = object : ActiveEventLoop {
@@ -38,12 +38,12 @@ class ApplicationHandlerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Vérification que le handler minimal compile et s'instancie
+    // Verifying that the minimal handler compiles and instantiates
     // -------------------------------------------------------------------------
 
     /**
-     * Un ApplicationHandler n'implémentant que les méthodes obligatoires
-     * doit pouvoir être instancié sans erreur de compilation.
+     * An ApplicationHandler implementing only the mandatory methods
+     * must be instantiable without a compilation error.
      */
     @Test
     fun handlerMinimalInstancié() {
@@ -51,12 +51,12 @@ class ApplicationHandlerTest {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
         }
-        // Vérifie que le handler est bien non-null et instancié correctement.
+        // Verifies that the handler is indeed non-null and correctly instantiated.
         assertTrue(handler.toString().isNotEmpty())
     }
 
     // -------------------------------------------------------------------------
-    // Vérification des implémentations par défaut (corps vides = Unit)
+    // Verifying the default implementations (empty bodies = Unit)
     // -------------------------------------------------------------------------
 
     @Test
@@ -65,7 +65,7 @@ class ApplicationHandlerTest {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
         }
-        // Ne doit pas lever d'exception
+        // Must not throw an exception
         handler.deviceEvent(stubEventLoop, DeviceId(1L), Any())
     }
 
@@ -115,7 +115,7 @@ class ApplicationHandlerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Vérification que les méthodes optionnelles sont surchargeables
+    // Verifying that the optional methods are overridable
     // -------------------------------------------------------------------------
 
     @Test
@@ -203,7 +203,7 @@ class ApplicationHandlerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Vérification de canCreateSurfaces (obligatoire, avec eventLoop)
+    // Verifying canCreateSurfaces (mandatory, with eventLoop)
     // -------------------------------------------------------------------------
 
     @Test
@@ -220,7 +220,7 @@ class ApplicationHandlerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Vérification des types de contrôle de flux
+    // Verifying the control flow types
     // -------------------------------------------------------------------------
 
     @Test
@@ -242,7 +242,7 @@ class ApplicationHandlerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Vérification des StartCause
+    // Verifying the StartCause values
     // -------------------------------------------------------------------------
 
     @Test
@@ -277,7 +277,7 @@ class ApplicationHandlerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Vérification des value classes WindowId / DeviceId
+    // Verifying the WindowId / DeviceId value classes
     // -------------------------------------------------------------------------
 
     @Test
@@ -293,7 +293,7 @@ class ApplicationHandlerTest {
     }
 
     // -------------------------------------------------------------------------
-    // Vérification de WindowAttributes
+    // Verifying WindowAttributes
     // -------------------------------------------------------------------------
 
     @Test

@@ -1,16 +1,16 @@
 /**
- * WaylandEventLoop — boucle d'événements Wayland pour kadre.
+ * WaylandEventLoop — Wayland event loop for kadre.
  *
- * Implémente la séquence canonique Wayland prepare_read / poll / read_events
- * avec un eventfd pour le réveil inter-thread (wakeUp).
+ * Implements the canonical Wayland prepare_read / poll / read_events sequence
+ * with an eventfd for inter-thread wakeup (wakeUp).
  *
- * Séquence de pompe :
+ * Pump sequence:
  *  1. while (wl_display_prepare_read != 0) → wl_display_dispatch_pending
  *  2. wl_display_flush
  *  3. poll([displayFd, eventfdFd], timeout)
- *  4. Si displayFd prêt → wl_display_read_events + dispatch_pending
- *     Sinon            → wl_display_cancel_read
- *  5. Si eventfdFd prêt → read(eventfd) pour vider le compteur
+ *  4. If displayFd ready → wl_display_read_events + dispatch_pending
+ *     Otherwise          → wl_display_cancel_read
+ *  5. If eventfdFd ready → read(eventfd) to drain the counter
  *
  * WaylandEventLoop.
  */
@@ -32,23 +32,23 @@ import java.util.concurrent.atomic.AtomicBoolean
 // ── Singleton guard ───────────────────────────────────────────────────────────
 
 /**
- * Garantit qu'une seule boucle Wayland tourne à la fois.
- * compareAndSet(false, true) avant de démarrer, set(false) dans finally.
+ * Guarantees that only a single Wayland loop runs at a time.
+ * compareAndSet(false, true) before starting, set(false) in finally.
  */
 internal val waylandRunning = AtomicBoolean(false)
 
 // ── WaylandEventLoop ──────────────────────────────────────────────────────────
 
 /**
- * Boucle d'événements active Wayland, passée aux callbacks de [ApplicationHandler].
+ * Active Wayland event loop, passed to [ApplicationHandler] callbacks.
  *
- * Créée et contrôlée par [runApp]. Les fenêtres créées ici sont stockées dans
- * [windows] pour permettre la distribution des événements.
+ * Created and controlled by [runApp]. Windows created here are stored in
+ * [windows] to enable event dispatch.
  *
- * @param displayPtr  Adresse du wl_display* (Long, jamais 0).
- * @param compositorPtr Adresse du wl_compositor* (Long, 0 si non disponible).
- * @param xdgWmBasePtr  Adresse du xdg_wm_base* (Long, 0 si non disponible).
- * @param eventFd     Descripteur eventfd pour le réveil inter-thread.
+ * @param displayPtr  Address of the wl_display* (Long, never 0).
+ * @param compositorPtr Address of the wl_compositor* (Long, 0 if unavailable).
+ * @param xdgWmBasePtr  Address of the xdg_wm_base* (Long, 0 if unavailable).
+ * @param eventFd     eventfd descriptor for inter-thread wakeup.
  */
 class WaylandEventLoop internal constructor(
     internal val displayPtr: Long,
@@ -57,7 +57,7 @@ class WaylandEventLoop internal constructor(
     internal val eventFd: Int,
 ) : ActiveEventLoop {
 
-    /** Fenêtres actives indexées par l'adresse de leur wl_surface*. */
+    /** Active windows indexed by the address of their wl_surface*. */
     internal val windows = ConcurrentHashMap<Long, WaylandWindow>()
 
     @Volatile private var _isExiting = false
@@ -75,10 +75,10 @@ class WaylandEventLoop internal constructor(
     }
 
     /**
-     * Crée une fenêtre Wayland native et l'enregistre dans [windows].
+     * Creates a native Wayland window and registers it in [windows].
      *
-     * @param attributes Paramètres de configuration de la fenêtre.
-     * @return La fenêtre créée, ou lève IllegalStateException si libwayland absent.
+     * @param attributes Window configuration parameters.
+     * @return The created window, or throws IllegalStateException if libwayland is absent.
      */
     override fun createWindow(attributes: WindowAttributes): Window {
         val window = WaylandWindow.create(
@@ -92,9 +92,9 @@ class WaylandEventLoop internal constructor(
     }
 
     /**
-     * Crée un proxy thread-safe vers cette boucle d'événements.
+     * Creates a thread-safe proxy to this event loop.
      *
-     * Le proxy utilise l'eventfd pour réveiller la boucle depuis n'importe quel thread.
+     * The proxy uses the eventfd to wake up the loop from any thread.
      */
     override fun createProxy(): EventLoopProxy = WaylandEventLoopProxy(eventFd)
 }
@@ -102,13 +102,13 @@ class WaylandEventLoop internal constructor(
 // ── runApp ────────────────────────────────────────────────────────────────────
 
 /**
- * Démarre la boucle d'événements Wayland et délègue le cycle de vie à [handler].
+ * Starts the Wayland event loop and delegates the lifecycle to [handler].
  *
- * Bloquant : ne retourne qu'à la fin de la boucle (via [ActiveEventLoop.exit]
- * ou fermeture de toutes les fenêtres).
+ * Blocking: only returns when the loop ends (via [ActiveEventLoop.exit]
+ * or when all windows are closed).
  *
- * @throws IllegalStateException si une boucle Wayland est déjà en cours.
- * @throws IllegalStateException si wl_display_connect échoue.
+ * @throws IllegalStateException if a Wayland loop is already running.
+ * @throws IllegalStateException if wl_display_connect fails.
  */
 fun runApp(handler: ApplicationHandler) {
     if (!waylandRunning.compareAndSet(false, true)) {
@@ -121,10 +121,10 @@ fun runApp(handler: ApplicationHandler) {
     }
 }
 
-// ── Implémentation interne ────────────────────────────────────────────────────
+// ── Internal implementation ───────────────────────────────────────────────────
 
 private fun runAppInternal(handler: ApplicationHandler) {
-    // ── 1. Connexion au serveur Wayland ───────────────────────────────────────
+    // ── 1. Connect to the Wayland server ──────────────────────────────────────
     val connectHandle = wlDisplayConnect
         ?: error("wl_display_connect non disponible — libwayland-client.so.0 absent")
 
@@ -143,18 +143,18 @@ private fun runAppInternal(handler: ApplicationHandler) {
 
     val displayPtr = displaySeg.address()
 
-    // ── 2. Descripteur de fichier du socket Wayland ───────────────────────────
+    // ── 2. Wayland socket file descriptor ─────────────────────────────────────
     val displayFd: Int = try {
         val fdHandle = wlDisplayGetFd
             ?: error("wl_display_get_fd non disponible")
         fdHandle.invokeExact(displaySeg) as Int
     } catch (t: Throwable) {
-        // Fermeture propre avant de propager
+        // Clean disconnect before propagating
         disconnectDisplay(displaySeg)
         throw t
     }
 
-    // ── 3. Création de l'eventfd pour wakeUp ──────────────────────────────────
+    // ── 3. Create the eventfd for wakeUp ──────────────────────────────────────
     val eventFd: Int = try {
         val efdHandle = nativeEventfd
             ?: error("eventfd non disponible — libc.so.6 absent")
@@ -166,30 +166,30 @@ private fun runAppInternal(handler: ApplicationHandler) {
         throw t
     }
 
-    // ── 4. Découverte des globaux Wayland (compositor) ────────────────────────
+    // ── 4. Discover Wayland globals (compositor) ──────────────────────────────
     // get_registry + listener(global) + roundtrip + bind(wl_compositor).
-    // xdg_wm_base reste à négocier (non requis pour créer une wl_surface / surface wgpu).
+    // xdg_wm_base remains to be negotiated (not required to create a wl_surface / wgpu surface).
     val compositorPtr = discoverCompositor(displayPtr)
     val xdgWmBasePtr = 0L
 
     val eventLoop = WaylandEventLoop(displayPtr, compositorPtr, xdgWmBasePtr, eventFd)
 
     try {
-        // ── 5. Cycle de vie : resumed ─────────────────────────────────────────
+        // ── 5. Lifecycle: resumed ─────────────────────────────────────────────
         handler.resumed(eventLoop)
 
-        // ── 6. Premier newEvents (Init) ───────────────────────────────────────
+        // ── 6. First newEvents (Init) ─────────────────────────────────────────
         handler.newEvents(eventLoop, StartCause.Init)
 
         // ── 7. canCreateSurfaces ──────────────────────────────────────────────
         handler.canCreateSurfaces(eventLoop)
 
-        // ── 8. Boucle principale ──────────────────────────────────────────────
+        // ── 8. Main loop ──────────────────────────────────────────────────────
         while (!eventLoop.isExiting) {
-            // aboutToWait — le handler peut changer controlFlow ici
+            // aboutToWait — the handler can change controlFlow here
             handler.aboutToWait(eventLoop)
 
-            // Calcul du timeout en millisecondes
+            // Compute the timeout in milliseconds
             val timeoutMs: Int = when (val cf = eventLoop.controlFlow) {
                 is ControlFlow.Wait -> -1
                 is ControlFlow.Poll -> 0
@@ -199,33 +199,33 @@ private fun runAppInternal(handler: ApplicationHandler) {
                 }
             }
 
-            // Séquence canonique Wayland prepare_read / poll / read_events
+            // Canonical Wayland prepare_read / poll / read_events sequence
             val startCause = pumpOnce(displaySeg, displayFd, eventFd, timeoutMs, eventLoop)
 
             handler.newEvents(eventLoop, startCause)
         }
 
-        // ── 9. Fermeture ──────────────────────────────────────────────────────
+        // ── 9. Shutdown ───────────────────────────────────────────────────────
         handler.destroySurfaces(eventLoop)
         handler.suspended(eventLoop)
     } finally {
-        // Fermeture de l'eventfd
+        // Close the eventfd
         try { nativeClose?.invokeExact(eventFd) } catch (_: Throwable) {}
-        // Déconnexion du serveur Wayland
+        // Disconnect from the Wayland server
         disconnectDisplay(displaySeg)
     }
 }
 
 /**
- * Effectue une itération de la pompe Wayland canonique.
+ * Performs one iteration of the canonical Wayland pump.
  *
- * Séquence :
- *  1. Vider la file d'attente (prepare_read retry)
+ * Sequence:
+ *  1. Drain the queue (prepare_read retry)
  *  2. Flush
  *  3. poll([displayFd, eventFd], timeoutMs)
- *  4. Traitement conditionnel des résultats
+ *  4. Conditional processing of the results
  *
- * @return [StartCause] décrivant la cause du réveil.
+ * @return [StartCause] describing the cause of the wakeup.
  */
 private fun pumpOnce(
     displaySeg: MemorySegment,
@@ -240,22 +240,22 @@ private fun pumpOnce(
     val readEvents = wlDisplayReadEvents
     val cancelRead = wlDisplayCancelRead
 
-    // ── Étape 1 : préparer la lecture (vider la file d'abord si nécessaire) ──
+    // ── Step 1: prepare the read (drain the queue first if needed) ────────────
     if (prepareRead != null && dispatchPending != null) {
         while (true) {
             val rc = try {
                 prepareRead.invokeExact(displaySeg) as Int
             } catch (_: Throwable) { 0 }
             if (rc == 0) break
-            // Des événements sont en file d'attente — les traiter avant de réessayer
+            // Events are queued — process them before retrying
             try { dispatchPending.invokeExact(displaySeg) } catch (_: Throwable) {}
         }
     }
 
-    // ── Étape 2 : flush ───────────────────────────────────────────────────────
+    // ── Step 2: flush ─────────────────────────────────────────────────────────
     try { flush?.invokeExact(displaySeg) } catch (_: Throwable) {}
 
-    // ── Étape 3 : poll ───────────────────────────────────────────────────────
+    // ── Step 3: poll ──────────────────────────────────────────────────────────
     val (displayReady, eventFdReady) = Arena.ofConfined().use { arena ->
         val fds = allocPollFd(arena)
         setPollFd(fds, 0, displayFd, POLLIN)
@@ -277,16 +277,16 @@ private fun pumpOnce(
         }
     }
 
-    // ── Étape 4a : lire les événements Wayland si disponibles ────────────────
+    // ── Step 4a: read Wayland events if available ─────────────────────────────
     if (displayReady && readEvents != null && dispatchPending != null) {
         try { readEvents.invokeExact(displaySeg) } catch (_: Throwable) {}
         try { dispatchPending.invokeExact(displaySeg) } catch (_: Throwable) {}
     } else if (!displayReady && cancelRead != null && wlDisplayPrepareRead != null) {
-        // Annuler la lecture annoncée à l'étape 1 uniquement si prepareRead est disponible
+        // Cancel the read announced in step 1 only if prepareRead is available
         try { cancelRead.invokeExact(displaySeg) } catch (_: Throwable) {}
     }
 
-    // ── Étape 4b : vider l'eventfd si déclenché ──────────────────────────────
+    // ── Step 4b: drain the eventfd if triggered ───────────────────────────────
     if (eventFdReady) {
         Arena.ofConfined().use { arena ->
             val buf = arena.allocate(8L, 8L)
@@ -294,7 +294,7 @@ private fun pumpOnce(
         }
     }
 
-    // ── Détermination de la StartCause ───────────────────────────────────────
+    // ── Determine the StartCause ──────────────────────────────────────────────
     return when {
         eventFdReady -> StartCause.WaitCancelled()
         displayReady -> StartCause.Poll
@@ -309,7 +309,7 @@ private fun pumpOnce(
     }
 }
 
-/** Ferme la connexion au serveur Wayland proprement. */
+/** Closes the connection to the Wayland server cleanly. */
 private fun disconnectDisplay(displaySeg: MemorySegment) {
     try {
         wlDisplayDisconnect?.invokeExact(displaySeg)

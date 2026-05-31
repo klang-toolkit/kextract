@@ -1,17 +1,17 @@
 /**
- * PongRenderer — rendu wgpu4k 2D pour Pong (JVM uniquement).
+ * PongRenderer — 2D wgpu4k rendering for Pong (JVM only).
  *
- * Dessine les éléments du jeu sous forme de quads rectangulaires :
- *   - Fond noir (clear)
- *   - Raquette joueur (gauche, blanche)
- *   - Raquette IA (droite, blanche)
- *   - Balle (petite, blanche)
- *   - Ligne centrale en pointillés
- *   - Score (police bitmap via [BitmapFont])
+ * Draws the game elements as rectangular quads:
+ *   - Black background (clear)
+ *   - Player paddle (left, white)
+ *   - AI paddle (right, white)
+ *   - Ball (small, white)
+ *   - Dashed center line
+ *   - Score (bitmap font via [BitmapFont])
  *
- * Le shader WGSL accepte un quad décrit par [x, y, w, h] en coordonnées
- * normalisées [0..1] et une couleur RGB. Deux triangles (6 sommets) sont
- * générés en dur dans le vertex shader à partir du vertex_index.
+ * The WGSL shader accepts a quad described by [x, y, w, h] in normalized
+ * coordinates [0..1] and an RGB color. Two triangles (6 vertices) are
+ * generated in hardcoded form in the vertex shader from the vertex_index.
  *
  * .
  */
@@ -61,16 +61,16 @@ import java.lang.foreign.ValueLayout
 import kotlinx.coroutines.runBlocking
 
 // ---------------------------------------------------------------------------
-// Le shader WGSL, les constantes de layout et la construction des quads sont
-// désormais en commonMain dans `PongRendererCore.kt` (factorisé entre JVM et Web).
-// On expose ici juste l'alias ULong de la taille d'uniform pour l'API wgpu4k JVM.
+// The WGSL shader, the layout constants and the quad construction are
+// now in commonMain in `PongRendererCore.kt` (factored out between JVM and Web).
+// Here we just expose the ULong alias of the uniform size for the wgpu4k JVM API.
 // ---------------------------------------------------------------------------
 
-// Taille du uniform buffer (cf. UNIFORM_BYTES_LONG en commonMain).
+// Uniform buffer size (cf. UNIFORM_BYTES_LONG in commonMain).
 private const val UNIFORM_BYTES: ULong = 32uL
 
-// Nombre max de quads par frame (pool d'uniform buffers + bind groups).
-// Décompte : 12 dashes + 2 paddles + 1 ball + 2 × (max 3 digits × ~25 pixels chiffre) = ~165
+// Max number of quads per frame (pool of uniform buffers + bind groups).
+// Count: 12 dashes + 2 paddles + 1 ball + 2 × (max 3 digits × ~25 pixels per digit) = ~165
 private const val MAX_QUADS_PER_FRAME = 256
 
 // ---------------------------------------------------------------------------
@@ -78,9 +78,9 @@ private const val MAX_QUADS_PER_FRAME = 256
 // ---------------------------------------------------------------------------
 
 /**
- * Rendu wgpu4k pour Pong — JVM uniquement (macOS/Metal via AppKit).
+ * wgpu4k rendering for Pong — JVM only (macOS/Metal via AppKit).
  *
- * @param windowHandle Handle natif de la fenêtre Kadre.
+ * @param windowHandle Native handle of the Kadre window.
  */
 @OptIn(WGPULowLevelApi::class)
 class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
@@ -89,7 +89,7 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
     private var surface: NativeSurface? = null
     private var gpuDevice: GPUDevice? = null
     private var pipeline: GPURenderPipeline? = null
-    // Pool d'uniform buffers + bind groups (1 par quad pour ne pas écraser entre draw calls)
+    // Pool of uniform buffers + bind groups (1 per quad to avoid overwriting between draw calls)
     private val uniformBuffers = mutableListOf<GPUBuffer>()
     private val bindGroups = mutableListOf<GPUBindGroup>()
 
@@ -99,7 +99,7 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
     private var surfaceHeight: Int = 600
 
     // -------------------------------------------------------------------------
-    // Initialisation
+    // Initialization
     // -------------------------------------------------------------------------
 
     init {
@@ -153,9 +153,9 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
             )
         )
 
-        // Pool : un uniform buffer + un bind group par draw call.
-        // Sans pool, tous les draw calls partagent le même buffer et seul le dernier
-        // writeBuffer est visible côté GPU (bug : seul le dernier quad s'affiche).
+        // Pool: one uniform buffer + one bind group per draw call.
+        // Without a pool, all draw calls share the same buffer and only the last
+        // writeBuffer is visible on the GPU side (bug: only the last quad shows up).
         repeat(MAX_QUADS_PER_FRAME) {
             val buf = device.createBuffer(
                 BufferDescriptor(
@@ -323,7 +323,7 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
                 }
         }
 
-        // Garde-fou : on dépasse le pool ? Skip les derniers (mieux que de crasher).
+        // Safeguard: do we exceed the pool? Skip the last ones (better than crashing).
         val drawCount = minOf(quads.size, uniformBuffers.size)
         if (quads.size > uniformBuffers.size) {
             System.err.println(
@@ -331,8 +331,8 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
             )
         }
 
-        // CRITIQUE : tous les writeBuffer DOIVENT être faits AVANT beginRenderPass
-        // (sinon spec WebGPU violée, et avec un seul buffer les writes s'écrasent).
+        // CRITICAL: all writeBuffer MUST be done BEFORE beginRenderPass
+        // (otherwise the WebGPU spec is violated, and with a single buffer the writes overwrite each other).
         for (i in 0 until drawCount) {
             val data = quads[i]
             device.queue.writeBuffer(uniformBuffers[i], 0uL, data, 0uL, data.size.toULong())
@@ -353,7 +353,7 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
         )
         renderPass.setPipeline(pipe)
 
-        // Un bindGroup différent par quad (chaque bindGroup pointe sur son propre uniform buffer)
+        // A different bindGroup per quad (each bindGroup points to its own uniform buffer)
         for (i in 0 until drawCount) {
             renderPass.setBindGroup(0u, bindGroups[i], emptyList())
             renderPass.draw(6u, 1u, 0u, 0u)

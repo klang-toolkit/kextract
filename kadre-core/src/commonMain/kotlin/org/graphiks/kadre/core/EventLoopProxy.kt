@@ -1,22 +1,22 @@
 /**
- * Proxy permettant d'interagir avec la boucle d'événements depuis un autre fil d'exécution.
+ * Proxy allowing interaction with the event loop from another thread.
  *
- * Périmètre : interface pure Kotlin, aucune référence native.
+ * Scope: pure Kotlin interface, no native reference.
  */
 package org.graphiks.kadre.core
 
 /**
- * Proxy thread-safe vers la boucle d'événements principale.
+ * Thread-safe proxy to the main event loop.
  *
- * Permet à des fils d'exécution secondaires de réveiller la boucle
- * d'événements sans y avoir accès directement.
+ * Allows secondary threads to wake up the event loop
+ * without having direct access to it.
  */
 interface EventLoopProxy {
 
     /**
-     * Réveille la boucle d'événements si elle est en attente.
+     * Wakes up the event loop if it is waiting.
      *
-     * Cette méthode est sûre à appeler depuis n'importe quel fil d'exécution.
+     * This method is safe to call from any thread.
      */
     fun wakeUp()
 }

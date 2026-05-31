@@ -1,31 +1,31 @@
 /**
- * Implémentation JVM de la boucle d'événements — délègue à AppKitEventLoop.
+ * JVM implementation of the event loop — delegates to AppKitEventLoop.
  *
- * Ce module (kadre-core) fournit la déclaration `actual` ; l'implémentation
- * concrète est dans kadre-appkit via la fonction top-level `runApp`.
+ * This module (kadre-core) provides the `actual` declaration; the concrete
+ * implementation lives in kadre-appkit via the top-level `runApp` function.
  *
- * L'indirection par réflexion évite une dépendance directe de kadre-core
- * vers kadre-appkit, conformément à l'architecture modulaire du projet.
+ * The reflection-based indirection avoids a direct dependency from kadre-core
+ * to kadre-appkit, in line with the project's modular architecture.
  */
 package org.graphiks.kadre.core
 
 /**
- * Implémentation JVM de [EventLoop].
+ * JVM implementation of [EventLoop].
  *
- * Délègue à `org.graphiks.kadre.appkit.AppKitEventLoopKt.runApp` via
- * réflexion pour éviter un couplage direct de kadre-core → kadre-appkit.
- * Cette délégation est résolue à l'exécution : kadre-appkit doit être sur
- * le classpath.
+ * Delegates to `org.graphiks.kadre.appkit.AppKitEventLoopKt.runApp` via
+ * reflection to avoid a direct kadre-core → kadre-appkit coupling.
+ * This delegation is resolved at runtime: kadre-appkit must be on
+ * the classpath.
  */
 actual class EventLoop actual constructor() {
 
     /**
-     * Démarre la boucle d'événements AppKit et délègue les rappels au gestionnaire fourni.
+     * Starts the AppKit event loop and delegates callbacks to the provided handler.
      *
-     * Bloquant — ne retourne qu'à la fermeture de l'application.
+     * Blocking — returns only once the application closes.
      *
-     * @param handler Gestionnaire du cycle de vie et des événements de l'application.
-     * @throws UnsupportedOperationException si kadre-appkit n'est pas sur le classpath.
+     * @param handler Handler for the application lifecycle and events.
+     * @throws UnsupportedOperationException if kadre-appkit is not on the classpath.
      */
     actual fun runApp(handler: ApplicationHandler) {
         val klass = try {

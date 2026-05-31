@@ -1,14 +1,14 @@
 /**
- * Tests pour Win32Window.
+ * Tests for Win32Window.
  *
- * Ces tests vérifient la structure des bindings Win32 et les comportements
- * attendus sur les plateformes non-Windows (valeurs null, skip automatique).
+ * These tests verify the structure of the Win32 bindings and the expected
+ * behaviors on non-Windows platforms (null values, automatic skip).
  *
- * Sur macOS/Linux : les tests liés à la création de fenêtre sont sautés
- * automatiquement car les MethodHandle FFM sont null (user32.dll introuvable).
+ * On macOS/Linux: the tests related to window creation are skipped
+ * automatically because the FFM MethodHandles are null (user32.dll not found).
  *
- * Sur Windows : les tests complets s'exécutent et valident la création d'une
- * fenêtre native via RegisterClassExW + CreateWindowExW.
+ * On Windows: the full tests run and validate the creation of a
+ * native window via RegisterClassExW + CreateWindowExW.
  */
 package org.graphiks.kadre.win32
 
@@ -22,16 +22,16 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Retourne true si le test tourne sur Windows.
+ * Returns true if the test runs on Windows.
  *
- * Utilisé pour ignorer les tests nécessitant user32.dll sur macOS/Linux.
+ * Used to skip the tests requiring user32.dll on macOS/Linux.
  */
 private fun isWindows(): Boolean =
     System.getProperty("os.name", "").contains("Windows", ignoreCase = true)
 
 class Win32WindowTest {
 
-    // ── Tests compilant sur toutes les plateformes ─────────────────────────────
+    // ── Tests compiling on all platforms ───────────────────────────────────────
 
     @Test
     fun `WndClassExW SIZEOF est 80 octets`() {
@@ -76,8 +76,8 @@ class Win32WindowTest {
 
     @Test
     fun `user32 et kernel32 sont null sur plateforme non-Windows`() {
-        if (isWindows()) return  // skip sur Windows (les libs existent)
-        // Sur macOS/Linux, les lazy loaders doivent retourner null
+        if (isWindows()) return  // skip on Windows (the libs exist)
+        // On macOS/Linux, the lazy loaders must return null
         assertNull(user32)
         assertNull(kernel32)
     }
@@ -105,24 +105,24 @@ class Win32WindowTest {
 
     @Test
     fun `Win32WndProcArena arena est accessible`() {
-        // L'arène elle-même peut être créée sur toute plateforme
+        // The arena itself can be created on any platform
         assertNotNull(Win32WndProcArena.arena)
     }
 
-    // ── Tests exécutés uniquement sur Windows ─────────────────────────────────
+    // ── Tests run only on Windows ─────────────────────────────────────────────
 
     @Test
     fun `Win32Window create produit une fenetre valide sur Windows`() {
-        if (!isWindows()) return  // skip sur macOS/Linux
+        if (!isWindows()) return  // skip on macOS/Linux
 
         val attrs = WindowAttributes(
             title = "Test Kadre Win32",
-            visible = false,  // ne pas afficher en CI
+            visible = false,  // do not display in CI
         )
         val window = Win32Window.create(attrs)
         assertNotNull(window, "create() doit réussir sur Windows")
 
-        // Vérifier les handles
+        // Check the handles
         val rawHandle = window.rawWindowHandle
         assertTrue(rawHandle is RawWindowHandle.Win32, "rawWindowHandle doit être Win32")
         assertTrue(rawHandle.hwnd != 0L, "HWND ne doit pas être nul")
@@ -132,13 +132,13 @@ class Win32WindowTest {
         assertTrue(displayHandle is RawDisplayHandle.Win32, "rawDisplayHandle doit être Win32")
         assertTrue((displayHandle).hinstance != 0L)
 
-        // Vérifier les propriétés de base
+        // Check the basic properties
         assertEquals(rawHandle.hwnd, window.id.value)
         assertEquals(1.0, window.scaleFactor)
         assertNotNull(window.innerSize)
         assertNotNull(window.outerSize)
 
-        // Nettoyage
+        // Cleanup
         window.close()
     }
 
@@ -149,7 +149,7 @@ class Win32WindowTest {
         val attrs = WindowAttributes(title = "Initial", visible = false)
         val window = Win32Window.create(attrs) ?: return
 
-        // Ne doit pas lever d'exception
+        // Must not throw an exception
         window.setTitle("Nouveau titre")
 
         window.close()
@@ -162,9 +162,9 @@ class Win32WindowTest {
         val attrs = WindowAttributes(title = "Test setVisible", visible = false)
         val window = Win32Window.create(attrs) ?: return
 
-        window.setVisible(false)  // déjà caché
-        window.setVisible(true)   // montrer
-        window.setVisible(false)  // recacher
+        window.setVisible(false)  // already hidden
+        window.setVisible(true)   // show
+        window.setVisible(false)  // hide again
 
         window.close()
     }

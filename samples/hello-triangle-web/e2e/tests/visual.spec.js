@@ -1,10 +1,10 @@
-// Test de régression visuelle Web — NON BLOQUANT.
+// Web visual regression test — NON-BLOCKING.
 //
-// Capture le canvas de hello-triangle-web et le compare à une baseline avec une
-// tolérance de 2 %. Le rendu WebGPU SwiftShader pouvant varier légèrement selon
-// l'environnement, ce test est **informatif** : il journalise le ratio de diff et
-// archive l'image de diff en artefact, mais n'échoue jamais le build. Voir
-// docs/kadre/visual-testing.md pour le workflow updateVisualBaselines.
+// Captures the hello-triangle-web canvas and compares it to a baseline with a
+// 2% tolerance. Since WebGPU SwiftShader rendering can vary slightly depending on
+// the environment, this test is **informational**: it logs the diff ratio and
+// archives the diff image as an artifact, but never fails the build. See
+// docs/kadre/visual-testing.md for the updateVisualBaselines workflow.
 const fs = require('fs');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
@@ -23,7 +23,7 @@ test('régression visuelle hello-triangle-web (informatif)', async ({ page }) =>
 
   await page.goto('/');
   await expect(page.locator('#kadre-canvas')).toBeVisible();
-  // Attendre l'initialisation complète + quelques frames stables.
+  // Wait for full initialization + a few stable frames.
   await expect.poll(() => logs.some((l) => l.includes('Pipeline prêt')), { timeout: 60_000 }).toBe(true);
   await page.waitForTimeout(1_500);
 
@@ -42,8 +42,8 @@ test('régression visuelle hello-triangle-web (informatif)', async ({ page }) =>
     console.log(`[visual] OK — diff ${pct}% ≤ ${TOLERANCE * 100}%`);
   }
 
-  // Résumé Markdown injecté dans le Job Summary GitHub Actions (capture visible
-  // directement sur la page du run, en plus des artefacts).
+  // Markdown summary injected into the GitHub Actions Job Summary (visible
+  // directly on the run page, in addition to the artifacts).
   const icon = result.status === 'match' ? '✅' : result.status === 'created' ? '🆕' : '⚠️';
   const summary = [
     '### Régression visuelle — hello-triangle-web',
@@ -55,7 +55,7 @@ test('régression visuelle hello-triangle-web (informatif)', async ({ page }) =>
   ].join('\n');
   fs.writeFileSync(SUMMARY, summary);
 
-  // Non bloquant : on n'échoue pas le build (rendu SwiftShader non déterministe
-  // entre environnements). Le statut est journalisé + diff archivé en CI.
+  // Non-blocking: we do not fail the build (non-deterministic SwiftShader rendering
+  // across environments). The status is logged + diff archived in CI.
   expect(['created', 'match', 'mismatch']).toContain(result.status);
 });

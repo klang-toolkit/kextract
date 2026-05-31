@@ -1,9 +1,9 @@
 name: bench-perf
 
-# Suite de benchmarks JMH. Tourne sur push master et à la demande.
-# Mesure les composants purs (tick physique, IA, BitmapFont, InputAdapter) et publie
-# le JSON de résultats en artefact. La comparaison automatique à une baseline avec
-# seuil de régression reste un point ouvert (voir docs/kadre/performance.md).
+# JMH benchmark suite. Runs on push to master and on demand.
+# Measures the pure components (physics tick, AI, BitmapFont, InputAdapter) and publishes
+# the results JSON as an artifact. Automatic comparison against a baseline with a
+# regression threshold is still an open item (see docs/kadre/performance.md).
 
 on:
   push:

@@ -1,9 +1,9 @@
 /**
- * Sample hello-window — handler partagé cross-platform.
+ * Sample hello-window — shared cross-platform handler.
  *
- * Aucune dépendance plateforme : ce fichier est identique sur JVM, iOS et Android.
- * Démontre le cycle de vie complet : création de fenêtre, événements clavier/souris,
- * redimensionnement, focus et fermeture.
+ * No platform dependency: this file is identical on JVM, iOS and Android.
+ * Demonstrates the full lifecycle: window creation, keyboard/mouse events,
+ * resize, focus and close.
  */
 package org.graphiks.kadre.samples.hellowindow
 
@@ -15,10 +15,10 @@ import org.graphiks.kadre.WindowId
 import org.graphiks.kadre.core.WindowEvent
 
 /**
- * Handler de démonstration Hello Window.
+ * Hello Window demonstration handler.
  *
- * Crée une fenêtre au démarrage et logue tous les événements reçus.
- * Le même code s'exécute sans modification sur macOS (JVM), iOS et Android.
+ * Creates a window at startup and logs all received events.
+ * The same code runs without modification on macOS (JVM), iOS and Android.
  */
 class HelloApp : ApplicationHandler {
 

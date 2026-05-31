@@ -1,17 +1,17 @@
 /**
- * Attributs de configuration d'une fenêtre.
+ * Window configuration attributes.
  *
- * Périmètre : types purs Kotlin, aucune référence native.
+ * Scope: pure Kotlin types, no native reference.
  */
 package org.graphiks.kadre.core
 
 /**
- * Paramètres de création d'une fenêtre.
+ * Window creation parameters.
  *
- * @property title Titre affiché dans la barre de titre de la fenêtre.
- * @property size Taille initiale en pixels physiques, ou null pour utiliser la taille par défaut.
- * @property visible Indique si la fenêtre est visible au moment de sa création.
- * @property resizable Indique si l'utilisateur peut redimensionner la fenêtre.
+ * @property title Title shown in the window's title bar.
+ * @property size Initial size in physical pixels, or null to use the default size.
+ * @property visible Indicates whether the window is visible at the time of its creation.
+ * @property resizable Indicates whether the user can resize the window.
  */
 data class WindowAttributes(
     val title: String = "Kadre",

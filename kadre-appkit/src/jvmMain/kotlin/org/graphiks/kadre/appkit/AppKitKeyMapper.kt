@@ -1,7 +1,7 @@
 /**
- * Mapping des codes de touches macOS (NSEvent.keyCode) vers l'énumération [Key] de Kadre.
+ * Mapping of macOS key codes (NSEvent.keyCode) to Kadre's [Key] enum.
  *
- * Référence : disposition de clavier QWERTY US.
+ * Reference: QWERTY US keyboard layout.
  */
 package org.graphiks.kadre.appkit
 

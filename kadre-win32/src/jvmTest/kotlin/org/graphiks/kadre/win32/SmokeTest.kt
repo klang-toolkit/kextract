@@ -23,18 +23,18 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 
 /**
- * Smoke test — vérifie que les type aliases Win32 et le stub Win32Runtime
- * compilent correctement et sont accessibles.
+ * Smoke test — verifies that the Win32 type aliases and the Win32Runtime stub
+ * compile correctly and are accessible.
  *
- * Aucun appel FFM réel n'est effectué ici (cela nécessiterait Windows +
- * user32.dll chargée). Ce test valide uniquement la compilation et la
- * lisibilité des types et de l'objet singleton.
+ * No real FFM call is performed here (that would require Windows +
+ * user32.dll loaded). This test only validates the compilation and the
+ * readability of the types and the singleton object.
  */
 class SmokeTest {
 
     @Test
     fun `les type aliases Win32 compilent et sont assignables`() {
-        // Vérifie que les typealiases sont utilisables comme types Kotlin ordinaires
+        // Verifies that the typealiases are usable as ordinary Kotlin types
         val dword: DWORD = 0xFFFF_FFFFL
         val word: WORD = 0xFFFF
         val uint: UINT = 0L
@@ -72,7 +72,7 @@ class SmokeTest {
 
     @Test
     fun `DWORD peut representer une valeur 32 bits non signee`() {
-        // DWORD est Long — peut stocker 0xFFFFFFFF sans overflow
+        // DWORD is Long — can store 0xFFFFFFFF without overflow
         val maxDword: DWORD = 0xFFFF_FFFFL
         assertEquals(4294967295L, maxDword)
     }
@@ -81,7 +81,7 @@ class SmokeTest {
     fun `BOOL semantique Win32 - zero est FALSE`() {
         val winFalse: BOOL = 0
         val winTrue: BOOL = 1
-        // Vérification de la sémantique Win32 : 0 = FALSE
+        // Verification of the Win32 semantics: 0 = FALSE
         assertEquals(0, winFalse)
         assertEquals(1, winTrue)
     }
@@ -101,8 +101,8 @@ class SmokeTest {
 
     @Test
     fun `Win32Runtime isAvailable retourne false hors Windows`() {
-        // Ce test tourne sur macOS/Linux en CI — isAvailable doit être false
-        // (sur Windows, le test serait ignoré ou inversé)
+        // This test runs on macOS/Linux in CI — isAvailable must be false
+        // (on Windows, the test would be skipped or inverted)
         if (!System.getProperty("os.name", "").startsWith("Windows")) {
             assertFalse(Win32Runtime.isAvailable)
         }

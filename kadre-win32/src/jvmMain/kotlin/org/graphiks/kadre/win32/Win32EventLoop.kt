@@ -1,19 +1,19 @@
 /**
- * Implémentation Win32 de [ActiveEventLoop] et point d'entrée [runApp].
+ * Win32 implementation of [ActiveEventLoop] and the [runApp] entry point.
  *
- * [Win32EventLoop] implémente [ActiveEventLoop] et est passé à chaque
- * callback de [ApplicationHandler]. La méthode [runApp] orchestre
- * l'initialisation Win32 (enregistrement KadreWndProc) et la boucle de
- * messages avec commutation dynamique selon [ControlFlow] :
+ * [Win32EventLoop] implements [ActiveEventLoop] and is passed to every
+ * [ApplicationHandler] callback. The [runApp] method orchestrates
+ * Win32 initialization (KadreWndProc registration) and the message
+ * loop with dynamic switching based on [ControlFlow]:
  *
- * - [ControlFlow.Poll]      → PeekMessageW (PM_REMOVE) — non-bloquant
- * - [ControlFlow.Wait]      → GetMessageW — bloquant jusqu'au prochain message
- * - [ControlFlow.WaitUntil] → MsgWaitForMultipleObjectsEx avec timeout en ms
+ * - [ControlFlow.Poll]      → PeekMessageW (PM_REMOVE) — non-blocking
+ * - [ControlFlow.Wait]      → GetMessageW — blocks until the next message
+ * - [ControlFlow.WaitUntil] → MsgWaitForMultipleObjectsEx with a timeout in ms
  *
- * Pattern Lazy FFM (tryCreate) : tous les MethodHandle sont null sur macOS/Linux,
- * ce qui permet au build de passer sur toutes les plateformes.
+ * Lazy FFM pattern (tryCreate): all MethodHandles are null on macOS/Linux,
+ * which lets the build pass on all platforms.
  *
- * GRA-11 : Win32EventLoop — boucle de messages Win32 avec commutation ControlFlow.
+ * GRA-11: Win32EventLoop — Win32 message loop with ControlFlow switching.
  */
 package org.graphiks.kadre.win32
 
@@ -31,45 +31,45 @@ import java.lang.foreign.MemorySegment
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
-// ── Verrou d'instance unique ──────────────────────────────────────────────────
+// ── Single-instance lock ──────────────────────────────────────────────────────
 
 /**
- * Verrou global garantissant qu'une seule boucle d'événements Win32 est active
- * à la fois dans le processus.
+ * Global lock guaranteeing that only one Win32 event loop is active
+ * at a time in the process.
  *
- * Utilise AtomicBoolean pour la thread-safety : [runApp] fait un CAS atomique
- * false→true au démarrage et lève [IllegalStateException] si déjà true.
+ * Uses AtomicBoolean for thread-safety: [runApp] performs an atomic CAS
+ * false→true at startup and throws [IllegalStateException] if already true.
  */
 internal val win32Running = AtomicBoolean(false)
 
 // ── Win32EventLoop ────────────────────────────────────────────────────────────
 
 /**
- * Implémentation interne de [ActiveEventLoop] pour la plateforme Win32 (Windows).
+ * Internal implementation of [ActiveEventLoop] for the Win32 platform (Windows).
  *
- * Une instance est créée par appel à [runApp] et passée comme récepteur
- * à tous les callbacks [ApplicationHandler].
+ * One instance is created per call to [runApp] and passed as the receiver
+ * to all [ApplicationHandler] callbacks.
  *
- * ### Cycle de vie
+ * ### Lifecycle
  * ```
  * runApp(handler)
  *   └─ handler.resumed(this)
- *   └─ boucle de messages
+ *   └─ message loop
  *        ├─ handler.newEvents(this, cause)
- *        ├─ pump messages selon ControlFlow
+ *        ├─ pump messages according to ControlFlow
  *        └─ handler.aboutToWait(this)
  *   └─ handler.suspended(this)
  * ```
  *
  * ### Thread-safety
- * - [_controlFlow] est @Volatile : lisible depuis tout thread.
- * - [_isExiting] est @Volatile : lisible depuis tout thread.
- * - [windows] est un ConcurrentHashMap.
- * - La boucle de messages elle-même s'exécute dans le thread appelant.
+ * - [_controlFlow] is @Volatile: readable from any thread.
+ * - [_isExiting] is @Volatile: readable from any thread.
+ * - [windows] is a ConcurrentHashMap.
+ * - The message loop itself runs on the calling thread.
  */
 internal class Win32EventLoop : ActiveEventLoop {
 
-    /** Fenêtres vivantes : windowId (HWND address) → Win32Window. */
+    /** Live windows: windowId (HWND address) → Win32Window. */
     internal val windows = ConcurrentHashMap<Long, Win32Window>()
 
     @Volatile
@@ -89,14 +89,14 @@ internal class Win32EventLoop : ActiveEventLoop {
     }
 
     /**
-     * Crée une nouvelle fenêtre Win32 native et l'enregistre dans la table de fenêtres.
+     * Creates a new native Win32 window and registers it in the window table.
      *
-     * Installe également le handler [KadreWndProc] si ce n'est pas encore fait.
+     * Also installs the [KadreWndProc] handler if not already done.
      *
-     * @param attributes Attributs de configuration de la fenêtre.
-     * @return La fenêtre créée.
-     * @throws IllegalStateException si les bindings Win32 ne sont pas disponibles
-     *         (macOS/Linux) ou si la création de la fenêtre échoue.
+     * @param attributes Window configuration attributes.
+     * @return The created window.
+     * @throws IllegalStateException if the Win32 bindings are not available
+     *         (macOS/Linux) or if window creation fails.
      */
     override fun createWindow(attributes: WindowAttributes): Window {
         val window = Win32Window.create(attributes)
@@ -109,10 +109,10 @@ internal class Win32EventLoop : ActiveEventLoop {
     }
 
     /**
-     * Demande l'arrêt de la boucle d'événements Win32.
+     * Requests the Win32 event loop to stop.
      *
-     * Lève [_isExiting] puis appelle PostQuitMessage(0) pour insérer WM_QUIT
-     * dans la file de messages, ce qui provoque la sortie de GetMessageW.
+     * Sets [_isExiting] then calls PostQuitMessage(0) to insert WM_QUIT
+     * into the message queue, which causes GetMessageW to return.
      */
     override fun exit() {
         _isExiting = true
@@ -120,49 +120,49 @@ internal class Win32EventLoop : ActiveEventLoop {
     }
 
     /**
-     * Crée un proxy thread-safe vers cette boucle d'événements.
+     * Creates a thread-safe proxy to this event loop.
      *
-     * Le proxy utilise PostThreadMessageW(WM_NULL) pour réveiller la boucle
-     * depuis un thread secondaire.
+     * The proxy uses PostThreadMessageW(WM_NULL) to wake the loop
+     * from a secondary thread.
      */
     override fun createProxy(): EventLoopProxy = Win32EventLoopProxy.create()
 
-    // ── Boucle de messages ────────────────────────────────────────────────────
+    // ── Message loop ──────────────────────────────────────────────────────────
 
     /**
-     * Lance la boucle de messages Win32.
+     * Starts the Win32 message loop.
      *
-     * Doit être appelé depuis le thread principal Windows (thread qui a créé
-     * les fenêtres). Bloquant — ne retourne qu'à la fermeture de l'application.
+     * Must be called from the main Windows thread (the thread that created
+     * the windows). Blocking — returns only when the application closes.
      *
-     * @param handler Gestionnaire du cycle de vie et des événements.
+     * @param handler Lifecycle and event handler.
      */
     internal fun runMessageLoop(handler: ApplicationHandler) {
-        // Arène confinée pour le segment MSG — libérée à la sortie de la boucle
+        // Confined arena for the MSG segment — freed when the loop exits
         Arena.ofConfined().use { arena ->
             val msg = arena.allocateMsg()
             var startCause: StartCause = StartCause.Init
 
             while (!_isExiting) {
-                // Notifier le gestionnaire du début d'itération
+                // Notify the handler of the start of the iteration
                 handler.newEvents(this, startCause)
                 if (_isExiting) break
 
-                // Dispatcher les messages selon le ControlFlow courant
+                // Dispatch the messages according to the current ControlFlow
                 startCause = dispatchMessages(msg, handler)
 
-                // Notifier le gestionnaire que la boucle est sur le point d'attendre
+                // Notify the handler that the loop is about to wait
                 handler.aboutToWait(this)
             }
         }
     }
 
     /**
-     * Dispatche les messages Win32 selon le [ControlFlow] courant.
+     * Dispatches Win32 messages according to the current [ControlFlow].
      *
-     * @param msg    Segment mémoire MSG pré-alloué.
-     * @param handler Gestionnaire d'événements (pour router les événements de fenêtre).
-     * @return La [StartCause] de la prochaine itération.
+     * @param msg    Pre-allocated MSG memory segment.
+     * @param handler Event handler (to route window events).
+     * @return The [StartCause] of the next iteration.
      */
     private fun dispatchMessages(msg: MemorySegment, handler: ApplicationHandler): StartCause {
         return when (val cf = _controlFlow) {
@@ -173,10 +173,10 @@ internal class Win32EventLoop : ActiveEventLoop {
     }
 
     /**
-     * Mode Poll : PeekMessageW (PM_REMOVE) — non-bloquant.
+     * Poll mode: PeekMessageW (PM_REMOVE) — non-blocking.
      *
-     * Vide la file de messages en une passe (traite tous les messages disponibles)
-     * et retourne immédiatement même si la file est vide.
+     * Drains the message queue in one pass (processes all available messages)
+     * and returns immediately even if the queue is empty.
      */
     private fun dispatchPoll(msg: MemorySegment, handler: ApplicationHandler): StartCause {
         val peekHandle = peekMessageW
@@ -187,12 +187,12 @@ internal class Win32EventLoop : ActiveEventLoop {
             while (!_isExiting) {
                 val hasMsg = peekHandle.invokeExact(
                     msg,
-                    MemorySegment.NULL,  // hWnd: NULL = tous les messages du thread
-                    0,                   // wMsgFilterMin: aucun filtre
-                    0,                   // wMsgFilterMax: aucun filtre
-                    PM_REMOVE,           // wRemoveMsg: retirer de la file
+                    MemorySegment.NULL,  // hWnd: NULL = all thread messages
+                    0,                   // wMsgFilterMin: no filter
+                    0,                   // wMsgFilterMax: no filter
+                    PM_REMOVE,           // wRemoveMsg: remove from the queue
                 ) as Int
-                if (hasMsg == 0) break  // file vide, sortir du pump
+                if (hasMsg == 0) break  // queue empty, exit the pump
                 translateHandle.invokeExact(msg) as Int
                 dispatchHandle.invokeExact(msg) as Long
             }
@@ -201,10 +201,10 @@ internal class Win32EventLoop : ActiveEventLoop {
     }
 
     /**
-     * Mode Wait : GetMessageW — bloquant jusqu'au prochain message.
+     * Wait mode: GetMessageW — blocks until the next message.
      *
-     * Bloque le thread jusqu'à la réception d'un message (ou WM_QUIT).
-     * Retourne false (StartCause.WaitCancelled) si WM_QUIT est reçu.
+     * Blocks the thread until a message is received (or WM_QUIT).
+     * Returns false (StartCause.WaitCancelled) if WM_QUIT is received.
      */
     private fun dispatchWait(msg: MemorySegment, handler: ApplicationHandler): StartCause {
         val getHandle = getMessageW
@@ -214,34 +214,34 @@ internal class Win32EventLoop : ActiveEventLoop {
         if (getHandle != null && translateHandle != null && dispatchHandle != null) {
             val result = getHandle.invokeExact(
                 msg,
-                MemorySegment.NULL,  // hWnd: NULL = tous les messages du thread
+                MemorySegment.NULL,  // hWnd: NULL = all thread messages
                 0,                   // wMsgFilterMin
                 0,                   // wMsgFilterMax
             ) as Int
 
             when {
                 result > 0 -> {
-                    // Message normal → translate + dispatch
+                    // Normal message → translate + dispatch
                     translateHandle.invokeExact(msg) as Int
                     dispatchHandle.invokeExact(msg) as Long
                 }
                 result == 0 -> {
-                    // WM_QUIT → sortie propre
+                    // WM_QUIT → clean exit
                     _isExiting = true
                 }
-                // result < 0 : erreur — on ignore et on continue
+                // result < 0: error — ignore and continue
             }
         }
         return StartCause.WaitCancelled()
     }
 
     /**
-     * Mode WaitUntil : MsgWaitForMultipleObjectsEx avec timeout.
+     * WaitUntil mode: MsgWaitForMultipleObjectsEx with a timeout.
      *
-     * Calcule le timeout restant jusqu'à [targetInstant] (en ms depuis l'époque Unix)
-     * et attend soit un message, soit l'expiration du timeout.
+     * Computes the remaining timeout until [targetInstant] (in ms since the Unix epoch)
+     * and waits for either a message or the timeout to expire.
      *
-     * @param targetInstant Instant cible en millisecondes depuis l'époque Unix.
+     * @param targetInstant Target instant in milliseconds since the Unix epoch.
      */
     private fun dispatchWaitUntil(
         msg: MemorySegment,
@@ -258,16 +258,16 @@ internal class Win32EventLoop : ActiveEventLoop {
 
         if (waitHandle != null) {
             val result = waitHandle.invokeExact(
-                0,                   // nCount: aucun objet kernel à attendre
-                MemorySegment.NULL,  // pHandles: NULL car nCount = 0
-                timeoutMs,           // dwMilliseconds: timeout calculé
-                QS_ALLINPUT,         // dwWakeMask: tous les messages d'entrée
-                MWMO_INPUTAVAILABLE, // dwFlags: réveiller si messages déjà disponibles
+                0,                   // nCount: no kernel object to wait on
+                MemorySegment.NULL,  // pHandles: NULL because nCount = 0
+                timeoutMs,           // dwMilliseconds: computed timeout
+                QS_ALLINPUT,         // dwWakeMask: all input messages
+                MWMO_INPUTAVAILABLE, // dwFlags: wake up if messages already available
             ) as Int
 
             when (result) {
                 WAIT_OBJECT_0 -> {
-                    // Messages disponibles → pump avec PeekMessageW
+                    // Messages available → pump with PeekMessageW
                     if (peekHandle != null && translateHandle != null && dispatchHandle != null) {
                         while (!_isExiting) {
                             val hasMsg = peekHandle.invokeExact(
@@ -284,37 +284,37 @@ internal class Win32EventLoop : ActiveEventLoop {
                     return StartCause.WaitCancelled(targetInstant)
                 }
                 WAIT_TIMEOUT -> {
-                    // Timeout expiré → instant cible atteint
+                    // Timeout expired → target instant reached
                     return StartCause.ResumeTimeReached(
                         requestedResume = targetInstant,
                         start = System.currentTimeMillis(),
                     )
                 }
                 else -> {
-                    // Autre code de retour (erreur ou signal inattendu)
+                    // Other return code (error or unexpected signal)
                     return StartCause.WaitCancelled(targetInstant)
                 }
             }
         } else {
-            // Bindings indisponibles (macOS/Linux) — simuler Poll
+            // Bindings unavailable (macOS/Linux) — simulate Poll
             return StartCause.Poll
         }
     }
 }
 
-// ── Point d'entrée ────────────────────────────────────────────────────────────
+// ── Entry point ───────────────────────────────────────────────────────────────
 
 /**
- * Point d'entrée de la boucle d'événements kadre sur Windows.
+ * Entry point for the kadre event loop on Windows.
  *
- * Initialise Win32 (installe KadreWndProc), crée une [Win32EventLoop],
- * appelle [ApplicationHandler.resumed], puis lance la boucle de messages
- * bloquante. Ne retourne qu'à la fermeture de l'application.
+ * Initializes Win32 (installs KadreWndProc), creates a [Win32EventLoop],
+ * calls [ApplicationHandler.resumed], then starts the blocking message loop.
+ * Returns only when the application closes.
  *
- * Doit être appelé depuis le thread principal Windows (thread de messages).
+ * Must be called from the main Windows thread (the message thread).
  *
- * @param handler Gestionnaire du cycle de vie et des événements.
- * @throws IllegalStateException si une boucle Win32 est déjà active dans ce processus.
+ * @param handler Lifecycle and event handler.
+ * @throws IllegalStateException if a Win32 loop is already active in this process.
  */
 fun runApp(handler: ApplicationHandler) {
     check(win32Running.compareAndSet(false, true)) {
@@ -322,34 +322,34 @@ fun runApp(handler: ApplicationHandler) {
         "Une boucle d'événements Win32 est déjà active."
     }
 
-    // Activer Per-Monitor-V2 avant toute création de fenêtre, sinon Windows
-    // virtualise le DPI et rend le contenu flou sur les écrans haute densité.
+    // Enable Per-Monitor-V2 before any window creation, otherwise Windows
+    // virtualizes the DPI and makes content blurry on high-density displays.
     enablePerMonitorV2DpiAwareness()
 
     val eventLoop = Win32EventLoop()
 
-    // Installer le handler KadreWndProc pour router les messages vers les fenêtres
+    // Install the KadreWndProc handler to route messages to the windows
     KadreWndProc.install { hwnd, event ->
         val windowId = WindowId(hwnd)
         handler.windowEvent(eventLoop, windowId, event)
 
-        // Gérer la destruction de fenêtre : retirer de la table + éventuellement quitter
+        // Handle window destruction: remove from the table + possibly quit
         if (event is WindowEvent.Destroyed) {
             eventLoop.windows.remove(hwnd)
         }
     }
 
     try {
-        // Notifier le gestionnaire que l'application reprend
+        // Notify the handler that the application is resuming
         handler.resumed(eventLoop)
 
-        // Notifier que les surfaces peuvent être créées
+        // Notify that surfaces can be created
         handler.canCreateSurfaces(eventLoop)
 
-        // Lancer la boucle de messages bloquante
+        // Start the blocking message loop
         eventLoop.runMessageLoop(handler)
     } finally {
-        // Nettoyage final
+        // Final cleanup
         handler.suspended(eventLoop)
         KadreWndProc.uninstall()
         win32Running.set(false)

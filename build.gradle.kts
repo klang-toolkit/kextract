@@ -1,19 +1,19 @@
 plugins {
-    // Les plugins communs et leurs versions sont gérés et importés par buildSrc
+    // The common plugins and their versions are managed and imported by buildSrc
 }
 
 // ── Toolchain Kotlin/JS Node + Yarn ──────────────────────────────
 //
-// Par défaut, le plugin KGP ajoute au niveau *projet* les repos ivy de distribution
-// Node.js et Yarn (nodejs.org / github yarnpkg). Avec
+// By default, the KGP plugin adds the Node.js and Yarn distribution ivy repos at the
+// *project* level (nodejs.org / github yarnpkg). With
 // `dependencyResolutionManagement { repositoriesMode = FAIL_ON_PROJECT_REPOS }`,
-// Gradle rejette ces repos projet → `kotlinNodeJsSetup` échoue, ce qui bloque tout
-// build webpack (jsBrowserDistribution, webpack-dev-server, browser tests).
+// Gradle rejects these project repos → `kotlinNodeJsSetup` fails, which blocks every
+// webpack build (jsBrowserDistribution, webpack-dev-server, browser tests).
 //
-// Correctif : les repos sont déclarés côté `settings.gradle.kts` (hermétique), et on
-// efface ici le `downloadBaseUrl` des EnvSpec Node/Yarn (js + wasm) pour que KGP
-// n'ajoute PAS son propre repo projet et résolve via les repos settings.
-// Débloque #20 (GitHub Pages) et #22 (E2E web).
+// Fix: the repos are declared in `settings.gradle.kts` (hermetic), and here we
+// clear the `downloadBaseUrl` of the Node/Yarn EnvSpecs (js + wasm) so that KGP
+// does NOT add its own project repo and resolves via the settings repos.
+// Unblocks #20 (GitHub Pages) and #22 (web E2E).
 run {
     val noBaseUrl = provider { null as String? }
     plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class.java) {
@@ -28,9 +28,9 @@ run {
     plugins.withType(org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin::class.java) {
         the<org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec>().downloadBaseUrl.set(noBaseUrl)
     }
-    // NOTE : la distribution wasmJs (wasmJsBrowserDistribution) requiert en plus
-    // l'outil Binaryen, dont le plugin KGP ajoute son repo projet sans respecter
-    // downloadBaseUrl — non résolu ici. Les deux samples web ciblent js + wasmJs ;
-    // la variante **JS** (utilisée par #20 Pages et #22 E2E) est pleinement débloquée.
-    // Le webpack wasmJs reste un reliquat de #91.
+    // NOTE: the wasmJs distribution (wasmJsBrowserDistribution) additionally requires
+    // the Binaryen tool, for which the KGP plugin adds its project repo without honoring
+    // downloadBaseUrl — not resolved here. Both web samples target js + wasmJs;
+    // the **JS** variant (used by #20 Pages and #22 E2E) is fully unblocked.
+    // The wasmJs webpack remains a leftover from #91.
 }

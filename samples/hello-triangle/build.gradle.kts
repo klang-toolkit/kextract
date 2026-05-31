@@ -1,13 +1,13 @@
 /**
- * Sample hello-triangle — intégration wgpu4k : Instance + Surface depuis CAMetalLayer (GRA-137).
+ * Sample hello-triangle — wgpu4k integration: Instance + Surface from CAMetalLayer (GRA-137).
  *
- * Consomme le [RawWindowHandle] de Kadre pour initialiser wgpu4k :
+ * Consumes Kadre's [RawWindowHandle] to initialize wgpu4k:
  *   EventLoop → AppKitEventLoop → NSWindow + CAMetalLayer → WGPU Instance + Surface + Adapter + Device
  *
- * Périmètre M2 — pas encore de rendu : la fenêtre reste vide (clear par défaut).
+ * M2 scope — no rendering yet: the window stays empty (default clear).
  *
- * Usage : ./gradlew :samples:hello-triangle:run
- * Prérequis : macOS avec JDK 25 (thread principal — lancé par Gradle).
+ * Usage: ./gradlew :samples:hello-triangle:run
+ * Requirements: macOS with JDK 25 (main thread — launched by Gradle).
  */
 plugins {
     kotlin("jvm")
@@ -21,9 +21,9 @@ kotlin {
 application {
     mainClass.set("org.graphiks.kadre.samples.hellotriangle.MainKt")
 
-    // macOS : NSApplication doit tourner sur le thread principal JVM.
-    // -XstartOnFirstThread est un flag JVM macOS-only — la JVM Windows/Linux le rejette.
-    // Panama FFM : --enable-native-access supprime les warnings JDK 22+.
+    // macOS: NSApplication must run on the main JVM thread.
+    // -XstartOnFirstThread is a macOS-only JVM flag — the Windows/Linux JVM rejects it.
+    // Panama FFM: --enable-native-access suppresses JDK 22+ warnings.
     applicationDefaultJvmArgs = buildList {
         if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
             add("-XstartOnFirstThread")
@@ -35,14 +35,14 @@ application {
 dependencies {
     implementation(project(":kadre"))
     implementation(libs.wgpu4k)
-    // Data classes descripteurs wgpu4k (VertexState, FragmentState, RenderPipelineDescriptor, etc.)
-    // synchronisées avec la version de webgpu-ktypes embarquée dans wgpu4k:0.1.1
+    // wgpu4k descriptor data classes (VertexState, FragmentState, RenderPipelineDescriptor, etc.)
+    // synchronized with the webgpu-ktypes version embedded in wgpu4k:0.1.1
     implementation(libs.webgpu.ktypes.descriptors)
-    // runBlocking — transitif via wgpu4k mais déclaré explicitement pour la clarté
+    // runBlocking — transitive via wgpu4k but declared explicitly for clarity
     implementation(libs.kotlinx.coroutines.core)
-    // Backends Linux : requis par le mode --capture, qui réutilise
-    // l'EventLoop kadre pour obtenir une fenêtre Wayland/X11. La façade les charge
-    // par réflexion → ils doivent être sur le classpath. Inertes sur macOS/Windows.
+    // Linux backends: required by --capture mode, which reuses
+    // the kadre EventLoop to obtain a Wayland/X11 window. The facade loads them
+    // by reflection → they must be on the classpath. Inert on macOS/Windows.
     implementation(project(":kadre-wayland"))
     implementation(project(":kadre-x11"))
 }

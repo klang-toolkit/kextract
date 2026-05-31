@@ -1,23 +1,23 @@
 /**
- * Layout mémoire et VarHandles pour la structure WNDCLASSEXW Win32.
+ * Memory layout and VarHandles for the Win32 WNDCLASSEXW structure.
  *
- * WNDCLASSEXW (64-bit Windows) :
+ * WNDCLASSEXW (64-bit Windows):
  * Offset  Size  Field
  *  0       4    cbSize       (UINT)
  *  4       4    style        (UINT)
- *  8       8    lpfnWndProc  (WNDPROC — pointeur de fonction)
+ *  8       8    lpfnWndProc  (WNDPROC — function pointer)
  * 16       4    cbClsExtra   (int)
  * 20       4    cbWndExtra   (int)
- * 24       8    hInstance    (HINSTANCE — pointeur)
- * 32       8    hIcon        (HICON — pointeur)
- * 40       8    hCursor      (HCURSOR — pointeur)
- * 48       8    hbrBackground(HBRUSH — pointeur)
- * 56       8    lpszMenuName (LPCWSTR — pointeur)
- * 64       8    lpszClassName(LPCWSTR — pointeur)
- * 72       8    hIconSm      (HICON — pointeur)
+ * 24       8    hInstance    (HINSTANCE — pointer)
+ * 32       8    hIcon        (HICON — pointer)
+ * 40       8    hCursor      (HCURSOR — pointer)
+ * 48       8    hbrBackground(HBRUSH — pointer)
+ * 56       8    lpszMenuName (LPCWSTR — pointer)
+ * 64       8    lpszClassName(LPCWSTR — pointer)
+ * 72       8    hIconSm      (HICON — pointer)
  * Total = 80 bytes
  *
- * Référence : https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-wndclassexw
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-wndclassexw
  */
 package org.graphiks.kadre.win32
 
@@ -27,9 +27,9 @@ import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
 /**
- * Accès typé à la structure WNDCLASSEXW allouée dans un [Arena].
+ * Typed access to the WNDCLASSEXW structure allocated in an [Arena].
  *
- * Usage :
+ * Usage:
  * ```kotlin
  * Arena.ofConfined().use { arena ->
  *     val wndClass = WndClassExW(arena)
@@ -43,75 +43,75 @@ import java.lang.foreign.ValueLayout
  */
 internal class WndClassExW(arena: Arena) {
 
-    /** Segment mémoire brut de la structure. */
+    /** Raw memory segment of the structure. */
     val segment: MemorySegment = arena.allocate(SIZEOF.toLong(), ALIGN.toLong())
 
-    /** cbSize : taille de la structure en octets (doit être = SIZEOF). */
+    /** cbSize: size of the structure in bytes (must be = SIZEOF). */
     var cbSize: Int
         get() = segment.get(ValueLayout.JAVA_INT, OFFSET_CB_SIZE.toLong())
         set(value) = segment.set(ValueLayout.JAVA_INT, OFFSET_CB_SIZE.toLong(), value)
 
-    /** style : flags CS_* de la classe de fenêtre. */
+    /** style: CS_* flags of the window class. */
     var style: Int
         get() = segment.get(ValueLayout.JAVA_INT, OFFSET_STYLE.toLong())
         set(value) = segment.set(ValueLayout.JAVA_INT, OFFSET_STYLE.toLong(), value)
 
-    /** lpfnWndProc : pointeur vers la procédure de fenêtre (WNDPROC). */
+    /** lpfnWndProc: pointer to the window procedure (WNDPROC). */
     var lpfnWndProc: MemorySegment
         get() = segment.get(ValueLayout.ADDRESS, OFFSET_WNDPROC.toLong())
         set(value) = segment.set(ValueLayout.ADDRESS, OFFSET_WNDPROC.toLong(), value)
 
-    /** cbClsExtra : octets supplémentaires alloués après la structure de classe. */
+    /** cbClsExtra: extra bytes allocated after the class structure. */
     var cbClsExtra: Int
         get() = segment.get(ValueLayout.JAVA_INT, OFFSET_CLS_EXTRA.toLong())
         set(value) = segment.set(ValueLayout.JAVA_INT, OFFSET_CLS_EXTRA.toLong(), value)
 
-    /** cbWndExtra : octets supplémentaires alloués après l'instance de fenêtre. */
+    /** cbWndExtra: extra bytes allocated after the window instance. */
     var cbWndExtra: Int
         get() = segment.get(ValueLayout.JAVA_INT, OFFSET_WND_EXTRA.toLong())
         set(value) = segment.set(ValueLayout.JAVA_INT, OFFSET_WND_EXTRA.toLong(), value)
 
-    /** hInstance : handle du module de l'application. */
+    /** hInstance: handle of the application module. */
     var hInstance: MemorySegment
         get() = segment.get(ValueLayout.ADDRESS, OFFSET_HINSTANCE.toLong())
         set(value) = segment.set(ValueLayout.ADDRESS, OFFSET_HINSTANCE.toLong(), value)
 
-    /** hIcon : handle vers l'icône de la fenêtre (NULL = défaut). */
+    /** hIcon: handle to the window icon (NULL = default). */
     var hIcon: MemorySegment
         get() = segment.get(ValueLayout.ADDRESS, OFFSET_HICON.toLong())
         set(value) = segment.set(ValueLayout.ADDRESS, OFFSET_HICON.toLong(), value)
 
-    /** hCursor : handle vers le curseur de la fenêtre (NULL = défaut). */
+    /** hCursor: handle to the window cursor (NULL = default). */
     var hCursor: MemorySegment
         get() = segment.get(ValueLayout.ADDRESS, OFFSET_HCURSOR.toLong())
         set(value) = segment.set(ValueLayout.ADDRESS, OFFSET_HCURSOR.toLong(), value)
 
-    /** hbrBackground : pinceau pour l'arrière-plan (NULL = aucun). */
+    /** hbrBackground: brush for the background (NULL = none). */
     var hbrBackground: MemorySegment
         get() = segment.get(ValueLayout.ADDRESS, OFFSET_HBRUSH.toLong())
         set(value) = segment.set(ValueLayout.ADDRESS, OFFSET_HBRUSH.toLong(), value)
 
-    /** lpszMenuName : nom de la ressource menu (NULL = aucun menu). */
+    /** lpszMenuName: name of the menu resource (NULL = no menu). */
     var lpszMenuName: MemorySegment
         get() = segment.get(ValueLayout.ADDRESS, OFFSET_MENU_NAME.toLong())
         set(value) = segment.set(ValueLayout.ADDRESS, OFFSET_MENU_NAME.toLong(), value)
 
-    /** lpszClassName : nom de la classe de fenêtre (Wide string). */
+    /** lpszClassName: name of the window class (Wide string). */
     var lpszClassName: MemorySegment
         get() = segment.get(ValueLayout.ADDRESS, OFFSET_CLASS_NAME.toLong())
         set(value) = segment.set(ValueLayout.ADDRESS, OFFSET_CLASS_NAME.toLong(), value)
 
-    /** hIconSm : handle vers la petite icône (NULL = dérivée de hIcon). */
+    /** hIconSm: handle to the small icon (NULL = derived from hIcon). */
     var hIconSm: MemorySegment
         get() = segment.get(ValueLayout.ADDRESS, OFFSET_HICON_SM.toLong())
         set(value) = segment.set(ValueLayout.ADDRESS, OFFSET_HICON_SM.toLong(), value)
 
     companion object {
-        // ── Offsets (en octets) ──────────────────────────────────────────────
+        // ── Offsets (in bytes) ───────────────────────────────────────────────
         //
-        // Calculés selon l'ABI Win64 :
-        //  - Les pointeurs (WNDPROC, HINSTANCE, HICON, etc.) sont alignés sur 8 octets.
-        //  - Les champs int (UINT, cbClsExtra, cbWndExtra) sont alignés sur 4 octets.
+        // Computed according to the Win64 ABI:
+        //  - Pointers (WNDPROC, HINSTANCE, HICON, etc.) are 8-byte aligned.
+        //  - Int fields (UINT, cbClsExtra, cbWndExtra) are 4-byte aligned.
         //
         // Offset  Type     Field
         //  0      UINT(4)  cbSize
@@ -141,17 +141,17 @@ internal class WndClassExW(arena: Arena) {
         const val OFFSET_CLASS_NAME: Int = 64
         const val OFFSET_HICON_SM: Int   = 72
 
-        /** Taille totale de la structure en octets (80 bytes sur Win64). */
+        /** Total size of the structure in bytes (80 bytes on Win64). */
         const val SIZEOF: Int = 80
 
-        /** Alignement requis (8 octets, alignement des pointeurs Win64). */
+        /** Required alignment (8 bytes, Win64 pointer alignment). */
         const val ALIGN: Int = 8
 
         /**
-         * Layout MemoryLayout équivalent à WNDCLASSEXW.
+         * MemoryLayout equivalent to WNDCLASSEXW.
          *
-         * Fourni pour documentation et vérification, non utilisé directement
-         * dans les appels FFM (on utilise les offsets manuels).
+         * Provided for documentation and verification, not used directly
+         * in the FFM calls (the manual offsets are used instead).
          */
         val LAYOUT: MemoryLayout = MemoryLayout.structLayout(
             ValueLayout.JAVA_INT.withName("cbSize"),

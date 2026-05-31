@@ -1,15 +1,15 @@
 /**
- * Découverte des globaux Wayland.
+ * Wayland globals discovery.
  *
- * `WaylandEventLoop` laissait `compositorPtr = 0` (stub #66) : aucune `wl_surface` ne
- * pouvait donc être créée. Ce fichier implémente la négociation manquante via FFM :
+ * `WaylandEventLoop` left `compositorPtr = 0` (stub #66): no `wl_surface` could
+ * therefore be created. This file implements the missing negotiation via FFM:
  *
  *   wl_display.get_registry → wl_registry.add_listener(global) → wl_display.roundtrip
  *   → wl_registry.bind(wl_compositor)
  *
- * `wl_display_get_registry` et `wl_registry_bind` sont des `static inline` du header
- * (non exportés) : on les réalise via `wl_proxy_marshal_flags`. Les structures
- * `wl_registry_interface` / `wl_compositor_interface` sont, elles, exportées.
+ * `wl_display_get_registry` and `wl_registry_bind` are `static inline` functions in the
+ * header (not exported): we perform them via `wl_proxy_marshal_flags`. The
+ * `wl_registry_interface` / `wl_compositor_interface` structures, however, are exported.
  */
 package org.graphiks.kadre.wayland
 
@@ -26,18 +26,18 @@ private const val WL_DISPLAY_GET_REGISTRY: Int = 1
 private const val WL_REGISTRY_BIND: Int = 0
 
 /**
- * Collecteur d'événements `wl_registry.global` : retient le `name` et la `version`
- * du global « wl_compositor » dès qu'il est annoncé.
+ * `wl_registry.global` event collector: retains the `name` and `version`
+ * of the "wl_compositor" global as soon as it is announced.
  */
 private class CompositorCollector {
     var name: Int = -1
     var version: Int = 0
 
-    /** Callback C : void global(data, wl_registry*, uint32 name, const char* interface, uint32 version). */
+    /** C callback: void global(data, wl_registry*, uint32 name, const char* interface, uint32 version). */
     @Suppress("UNUSED_PARAMETER")
     fun onGlobal(data: MemorySegment, registry: MemorySegment, name: Int, iface: MemorySegment, version: Int) {
         if (this.name >= 0) return
-        // Lecture de la chaîne C de l'interface annoncée.
+        // Read the C string of the announced interface.
         val ifaceName = try {
             iface.reinterpret(128).getString(0)
         } catch (_: Throwable) {
@@ -49,16 +49,16 @@ private class CompositorCollector {
         }
     }
 
-    /** Callback C : void global_remove(data, wl_registry*, uint32 name). */
+    /** C callback: void global_remove(data, wl_registry*, uint32 name). */
     @Suppress("UNUSED_PARAMETER")
     fun onGlobalRemove(data: MemorySegment, registry: MemorySegment, name: Int) { /* no-op */ }
 }
 
 /**
- * Découvre et lie le `wl_compositor` global.
+ * Discovers and binds the `wl_compositor` global.
  *
- * @param displayPtr Adresse du `wl_display*` connecté.
- * @return Adresse du `wl_compositor*` lié, ou 0 si indisponible.
+ * @param displayPtr Address of the connected `wl_display*`.
+ * @return Address of the bound `wl_compositor*`, or 0 if unavailable.
  */
 internal fun discoverCompositor(displayPtr: Long): Long {
     val marshalNewId = wlProxyMarshalNewId ?: return 0L
@@ -79,7 +79,7 @@ internal fun discoverCompositor(displayPtr: Long): Long {
         ) as MemorySegment
         if (registry.address() == 0L) return 0L
 
-        // 2. Listener du registre (upcall global/global_remove) dans une arène durable.
+        // 2. Registry listener (global/global_remove upcall) in a durable arena.
         val arena = Arena.ofShared()
         val collector = CompositorCollector()
         val lookup = MethodHandles.lookup()
@@ -114,7 +114,7 @@ internal fun discoverCompositor(displayPtr: Long): Long {
             arena,
         )
 
-        // struct wl_registry_listener { global; global_remove; } — 2 pointeurs.
+        // struct wl_registry_listener { global; global_remove; } — 2 pointers.
         val listener = arena.allocate(ValueLayout.ADDRESS.byteSize() * 2)
         listener.set(ValueLayout.ADDRESS, 0L, globalStub)
         listener.set(ValueLayout.ADDRESS, ValueLayout.ADDRESS.byteSize(), globalRemoveStub)
@@ -122,12 +122,12 @@ internal fun discoverCompositor(displayPtr: Long): Long {
         val rc = addListener.invokeExact(registry, listener, MemorySegment.NULL) as Int
         if (rc != 0) return 0L
 
-        // 3. roundtrip → déclenche les événements global (remplit le collector).
+        // 3. roundtrip → triggers the global events (fills the collector).
         roundtrip.invokeExact(display) as Int
         if (collector.name < 0) return 0L
 
         // 4. wl_registry.bind(name, &wl_compositor_interface, version)
-        //    interface->name = 1er champ (const char*) de la struct wl_interface.
+        //    interface->name = 1st field (const char*) of the wl_interface struct.
         val ifaceNamePtr = compositorIface.reinterpret(ValueLayout.ADDRESS.byteSize())
             .get(ValueLayout.ADDRESS, 0L)
         val compositor = bind.invokeExact(

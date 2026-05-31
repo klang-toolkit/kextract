@@ -1,11 +1,11 @@
 /**
- * Sample hello-triangle-web — point d'entrée JS/IR.
+ * Sample hello-triangle-web — JS/IR entry point.
  *
- * Crée un canvas navigateur via l'API Kadre, branche wgpu4k Web dessus
- * (CanvasSurface depuis le `<canvas>`), puis rend un triangle RGB à chaque frame.
+ * Creates a browser canvas via the Kadre API, plugs wgpu4k Web onto it
+ * (CanvasSurface from the `<canvas>`), then renders an RGB triangle each frame.
  *
- * Réutilise le shader WGSL et la séquence de rendu du sample desktop
- * `org.graphiks.kadre.samples.hellotriangle`, adaptés à l'API web de wgpu4k.
+ * Reuses the WGSL shader and render sequence from the desktop sample
+ * `org.graphiks.kadre.samples.hellotriangle`, adapted to the wgpu4k web API.
  */
 package org.graphiks.kadre.samples.web
 
@@ -43,11 +43,11 @@ import kotlin.js.unsafeCast
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** `window.devicePixelRatio` — lu via interop JS (non exposé typé sur le `Window` courant). */
+/** `window.devicePixelRatio` — read via JS interop (not exposed typed on the current `Window`). */
 private fun jsDevicePixelRatio(): Double = js("window.devicePixelRatio").unsafeCast<Double>()
 
 // ---------------------------------------------------------------------------
-// WGSL shader — triangle RGB à positions codées en dur (identique au sample desktop)
+// WGSL shader — RGB triangle with hardcoded positions (identical to the desktop sample)
 // ---------------------------------------------------------------------------
 
 private val TRIANGLE_WGSL = """
@@ -81,17 +81,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 """.trimIndent()
 
 /**
- * Gestionnaire du sample hello-triangle-web (JS/IR).
+ * Handler for the hello-triangle-web sample (JS/IR).
  *
- * Maintient les ressources wgpu4k Web entre les frames :
- * - [surface] : [CanvasSurface] liée au `<canvas>` DOM
- * - [device] : device GPU
- * - [pipeline] : pipeline de rendu (vertex + fragment)
- * - [format] : format de présentation négocié à la configuration
+ * Maintains the wgpu4k Web resources across frames:
+ * - [surface]: [CanvasSurface] bound to the DOM `<canvas>`
+ * - [device]: GPU device
+ * - [pipeline]: render pipeline (vertex + fragment)
+ * - [format]: presentation format negotiated at configuration
  *
- * Le rendu est déclenché à chaque [WebWindowEvent.RedrawRequested].
- * [aboutToWait] demande un redraw continu (~60 fps via la boucle web).
- * [WebWindowEvent.Resized] reconfigure la surface (utile pour #21).
+ * Rendering is triggered on each [WebWindowEvent.RedrawRequested].
+ * [aboutToWait] requests a continuous redraw (~60 fps via the web loop).
+ * [WebWindowEvent.Resized] reconfigures the surface (useful for #21).
  */
 class HelloTriangleWebApp : ApplicationHandler {
 
@@ -100,21 +100,21 @@ class HelloTriangleWebApp : ApplicationHandler {
     private var pipeline: GPURenderPipeline? = null
     private var format: GPUTextureFormat = GPUTextureFormat.BGRA8Unorm
     private var window: org.graphiks.kadre.core.Window? = null
-    /** Référence DOM stdlib du `<canvas>` — sert à ajuster le drawing buffer sur resize (#21). */
+    /** stdlib DOM reference to the `<canvas>` — used to adjust the drawing buffer on resize (#21). */
     private var domCanvas: org.w3c.dom.HTMLCanvasElement? = null
     private var ready = false
 
     private val scope = CoroutineScope(Dispatchers.Default)
 
     /**
-     * Appelé dès que la boucle d'événements autorise la création de surfaces.
+     * Called as soon as the event loop allows surface creation.
      *
-     * Séquence web :
-     * 1. Fenêtre Kadre (canvas `kadre-canvas`)
-     * 2. Résolution du `<canvas>` DOM depuis [RawWindowHandle.Web]
+     * Web sequence:
+     * 1. Kadre window (canvas `kadre-canvas`)
+     * 2. Resolution of the DOM `<canvas>` from [RawWindowHandle.Web]
      * 3. [CanvasSurface] via `HTMLCanvasElement.getCanvasSurface()`
-     * 4. Adapter + Device (suspend → lancés dans une coroutine)
-     * 5. Configuration de la surface + pipeline (réutilise [TRIANGLE_WGSL])
+     * 4. Adapter + Device (suspend → launched in a coroutine)
+     * 5. Surface configuration + pipeline (reuses [TRIANGLE_WGSL])
      */
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
         println("[hello-triangle-web] canCreateSurfaces — initialisation wgpu4k Web")
@@ -138,21 +138,21 @@ class HelloTriangleWebApp : ApplicationHandler {
             println("[hello-triangle-web] Canvas '$canvasId' introuvable dans le DOM")
             return
         }
-        // `getCanvasSurface()` est défini par wgpu4k sur son propre type external
-        // `io.ygdrasil.webgpu.HTMLCanvasElement`. On caste l'élément DOM stdlib
-        // (`org.w3c.dom`) vers ce type via `unsafeCast` : au runtime, c'est le même
-        // objet JS `HTMLCanvasElement`.
+        // `getCanvasSurface()` is defined by wgpu4k on its own external type
+        // `io.ygdrasil.webgpu.HTMLCanvasElement`. We cast the stdlib DOM element
+        // (`org.w3c.dom`) to that type via `unsafeCast`: at runtime, it is the same
+        // JS `HTMLCanvasElement` object.
         this.domCanvas = domCanvas.unsafeCast<org.w3c.dom.HTMLCanvasElement>()
         val canvas = domCanvas.unsafeCast<io.ygdrasil.webgpu.HTMLCanvasElement>()
 
-        // Dimensionner le drawing buffer en pixels physiques dès le départ (#21).
+        // Size the drawing buffer in physical pixels from the start (#21).
         syncCanvasBackingStore()
 
         val canvasSurface = canvas.getCanvasSurface().let { CanvasSurface(it) }
         surface = canvasSurface
         println("[hello-triangle-web] CanvasSurface créée")
 
-        // Adapter + Device sont suspend (navigator.gpu) → coroutine.
+        // Adapter + Device are suspend (navigator.gpu) → coroutine.
         scope.launch {
             val adapter = requestAdapter().getOrElse { err ->
                 println("[hello-triangle-web] Échec acquisition Adapter : $err")
@@ -188,15 +188,15 @@ class HelloTriangleWebApp : ApplicationHandler {
     }
 
     /**
-     * Ajuste le drawing buffer du `<canvas>` à la taille physique courante (#21).
+     * Adjusts the `<canvas>` drawing buffer to the current physical size (#21).
      *
-     * Le `ResizeObserver` reporte des pixels CSS ; le swap chain wgpu suit les
-     * attributs `width`/`height` du canvas, qui doivent être en pixels physiques
-     * (`taille CSS × devicePixelRatio`) pour un rendu net sur écrans haute densité.
+     * The `ResizeObserver` reports CSS pixels; the wgpu swap chain follows the
+     * canvas `width`/`height` attributes, which must be in physical pixels
+     * (`CSS size × devicePixelRatio`) for crisp rendering on high-density screens.
      *
-     * @param cssWidth  Largeur CSS (ou `null` pour lire `clientWidth`).
-     * @param cssHeight Hauteur CSS (ou `null` pour lire `clientHeight`).
-     * @return `true` si la taille du buffer a changé (reconfiguration nécessaire).
+     * @param cssWidth  CSS width (or `null` to read `clientWidth`).
+     * @param cssHeight CSS height (or `null` to read `clientHeight`).
+     * @return `true` if the buffer size changed (reconfiguration needed).
      */
     private fun syncCanvasBackingStore(cssWidth: Int? = null, cssHeight: Int? = null): Boolean {
         val canvas = domCanvas ?: return false
@@ -213,11 +213,11 @@ class HelloTriangleWebApp : ApplicationHandler {
     }
 
     /**
-     * Configure (ou reconfigure) la [CanvasSurface] avec le device et le format courants.
+     * Configures (or reconfigures) the [CanvasSurface] with the current device and format.
      *
-     * Sur web, la taille de la surface suit l'attribut `width`/`height` du `<canvas>`
-     * (mis à jour par [syncCanvasBackingStore]) — le swap chain wgpu est ainsi
-     * reconfiguré à la nouvelle résolution physique sur resize (#21).
+     * On web, the surface size follows the `<canvas>` `width`/`height` attribute
+     * (updated by [syncCanvasBackingStore]) — the wgpu swap chain is thus
+     * reconfigured to the new physical resolution on resize (#21).
      */
     private fun configureSurface(canvasSurface: CanvasSurface, gpuDevice: GPUDevice) {
         canvasSurface.configure(
@@ -230,26 +230,26 @@ class HelloTriangleWebApp : ApplicationHandler {
     }
 
     /**
-     * Demande un redraw continu pour maintenir le rendu animé.
+     * Requests a continuous redraw to keep the rendering animated.
      */
     override fun aboutToWait(eventLoop: ActiveEventLoop) {
         if (ready) window?.requestRedraw()
     }
 
     /**
-     * Événements fenêtre web.
+     * Web window events.
      *
-     * - [WebWindowEvent.RedrawRequested] : rend une frame triangle RGB
-     * - [WebWindowEvent.Resized] : reconfigure la surface (préparation #21)
-     * - [WebWindowEvent.CloseRequested] : libère les ressources et quitte
+     * - [WebWindowEvent.RedrawRequested]: renders an RGB triangle frame
+     * - [WebWindowEvent.Resized]: reconfigures the surface (preparation for #21)
+     * - [WebWindowEvent.CloseRequested]: releases resources and exits
      */
     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
         when (event) {
             is WebWindowEvent.RedrawRequested -> renderFrame()
             is WebWindowEvent.Resized -> {
                 println("[hello-triangle-web] Resized → ${event.width}×${event.height} (CSS px)")
-                // Met à jour le drawing buffer en pixels physiques puis reconfigure
-                // le swap chain à la nouvelle résolution (#21).
+                // Update the drawing buffer in physical pixels then reconfigure
+                // the swap chain to the new resolution (#21).
                 syncCanvasBackingStore(event.width, event.height)
                 val s = surface
                 val d = device
@@ -260,14 +260,14 @@ class HelloTriangleWebApp : ApplicationHandler {
                 releaseResources()
                 eventLoop.exit()
             }
-            else -> { /* ignorer */ }
+            else -> { /* ignore */ }
         }
     }
 
     /**
-     * Rend une frame : clear noir + draw 3 vertices + present.
+     * Renders a frame: black clear + draw 3 vertices + present.
      *
-     * Séquence WebGPU : getCurrentTexture → createView → commandEncoder →
+     * WebGPU sequence: getCurrentTexture → createView → commandEncoder →
      * renderPass (clear + draw) → submit → present.
      */
     private fun renderFrame() {
@@ -305,7 +305,7 @@ class HelloTriangleWebApp : ApplicationHandler {
     }
 
     /**
-     * Libère les ressources wgpu4k Web.
+     * Releases the wgpu4k Web resources.
      */
     private fun releaseResources() {
         pipeline?.let { runCatching { it.close() } }
@@ -320,7 +320,7 @@ class HelloTriangleWebApp : ApplicationHandler {
 }
 
 /**
- * Point d'entrée du sample hello-triangle-web (JS/IR).
+ * Entry point of the hello-triangle-web sample (JS/IR).
  */
 fun main() {
     println("[hello-triangle-web] Démarrage — Kadre + wgpu4k Web triangle RGB")

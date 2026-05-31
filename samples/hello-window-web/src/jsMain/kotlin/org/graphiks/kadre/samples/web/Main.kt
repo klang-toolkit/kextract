@@ -1,10 +1,10 @@
 /**
- * Sample hello-window-web — point d'entrée JS/IR.
+ * Sample hello-window-web — JS/IR entry point.
  *
- * Ouvre un canvas navigateur via l'API Kadre et journalise tous les événements
- * DOM reçus (souris, clavier, redimensionnement, fermeture).
+ * Opens a browser canvas via the Kadre API and logs all received
+ * DOM events (mouse, keyboard, resize, close).
  *
- * sample web minimal JS.
+ * minimal JS web sample.
  */
 package org.graphiks.kadre.samples.web
 
@@ -16,9 +16,9 @@ import org.graphiks.kadre.WindowId
 import org.graphiks.kadre.web.WebWindowEvent
 
 /**
- * Handler de démonstration Hello Window Web (JS/IR).
+ * Hello Window Web demonstration handler (JS/IR).
  *
- * Crée une fenêtre canvas au démarrage et logue tous les événements reçus.
+ * Creates a canvas window at startup and logs all received events.
  */
 class HelloWindowWebApp : ApplicationHandler {
 
@@ -56,7 +56,7 @@ class HelloWindowWebApp : ApplicationHandler {
             is WebWindowEvent.MouseWheel ->
                 println("[HelloWindowWeb] MouseWheel dx=${event.deltaX} dy=${event.deltaY}")
             is WebWindowEvent.RedrawRequested ->
-                Unit // no-op: pas de renderer dans ce sample
+                Unit // no-op: no renderer in this sample
             else ->
                 println("[HelloWindowWeb] event: $event")
         }

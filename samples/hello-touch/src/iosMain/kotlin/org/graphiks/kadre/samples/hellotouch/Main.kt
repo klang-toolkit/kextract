@@ -9,22 +9,22 @@ import org.graphiks.kadre.WindowId
 import org.graphiks.kadre.core.WindowEvent
 
 /**
- * Point d'entrée iOS — lance l'EventLoop avec le handler iOS.
+ * iOS entry point — launches the EventLoop with the iOS handler.
  *
- * La création de fenêtre est spécifique à iOS : sur Android, la fenêtre
- * est gérée par KadreActivity et n'est pas créée manuellement ici.
+ * Window creation is iOS-specific: on Android, the window
+ * is managed by KadreActivity and is not created manually here.
  */
 fun main() {
     EventLoop().runApp(IosHelloTouchHandler())
 }
 
 /**
- * Handler iOS — crée la fenêtre principale et délègue les événements touch.
+ * iOS handler — creates the main window and delegates touch events.
  *
- * Sur iOS, `canCreateSurfaces` doit appeler `eventLoop.createWindow()` ;
- * ce comportement est propre à la plateforme iOS.
- * La logique de traitement des événements touch est dupliquée depuis
- * [HelloTouchHandler] (commonMain) pour éviter l'héritage d'une classe finale.
+ * On iOS, `canCreateSurfaces` must call `eventLoop.createWindow()`;
+ * this behavior is specific to the iOS platform.
+ * The touch event handling logic is duplicated from
+ * [HelloTouchHandler] (commonMain) to avoid inheriting from a final class.
  */
 private class IosHelloTouchHandler : ApplicationHandler {
 

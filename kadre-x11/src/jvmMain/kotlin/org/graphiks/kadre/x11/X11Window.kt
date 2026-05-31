@@ -1,18 +1,18 @@
 /**
- * Implémentation X11 de l'interface [Window] pour Linux Desktop.
+ * X11 implementation of the [Window] interface for Linux Desktop.
  *
- * Utilise la Foreign Function & Memory API (JEP 454, JDK 25) pour interagir
- * avec libX11.so.6 sans JNA ni autre couche intermédiaire.
+ * Uses the Foreign Function & Memory API (JEP 454, JDK 25) to interact
+ * with libX11.so.6 without JNA or any other intermediate layer.
  *
- * Flux de création :
- *  1. XCreateSimpleWindow     — crée la fenêtre enfant de la fenêtre racine
- *  2. XSelectInput            — sélectionne le masque d'événements complet
- *  3. XInternAtom             — obtient l'atome WM_DELETE_WINDOW
- *  4. XSetWMProtocols         — installe le protocole de fermeture propre
- *  5. XStoreName              — définit le titre
- *  6. XMapWindow              — rend la fenêtre visible (si attrs.visible = true)
+ * Creation flow:
+ *  1. XCreateSimpleWindow     — creates the child window of the root window
+ *  2. XSelectInput            — selects the full event mask
+ *  3. XInternAtom             — obtains the WM_DELETE_WINDOW atom
+ *  4. XSetWMProtocols         — installs the clean-close protocol
+ *  5. XStoreName              — sets the title
+ *  6. XMapWindow              — makes the window visible (if attrs.visible = true)
  *
- * X11Window — implémentation complète de l'interface Window.
+ * X11Window — complete implementation of the Window interface.
  */
 package org.graphiks.kadre.x11
 
@@ -27,9 +27,9 @@ import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
 /**
- * Masque d'événements combiné sélectionné pour chaque fenêtre X11.
+ * Combined event mask selected for each X11 window.
  *
- * Inclut : Expose, KeyPress, KeyRelease, ButtonPress, ButtonRelease,
+ * Includes: Expose, KeyPress, KeyRelease, ButtonPress, ButtonRelease,
  * PointerMotion, StructureNotify (ConfigureNotify, DestroyNotify, …).
  */
 private val FULL_EVENT_MASK: Long =
@@ -42,13 +42,13 @@ private val FULL_EVENT_MASK: Long =
     StructureNotifyMask
 
 /**
- * Fenêtre X11 native implémentant [Window].
+ * Native X11 window implementing [Window].
  *
- * Le constructeur est interne : utilisez [X11Window.create] pour instancier.
+ * The constructor is internal: use [X11Window.create] to instantiate.
  *
- * @param displayPtr Pointeur vers la structure Display X11 (valeur Long du MemorySegment.address()).
- * @param xWindowId  Identifiant XID de la fenêtre créée (unsigned long → Long).
- * @param attrs      Attributs de création de la fenêtre.
+ * @param displayPtr Pointer to the X11 Display structure (Long value of MemorySegment.address()).
+ * @param xWindowId  XID identifier of the created window (unsigned long → Long).
+ * @param attrs      Window creation attributes.
  */
 class X11Window private constructor(
     private val displayPtr: Long,
@@ -65,9 +65,9 @@ class X11Window private constructor(
         get() = RawDisplayHandle.Xlib(display = displayPtr)
 
     /**
-     * Taille interne courante en pixels physiques.
+     * Current inner size in physical pixels.
      *
-     * Initialisée depuis attrs.size ; mise à jour par les événements ConfigureNotify
+     * Initialized from attrs.size; updated by ConfigureNotify events
      * via [onConfigureNotify].
      */
     @Volatile
@@ -77,27 +77,27 @@ class X11Window private constructor(
         get() = _innerSize
 
     /**
-     * Taille externe (surface + décorations WM) en pixels physiques.
+     * Outer size (surface + WM decorations) in physical pixels.
      *
-     * Sur X11, les décorations sont gérées par le gestionnaire de fenêtres et
-     * inconnues sans appel à XGetGeometry + XQueryTree. On retourne la même
-     * valeur que [innerSize] pour l'instant.
+     * On X11, decorations are managed by the window manager and
+     * unknown without a call to XGetGeometry + XQueryTree. We return the same
+     * value as [innerSize] for now.
      *
-     * TODO : utiliser XGetGeometry pour distinguer inner/outer au besoin.
+     * TODO: use XGetGeometry to distinguish inner/outer if needed.
      */
     override val outerSize: PhysicalSize<Int>
         get() = _innerSize
 
     /**
-     * Facteur d'échelle DPI de cette fenêtre.
+     * DPI scale factor of this window.
      *
-     * Retourne 1.0 (heuristique DPI prévue ultérieurement).
+     * Returns 1.0 (DPI heuristic planned for later).
      */
     override val scaleFactor: Double = 1.0
 
     override fun requestRedraw() {
-        // Aucune action directe nécessaire : la boucle d'événements relève les Expose.
-        // Éventuellement, on pourrait envoyer un XSendEvent Expose — reporté ultérieurement.
+        // No direct action needed: the event loop picks up the Expose events.
+        // Optionally, we could send an XSendEvent Expose — deferred to later.
     }
 
     override fun setTitle(title: String) {
@@ -119,7 +119,7 @@ class X11Window private constructor(
             handle.invokeExact(display, xWindowId) as Int
             xFlush?.invokeExact(display) as? Int
         }
-        // XUnmapWindow n'est pas encore dans les bindings — reporté ultérieurement.
+        // XUnmapWindow is not yet in the bindings — deferred to later.
     }
 
     override fun close() {
@@ -130,10 +130,10 @@ class X11Window private constructor(
     }
 
     /**
-     * Met à jour la taille interne lors de la réception d'un événement ConfigureNotify.
+     * Updates the inner size upon receiving a ConfigureNotify event.
      *
-     * @param width  Nouvelle largeur en pixels.
-     * @param height Nouvelle hauteur en pixels.
+     * @param width  New width in pixels.
+     * @param height New height in pixels.
      */
     fun onConfigureNotify(width: Int, height: Int) {
         if (width > 0 && height > 0) {
@@ -146,27 +146,27 @@ class X11Window private constructor(
     companion object {
 
         /**
-         * Crée une fenêtre X11 native.
+         * Creates a native X11 window.
          *
-         * Effectue toutes les initialisations nécessaires :
+         * Performs all the necessary initialization:
          * XCreateSimpleWindow → XSelectInput → WM_DELETE_WINDOW → XStoreName → XMapWindow.
          *
-         * @param display Long représentant le pointeur Display* (adresse du MemorySegment).
-         * @param screen  Numéro de l'écran X11 (DefaultScreen).
-         * @param attrs   Attributs de la fenêtre (titre, taille, visibilité, etc.).
-         * @return La fenêtre créée, ou null si les bindings libX11 ne sont pas disponibles
-         *         (macOS/Windows) ou si la création échoue.
+         * @param display Long representing the Display* pointer (address of the MemorySegment).
+         * @param screen  X11 screen number (DefaultScreen).
+         * @param attrs   Window attributes (title, size, visibility, etc.).
+         * @return The created window, or null if the libX11 bindings are not available
+         *         (macOS/Windows) or if creation fails.
          */
         fun create(display: Long, screen: Int, attrs: WindowAttributes): X11Window? {
-            // Les bindings sont null sur non-Linux — retourner null gracieusement.
+            // The bindings are null on non-Linux — return null gracefully.
             val createHandle = xCreateSimpleWindow ?: return null
 
             val displaySeg = MemorySegment.ofAddress(display)
 
-            // ── 1. Fenêtre racine via XRootWindow(display, screen) ────────────
-            // Équivalent de DefaultRootWindow(display). Le vrai XID racine est requis
-            // comme parent de XCreateSimpleWindow : une valeur conventionnelle en dur
-            // provoque BadWindow (X_CreateWindow) sur les serveurs X réels.
+            // ── 1. Root window via XRootWindow(display, screen) ───────────────
+            // Equivalent to DefaultRootWindow(display). The real root XID is required
+            // as the parent of XCreateSimpleWindow: a hardcoded conventional value
+            // causes BadWindow (X_CreateWindow) on real X servers.
             val rootHandle = xRootWindow ?: return null
             val rootWindow: Long = rootHandle.invokeExact(displaySeg, screen) as Long
             if (rootWindow == 0L) return null
@@ -192,7 +192,7 @@ class X11Window private constructor(
             // ── 3. XSelectInput ───────────────────────────────────────────────
             xSelectInput?.invokeExact(displaySeg, xWindowId, FULL_EVENT_MASK) as? Int
 
-            // ── 4. WM_DELETE_WINDOW (protocole de fermeture propre) ───────────
+            // ── 4. WM_DELETE_WINDOW (clean-close protocol) ────────────────────
             Arena.ofConfined().use { arena ->
                 val atomName = "WM_DELETE_WINDOW".toByteArray(Charsets.US_ASCII)
                 val atomNamePtr = arena.allocate(atomName.size.toLong() + 1)
@@ -202,11 +202,11 @@ class X11Window private constructor(
                 val wmDeleteWindow: Long = xInternAtom?.invokeExact(
                     displaySeg,
                     atomNamePtr,
-                    0,  // Bool only_if_exists = False → crée si absent
+                    0,  // Bool only_if_exists = False → creates if absent
                 ) as? Long ?: 0L
 
                 if (wmDeleteWindow != 0L) {
-                    // Allouer un tableau de 1 Atom (unsigned long = 8 octets) pour XSetWMProtocols
+                    // Allocate an array of 1 Atom (unsigned long = 8 bytes) for XSetWMProtocols
                     val atomArray = arena.allocate(ValueLayout.JAVA_LONG, 1L)
                     atomArray.set(ValueLayout.JAVA_LONG, 0L, wmDeleteWindow)
                     xSetWMProtocols?.invokeExact(displaySeg, xWindowId, atomArray, 1) as? Int
@@ -224,7 +224,7 @@ class X11Window private constructor(
 
             val window = X11Window(display, xWindowId, attrs)
 
-            // ── 6. XMapWindow (si visible) ────────────────────────────────────
+            // ── 6. XMapWindow (if visible) ────────────────────────────────────
             if (attrs.visible) {
                 xMapWindow?.invokeExact(displaySeg, xWindowId) as? Int
                 xFlush?.invokeExact(displaySeg) as? Int

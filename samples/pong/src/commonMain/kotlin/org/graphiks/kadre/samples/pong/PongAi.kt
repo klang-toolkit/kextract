@@ -1,7 +1,7 @@
 package org.graphiks.kadre.samples.pong
 
 /**
- * IA simple pour Pong : suit la balle avec un délai de réaction configurable.
+ * Simple AI for Pong: follows the ball with a configurable reaction delay.
  *
  * Sprint 5.
  */
@@ -11,10 +11,10 @@ class PongAi(private val reactionLagMs: Long = 80L) {
     private var lastUpdateMs: Long = 0L
 
     /**
-     * Calcule l'input recommandé pour la raquette AI.
+     * Computes the recommended input for the AI paddle.
      *
-     * Met à jour [lastTargetY] toutes les [reactionLagMs] millisecondes.
-     * La raquette remonte si elle est au-dessus de la cible, descend sinon.
+     * Updates [lastTargetY] every [reactionLagMs] milliseconds.
+     * The paddle moves up if it is above the target, down otherwise.
      */
     fun suggest(state: GameState, currentTimeMs: Long): PaddleInput {
         if (currentTimeMs - lastUpdateMs >= reactionLagMs) {
@@ -32,7 +32,7 @@ class PongAi(private val reactionLagMs: Long = 80L) {
         }
     }
 
-    /** Remet à zéro la mémoire de l'IA (utile après un reset de balle). */
+    /** Resets the AI's memory (useful after a ball reset). */
     fun reset() {
         lastTargetY = 0.5
         lastUpdateMs = 0L

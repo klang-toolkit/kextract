@@ -1,8 +1,8 @@
 /**
- * Mapper X11 pour les événements souris et focus.
+ * X11 mapper for mouse and focus events.
  *
- * Convertit les événements XButtonEvent, XMotionEvent, XCrossingEvent et XFocusEvent
- * en événements [org.graphiks.kadre.core.WindowEvent] kadre.
+ * Converts XButtonEvent, XMotionEvent, XCrossingEvent and XFocusEvent events
+ * into kadre [org.graphiks.kadre.core.WindowEvent]s.
  *
  * ## Struct XButtonEvent (Linux 64-bit)
  * ```
@@ -17,7 +17,7 @@
  * 56 : x_root        (int,  4)
  * 60 : y_root        (int,  4)
  * 64 : state         (uint, 4)
- * 68 : button        (uint, 4)  — numéro de bouton X11 (1-based)
+ * 68 : button        (uint, 4)  — X11 button number (1-based)
  * 72 : same_screen   (int,  4)
  * ```
  *
@@ -28,14 +28,14 @@
  * 64 : state (uint, 4)
  * ```
  *
- * ## Boutons X11
- * - 1 : gauche
- * - 2 : milieu
- * - 3 : droite
- * - 4 : molette vers le bas (scroll down)
- * - 5 : molette vers le haut (scroll up)
- * - 6 : molette vers la gauche (scroll left)
- * - 7 : molette vers la droite (scroll right)
+ * ## X11 buttons
+ * - 1 : left
+ * - 2 : middle
+ * - 3 : right
+ * - 4 : scroll down
+ * - 5 : scroll up
+ * - 6 : scroll left
+ * - 7 : scroll right
  *
  * X11MouseMapper.
  */
@@ -48,13 +48,13 @@ import org.graphiks.kadre.core.WindowEvent
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
-// ── Offsets XButtonEvent / XMotionEvent ───────────────────────────────────────
+// ── XButtonEvent / XMotionEvent offsets ───────────────────────────────────────
 
 private const val OFFSET_X: Long      = 48L
 private const val OFFSET_Y: Long      = 52L
 private const val OFFSET_BUTTON: Long = 68L
 
-// ── Constantes de boutons X11 ─────────────────────────────────────────────────
+// ── X11 button constants ──────────────────────────────────────────────────────
 
 private const val BUTTON_LEFT:         Int = 1
 private const val BUTTON_MIDDLE:       Int = 2
@@ -65,19 +65,19 @@ private const val BUTTON_SCROLL_LEFT:  Int = 6
 private const val BUTTON_SCROLL_RIGHT: Int = 7
 
 /**
- * Mapper stateless pour les événements souris X11.
+ * Stateless mapper for X11 mouse events.
  *
- * Gère également les événements d'entrée/sortie du pointeur (EnterNotify,
- * LeaveNotify) et les événements de focus (FocusIn, FocusOut).
+ * Also handles pointer enter/leave events (EnterNotify,
+ * LeaveNotify) and focus events (FocusIn, FocusOut).
  */
 object X11MouseMapper {
 
     /**
-     * Convertit un XEvent souris/focus en [WindowEvent] kadre.
+     * Converts a mouse/focus XEvent into a kadre [WindowEvent].
      *
-     * @param eventSegment Segment de 96 octets contenant le XEvent.
-     * @param eventType    Type d'événement X11 (extrait en amont à l'offset 0).
-     * @return [WindowEvent] correspondant, ou null si le type n'est pas géré.
+     * @param eventSegment 96-byte segment containing the XEvent.
+     * @param eventType    X11 event type (extracted beforehand at offset 0).
+     * @return The corresponding [WindowEvent], or null if the type is not handled.
      */
     fun fromXEvent(eventSegment: MemorySegment, eventType: Int): WindowEvent? {
         return when (eventType) {
@@ -92,18 +92,18 @@ object X11MouseMapper {
         }
     }
 
-    // ── Helpers privés ────────────────────────────────────────────────────────
+    // ── Private helpers ─────────────────────────────────────────────────────────
 
     /**
-     * Convertit un XButtonEvent en [WindowEvent.MouseInput] ou [WindowEvent.MouseWheel].
+     * Converts an XButtonEvent into a [WindowEvent.MouseInput] or [WindowEvent.MouseWheel].
      *
-     * Les boutons 4–7 correspondent à la molette (scroll). Pour ceux-ci :
-     * - on émet un [WindowEvent.MouseWheel] uniquement sur ButtonPress ;
-     * - on ignore le ButtonRelease correspondant (pas d'événement de relâchement
-     *   pour la molette côté kadre).
+     * Buttons 4–7 correspond to the scroll wheel. For these:
+     * - we emit a [WindowEvent.MouseWheel] only on ButtonPress;
+     * - we ignore the corresponding ButtonRelease (no release event
+     *   for the scroll wheel on the kadre side).
      *
-     * @param eventSegment Segment XEvent.
-     * @param state        État du bouton (Pressed / Released).
+     * @param eventSegment XEvent segment.
+     * @param state        Button state (Pressed / Released).
      */
     private fun handleButton(
         eventSegment: MemorySegment,
@@ -116,21 +116,21 @@ object X11MouseMapper {
             BUTTON_MIDDLE -> WindowEvent.MouseInput(MouseButton.Middle, state)
             BUTTON_RIGHT  -> WindowEvent.MouseInput(MouseButton.Right,  state)
 
-            // Boutons de molette : émettre uniquement sur Pressed
+            // Scroll wheel buttons: emit only on Pressed
             BUTTON_SCROLL_DOWN  -> if (state == KeyState.Pressed) WindowEvent.MouseWheel(0.0,  1.0) else null
             BUTTON_SCROLL_UP    -> if (state == KeyState.Pressed) WindowEvent.MouseWheel(0.0, -1.0) else null
             BUTTON_SCROLL_LEFT  -> if (state == KeyState.Pressed) WindowEvent.MouseWheel(-1.0, 0.0) else null
             BUTTON_SCROLL_RIGHT -> if (state == KeyState.Pressed) WindowEvent.MouseWheel( 1.0, 0.0) else null
 
-            // Boutons supplémentaires (8+) : MouseInput.Other
+            // Additional buttons (8+): MouseInput.Other
             else -> WindowEvent.MouseInput(MouseButton.Other(button), state)
         }
     }
 
     /**
-     * Convertit un XMotionEvent en [WindowEvent.PointerMoved].
+     * Converts an XMotionEvent into a [WindowEvent.PointerMoved].
      *
-     * @param eventSegment Segment XEvent.
+     * @param eventSegment XEvent segment.
      */
     private fun handleMotion(eventSegment: MemorySegment): WindowEvent.PointerMoved {
         val x = eventSegment.get(ValueLayout.JAVA_INT, OFFSET_X).toDouble()

@@ -1,15 +1,15 @@
 /**
- * Sample hello-metal — démonstrateur POC Metal view minimale (Jalon M1).
+ * Sample hello-metal — minimal Metal view POC demonstrator (Milestone M1).
  *
- * Ce module illustre l'utilisation de kadre pour ouvrir une fenêtre macOS
- * native avec un contentView layer-backed (CAMetalLayer), prête pour un
- * renderer Metal ou wgpu4k.
+ * This module illustrates using kadre to open a native macOS window
+ * with a layer-backed contentView (CAMetalLayer), ready for a
+ * Metal or wgpu4k renderer.
  *
- * Cible : jvm (JDK 25, macOS Desktop uniquement).
- * Dépendance : kadre (façade) qui embarque kadre-appkit en jvmMain.
+ * Target: jvm (JDK 25, macOS Desktop only).
+ * Dependency: kadre (facade) which embeds kadre-appkit in jvmMain.
  *
- * Note : ce module utilise le plugin Kotlin/JVM (non KMP) car il est jvm-only
- * et doit pouvoir déclarer un point d'entrée d'application standard.
+ * Note: this module uses the Kotlin/JVM plugin (not KMP) because it is jvm-only
+ * and must be able to declare a standard application entry point.
  */
 plugins {
     kotlin("jvm")
@@ -23,11 +23,11 @@ kotlin {
 application {
     mainClass.set("org.graphiks.kadre.samples.hellometal.MainKt")
 
-    // macOS exige que NSApplication tourne sur le thread principal (AppKit).
-    // -XstartOnFirstThread garantit que le thread JVM principal = thread macOS principal.
-    // C'est un flag JVM macOS-only — la JVM Windows/Linux le rejette.
+    // macOS requires NSApplication to run on the main thread (AppKit).
+    // -XstartOnFirstThread guarantees that the main JVM thread = main macOS thread.
+    // This is a macOS-only JVM flag — the Windows/Linux JVM rejects it.
     //
-    // --enable-native-access supprime les avertissements Panama FFM (JDK 22+).
+    // --enable-native-access suppresses Panama FFM warnings (JDK 22+).
     applicationDefaultJvmArgs = buildList {
         if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
             add("-XstartOnFirstThread")

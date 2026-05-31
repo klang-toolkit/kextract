@@ -1,10 +1,10 @@
 /**
- * Capture GPU offscreen Android — wgpu4k Vulkan.
+ * Android offscreen GPU capture — wgpu4k Vulkan.
  *
- * Crée une Surface adossée à une SurfaceTexture (offscreen), obtient l'ANativeWindow via
- * le helper natif (android-native-helper), crée une surface wgpu, rend le triangle dans
- * une texture offscreen et relit le framebuffer. Sur émulateur, l'adapter est le Vulkan
- * logiciel SwiftShader.
+ * Creates a Surface backed by a SurfaceTexture (offscreen), obtains the ANativeWindow via
+ * the native helper (android-native-helper), creates a wgpu surface, renders the triangle into
+ * an offscreen texture and reads back the framebuffer. On emulator, the adapter is software
+ * Vulkan SwiftShader.
  */
 package org.graphiks.kadre.samples.android
 

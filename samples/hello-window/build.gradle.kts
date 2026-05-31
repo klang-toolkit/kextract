@@ -1,13 +1,13 @@
 /**
- * Sample hello-window — fenêtre native cross-platform.
+ * Sample hello-window — cross-platform native window.
  *
- * Démontre l'API Kadre de base : création de fenêtre, gestion des
- * événements clavier/souris/cycle de vie depuis un handler commun.
+ * Demonstrates the basic Kadre API: window creation, handling of
+ * keyboard/mouse/lifecycle events from a common handler.
  *
- * Cibles : JVM (macOS via AppKit), iOS.
- * La cible Android est dans le module companion :samples:hello-window-android.
+ * Targets: JVM (macOS via AppKit), iOS.
+ * The Android target is in the companion module :samples:hello-window-android.
  *
- * Usage JVM : ./gradlew :samples:hello-window:run
+ * JVM usage: ./gradlew :samples:hello-window:run
  */
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
@@ -38,7 +38,7 @@ tasks.register<JavaExec>("run") {
         kotlin.targets.getByName("jvm").compilations.getByName("main").output.allOutputs,
         configurations.getByName("jvmRuntimeClasspath"),
     )
-    // -XstartOnFirstThread est un flag JVM macOS-only — la JVM Windows/Linux le rejette.
+    // -XstartOnFirstThread is a macOS-only JVM flag — the Windows/Linux JVM rejects it.
     jvmArgs(buildList {
         if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
             add("-XstartOnFirstThread")

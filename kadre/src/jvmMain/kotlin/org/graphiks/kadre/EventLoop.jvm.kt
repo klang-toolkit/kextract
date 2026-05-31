@@ -1,46 +1,46 @@
 /**
- * Implémentation JVM de la boucle d'événements kadre — sélectionne le backend
- * selon le système d'exploitation hôte.
+ * JVM implementation of the kadre event loop — selects the backend
+ * based on the host operating system.
  *
- * Sur macOS → délègue à [org.graphiks.kadre.appkit.AppKitEventLoopKt.runApp]
- *   (kadre-appkit, dépendance directe de jvmMain).
- * Sur Windows → délègue à [org.graphiks.kadre.win32.Win32EventLoopKt.runApp]
- *   (kadre-win32, chargé par réflexion — lazy loading, pas d'import direct).
- * Sur Linux → délègue à X11 ou Wayland selon [LinuxBackendDetector]
- *   (kadre-x11 / kadre-wayland, chargés par réflexion).
+ * On macOS → delegates to [org.graphiks.kadre.appkit.AppKitEventLoopKt.runApp]
+ *   (kadre-appkit, direct dependency of jvmMain).
+ * On Windows → delegates to [org.graphiks.kadre.win32.Win32EventLoopKt.runApp]
+ *   (kadre-win32, loaded via reflection — lazy loading, no direct import).
+ * On Linux → delegates to X11 or Wayland according to [LinuxBackendDetector]
+ *   (kadre-x11 / kadre-wayland, loaded via reflection).
  *
- * Le lazy loading par réflexion garantit que les bindings natifs (user32.dll,
- * libX11, libwayland…) ne sont jamais initialisés sur un autre OS, même si
- * plusieurs backends se trouvent sur le classpath (build multi-OS).
+ * Lazy loading via reflection ensures that native bindings (user32.dll,
+ * libX11, libwayland…) are never initialized on another OS, even if
+ * several backends are present on the classpath (multi-OS build).
  *
- * GRA-129 : façade KMP — actual jvmMain.
- * façade EventLoop Windows.
- * détection backend Linux X11/Wayland.
- * extension façade kadre Linux.
+ * GRA-129: KMP facade — actual jvmMain.
+ * Windows EventLoop facade.
+ * Linux X11/Wayland backend detection.
+ * Linux kadre facade extension.
  */
 package org.graphiks.kadre
 
 /**
- * Implémentation JVM de [EventLoop].
+ * JVM implementation of [EventLoop].
  *
- * Route vers le backend approprié via réflexion :
+ * Routes to the appropriate backend via reflection:
  * - macOS   → `org.graphiks.kadre.appkit.AppKitEventLoopKt#runApp`
  * - Windows → `org.graphiks.kadre.win32.Win32EventLoopKt#runApp`
- * - Linux   → X11 ou Wayland selon [LinuxBackendDetector]
+ * - Linux   → X11 or Wayland according to [LinuxBackendDetector]
  *
- * Aucun import direct des modules backend — le chargement est différé à
- * l'exécution pour éviter d'initialiser des bindings natifs sur le mauvais OS.
+ * No direct import of the backend modules — loading is deferred to
+ * runtime to avoid initializing native bindings on the wrong OS.
  */
 actual class EventLoop actual constructor() {
 
     /**
-     * Démarre la boucle d'événements et délègue les rappels au gestionnaire fourni.
+     * Starts the event loop and delegates callbacks to the provided handler.
      *
-     * Bloquant — ne retourne qu'à la fermeture de l'application.
+     * Blocking — only returns when the application closes.
      *
-     * @param handler Gestionnaire du cycle de vie et des événements de l'application.
-     * @throws UnsupportedOperationException si l'OS n'est pas supporté ou si le
-     *   backend correspondant est introuvable sur le classpath.
+     * @param handler Handler for the application's lifecycle and events.
+     * @throws UnsupportedOperationException if the OS is not supported or if the
+     *   corresponding backend cannot be found on the classpath.
      */
     actual fun runApp(handler: ApplicationHandler) {
         val os = System.getProperty("os.name", "").lowercase()

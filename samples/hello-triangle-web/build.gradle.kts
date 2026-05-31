@@ -1,17 +1,17 @@
 /**
- * Sample hello-triangle-web — rendu d'un triangle RGB via wgpu4k Web.
+ * Sample hello-triangle-web — RGB triangle rendering via wgpu4k Web.
  *
- * Démontre l'intégration wgpu4k côté navigateur :
- *   canvas DOM → [RawWindowHandle.Web] → CanvasSurface → Adapter → Device → Pipeline → render loop.
+ * Demonstrates wgpu4k integration on the browser side:
+ *   DOM canvas → [RawWindowHandle.Web] → CanvasSurface → Adapter → Device → Pipeline → render loop.
  *
- * Réutilise le shader WGSL et la séquence de rendu du sample desktop
- * [org.graphiks.kadre.samples.hellotriangle], adaptés à l'API web de wgpu4k
- * (getCanvasSurface / requestAdapter top-level / configure sans Set d'usage).
+ * Reuses the WGSL shader and render sequence from the desktop sample
+ * [org.graphiks.kadre.samples.hellotriangle], adapted to the wgpu4k web API
+ * (getCanvasSurface / top-level requestAdapter / configure without usage Set).
  *
- * Cibles : js(IR) browser, wasmJs browser, `binaries.executable()`.
+ * Targets: js(IR) browser, wasmJs browser, `binaries.executable()`.
  *
- * Le rendu GPU réel n'est vérifiable qu'en navigateur (WebGPU) ; la CI se limite
- * à la compilation des deux cibles.
+ * Real GPU rendering is only verifiable in a browser (WebGPU); CI is limited
+ * to compiling both targets.
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
@@ -43,12 +43,12 @@ kotlin {
         commonMain {
             dependencies {
                 implementation(project(":kadre"))
-                // wgpu4k publie des variantes web (js / wasmJs) résolues automatiquement
-                // selon la cible : voir gradle/libs.versions.toml (wgpu4k = 0.1.1).
+                // wgpu4k publishes web variants (js / wasmJs) resolved automatically
+                // per target: see gradle/libs.versions.toml (wgpu4k = 0.1.1).
                 implementation(libs.wgpu4k)
-                // Descripteurs partagés (SurfaceConfiguration, RenderPipelineDescriptor, etc.)
+                // Shared descriptors (SurfaceConfiguration, RenderPipelineDescriptor, etc.)
                 implementation(libs.webgpu.ktypes.descriptors)
-                // requestAdapter / requestDevice sont suspend → besoin des coroutines.
+                // requestAdapter / requestDevice are suspend → coroutines needed.
                 implementation(libs.kotlinx.coroutines.core)
             }
         }

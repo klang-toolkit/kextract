@@ -1,14 +1,14 @@
 /**
- * Convention plugin kmp-dokka — documentation KDoc via Dokka.
+ * Convention plugin kmp-dokka — KDoc documentation via Dokka.
  *
- * Deux modes de rendu :
+ * Two rendering modes:
  *   - GFM (GitHub Flavored Markdown) → docs/kadre/api/${project.name}
- *     Utilisé par MkDocs pour le site de documentation.
+ *     Used by MkDocs for the documentation site.
  *   - HTML → build/dokka/html/${project.name}
- *     Utilisé par kmp-publish pour le artefact -javadoc.jar (Maven Central).
+ *     Used by kmp-publish for the -javadoc.jar artifact (Maven Central).
  *
- * GRA-157 : génération initiale de la documentation.
- * GRA-159 : séparation GFM/HTML pour éviter le mélange dans docs/.
+ * GRA-157: initial documentation generation.
+ * GRA-159: GFM/HTML separation to avoid mixing in docs/.
  */
 package ygdrasil.conventions
 

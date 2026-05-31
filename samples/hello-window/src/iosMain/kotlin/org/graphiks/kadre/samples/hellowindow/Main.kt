@@ -1,7 +1,7 @@
 /**
- * Point d'entrée iOS pour hello-window.
+ * iOS entry point for hello-window.
  *
- * Appelé par le framework Kadre au démarrage de l'application iOS.
+ * Called by the Kadre framework at iOS application startup.
  */
 package org.graphiks.kadre.samples.hellowindow
 

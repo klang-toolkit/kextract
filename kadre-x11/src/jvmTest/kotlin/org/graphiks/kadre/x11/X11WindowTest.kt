@@ -9,9 +9,9 @@ class X11WindowTest {
     @Test
     fun `X11Window se crée sans erreur sur non-Linux`() {
         if (libX11 == null) return // Skip sur macOS / Windows
-        // Sur Linux avec un serveur X disponible, une tentative de création peut
-        // échouer si DISPLAY n'est pas défini en CI — c'est acceptable.
-        // On vérifie uniquement que le chemin de code est traversé sans exception.
+        // On Linux with an available X server, a creation attempt may
+        // fail if DISPLAY is not set in CI — that is acceptable.
+        // We only verify that the code path is traversed without an exception.
     }
 
     @Test

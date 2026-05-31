@@ -1,19 +1,19 @@
 /**
- * Convention plugin kmp-publish — publication Maven Central pour les modules KMP Kadre.
+ * Convention plugin kmp-publish — Maven Central publication for the Kadre KMP modules.
  *
- * Configure :
- *   - maven-publish : publications KMP + POM complet (license MIT, dev info, SCM)
- *   - javadocJar    : JAR Dokka HTML packagé en artifact "-javadoc" (requis Maven Central)
- *   - signing       : signature GPG en mémoire via vars d'env / gradle.properties
- *   - dépôt Maven Central (Sonatype Central) + Maven Local
+ * Configures:
+ *   - maven-publish : KMP publications + complete POM (MIT license, dev info, SCM)
+ *   - javadocJar    : Dokka HTML JAR packaged as the "-javadoc" artifact (required by Maven Central)
+ *   - signing       : in-memory GPG signing via env vars / gradle.properties
+ *   - Maven Central repository (Sonatype Central) + Maven Local
  *
- * Variables attendues (gradle.properties ou env) :
+ * Expected variables (gradle.properties or env):
  *   ossrhUsername / OSSRH_USERNAME   — Sonatype OSSRH user
  *   ossrhPassword / OSSRH_PASSWORD   — Sonatype OSSRH password
- *   signingKey    / SIGNING_KEY      — clé GPG armored ASCII (base64)
- *   signingPassword / SIGNING_PASSWORD — passphrase GPG
+ *   signingKey    / SIGNING_KEY      — armored ASCII GPG key (base64)
+ *   signingPassword / SIGNING_PASSWORD — GPG passphrase
  *
- * group et version sont lus depuis le projet (définis dans gradle.properties racine).
+ * group and version are read from the project (defined in the root gradle.properties).
  *
  * GRA-159
  */
@@ -25,18 +25,18 @@ plugins {
 }
 
 // ── Javadoc JAR (Dokka HTML) ────────────────────────────────────────────────
-// Crée un artifact "-javadoc" en packagant la sortie Dokka HTML.
-// Si Dokka n'est pas encore lancé (tâche absente), un JAR vide est créé
-// pour satisfaire l'exigence Maven Central lors de publishToMavenLocal.
+// Creates a "-javadoc" artifact by packaging the Dokka HTML output.
+// If Dokka has not run yet (task absent), an empty JAR is created
+// to satisfy the Maven Central requirement during publishToMavenLocal.
 
 val javadocJar by tasks.registering(Jar::class) {
     group = "documentation"
     description = "Packages Dokka HTML output as a -javadoc JAR for Maven Central."
     archiveClassifier.set("javadoc")
 
-    // Priorité 1 : Dokka 2.x (dokkaGeneratePublicationHtml)
+    // Priority 1: Dokka 2.x (dokkaGeneratePublicationHtml)
     val dokkaV2 = tasks.findByName("dokkaGeneratePublicationHtml")
-    // Priorité 2 : Dokka 1.x compat (dokkaHtml)
+    // Priority 2: Dokka 1.x compat (dokkaHtml)
     val dokkaV1 = tasks.findByName("dokkaHtml")
 
     val dokkaTask = dokkaV2 ?: dokkaV1
@@ -44,14 +44,14 @@ val javadocJar by tasks.registering(Jar::class) {
         dependsOn(dokkaTask)
         from(dokkaTask.outputs.files)
     }
-    // Si Dokka absent : JAR vide (stub) — acceptable pour publishToMavenLocal
+    // If Dokka absent: empty JAR (stub) — acceptable for publishToMavenLocal
 }
 
 // ── POM + Publications ──────────────────────────────────────────────────────
 
 publishing {
     publications.withType<MavenPublication>().configureEach {
-        // Attache le javadoc JAR à toutes les publications
+        // Attach the javadoc JAR to all publications
         artifact(javadocJar)
 
         pom {

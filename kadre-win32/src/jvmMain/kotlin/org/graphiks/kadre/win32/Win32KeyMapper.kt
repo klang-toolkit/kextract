@@ -1,33 +1,33 @@
 /**
- * Mapping des codes de touches virtuelles Win32 (VK_*) vers les touches logiques kadre [Key].
+ * Mapping of Win32 virtual key codes (VK_*) to kadre logical keys [Key].
  *
- * Référence : https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
  *
- * Les VK codes sont passés dans wParam des messages WM_KEYDOWN / WM_KEYUP /
- * WM_SYSKEYDOWN / WM_SYSKEYUP. Ce mapper fournit la correspondance complète
- * pour les touches A–Z, 0–9, F1–F12, flèches, modificateurs et touches spéciales.
+ * The VK codes are passed in the wParam of the WM_KEYDOWN / WM_KEYUP /
+ * WM_SYSKEYDOWN / WM_SYSKEYUP messages. This mapper provides the complete mapping
+ * for the A–Z, 0–9, F1–F12, arrow, modifier and special keys.
  */
 package org.graphiks.kadre.win32
 
 import org.graphiks.kadre.core.Key
 
 /**
- * Convertit un code de touche virtuelle Win32 (VK_*) en [Key] kadre.
+ * Converts a Win32 virtual key code (VK_*) into a kadre [Key].
  *
- * Retourne [Key.Unknown] si le code VK n'est pas reconnu.
+ * Returns [Key.Unknown] if the VK code is not recognized.
  *
- * @receiver Code VK transmis dans wParam d'un message clavier Win32.
- * @return Touche logique kadre correspondante.
+ * @receiver VK code passed in the wParam of a Win32 keyboard message.
+ * @return Corresponding kadre logical key.
  */
 internal object Win32KeyMapper {
 
     /**
-     * Table de correspondance VK code → [Key].
+     * VK code → [Key] mapping table.
      *
-     * Construite une seule fois (lazy via companion) pour éviter les allocations répétées.
+     * Built only once (lazy via companion) to avoid repeated allocations.
      */
     private val table: Map<Int, Key> = buildMap {
-        // Lettres A–Z (VK codes = codes ASCII majuscules 0x41–0x5A)
+        // Letters A–Z (VK codes = uppercase ASCII codes 0x41–0x5A)
         put(VK_A, Key.A)
         put(VK_B, Key.B)
         put(VK_C, Key.C)
@@ -55,7 +55,7 @@ internal object Win32KeyMapper {
         put(VK_Y, Key.Y)
         put(VK_Z, Key.Z)
 
-        // Chiffres 0–9 (rangée du haut, VK codes = codes ASCII 0x30–0x39)
+        // Digits 0–9 (top row, VK codes = ASCII codes 0x30–0x39)
         put(VK_0, Key.Digit0)
         put(VK_1, Key.Digit1)
         put(VK_2, Key.Digit2)
@@ -67,7 +67,7 @@ internal object Win32KeyMapper {
         put(VK_8, Key.Digit8)
         put(VK_9, Key.Digit9)
 
-        // Touches de fonction F1–F12
+        // Function keys F1–F12
         put(VK_F1, Key.F1)
         put(VK_F2, Key.F2)
         put(VK_F3, Key.F3)
@@ -81,38 +81,38 @@ internal object Win32KeyMapper {
         put(VK_F11, Key.F11)
         put(VK_F12, Key.F12)
 
-        // Touches de navigation
+        // Navigation keys
         put(VK_LEFT,  Key.ArrowLeft)
         put(VK_RIGHT, Key.ArrowRight)
         put(VK_UP,    Key.ArrowUp)
         put(VK_DOWN,  Key.ArrowDown)
 
-        // Touches spéciales
+        // Special keys
         put(VK_SPACE,  Key.Space)
         put(VK_RETURN, Key.Enter)
         put(VK_ESCAPE, Key.Escape)
         put(VK_BACK,   Key.Backspace)
         put(VK_TAB,    Key.Tab)
 
-        // Modificateurs (versions gauche/droite + générique)
+        // Modifiers (left/right versions + generic)
         put(VK_LSHIFT,   Key.ShiftLeft)
         put(VK_RSHIFT,   Key.ShiftRight)
-        put(VK_SHIFT,    Key.ShiftLeft)   // générique → gauche par défaut
+        put(VK_SHIFT,    Key.ShiftLeft)   // generic → left by default
         put(VK_LCONTROL, Key.ControlLeft)
         put(VK_RCONTROL, Key.ControlRight)
-        put(VK_CONTROL,  Key.ControlLeft) // générique → gauche par défaut
+        put(VK_CONTROL,  Key.ControlLeft) // generic → left by default
         put(VK_LMENU,    Key.AltLeft)
         put(VK_RMENU,    Key.AltRight)
-        put(VK_MENU,     Key.AltLeft)     // générique → gauche par défaut
+        put(VK_MENU,     Key.AltLeft)     // generic → left by default
         put(VK_LWIN,     Key.MetaLeft)
         put(VK_RWIN,     Key.MetaRight)
     }
 
     /**
-     * Retourne la [Key] correspondant au code VK donné.
+     * Returns the [Key] corresponding to the given VK code.
      *
-     * @param vkCode Code de touche virtuelle Win32 (wParam d'un message WM_KEY*).
-     * @return Touche kadre, ou [Key.Unknown] si le code n'est pas dans la table.
+     * @param vkCode Win32 virtual key code (wParam of a WM_KEY* message).
+     * @return kadre key, or [Key.Unknown] if the code is not in the table.
      */
     fun fromVkCode(vkCode: Int): Key = table[vkCode] ?: Key.Unknown
 }

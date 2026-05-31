@@ -1,18 +1,18 @@
-// Configuration Playwright pour le smoke E2E de hello-triangle-web.
+// Playwright configuration for the hello-triangle-web E2E smoke test.
 //
-// Sert le bundle de production JS (produit par `jsBrowserDistribution`, toolchain
-// activée par #91) via http-server, puis lance **Chrome stable** sur macOS avec
-// le GPU Metal réel.
+// Serves the JS production bundle (produced by `jsBrowserDistribution`, toolchain
+// enabled by #91) via http-server, then launches **stable Chrome** on macOS with
+// the real Metal GPU.
 //
-// ## Pourquoi seulement macOS ?
+// ## Why only macOS?
 //
-// Les runners GitHub Actions n'exposent pas tous le même backend graphique :
-// - `macos-latest` : Mac mini physique avec Metal (GPU hardware) → WebGPU réel
-// - `windows-latest` : VM Hyper-V SANS GPU passthrough → `requestAdapter()` = null,
-//   y compris avec SwiftShader Vulkan (testé toutes les combinaisons de flags,
-//   cf. PR #131). À revisiter quand des runners Windows avec GPU seront dispo.
-// - `ubuntu-latest` : pas dans le matrix — Chromium + SwiftShader sur Linux
-//   donne un rendu qui peut différer de l'impl GPU réelle des end-users.
+// GitHub Actions runners do not all expose the same graphics backend:
+// - `macos-latest`: physical Mac mini with Metal (hardware GPU) → real WebGPU
+// - `windows-latest`: Hyper-V VM WITHOUT GPU passthrough → `requestAdapter()` = null,
+//   including with SwiftShader Vulkan (tested all flag combinations,
+//   cf. PR #131). Revisit when Windows runners with GPU become available.
+// - `ubuntu-latest`: not in the matrix — Chromium + SwiftShader on Linux
+//   gives a rendering that may differ from the real GPU impl of end-users.
 const { defineConfig } = require('@playwright/test');
 
 const DIST = '../build/dist/js/productionExecutable';
@@ -24,11 +24,11 @@ module.exports = defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:8080',
     headless: true,
-    // Chrome stable (canal release) installé par Playwright via `npx playwright
-    // install chrome`. Le GPU Metal du runner macOS est utilisé pour WebGPU réel.
+    // Stable Chrome (release channel) installed by Playwright via `npx playwright
+    // install chrome`. The macOS runner's Metal GPU is used for real WebGPU.
     channel: 'chrome',
     launchOptions: {
-      // Requis pour exposer un adapter WebGPU en mode headless (policy Chrome).
+      // Required to expose a WebGPU adapter in headless mode (Chrome policy).
       args: ['--enable-unsafe-webgpu'],
     },
   },

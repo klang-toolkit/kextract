@@ -12,14 +12,14 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * Tests de compilation pour AppKitWindow (GRA-126).
+ * Compilation tests for AppKitWindow (GRA-126).
  *
- * Aucun test d'exécution réel : la création d'une NSWindow nécessite
- * le thread principal macOS et l'environnement AppKit, validé par
- * l'application de démonstration M1.
+ * No real runtime test: creating an NSWindow requires the macOS main
+ * thread and the AppKit environment, validated by the M1 demo
+ * application.
  *
- * Ces tests vérifient uniquement que les types et signatures compilent
- * correctement et satisfont les contrats d'interface.
+ * These tests only verify that the types and signatures compile
+ * correctly and satisfy the interface contracts.
  */
 class AppKitWindowTest {
 
@@ -37,7 +37,7 @@ class AppKitWindowTest {
 
     @Test
     fun `RawWindowHandle AppKit contient nsView et nsWindow en Long`() {
-        // Vérifie que RawWindowHandle.AppKit compile avec les bons types (Long)
+        // Verify that RawWindowHandle.AppKit compiles with the right types (Long)
         val handle = RawWindowHandle.AppKit(nsView = 0L, nsWindow = 0L)
         assertTrue(handle.nsView == 0L)
         assertTrue(handle.nsWindow == 0L)
@@ -81,8 +81,8 @@ class AppKitWindowTest {
 
     @Test
     fun `AppKitWindow herite bien de NSWindow et NSView via bindings`() {
-        // Vérifie que les classes de binding utilisées dans AppKitWindow existent
-        // et sont instanciables via constructeur(MemorySegment).
+        // Verify that the binding classes used in AppKitWindow exist
+        // and are instantiable via constructor(MemorySegment).
         val nsWindowCtor = NSWindow::class.java.constructors.firstOrNull { it.parameterCount == 1 }
         assertTrue(nsWindowCtor != null, "NSWindow doit avoir un constructeur(MemorySegment)")
 

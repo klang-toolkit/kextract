@@ -1,19 +1,19 @@
 /**
- * Implémentation Kotlin de `NSWindowDelegate` via subclassing ObjC runtime.
+ * Kotlin implementation of `NSWindowDelegate` via ObjC runtime subclassing.
  *
- * Utilise les upcall stubs de Panama FFM pour exposer des fonctions statiques
- * Kotlin (`@JvmStatic`) comme implémentations de méthodes Objective-C.
+ * Uses Panama FFM upcall stubs to expose Kotlin static functions
+ * (`@JvmStatic`) as Objective-C method implementations.
  *
- * Stratégie de dispatch : la classe ObjC `KadreWindowDelegateNative` n'embarque pas
- * de pointeur vers le delegate Kotlin. À la place, on indexe les instances dans
- * une [java.util.concurrent.ConcurrentHashMap] globale dont la clé est l'adresse
- * mémoire (`MemorySegment.address()`) du `self` ObjC. Le premier argument de
- * tout upcall ObjC étant `self`, cela suffit à retrouver l'instance Kotlin
- * cible lors d'un callback natif.
+ * Dispatch strategy: the ObjC class `KadreWindowDelegateNative` does not embed
+ * a pointer to the Kotlin delegate. Instead, instances are indexed in a
+ * global [java.util.concurrent.ConcurrentHashMap] keyed by the memory
+ * address (`MemorySegment.address()`) of the ObjC `self`. Since the first
+ * argument of any ObjC upcall is `self`, this is enough to retrieve the
+ * target Kotlin instance during a native callback.
  *
- * GRA-127 : dispatch de WindowEvent.CloseRequested vers ApplicationHandler.
- * GRA-132 : dispatch de WindowEvent.Resized + mise à jour CAMetalLayer.drawableSize.
- * GRA-133 : dispatch de WindowEvent.ScaleFactorChanged + mise à jour CAMetalLayer.contentsScale.
+ * GRA-127: dispatch of WindowEvent.CloseRequested to ApplicationHandler.
+ * GRA-132: dispatch of WindowEvent.Resized + update of CAMetalLayer.drawableSize.
+ * GRA-133: dispatch of WindowEvent.ScaleFactorChanged + update of CAMetalLayer.contentsScale.
  */
 package org.graphiks.kadre.appkit
 
@@ -35,19 +35,19 @@ import java.lang.invoke.MethodType
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Delegate de fenêtre macOS implémentant `NSWindowDelegate` via FFM.
+ * macOS window delegate implementing `NSWindowDelegate` via FFM.
  *
- * Intercepte `windowShouldClose:` pour dispatcher [WindowEvent.CloseRequested],
- * `windowDidResize:` pour dispatcher [WindowEvent.Resized], et
- * `windowDidChangeBackingProperties:` pour dispatcher [WindowEvent.ScaleFactorChanged]
- * vers l'[ApplicationHandler]. Met également à jour les propriétés CAMetalLayer
- * (`drawableSize`, `contentsScale`) lors de chaque changement.
+ * Intercepts `windowShouldClose:` to dispatch [WindowEvent.CloseRequested],
+ * `windowDidResize:` to dispatch [WindowEvent.Resized], and
+ * `windowDidChangeBackingProperties:` to dispatch [WindowEvent.ScaleFactorChanged]
+ * to the [ApplicationHandler]. Also updates the CAMetalLayer properties
+ * (`drawableSize`, `contentsScale`) on each change.
  *
- * @param handler        Gestionnaire d'application recevant les événements.
- * @param eventLoop      Boucle d'événements active au moment de la création du delegate.
- * @param windowId       Identifiant de la fenêtre surveillée.
- * @param nsWindowPtr    Pointeur natif vers la NSWindow associée.
- * @param metalLayerPtr  Pointeur natif vers le CAMetalLayer de la fenêtre.
+ * @param handler        Application handler receiving the events.
+ * @param eventLoop      Active event loop at the time the delegate is created.
+ * @param windowId       Identifier of the watched window.
+ * @param nsWindowPtr    Native pointer to the associated NSWindow.
+ * @param metalLayerPtr  Native pointer to the window's CAMetalLayer.
  */
 class KadreWindowDelegate(
     private val handler: ApplicationHandler,
@@ -57,7 +57,7 @@ class KadreWindowDelegate(
     private val metalLayerPtr: MemorySegment,
     private val windows: ConcurrentHashMap<Long, AppKitWindow>,
 ) {
-    /** Pointeur vers l'objet Objective-C wrappé par ce délégué. */
+    /** Pointer to the Objective-C object wrapped by this delegate. */
     val ptr: MemorySegment
 
     init {
@@ -79,12 +79,12 @@ class KadreWindowDelegate(
     }
 
     /**
-     * Callback Kotlin pour `windowShouldClose:`.
+     * Kotlin callback for `windowShouldClose:`.
      *
-     * Dispatche [WindowEvent.CloseRequested] vers le gestionnaire. Si [eventLoop.exit]
-     * a été appelé durant le callback, déclenche `[NSApp terminate:nil]` pour
-     * arrêter la boucle AppKit. Retourne `0` (BOOL NO) — la fermeture reste sous
-     * contrôle de l'application.
+     * Dispatches [WindowEvent.CloseRequested] to the handler. If [eventLoop.exit]
+     * was called during the callback, triggers `[NSApp terminate:nil]` to
+     * stop the AppKit loop. Returns `0` (BOOL NO) — closing remains under
+     * the application's control.
      */
     fun onWindowShouldClose(): Byte {
         handler.windowEvent(eventLoop, windowId, WindowEvent.CloseRequested)
@@ -97,40 +97,40 @@ class KadreWindowDelegate(
             ) as MemorySegment
             ObjCRuntime.msgSend(null, nsApp, ObjCRuntime.sel("terminate:"), MemorySegment.NULL)
         }
-        return 0 // NO — l'application contrôle la fermeture via exit()
+        return 0 // NO — the application controls closing via exit()
     }
 
     /**
-     * Callback Kotlin pour `windowWillClose:`.
+     * Kotlin callback for `windowWillClose:`.
      *
-     * Supprime cette fenêtre de la map [windows] lorsque la NSWindow est sur le
-     * point d'être fermée, garantissant qu'aucun événement ultérieur (redraw,
-     * aboutToWait) ne cible une fenêtre déjà détruite.
+     * Removes this window from the [windows] map when the NSWindow is about
+     * to be closed, guaranteeing that no subsequent event (redraw,
+     * aboutToWait) targets an already-destroyed window.
      */
     fun onWindowWillClose() {
         windows.remove(windowId.value)
     }
 
     /**
-     * Callback Kotlin pour `windowDidResize:`.
+     * Kotlin callback for `windowDidResize:`.
      *
-     * Calcule la nouvelle taille physique en pixels :
+     * Computes the new physical size in pixels:
      *   physW = contentLayoutRect.width × backingScaleFactor
      *   physH = contentLayoutRect.height × backingScaleFactor
      *
-     * Dispatche [WindowEvent.Resized] vers le gestionnaire puis met à jour
-     * `CAMetalLayer.drawableSize` pour que la surface Metal suive le resize.
+     * Dispatches [WindowEvent.Resized] to the handler then updates
+     * `CAMetalLayer.drawableSize` so the Metal surface follows the resize.
      *
-     * Note : contentLayoutRect est lu via l'introspection ADDRESS layout (MemorySegment
-     * traité comme pointer-or-sret selon la plateforme) puis reinterpret(32) pour
-     * accéder aux quatre CGFloat {x, y, width, height}.
+     * Note: contentLayoutRect is read via ADDRESS layout introspection (MemorySegment
+     * treated as pointer-or-sret depending on the platform) then reinterpret(32) to
+     * access the four CGFloats {x, y, width, height}.
      */
     fun onWindowDidResize() {
         val nsWindow = NSWindow(nsWindowPtr)
         val scale = nsWindow.backingScaleFactor()
 
         // contentLayoutRect → NSRect (MemorySegment) → {x, y, width, height}
-        // reinterpret(32) = 4 × 8 bytes pour lire les doubles
+        // reinterpret(32) = 4 × 8 bytes to read the doubles
         val rect = nsWindow.contentLayoutRect().reinterpret(32)
         val w = rect.getAtIndex(ValueLayout.JAVA_DOUBLE, 2)
         val h = rect.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
@@ -141,17 +141,17 @@ class KadreWindowDelegate(
         val newSize = PhysicalSize(physW, physH)
         handler.windowEvent(eventLoop, windowId, WindowEvent.Resized(newSize))
 
-        // Mise à jour du drawableSize du CAMetalLayer pour suivre la nouvelle taille
-        // CGSize = {width: Double, height: Double} passé par valeur (HFA ARM64)
+        // Update the CAMetalLayer drawableSize to follow the new size
+        // CGSize = {width: Double, height: Double} passed by value (HFA ARM64)
         setMetalLayerDrawableSize(physW.toDouble(), physH.toDouble())
     }
 
     /**
-     * Met à jour `CAMetalLayer.drawableSize` via un appel ObjC typé struct.
+     * Updates `CAMetalLayer.drawableSize` via a struct-typed ObjC call.
      *
-     * CGSize (= {CGFloat, CGFloat}) est un HFA de 2 doubles sur ARM64 — il doit être
-     * passé par valeur via un [MemoryLayout.structLayout] pour que Panama utilise les
-     * registres SIMD v0/v1 conformément à l'ABI AArch64.
+     * CGSize (= {CGFloat, CGFloat}) is a 2-double HFA on ARM64 — it must be
+     * passed by value via a [MemoryLayout.structLayout] so that Panama uses the
+     * v0/v1 SIMD registers in accordance with the AArch64 ABI.
      */
     private fun setMetalLayerDrawableSize(width: Double, height: Double) {
         val cgSizeLayout = MemoryLayout.structLayout(
@@ -175,20 +175,20 @@ class KadreWindowDelegate(
     }
 
     /**
-     * Callback Kotlin pour `windowDidChangeBackingProperties:`.
+     * Kotlin callback for `windowDidChangeBackingProperties:`.
      *
-     * Déclenché quand la fenêtre est déplacée entre un écran Retina et un écran standard.
+     * Triggered when the window is moved between a Retina screen and a standard screen.
      *
-     * 1. Lit le nouveau `backingScaleFactor`
-     * 2. Met à jour `CAMetalLayer.contentsScale`
-     * 3. Dispatche [WindowEvent.ScaleFactorChanged]
-     * 4. Dispatche ensuite [WindowEvent.Resized] car la drawableSize change en pixels
+     * 1. Reads the new `backingScaleFactor`
+     * 2. Updates `CAMetalLayer.contentsScale`
+     * 3. Dispatches [WindowEvent.ScaleFactorChanged]
+     * 4. Then dispatches [WindowEvent.Resized] because the drawableSize changes in pixels
      */
     fun onWindowDidChangeBackingProperties() {
         val nsWindow = NSWindow(nsWindowPtr)
         val newScale = nsWindow.backingScaleFactor()
 
-        // 1. Mettre à jour contentsScale du CAMetalLayer
+        // 1. Update the CAMetalLayer contentsScale
         ObjCRuntime.msgSend(
             null,
             metalLayerPtr,
@@ -196,10 +196,10 @@ class KadreWindowDelegate(
             newScale,
         )
 
-        // 2. Dispatcher ScaleFactorChanged
+        // 2. Dispatch ScaleFactorChanged
         handler.windowEvent(eventLoop, windowId, WindowEvent.ScaleFactorChanged(newScale))
 
-        // 3. Dispatcher Resized consécutif : le drawableSize en pixels change avec le scale
+        // 3. Dispatch a subsequent Resized: the drawableSize in pixels changes with the scale
         val rect = nsWindow.contentLayoutRect().reinterpret(32)
         val w = rect.getAtIndex(ValueLayout.JAVA_DOUBLE, 2)
         val h = rect.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
@@ -211,7 +211,7 @@ class KadreWindowDelegate(
     }
 
     companion object {
-        /** Table globale : adresse mémoire ObjC → delegate Kotlin associé. */
+        /** Global table: ObjC memory address → associated Kotlin delegate. */
         private val delegateTable = ConcurrentHashMap<Long, KadreWindowDelegate>()
 
         @Volatile
@@ -229,7 +229,7 @@ class KadreWindowDelegate(
             ObjCSubclassing.addProtocol(cls, "NSWindowDelegate")
 
             // BOOL windowShouldClose(id self, SEL _cmd, id sender)
-            // Encoding : "c@:@" — BOOL est signed char (c) sur macOS 64-bit ARM
+            // Encoding: "c@:@" — BOOL is signed char (c) on macOS 64-bit ARM
             val windowShouldCloseHandle = lookup.findStatic(
                 Callbacks::class.java,
                 "windowShouldClose",
@@ -345,11 +345,11 @@ class KadreWindowDelegate(
     }
 
     /**
-     * Trampolines `@JvmStatic` invoqués par les upcall stubs Panama.
+     * `@JvmStatic` trampolines invoked by the Panama upcall stubs.
      *
-     * Les méthodes statiques sont indispensables : `Linker.upcallStub` ne sait
-     * pas lier de méthodes d'instance car le `self` ObjC est passé en premier
-     * argument, pas via le receiver Java.
+     * The static methods are essential: `Linker.upcallStub` cannot bind
+     * instance methods because the ObjC `self` is passed as the first
+     * argument, not via the Java receiver.
      */
     object Callbacks {
         @JvmStatic
@@ -358,8 +358,8 @@ class KadreWindowDelegate(
             @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
             @Suppress("UNUSED_PARAMETER") sender: MemorySegment,
         ): Byte {
-            // Si aucun delegate Kotlin n'est enregistré pour ce self, retourner YES (1)
-            // pour permettre la fermeture par défaut.
+            // If no Kotlin delegate is registered for this self, return YES (1)
+            // to allow the default close behavior.
             return delegateTable[self.address()]?.onWindowShouldClose() ?: 1
         }
 

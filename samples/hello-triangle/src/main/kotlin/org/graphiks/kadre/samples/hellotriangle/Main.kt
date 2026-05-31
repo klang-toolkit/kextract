@@ -1,16 +1,16 @@
 /**
- * Sample hello-triangle — rendu d'un triangle coloré via wgpu4k (GRA-138 + GRA-139).
+ * Sample hello-triangle — colored triangle rendering via wgpu4k (GRA-138 + GRA-139).
  *
- * Ouvre une fenêtre Kadre et affiche un triangle RGB animé en continu :
+ * Opens a Kadre window and displays a continuously animated RGB triangle:
  *   Instance → Surface → Adapter → Device → Pipeline → render loop.
  *
- * Chaque [WindowEvent.RedrawRequested] déclenche une frame :
+ * Each [WindowEvent.RedrawRequested] triggers a frame:
  *   getCurrentTexture → createView → commandEncoder → renderPass (draw 3 vertices) → submit → present.
  *
- * [WindowEvent.Resized] et [WindowEvent.ScaleFactorChanged] déclenchent une reconfiguration
- * de la surface (nouveau swap chain) via [HelloTriangleApp.handleResize] (GRA-139).
+ * [WindowEvent.Resized] and [WindowEvent.ScaleFactorChanged] trigger a surface
+ * reconfiguration (new swap chain) via [HelloTriangleApp.handleResize] (GRA-139).
  *
- * Usage : ./gradlew :samples:hello-triangle:run
+ * Usage: ./gradlew :samples:hello-triangle:run
  */
 package org.graphiks.kadre.samples.hellotriangle
 
@@ -56,7 +56,7 @@ import java.lang.foreign.ValueLayout
 import kotlinx.coroutines.runBlocking
 
 // ---------------------------------------------------------------------------
-// WGSL shaders — triangle RGB à positions codées en dur
+// WGSL shaders — RGB triangle with hardcoded positions
 // ---------------------------------------------------------------------------
 
 internal val TRIANGLE_WGSL = """
@@ -94,24 +94,24 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 // ---------------------------------------------------------------------------
 
 /**
- * Gestionnaire du sample hello-triangle (GRA-138 + GRA-139).
+ * Handler for the hello-triangle sample (GRA-138 + GRA-139).
  *
- * Maintient les ressources wgpu4k entre les frames :
- * - [surface] : surface de rendu liée au CAMetalLayer
- * - [gpuDevice] : device GPU
- * - [pipeline] : pipeline de rendu (vertex + fragment shaders)
- * - [window] : fenêtre Kadre pour `requestRedraw()`
- * - [surfaceFormat] : format de texture négocié à la configuration
- * - [surfaceAlphaMode] : mode alpha utilisé pour la reconfiguration sur resize
+ * Maintains the wgpu4k resources across frames:
+ * - [surface]: render surface bound to the CAMetalLayer
+ * - [gpuDevice]: GPU device
+ * - [pipeline]: render pipeline (vertex + fragment shaders)
+ * - [window]: Kadre window for `requestRedraw()`
+ * - [surfaceFormat]: texture format negotiated at configuration
+ * - [surfaceAlphaMode]: alpha mode used for reconfiguration on resize
  *
- * Le rendu est déclenché à chaque [WindowEvent.RedrawRequested].
- * [aboutToWait] appelle [Window.requestRedraw] pour un rendu continu (~60 fps).
- * [WindowEvent.Resized] et [WindowEvent.ScaleFactorChanged] déclenchent [handleResize].
+ * Rendering is triggered on each [WindowEvent.RedrawRequested].
+ * [aboutToWait] calls [Window.requestRedraw] for continuous rendering (~60 fps).
+ * [WindowEvent.Resized] and [WindowEvent.ScaleFactorChanged] trigger [handleResize].
  */
 @OptIn(WGPULowLevelApi::class)
 class HelloTriangleApp : ApplicationHandler {
 
-    // Ressources wgpu4k (initialisées dans canCreateSurfaces)
+    // wgpu4k resources (initialized in canCreateSurfaces)
     private var wgpu: WGPU? = null
     private var surface: NativeSurface? = null
     private var gpuDevice: GPUDevice? = null
@@ -120,30 +120,30 @@ class HelloTriangleApp : ApplicationHandler {
     private var surfaceFormat: GPUTextureFormat = GPUTextureFormat.BGRA8Unorm
     private var surfaceAlphaMode: CompositeAlphaMode = CompositeAlphaMode.Auto
 
-    // Compteur FPS
+    // FPS counter
     private var frameCount = 0
     private var fpsWindowStart = System.currentTimeMillis()
 
     // ---------------------------------------------------------------------------
-    // Initialisation
+    // Initialization
     // ---------------------------------------------------------------------------
 
     /**
-     * Appelé dès qu'AppKit autorise la création de surfaces de rendu.
+     * Called as soon as AppKit allows render surface creation.
      *
-     * Séquence :
-     * 1. Création de la fenêtre
-     * 2. Récupération du CAMetalLayer depuis le NSView
+     * Sequence:
+     * 1. Window creation
+     * 2. Retrieval of the CAMetalLayer from the NSView
      * 3. WGPU Instance (Metal backend)
-     * 4. Surface depuis le CAMetalLayer
+     * 4. Surface from the CAMetalLayer
      * 5. Adapter + Device
-     * 6. Configuration de la Surface
-     * 7. Shader module + Pipeline de rendu
+     * 6. Surface configuration
+     * 7. Shader module + render pipeline
      */
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
         println("[hello-triangle] canCreateSurfaces — initialisation wgpu4k + pipeline")
 
-        // 1. Fenêtre Kadre
+        // 1. Kadre window
         val win = eventLoop.createWindow(
             WindowAttributes(
                 title = "Hello Triangle — Kadre + wgpu4k",
@@ -155,7 +155,7 @@ class HelloTriangleApp : ApplicationHandler {
         window = win
         println("[hello-triangle] Fenêtre créée — windowId=${win.id.value}")
 
-        // 2. CAMetalLayer depuis le NSView
+        // 2. CAMetalLayer from the NSView
         val handle = win.rawWindowHandle
         if (handle !is RawWindowHandle.AppKit) {
             println("[hello-triangle] Plateforme non supportée : $handle")
@@ -164,13 +164,13 @@ class HelloTriangleApp : ApplicationHandler {
         println("[hello-triangle] RawWindowHandle.AppKit — nsView=0x%x  nsWindow=0x%x"
             .format(handle.nsView, handle.nsWindow))
 
-        // Utiliser nsLayer directement (exposé par AppKitWindow) plutôt que [nsView layer],
-        // qui peut retourner la CALayer générique d'AppKit si l'ordre setLayer/setWantsLayer
-        // était incorrect. nsLayer = metalLayerPtr.address() depuis AppKitWindow.
+        // Use nsLayer directly (exposed by AppKitWindow) rather than [nsView layer],
+        // which may return AppKit's generic CALayer if the setLayer/setWantsLayer order
+        // was incorrect. nsLayer = metalLayerPtr.address() from AppKitWindow.
         val metalLayerAddr = if (handle.nsLayer != 0L) {
             handle.nsLayer
         } else {
-            // Fallback : obtenir via [nsView layer] (chemin legacy)
+            // Fallback: obtain via [nsView layer] (legacy path)
             getMetalLayerFromNsView(handle.nsView)
         }
         if (metalLayerAddr == 0L) {
@@ -191,7 +191,7 @@ class HelloTriangleApp : ApplicationHandler {
         wgpu = wgpuInstance
         println("[hello-triangle] WGPU Instance créée")
 
-        // 4. Surface depuis le CAMetalLayer
+        // 4. Surface from the CAMetalLayer
         val metalLayerNativeAddr = JvmNativeAddress(MemorySegment.ofAddress(metalLayerAddr))
         val surf: NativeSurface = wgpuInstance.getSurfaceFromMetalLayer(metalLayerNativeAddr)
             ?: run {
@@ -228,7 +228,7 @@ class HelloTriangleApp : ApplicationHandler {
         gpuDevice = device
         println("[hello-triangle] Device créé")
 
-        // 7a. Configuration de la Surface
+        // 7a. Surface configuration
         val format = surf.supportedFormats
             .firstOrNull { it == GPUTextureFormat.BGRA8Unorm }
             ?: surf.supportedFormats.firstOrNull()
@@ -256,7 +256,7 @@ class HelloTriangleApp : ApplicationHandler {
         val shaderModule = device.createShaderModule(ShaderModuleDescriptor(code = TRIANGLE_WGSL))
         println("[hello-triangle] Shader module créé")
 
-        // 7c. Pipeline de rendu
+        // 7c. Render pipeline
         val renderPipeline = device.createRenderPipeline(
             RenderPipelineDescriptor(
                 vertex = VertexState(module = shaderModule, entryPoint = "vs_main"),
@@ -271,7 +271,7 @@ class HelloTriangleApp : ApplicationHandler {
         pipeline = renderPipeline
         println("[hello-triangle] Pipeline de rendu créé — prêt à dessiner (GRA-138)")
 
-        // Libérer le shader module (il n'est plus nécessaire après la création du pipeline)
+        // Release the shader module (no longer needed after pipeline creation)
         shaderModule.close()
         adapter.close()
 
@@ -279,25 +279,25 @@ class HelloTriangleApp : ApplicationHandler {
     }
 
     // ---------------------------------------------------------------------------
-    // Boucle de rendu
+    // Render loop
     // ---------------------------------------------------------------------------
 
     /**
-     * Appelé lorsque la boucle d'événements est sur le point de se mettre en attente.
+     * Called when the event loop is about to go into a wait state.
      *
-     * Demande un redraw continu pour maintenir ~60 fps.
+     * Requests a continuous redraw to maintain ~60 fps.
      */
     override fun aboutToWait(eventLoop: ActiveEventLoop) {
         window?.requestRedraw()
     }
 
     /**
-     * Événements fenêtre.
+     * Window events.
      *
-     * - [WindowEvent.RedrawRequested] : rend une frame triangle RGB
-     * - [WindowEvent.Resized] : reconfigure la surface avec la nouvelle taille physique (GRA-139)
-     * - [WindowEvent.ScaleFactorChanged] : reconfigure la surface depuis innerSize (GRA-139)
-     * - [WindowEvent.CloseRequested] : libère les ressources et quitte
+     * - [WindowEvent.RedrawRequested]: renders an RGB triangle frame
+     * - [WindowEvent.Resized]: reconfigures the surface with the new physical size (GRA-139)
+     * - [WindowEvent.ScaleFactorChanged]: reconfigures the surface from innerSize (GRA-139)
+     * - [WindowEvent.CloseRequested]: releases resources and exits
      */
     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
         when (event) {
@@ -307,7 +307,7 @@ class HelloTriangleApp : ApplicationHandler {
                 handleResize(event.size.width, event.size.height)
             }
             is WindowEvent.ScaleFactorChanged -> {
-                // Reconfigure à partir de la taille physique actuelle de la fenêtre
+                // Reconfigure from the window's current physical size
                 val win = window ?: return
                 val inner = win.innerSize
                 println("[hello-triangle] ScaleFactorChanged scaleFactor=${event.factor} → reconfigure ${inner.width}×${inner.height}")
@@ -318,18 +318,18 @@ class HelloTriangleApp : ApplicationHandler {
                 releaseResources()
                 eventLoop.exit()
             }
-            else -> { /* ignorer */ }
+            else -> { /* ignore */ }
         }
     }
 
     /**
-     * Reconfigure la surface WebGPU avec la nouvelle taille en pixels physiques.
+     * Reconfigures the WebGPU surface with the new size in physical pixels.
      *
-     * Appelé sur [WindowEvent.Resized] et [WindowEvent.ScaleFactorChanged].
-     * Gère silencieusement les cas où les ressources wgpu ne sont pas encore initialisées.
+     * Called on [WindowEvent.Resized] and [WindowEvent.ScaleFactorChanged].
+     * Silently handles cases where the wgpu resources are not yet initialized.
      *
-     * @param width  Nouvelle largeur en pixels physiques.
-     * @param height Nouvelle hauteur en pixels physiques.
+     * @param width  New width in physical pixels.
+     * @param height New height in physical pixels.
      */
     private fun handleResize(width: Int, height: Int) {
         val surf = surface ?: return
@@ -350,39 +350,39 @@ class HelloTriangleApp : ApplicationHandler {
     }
 
     /**
-     * Rendu d'une frame.
+     * Renders a frame.
      *
-     * Séquence standard WebGPU :
-     * 1. `getCurrentTexture()` → vérification du statut
-     * 2. `createView()` → vue de la texture de présentation
-     * 3. `createCommandEncoder()` → encodeur de commandes
-     * 4. `beginRenderPass(...)` → passe de rendu (clear noir + draw 3 vertices)
-     * 5. `end()` → fin de la passe
+     * Standard WebGPU sequence:
+     * 1. `getCurrentTexture()` → status check
+     * 2. `createView()` → view of the presentation texture
+     * 3. `createCommandEncoder()` → command encoder
+     * 4. `beginRenderPass(...)` → render pass (black clear + draw 3 vertices)
+     * 5. `end()` → end of the pass
      * 6. `finish()` → command buffer
-     * 7. `queue.submit(...)` → soumission au GPU
-     * 8. `present()` → affichage
+     * 7. `queue.submit(...)` → submission to the GPU
+     * 8. `present()` → display
      */
     private fun renderFrame() {
         val surf = surface ?: return
         val device = gpuDevice ?: return
         val pipe = pipeline ?: return
 
-        // 1. Texture de présentation
+        // 1. Presentation texture
         //
-        // NOTE — Compatibilité wgpu-native 0.25+ / wgpu4k 0.1.1 :
-        //   Ancien API :  Success(0) Timeout(1)     Outdated(2) Lost(3) OutOfMemory(4) DeviceLost(5)
-        //   Nouveau API : SuccessOptimal(0) SuccessSuboptimal(1) Timeout(2) Outdated(3) ...
+        // NOTE — wgpu-native 0.25+ / wgpu4k 0.1.1 compatibility:
+        //   Old API:  Success(0) Timeout(1)     Outdated(2) Lost(3) OutOfMemory(4) DeviceLost(5)
+        //   New API:  SuccessOptimal(0) SuccessSuboptimal(1) Timeout(2) Outdated(3) ...
         //
-        //   wgpu4k 0.1.1 mappe les valeurs brutes de l'ancien API :
-        //     rawStatus=0 → success    (SuccessOptimal   → rendu OK)
-        //     rawStatus=1 → timeout    (SuccessSuboptimal→ texture VALIDE, mais suboptimale)
-        //     rawStatus=2 → outdated   (vrai Timeout     → aucun drawable)
-        //     rawStatus=3 → lost       (Outdated         → reconfigurer)
+        //   wgpu4k 0.1.1 maps the raw values of the old API:
+        //     rawStatus=0 → success    (SuccessOptimal   → render OK)
+        //     rawStatus=1 → timeout    (SuccessSuboptimal→ VALID texture, but suboptimal)
+        //     rawStatus=2 → outdated   (real Timeout     → no drawable)
+        //     rawStatus=3 → lost       (Outdated         → reconfigure)
         //
-        //   ⇒ Traiter `timeout` (=successSuboptimal) comme `success` : la texture est valide.
+        //   ⇒ Treat `timeout` (=successSuboptimal) as `success`: the texture is valid.
         val surfaceTexture = surf.getCurrentTexture()
         when (surfaceTexture.status) {
-            // lost (3) dans wgpu4k = Outdated (3) dans nouveau API → reconfigurer la surface
+            // lost (3) in wgpu4k = Outdated (3) in the new API → reconfigure the surface
             SurfaceTextureStatus.lost -> {
                 surfaceTexture.texture.close()
                 val win = window
@@ -392,8 +392,8 @@ class HelloTriangleApp : ApplicationHandler {
                 }
                 return
             }
-            // outdated (2) dans wgpu4k = Timeout (2) dans nouveau API → aucun drawable, skip
-            // (compatible avec ancien API où outdated=2 → reconfigure)
+            // outdated (2) in wgpu4k = Timeout (2) in the new API → no drawable, skip
+            // (compatible with the old API where outdated=2 → reconfigure)
             SurfaceTextureStatus.outdated -> {
                 surfaceTexture.texture.close()
                 val win = window
@@ -403,26 +403,26 @@ class HelloTriangleApp : ApplicationHandler {
                 }
                 return
             }
-            // Erreurs terminales
+            // Terminal errors
             SurfaceTextureStatus.outOfMemory,
             SurfaceTextureStatus.deviceLost -> {
                 println("[hello-triangle] getCurrentTexture status=${surfaceTexture.status} — erreur terminale")
                 surfaceTexture.texture.close()
                 return
             }
-            // success (0) = SuccessOptimal, timeout (1) = SuccessSuboptimal → texture VALIDE
+            // success (0) = SuccessOptimal, timeout (1) = SuccessSuboptimal → VALID texture
             SurfaceTextureStatus.success,
-            SurfaceTextureStatus.timeout -> { /* continuer le rendu */ }
+            SurfaceTextureStatus.timeout -> { /* continue rendering */ }
         }
         val texture = surfaceTexture.texture
 
-        // 2. Vue de la texture
+        // 2. Texture view
         val textureView = texture.createView(null)
 
-        // 3. Encodeur de commandes
+        // 3. Command encoder
         val encoder = device.createCommandEncoder()
 
-        // 4. Passe de rendu
+        // 4. Render pass
         val renderPass = encoder.beginRenderPass(
             RenderPassDescriptor(
                 colorAttachments = listOf(
@@ -439,18 +439,18 @@ class HelloTriangleApp : ApplicationHandler {
         renderPass.draw(3u, 1u, 0u, 0u)
         renderPass.end()
 
-        // 5. Soumission
+        // 5. Submission
         val commandBuffer = encoder.finish()
         device.queue.submit(listOf(commandBuffer))
 
-        // 6. Présentation
+        // 6. Presentation
         surf.present()
 
-        // 7. Libération des ressources temporaires
+        // 7. Release of temporary resources
         textureView.close()
         encoder.close()
 
-        // Compteur FPS
+        // FPS counter
         frameCount++
         val now = System.currentTimeMillis()
         val elapsed = now - fpsWindowStart
@@ -463,11 +463,11 @@ class HelloTriangleApp : ApplicationHandler {
     }
 
     // ---------------------------------------------------------------------------
-    // Nettoyage
+    // Cleanup
     // ---------------------------------------------------------------------------
 
     /**
-     * Libère toutes les ressources wgpu4k.
+     * Releases all wgpu4k resources.
      */
     private fun releaseResources() {
         pipeline?.let { runCatching { it.close() } }
@@ -483,18 +483,18 @@ class HelloTriangleApp : ApplicationHandler {
     }
 
     // ---------------------------------------------------------------------------
-    // Utilitaire natif
+    // Native utility
     // ---------------------------------------------------------------------------
 
     /**
-     * Récupère le pointeur natif du `CAMetalLayer` attaché à un `NSView`.
+     * Retrieves the native pointer of the `CAMetalLayer` attached to an `NSView`.
      *
-     * Appel ObjC : `[nsView layer]` via Panama FFM downcall sur `objc_msgSend`.
-     * Le NSView doit déjà avoir `wantsLayer = YES` et un `CAMetalLayer` assigné
-     * (ce que [org.graphiks.kadre.appkit.AppKitWindow] garantit).
+     * ObjC call: `[nsView layer]` via a Panama FFM downcall on `objc_msgSend`.
+     * The NSView must already have `wantsLayer = YES` and an assigned `CAMetalLayer`
+     * (which [org.graphiks.kadre.appkit.AppKitWindow] guarantees).
      *
-     * @param nsViewPtr Adresse mémoire du pointeur ObjC vers le NSView.
-     * @return Adresse du CAMetalLayer, ou 0 en cas d'échec.
+     * @param nsViewPtr Memory address of the ObjC pointer to the NSView.
+     * @return Address of the CAMetalLayer, or 0 on failure.
      */
     private fun getMetalLayerFromNsView(nsViewPtr: Long): Long {
         // Reuse ObjCRuntime infrastructure — avoids duplicating sel_registerName / objc_msgSend lookup
@@ -506,18 +506,18 @@ class HelloTriangleApp : ApplicationHandler {
 }
 
 // ---------------------------------------------------------------------------
-// Point d'entrée
+// Entry point
 // ---------------------------------------------------------------------------
 
 /**
- * Point d'entrée du sample hello-triangle.
+ * Entry point of the hello-triangle sample.
  *
- * Doit être exécuté depuis le thread principal macOS (garanti par Gradle via
- * `-XstartOnFirstThread` dans [build.gradle.kts]).
+ * Must be run from the main macOS thread (guaranteed by Gradle via
+ * `-XstartOnFirstThread` in [build.gradle.kts]).
  */
 fun main(args: Array<String>) {
-    // Mode capture offscreen GPU : `--capture <path>` rend le triangle dans
-    // une texture, relit le framebuffer, écrit un PNG, puis quitte — sans ouvrir de fenêtre.
+    // Offscreen GPU capture mode: `--capture <path>` renders the triangle into
+    // a texture, reads back the framebuffer, writes a PNG, then exits — without opening a window.
     val captureIndex = args.indexOf("--capture")
     if (captureIndex >= 0) {
         val path = args.getOrNull(captureIndex + 1)

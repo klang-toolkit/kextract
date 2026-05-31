@@ -1,48 +1,48 @@
 /**
- * Types web miroir des types kadre-core.
+ * Web types mirroring the kadre-core types.
  *
- * Ces types reproduisent les modèles de kadre-core (Key, KeyState, Modifiers,
- * MouseButton, WindowEvent) pour les cibles JS et wasmJs, qui ne peuvent pas
- * encore dépendre de kadre-core (celui-ci n'expose pas encore de cibles JS).
+ * These types reproduce the kadre-core models (Key, KeyState, Modifiers,
+ * MouseButton, WindowEvent) for the JS and wasmJs targets, which cannot
+ * yet depend on kadre-core (it does not yet expose JS targets).
  *
- * ## Migration prévue
- * Quand kadre-core sera étendu avec les cibles JS/wasmJs (ticket #32),
- * ces types seront remplacés par des typealias vers kadre-core et les
- * classes Web* seront supprimées.
+ * ## Planned migration
+ * When kadre-core is extended with the JS/wasmJs targets (ticket #32),
+ * these types will be replaced with typealiases to kadre-core and the
+ * Web* classes will be removed.
  *
- * ## Contrainte
- * Fichier webMain — AUCUN import DOM autorisé.
+ * ## Constraint
+ * webMain file — NO DOM import allowed.
  *
  * @since 1.0.0
  */
 package org.graphiks.kadre.web
 
 // ---------------------------------------------------------------------------
-// Touches logiques
+// Logical keys
 // ---------------------------------------------------------------------------
 
 /**
- * Touches logiques du clavier (miroir web de kadre-core.Key).
+ * Logical keyboard keys (web mirror of kadre-core.Key).
  */
 enum class WebKey {
-    // Lettres
+    // Letters
     A, B, C, D, E, F, G, H, I, J, K, L, M,
     N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
 
-    // Chiffres
+    // Digits
     Digit0, Digit1, Digit2, Digit3, Digit4,
     Digit5, Digit6, Digit7, Digit8, Digit9,
 
-    // Touches de fonction
+    // Function keys
     F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
 
-    // Touches spéciales
+    // Special keys
     Space, Enter, Escape, Backspace, Tab,
 
     // Navigation
     ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
 
-    // Modificateurs
+    // Modifiers
     ShiftLeft, ShiftRight,
     ControlLeft, ControlRight,
     AltLeft, AltRight,
@@ -52,45 +52,45 @@ enum class WebKey {
 }
 
 // ---------------------------------------------------------------------------
-// État de touche
+// Key state
 // ---------------------------------------------------------------------------
 
-/** État d'une touche ou d'un bouton. */
+/** State of a key or a button. */
 enum class WebKeyState {
-    /** La touche vient d'être enfoncée. */
+    /** The key has just been pressed. */
     Pressed,
 
-    /** La touche vient d'être relâchée. */
+    /** The key has just been released. */
     Released,
 }
 
 // ---------------------------------------------------------------------------
-// Modificateurs
+// Modifiers
 // ---------------------------------------------------------------------------
 
 /**
- * Ensemble de modificateurs clavier actifs (miroir web de kadre-core.Modifiers).
+ * Set of active keyboard modifiers (web mirror of kadre-core.Modifiers).
  *
- * Représentation interne par champ de bits.
+ * Internal representation as a bit field.
  */
 data class WebModifiers(val bits: Int) {
 
-    /** `true` si Majuscule est enfoncée. */
+    /** `true` if Shift is pressed. */
     val shift: Boolean get() = bits and 0x1 != 0
 
-    /** `true` si Contrôle est enfoncé. */
+    /** `true` if Control is pressed. */
     val ctrl: Boolean get() = bits and 0x2 != 0
 
-    /** `true` si Alt est enfoncé. */
+    /** `true` if Alt is pressed. */
     val alt: Boolean get() = bits and 0x4 != 0
 
-    /** `true` si Meta (⌘/Win) est enfoncé. */
+    /** `true` if Meta (⌘/Win) is pressed. */
     val meta: Boolean get() = bits and 0x8 != 0
 
-    /** Combine ces modificateurs avec [other]. */
+    /** Combines these modifiers with [other]. */
     operator fun plus(other: WebModifiers): WebModifiers = WebModifiers(bits or other.bits)
 
-    /** Vérifie si cet ensemble contient tous les modificateurs de [other]. */
+    /** Checks whether this set contains all the modifiers of [other]. */
     fun contains(other: WebModifiers): Boolean = bits and other.bits == other.bits
 
     companion object {
@@ -103,10 +103,10 @@ data class WebModifiers(val bits: Int) {
 }
 
 // ---------------------------------------------------------------------------
-// Bouton de souris
+// Mouse button
 // ---------------------------------------------------------------------------
 
-/** Bouton de souris (miroir web de kadre-core.MouseButton). */
+/** Mouse button (web mirror of kadre-core.MouseButton). */
 sealed interface WebMouseButton {
     data object Left   : WebMouseButton
     data object Right  : WebMouseButton
@@ -115,34 +115,34 @@ sealed interface WebMouseButton {
 }
 
 // ---------------------------------------------------------------------------
-// Événements de fenêtre web
+// Web window events
 // ---------------------------------------------------------------------------
 
 /**
- * Événements de fenêtre émis par [WebDomBridge] (miroir web de kadre-core.WindowEvent).
+ * Window events emitted by [WebDomBridge] (web mirror of kadre-core.WindowEvent).
  *
- * Sous-ensemble des événements DOM pertinents pour un rendu web Kadre.
+ * Subset of the DOM events relevant to a Kadre web renderer.
  */
 sealed interface WebWindowEvent {
 
-    /** L'utilisateur a demandé la fermeture / navigation hors de la page. */
+    /** The user requested to close / navigate away from the page. */
     data object CloseRequested : WebWindowEvent
 
     /**
-     * La fenêtre/canvas a été redimensionnée.
+     * The window/canvas has been resized.
      *
-     * @property width  Nouvelle largeur en pixels physiques.
-     * @property height Nouvelle hauteur en pixels physiques.
+     * @property width  New width in physical pixels.
+     * @property height New height in physical pixels.
      */
     data class Resized(val width: Int, val height: Int) : WebWindowEvent
 
     /**
-     * Un événement clavier s'est produit.
+     * A keyboard event occurred.
      *
-     * @property key       Touche logique.
-     * @property state     État (appuyé / relâché).
-     * @property modifiers Modificateurs actifs.
-     * @property isRepeat  `true` si l'événement est une répétition automatique.
+     * @property key       Logical key.
+     * @property state     State (pressed / released).
+     * @property modifiers Active modifiers.
+     * @property isRepeat  `true` if the event is an auto-repeat.
      */
     data class KeyboardInput(
         val key: WebKey,
@@ -152,38 +152,38 @@ sealed interface WebWindowEvent {
     ) : WebWindowEvent
 
     /**
-     * Le pointeur s'est déplacé.
+     * The pointer has moved.
      *
-     * @property x Position X en pixels physiques.
-     * @property y Position Y en pixels physiques.
+     * @property x X position in physical pixels.
+     * @property y Y position in physical pixels.
      */
     data class PointerMoved(val x: Double, val y: Double) : WebWindowEvent
 
-    /** Le pointeur est entré dans le canvas. */
+    /** The pointer entered the canvas. */
     data object PointerEntered : WebWindowEvent
 
-    /** Le pointeur a quitté le canvas. */
+    /** The pointer left the canvas. */
     data object PointerLeft : WebWindowEvent
 
     /**
-     * Un bouton de souris a changé d'état.
+     * A mouse button changed state.
      *
-     * @property button Bouton concerné.
-     * @property state  État du bouton.
+     * @property button Button concerned.
+     * @property state  Button state.
      */
     data class MouseInput(val button: WebMouseButton, val state: WebKeyState) : WebWindowEvent
 
     /**
-     * La molette a produit un défilement.
+     * The wheel produced a scroll.
      *
-     * @property deltaX Défilement horizontal.
-     * @property deltaY Défilement vertical.
+     * @property deltaX Horizontal scroll.
+     * @property deltaY Vertical scroll.
      */
     data class MouseWheel(val deltaX: Double, val deltaY: Double) : WebWindowEvent
 
-    /** La fenêtre a gagné ou perdu le focus. */
+    /** The window gained or lost focus. */
     data class Focused(val gained: Boolean) : WebWindowEvent
 
-    /** Un redessin est demandé (requestAnimationFrame). */
+    /** A redraw is requested (requestAnimationFrame). */
     data object RedrawRequested : WebWindowEvent
 }

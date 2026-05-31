@@ -14,8 +14,8 @@ class CaptureTest {
         val img = captureTriangle()
         assertTrue("dimensions", img.width == CAPTURE_WIDTH && img.height == CAPTURE_HEIGHT)
 
-        // Encode la capture en PNG via TestStorage : le runner la rapatrie sur l'hôte,
-        // où la CI l'upload en artefact.
+        // Encode the capture as PNG via TestStorage: the runner pulls it back to the host,
+        // where CI uploads it as an artifact.
         writePng(img)
 
         var nonBlack = 0; var red = 0; var green = 0; var blue = 0
@@ -45,8 +45,8 @@ class CaptureTest {
         val bitmap = Bitmap.createBitmap(img.width, img.height, Bitmap.Config.ARGB_8888)
         bitmap.setPixels(pixels, 0, img.width, 0, 0, img.width, img.height)
 
-        // Écrit via TestStorage : le runner rapatrie le fichier sur l'hôte (sous
-        // build/outputs/.../additional_output), contournant le scoped storage.
+        // Written via TestStorage: the runner pulls the file back to the host (under
+        // build/outputs/.../additional_output), bypassing scoped storage.
         val storage = PlatformTestStorageRegistry.getInstance()
         storage.openOutputFile("hello-triangle-android.png").use {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)

@@ -3,11 +3,11 @@ package org.graphiks.kadre.uikit
 import org.graphiks.kadre.core.*
 
 /**
- * ActiveEventLoop UIKit — proxy léger vers ApplicationHandler.
+ * UIKit ActiveEventLoop — lightweight proxy to ApplicationHandler.
  *
- * Sur iOS, UIKit possède la boucle d'événements (UIApplicationMain).
- * Cette implémentation expose le contrat ActiveEventLoop aux callbacks
- * de KadreAppDelegate sans dupliquer la boucle.
+ * On iOS, UIKit owns the event loop (UIApplicationMain).
+ * This implementation exposes the ActiveEventLoop contract to the
+ * KadreAppDelegate callbacks without duplicating the loop.
  */
 internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : ActiveEventLoop {
 

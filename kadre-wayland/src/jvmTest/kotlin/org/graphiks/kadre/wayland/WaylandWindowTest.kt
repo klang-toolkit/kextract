@@ -1,9 +1,9 @@
 /**
- * Tests de fumée pour [WaylandWindow].
+ * Smoke tests for [WaylandWindow].
  *
- * Ces tests vérifient que [WaylandWindow] peut être construit avec des pointeurs
- * mock sans provoquer de crash, et que les handles retournés sont corrects.
- * Ils s'exécutent sur toutes les plateformes (macOS, Windows, Linux) sans nécessiter
+ * These tests verify that [WaylandWindow] can be constructed with mock
+ * pointers without causing a crash, and that the returned handles are correct.
+ * They run on all platforms (macOS, Windows, Linux) without requiring
  * libwayland-client.so.0.
  */
 package org.graphiks.kadre.wayland

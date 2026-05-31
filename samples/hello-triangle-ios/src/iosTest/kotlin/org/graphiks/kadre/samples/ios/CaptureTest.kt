@@ -6,11 +6,11 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * Capture GPU offscreen iOS — best-effort.
+ * iOS offscreen GPU capture — best-effort.
  *
- * Le simulateur iOS headless (CI / harnais de test K/N) n'expose PAS de device Metal
- * (MTLCreateSystemDefaultDevice == null) : le test se saute alors proprement. Sur un
- * device réel (ou un simulateur avec Metal), il rend le triangle et vérifie sa présence.
+ * The headless iOS simulator (CI / K/N test harness) does NOT expose a Metal device
+ * (MTLCreateSystemDefaultDevice == null): the test then skips cleanly. On a
+ * real device (or a simulator with Metal), it renders the triangle and verifies its presence.
  */
 class CaptureTest {
     @Test

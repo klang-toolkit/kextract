@@ -1,15 +1,15 @@
-// Test E2E scénarisé Pong (Web)suivi #88.
+// Scripted Pong E2E test (Web), follow-up #88.
 //
-// VALEUR AJOUTÉE vs `hello-triangle-web` :
-//   - Scripte une séquence d'inputs clavier (ArrowDown / ArrowUp / release)
-//   - Capture plusieurs frames à des instants distincts
-//   - Vérifie que des frames consécutives **diffèrent** (animation effective)
-//   - Vérifie que les events clavier remontent jusqu'au handler Kadre
-//     (log `[pong-web] key X Pressed/Released` émis par PongAppWeb)
-//   - Vidéo .webm + trace Playwright systématiquement archivées
+// ADDED VALUE vs `hello-triangle-web`:
+//   - Scripts a sequence of keyboard inputs (ArrowDown / ArrowUp / release)
+//   - Captures several frames at distinct moments
+//   - Verifies that consecutive frames **differ** (effective animation)
+//   - Verifies that keyboard events reach the Kadre handler
+//     (log `[pong-web] key X Pressed/Released` emitted by PongAppWeb)
+//   - .webm video + Playwright trace systematically archived
 //
-// Cible : bundle JS de production servi par http-server (cf. playwright.config.js).
-// La cible wasmJs est ajoutée dans un suivi séparé (dépend du fix Binaryen #137).
+// Target: JS production bundle served by http-server (cf. playwright.config.js).
+// The wasmJs target is added in a separate follow-up (depends on the Binaryen fix #137).
 const fs = require('fs');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
@@ -19,11 +19,11 @@ const pixelmatch = require('pixelmatch').default || require('pixelmatch');
 const RESULTS = path.join(__dirname, '..', 'test-results');
 
 /**
- * Compare deux PNG (Buffers) et retourne la fraction de pixels qui diffèrent.
+ * Compares two PNGs (Buffers) and returns the fraction of pixels that differ.
  *
- * Utilisé pour prouver qu'une frame change entre deux instants (= animation
- * effective). Le seuil est volontairement bas (1%) — il s'agit de détecter
- * « ça bouge » et non un pixel-perfect.
+ * Used to prove that a frame changes between two moments (= effective
+ * animation). The threshold is deliberately low (1%) — the goal is to detect
+ * "it moves" and not pixel-perfect equality.
  */
 function pixelDiffRatio(pngBuf1, pngBuf2) {
   const a = PNG.sync.read(pngBuf1);
@@ -43,7 +43,7 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   page.on('pageerror', (e) => errors.push(e.message));
 
   // -------------------------------------------------------------------------
-  // 1. Boot — chargement page + initialisation wgpu4k Web
+  // 1. Boot — page load + wgpu4k Web initialization
   // -------------------------------------------------------------------------
   await page.goto('/');
   await expect(page.locator('#kadre-canvas')).toBeVisible();
@@ -51,14 +51,14 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
     .poll(() => logs.some((l) => l.includes('Pipeline prêt')), { timeout: 60_000 })
     .toBe(true);
 
-  // L'acquisition WebGPU ne doit pas avoir échoué.
+  // WebGPU acquisition must not have failed.
   const acquisitionFailure = logs.find((l) => l.includes('Échec acquisition'));
   expect(acquisitionFailure, `Échec WebGPU : ${acquisitionFailure}`).toBeUndefined();
 
-  // PongAppWeb force `setControlFlow(ControlFlow.Poll)` dans canCreateSurfaces
-  // → la boucle aboutToWait tourne en continu et anime le jeu (balle + IA)
-  // sans nécessiter d'input utilisateur. On laisse l'init se stabiliser puis
-  // on observe l'animation sur une fenêtre de 2.5s.
+  // PongAppWeb forces `setControlFlow(ControlFlow.Poll)` in canCreateSurfaces
+  // → the aboutToWait loop runs continuously and animates the game (ball + AI)
+  // without requiring user input. We let the init stabilize then
+  // observe the animation over a 2.5s window.
   await page.waitForTimeout(1_500);
 
   const frame1 = await page.locator('#kadre-canvas').screenshot();
@@ -69,11 +69,11 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   fs.writeFileSync(path.join(RESULTS, 'frame2-animation-2.5s.png'), frame2);
 
   // -------------------------------------------------------------------------
-  // 2. Assertion : animation effective (frames consécutives doivent différer)
+  // 2. Assertion: effective animation (consecutive frames must differ)
   // -------------------------------------------------------------------------
-  // Le seuil 0.3 % est calibré pour le rendu Pong réel : balle 1.8 % de l'écran
-  // + raquette IA en mouvement lent → empreinte typique 0.5–1.5 % sur 2.5 s.
-  // On garde une marge de sécurité au-dessus du bruit (~0 % entre frames stables).
+  // The 0.3% threshold is calibrated for real Pong rendering: ball 1.8% of the screen
+  // + slowly moving AI paddle → typical footprint 0.5–1.5% over 2.5s.
+  // We keep a safety margin above the noise (~0% between stable frames).
   const animationDiff = pixelDiffRatio(frame1, frame2);
   console.log(`[scenario] diff animation (2.5s) = ${(animationDiff * 100).toFixed(2)}%`);
   expect(
@@ -83,21 +83,21 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   ).toBeGreaterThan(0.003);
 
   // -------------------------------------------------------------------------
-  // 3. Inputs scriptés — focus canvas puis ArrowDown / ArrowUp
+  // 3. Scripted inputs — focus canvas then ArrowDown / ArrowUp
   // -------------------------------------------------------------------------
-  // index.html du sample fait un .focus() au load + au click. On clique pour
-  // garantir le focus avant d'envoyer des keyboard events (l'auto-focus initial
-  // peut être perdu pendant les `waitForTimeout` selon l'env headless).
+  // The sample's index.html does a .focus() on load + on click. We click to
+  // guarantee focus before sending keyboard events (the initial auto-focus
+  // may be lost during the `waitForTimeout` depending on the headless env).
   await page.locator('#kadre-canvas').click();
 
-  // ArrowDown maintenu ~1s
+  // ArrowDown held ~1s
   await page.keyboard.down('ArrowDown');
   await page.waitForTimeout(1_000);
   await page.keyboard.up('ArrowDown');
   await page.waitForTimeout(300);
 
-  // Vérifier que l'event clavier a bien remonté jusqu'au handler PongAppWeb.
-  // Le log `[pong-web] key ArrowDown Pressed` est émis par `PongAppWeb.onKey()`.
+  // Verify that the keyboard event indeed reached the PongAppWeb handler.
+  // The log `[pong-web] key ArrowDown Pressed` is emitted by `PongAppWeb.onKey()`.
   const downPressed = logs.some((l) => l.includes('key ArrowDown Pressed'));
   const downReleased = logs.some((l) => l.includes('key ArrowDown Released'));
   expect(
@@ -109,7 +109,7 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   const frame3 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame3-after-arrowdown.png'), frame3);
 
-  // ArrowUp maintenu ~1s — devrait remonter la raquette droite
+  // ArrowUp held ~1s — should move the right paddle up
   await page.keyboard.down('ArrowUp');
   await page.waitForTimeout(1_000);
   await page.keyboard.up('ArrowUp');
@@ -122,26 +122,26 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   fs.writeFileSync(path.join(RESULTS, 'frame4-after-arrowup.png'), frame4);
 
   // -------------------------------------------------------------------------
-  // 4. Assertion : le déplacement clavier a un effet visible
+  // 4. Assertion: the keyboard movement has a visible effect
   // -------------------------------------------------------------------------
-  // Entre frame3 (juste après ArrowDown) et frame4 (juste après ArrowUp),
-  // la raquette droite a forcément changé de position → pixels différents.
+  // Between frame3 (just after ArrowDown) and frame4 (just after ArrowUp),
+  // the right paddle necessarily changed position → different pixels.
   const inputDiff = pixelDiffRatio(frame3, frame4);
   console.log(`[scenario] diff après inputs clavier = ${(inputDiff * 100).toFixed(2)}%`);
-  // Seuil bas (0.15%) — l'effet typique du déplacement raquette + animation
-  // continue donne 0.3–1.0% sur cette fenêtre, on garde une marge sécurité.
+  // Low threshold (0.15%) — the typical effect of paddle movement + continuous
+  // animation gives 0.3–1.0% over this window, we keep a safety margin.
   expect(
     inputDiff,
     `Inputs clavier sans effet visible : frame3 (post-ArrowDown) ≈ frame4 (post-ArrowUp), diff ${(inputDiff * 100).toFixed(2)}%`,
   ).toBeGreaterThan(0.0015);
 
   // -------------------------------------------------------------------------
-  // 5. Aucune erreur JS pendant tout le scénario
+  // 5. No JS error during the entire scenario
   // -------------------------------------------------------------------------
   expect(errors, `Erreurs JS pendant le scénario : ${errors.join(' | ')}`).toEqual([]);
 
   // -------------------------------------------------------------------------
-  // 6. Résumé Markdown pour le Job Summary GitHub Actions
+  // 6. Markdown summary for the GitHub Actions Job Summary
   // -------------------------------------------------------------------------
   const keyLogs = logs.filter((l) => l.includes('[pong-web] key')).length;
   const summary = [

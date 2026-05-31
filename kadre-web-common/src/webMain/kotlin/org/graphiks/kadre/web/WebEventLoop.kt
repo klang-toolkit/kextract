@@ -1,30 +1,30 @@
 /**
- * Boucle d'événements Web via requestAnimationFrame.
+ * Web event loop via requestAnimationFrame.
  *
- * ## Comportement par mode [ControlFlow]
- * - [ControlFlow.Wait]      : la boucle attend un événement DOM avant de déclencher une frame.
- *                             Le prochain RAF est planifié uniquement lorsqu'un événement
- *                             arrive via [WebDomBridge.onWindowEvent].
- * - [ControlFlow.Poll]      : RAF continu — une nouvelle frame est planifiée à chaque tick.
- * - [ControlFlow.WaitUntil] : setTimeout jusqu'à l'instant cible, puis RAF unique.
+ * ## Behavior per [ControlFlow] mode
+ * - [ControlFlow.Wait]      : the loop waits for a DOM event before triggering a frame.
+ *                             The next RAF is scheduled only when an event
+ *                             arrives via [WebDomBridge.onWindowEvent].
+ * - [ControlFlow.Poll]      : continuous RAF — a new frame is scheduled on each tick.
+ * - [ControlFlow.WaitUntil] : setTimeout until the target instant, then a single RAF.
  *
- * ## Contrainte webMain
- * Ce fichier réside dans `webMain` — AUCUN import DOM n'est autorisé ici.
- * La planification effective des RAF est déléguée aux sous-classes dans
- * `jsMain` ([JsWebEventLoop]) et `wasmJsMain` ([WasmJsWebEventLoop]).
+ * ## webMain constraint
+ * This file resides in `webMain` — NO DOM import is allowed here.
+ * The actual RAF scheduling is delegated to the subclasses in
+ * `jsMain` ([JsWebEventLoop]) and `wasmJsMain` ([WasmJsWebEventLoop]).
  *
- * ## Cycle de vie
+ * ## Lifecycle
  * ```
  * runApp(handler)
  *   └─► handler.resumed(this)
  *   └─► handler.newEvents(this, StartCause.Init)
  *   └─► handler.aboutToWait(this)
- *   └─► scheduleNextFrame(handler)    ← RAF planifié
- *         └─► tick(handler)           ← rappelé par le navigateur
+ *   └─► scheduleNextFrame(handler)    ← RAF scheduled
+ *         └─► tick(handler)           ← called back by the browser
  *               ├─ handler.newEvents(...)
- *               ├─ dispatch des événements DOM accumulés
+ *               ├─ dispatch of the accumulated DOM events
  *               ├─ handler.aboutToWait(this)
- *               └─ scheduleNextFrame(handler)  ← RAF suivant (si !isExiting)
+ *               └─ scheduleNextFrame(handler)  ← next RAF (if !isExiting)
  * ```
  *
  * @since 1.0.0
@@ -41,28 +41,28 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
 
 /**
- * Boucle d'événements Web partagée entre les cibles JS et wasmJs.
+ * Web event loop shared between the JS and wasmJs targets.
  *
- * Cette classe est abstraite : les sous-classes concrètes ([JsWebEventLoop] et
- * [WasmJsWebEventLoop]) fournissent l'accès à `window.requestAnimationFrame`
- * via les API spécifiques à leur cible.
+ * This class is abstract: the concrete subclasses ([JsWebEventLoop] and
+ * [WasmJsWebEventLoop]) provide access to `window.requestAnimationFrame`
+ * via their target-specific APIs.
  *
  * ## Thread safety
- * JavaScript est mono-thread ; les appels depuis `wakeUp()` sont synchrones.
+ * JavaScript is single-threaded; the calls from `wakeUp()` are synchronous.
  */
 open class WebEventLoop : ActiveEventLoop {
 
     // -------------------------------------------------------------------------
-    // État interne
+    // Internal state
     // -------------------------------------------------------------------------
 
     private var _controlFlow: ControlFlow = ControlFlow.Wait
     private var _isExiting = false
 
-    /** Liste des fenêtres actives créées par cette boucle. */
+    /** List of active windows created by this loop. */
     private val windows = mutableListOf<WebWindow>()
 
-    /** File des événements DOM reçus entre deux frames. */
+    /** Queue of DOM events received between two frames. */
     private val pendingEvents = mutableListOf<Pair<WindowId, WebWindowEvent>>()
 
     // -------------------------------------------------------------------------
@@ -82,13 +82,13 @@ open class WebEventLoop : ActiveEventLoop {
     }
 
     /**
-     * Crée une fenêtre web depuis le contrat core [WindowAttributes].
+     * Creates a web window from the core [WindowAttributes] contract.
      *
-     * **Legacy** : utilise `attributes.title` comme `id` CSS du canvas (convention
-     * non-idiomatique, conservée pour rétro-compatibilité). Préférer la surcharge
-     * `createWindow(WebWindowAttributes)` qui expose explicitement l'id canvas
-     * et le mode de création auto (équivalent du trait `WindowAttributesExtWebSys`
-     * de winit).
+     * **Legacy**: uses `attributes.title` as the canvas CSS `id` (a non-idiomatic
+     * convention, kept for backward compatibility). Prefer the
+     * `createWindow(WebWindowAttributes)` overload, which explicitly exposes the canvas id
+     * and the auto-creation mode (equivalent of winit's `WindowAttributesExtWebSys`
+     * trait).
      */
     override fun createWindow(attributes: WindowAttributes): Window {
         return createWindow(
@@ -100,26 +100,26 @@ open class WebEventLoop : ActiveEventLoop {
     }
 
     /**
-     * Crée une fenêtre web depuis l'extension web-only [WebWindowAttributes].
+     * Creates a web window from the web-only extension [WebWindowAttributes].
      *
-     * Inspiré du trait `WindowAttributesExtWebSys` de winit :
+     * Inspired by winit's `WindowAttributesExtWebSys` trait:
      *
-     *  - Cible un `<canvas>` DOM existant via [WebWindowAttributes.canvasId], OU
-     *  - Laisse Kadre créer un `<canvas>` ([WebWindowAttributes.appendToBody] = true).
+     *  - Targets an existing DOM `<canvas>` via [WebWindowAttributes.canvasId], OR
+     *  - Lets Kadre create a `<canvas>` ([WebWindowAttributes.appendToBody] = true).
      *
-     * Le pont DOM est instancié par [createDomBridge] puis :
-     *  1. [WebDomBridge.ensureCanvas] résout (ou crée) le canvas.
-     *  2. [WebDomBridge.attach] branche les listeners DOM (keydown, pointer, resize…).
+     * The DOM bridge is instantiated by [createDomBridge] then:
+     *  1. [WebDomBridge.ensureCanvas] resolves (or creates) the canvas.
+     *  2. [WebDomBridge.attach] wires the DOM listeners (keydown, pointer, resize…).
      *
-     * @param attrs Configuration Web-specific de la fenêtre.
-     * @return La [WebWindow] créée et attachée.
+     * @param attrs Web-specific configuration of the window.
+     * @return The created and attached [WebWindow].
      */
     fun createWindow(attrs: WebWindowAttributes): Window {
         val bridge = createDomBridge()
         bridge.onWindowEvent = { event ->
-            // On enfile l'événement pour dispatch lors de la prochaine frame
+            // Queue the event for dispatch on the next frame
             pendingEvents.add(Pair(windows.firstOrNull()?.id ?: WindowId(0L), event))
-            // En mode Wait, on réveille la boucle immédiatement
+            // In Wait mode, wake the loop immediately
             if (_controlFlow is ControlFlow.Wait) {
                 scheduleWakeUp()
             }
@@ -132,33 +132,33 @@ open class WebEventLoop : ActiveEventLoop {
     }
 
     /**
-     * Crée un proxy thread-safe vers cette boucle d'événements.
+     * Creates a thread-safe proxy to this event loop.
      *
-     * En JavaScript (mono-thread), le proxy appelle simplement [scheduleWakeUp].
+     * In JavaScript (single-threaded), the proxy simply calls [scheduleWakeUp].
      */
     override fun createProxy(): EventLoopProxy = object : EventLoopProxy {
         override fun wakeUp() = scheduleWakeUp()
     }
 
     // -------------------------------------------------------------------------
-    // Point d'entrée public
+    // Public entry point
     // -------------------------------------------------------------------------
 
     /**
-     * Démarre la boucle d'événements et notifie le gestionnaire.
+     * Starts the event loop and notifies the handler.
      *
-     * Appelle [ApplicationHandler.resumed], puis [ApplicationHandler.canCreateSurfaces]
-     * (le navigateur autorise la création de surfaces dès le démarrage), puis
-     * [ApplicationHandler.newEvents] avec [StartCause.Init], puis
-     * [ApplicationHandler.aboutToWait], et enfin planifie la première frame via
+     * Calls [ApplicationHandler.resumed], then [ApplicationHandler.canCreateSurfaces]
+     * (the browser allows surface creation right from startup), then
+     * [ApplicationHandler.newEvents] with [StartCause.Init], then
+     * [ApplicationHandler.aboutToWait], and finally schedules the first frame via
      * [scheduleNextFrame].
      *
-     * @param handler Gestionnaire du cycle de vie de l'application.
+     * @param handler Handler for the application's lifecycle.
      */
     open fun runApp(handler: ApplicationHandler) {
         handler.resumed(this)
-        // Sur le web, le canvas est disponible immédiatement : on autorise tout de
-        // suite la création de surfaces (parité avec les boucles desktop AppKit/Win32).
+        // On the web, the canvas is available immediately: we allow surface
+        // creation right away (parity with the AppKit/Win32 desktop loops).
         handler.canCreateSurfaces(this)
         handler.newEvents(this, StartCause.Init)
         handler.aboutToWait(this)
@@ -168,23 +168,23 @@ open class WebEventLoop : ActiveEventLoop {
     }
 
     // -------------------------------------------------------------------------
-    // Tick interne — appelé par RAF
+    // Internal tick — called by RAF
     // -------------------------------------------------------------------------
 
     /**
-     * Exécute une itération de la boucle d'événements.
+     * Runs one iteration of the event loop.
      *
-     * Appelé par `requestAnimationFrame` dans les sous-classes concrètes.
-     * Distribue les événements DOM accumulés, puis planifie la prochaine frame
-     * si la boucle n'est pas en cours d'arrêt.
+     * Called by `requestAnimationFrame` in the concrete subclasses.
+     * Dispatches the accumulated DOM events, then schedules the next frame
+     * if the loop is not shutting down.
      *
-     * @param handler Gestionnaire du cycle de vie.
-     * @param now     Timestamp fourni par requestAnimationFrame (en ms, ignoré ici).
+     * @param handler Lifecycle handler.
+     * @param now     Timestamp provided by requestAnimationFrame (in ms, ignored here).
      */
     protected fun tick(handler: ApplicationHandler, now: Double = 0.0) {
         if (_isExiting) return
 
-        // Détermine la cause de démarrage de cette itération
+        // Determines the start cause of this iteration
         val cause: StartCause = when (val cf = _controlFlow) {
             is ControlFlow.Poll        -> StartCause.Poll
             is ControlFlow.Wait        -> StartCause.WaitCancelled()
@@ -196,7 +196,7 @@ open class WebEventLoop : ActiveEventLoop {
 
         handler.newEvents(this, cause)
 
-        // Dispatch des événements DOM accumulés
+        // Dispatch the accumulated DOM events
         val snapshot = pendingEvents.toList()
         pendingEvents.clear()
         for ((windowId, event) in snapshot) {
@@ -205,55 +205,55 @@ open class WebEventLoop : ActiveEventLoop {
 
         handler.aboutToWait(this)
 
-        // Planifie la frame suivante selon le mode courant
+        // Schedule the next frame according to the current mode
         if (!_isExiting) {
             scheduleNextFrame(handler)
         } else {
-            // Notifie le handler de la fin imminente
+            // Notify the handler of the imminent end
             handler.suspended(this)
         }
     }
 
     // -------------------------------------------------------------------------
-    // Méthodes extensibles par les sous-classes
+    // Methods extensible by subclasses
     // -------------------------------------------------------------------------
 
     /**
-     * Planifie la prochaine frame selon le [ControlFlow] courant.
+     * Schedules the next frame according to the current [ControlFlow].
      *
-     * - [ControlFlow.Poll]      → `requestAnimationFrame` immédiat
-     * - [ControlFlow.Wait]      → attend un événement DOM ([scheduleWakeUp] planifiera le RAF)
-     * - [ControlFlow.WaitUntil] → `setTimeout` jusqu'à l'instant cible, puis RAF
+     * - [ControlFlow.Poll]      → immediate `requestAnimationFrame`
+     * - [ControlFlow.Wait]      → waits for a DOM event ([scheduleWakeUp] will schedule the RAF)
+     * - [ControlFlow.WaitUntil] → `setTimeout` until the target instant, then RAF
      *
-     * Les sous-classes concrètes doivent fournir `requestAnimationFrame`
-     * et `setTimeout` via les mécanismes propres à leur cible (JS ou wasmJs).
+     * The concrete subclasses must provide `requestAnimationFrame`
+     * and `setTimeout` via the mechanisms specific to their target (JS or wasmJs).
      *
-     * Cette méthode est `open` pour permettre l'override dans les tests.
+     * This method is `open` to allow overriding in tests.
      */
     protected open fun scheduleNextFrame(handler: ApplicationHandler) {
-        // Stub : l'implémentation concrète est fournie par JsWebEventLoop / WasmJsWebEventLoop
-        // via requestAnimationFrame dans jsMain / wasmJsMain.
+        // Stub: the concrete implementation is provided by JsWebEventLoop / WasmJsWebEventLoop
+        // via requestAnimationFrame in jsMain / wasmJsMain.
     }
 
     /**
-     * Planifie un réveil immédiat de la boucle (RAF unique).
+     * Schedules an immediate wake-up of the loop (single RAF).
      *
-     * Utilisé en mode [ControlFlow.Wait] lorsqu'un événement DOM arrive,
-     * et par [createProxy] pour réveiller la boucle depuis un autre contexte.
+     * Used in [ControlFlow.Wait] mode when a DOM event arrives,
+     * and by [createProxy] to wake the loop from another context.
      *
-     * Stub — surchargé dans les sous-classes pour appeler `requestAnimationFrame`.
+     * Stub — overridden in the subclasses to call `requestAnimationFrame`.
      */
     protected open fun scheduleWakeUp() {
-        // Stub : surchargé dans JsWebEventLoop / WasmJsWebEventLoop
+        // Stub: overridden in JsWebEventLoop / WasmJsWebEventLoop
     }
 
     /**
-     * Crée le pont DOM approprié à la cible de compilation.
+     * Creates the DOM bridge appropriate to the compilation target.
      *
-     * Surchargé dans [JsWebEventLoop] pour retourner [JsWebDomBridge],
-     * et dans [WasmJsWebEventLoop] pour retourner [WasmJsWebDomBridge].
+     * Overridden in [JsWebEventLoop] to return [JsWebDomBridge],
+     * and in [WasmJsWebEventLoop] to return [WasmJsWebDomBridge].
      *
-     * L'implémentation par défaut retourne un pont no-op (utile pour les tests).
+     * The default implementation returns a no-op bridge (useful for tests).
      */
     protected open fun createDomBridge(): WebDomBridge = object : WebDomBridge {
         override var onWindowEvent: ((WebWindowEvent) -> Unit)? = null

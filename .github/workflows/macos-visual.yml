@@ -1,10 +1,10 @@
 name: macos-visual
 
-# Régression visuelle macOS via readback GPU.
-# hello-triangle rend une frame offscreen (sans fenêtre), écrit un PNG par readback
-# wgpu, puis on le compare à une baseline committée. NON BLOQUANT : le rendu GPU
-# n'est pas déterministe au pixel près entre machines → on archive le diff et on
-# publie le verdict dans le Job Summary, sans échouer le build.
+# macOS visual regression via GPU readback.
+# hello-triangle renders an offscreen frame (no window), writes a PNG via wgpu
+# readback, then we compare it against a committed baseline. NON-BLOCKING: GPU
+# rendering is not pixel-perfect deterministic across machines → we archive the diff and
+# publish the verdict in the Job Summary, without failing the build.
 
 on:
   push:
@@ -26,8 +26,8 @@ jobs:
     name: macos-visual
     runs-on: macos-15
     permissions:
-      contents: write        # push des captures sur la branche orpheline ci-visual-reports
-      pull-requests: write   # commentaire de PR avec la galerie inline
+      contents: write        # push captures to the orphan branch ci-visual-reports
+      pull-requests: write   # PR comment with the inline gallery
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,8 +47,8 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # La tâche `run` s'exécute dans le dossier du sample → le PNG (chemin relatif)
-      # est écrit sous samples/hello-triangle/build/visual/.
+      # The `run` task executes in the sample's directory → the PNG (relative path)
+      # is written under samples/hello-triangle/build/visual/.
       - name: Capture GPU offscreen (hello-triangle)
         id: capture
         continue-on-error: true

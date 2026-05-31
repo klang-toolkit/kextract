@@ -1,16 +1,16 @@
 /**
- * Capture offscreen GPU sur Windows.
+ * Offscreen GPU capture on Windows.
  *
- * Comme sur macOS, `WGPU.requestAdapter` exige une surface non-nulle. Sur Windows, la
- * surface se crée depuis un `HWND`. On crée donc une **fenêtre Win32 cachée** (classe
- * système « STATIC », style `WS_POPUP` sans `WS_VISIBLE`) uniquement pour satisfaire
- * `requestAdapter` ; le rendu cible ensuite exclusivement une texture offscreen, donc
- * aucune fenêtre n'apparaît à l'écran.
+ * As on macOS, `WGPU.requestAdapter` requires a non-null surface. On Windows, the
+ * surface is created from an `HWND`. So we create a **hidden Win32 window** (system
+ * class "STATIC", style `WS_POPUP` without `WS_VISIBLE`) solely to satisfy
+ * `requestAdapter`; rendering then targets exclusively an offscreen texture, so
+ * no window appears on screen.
  *
- * Backend : `WGPUInstanceBackend.Primary` (DX12/Vulkan selon disponibilité). Sur les
- * runners CI sans GPU dédié, wgpu peut retomber sur un adaptateur logiciel (WARP DX12).
+ * Backend: `WGPUInstanceBackend.Primary` (DX12/Vulkan depending on availability). On
+ * CI runners without a dedicated GPU, wgpu may fall back to a software adapter (WARP DX12).
  *
- * Bindings Win32 via Panama FFM (user32.dll / kernel32.dll), null sur les autres OS.
+ * Win32 bindings via Panama FFM (user32.dll / kernel32.dll), null on other OSes.
  */
 package org.graphiks.kadre.samples.hellotriangle
 
@@ -40,7 +40,7 @@ private fun SymbolLookup?.downcall(name: String, desc: FunctionDescriptor): Meth
     return this.find(name).map { linker.downcallHandle(it, desc) }.orElse(null)
 }
 
-/** HMODULE GetModuleHandleW(LPCWSTR lpModuleName) — NULL → handle du process courant. */
+/** HMODULE GetModuleHandleW(LPCWSTR lpModuleName) — NULL → handle of the current process. */
 private val getModuleHandleW: MethodHandle? by lazy {
     kernel32.downcall(
         "GetModuleHandleW",
@@ -70,14 +70,14 @@ private val createWindowExW: MethodHandle? by lazy {
     )
 }
 
-/** void DestroyWindow(HWND) — meilleure effort pour libérer la fenêtre cachée. */
+/** void DestroyWindow(HWND) — best effort to release the hidden window. */
 private val destroyWindow: MethodHandle? by lazy {
     user32.downcall("DestroyWindow", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS))
 }
 
 private const val WS_POPUP: Int = 0x80000000.toInt()
 
-/** Alloue une chaîne large (UTF-16LE) terminée par NUL dans [arena]. */
+/** Allocates a NUL-terminated wide string (UTF-16LE) in [arena]. */
 private fun Arena.wideString(s: String): MemorySegment {
     val seg = allocate((s.length + 1).toLong() * 2)
     for (i in s.indices) seg.setAtIndex(ValueLayout.JAVA_CHAR, i.toLong(), s[i])
@@ -86,7 +86,7 @@ private fun Arena.wideString(s: String): MemorySegment {
 }
 
 /**
- * Capture Windows : Instance (Primary) + fenêtre Win32 cachée → surface → readback commun.
+ * Windows capture: Instance (Primary) + hidden Win32 window → surface → common readback.
  */
 @OptIn(WGPULowLevelApi::class)
 internal fun captureWindows(path: String) {
@@ -105,9 +105,9 @@ internal fun captureWindows(path: String) {
         val className = arena.wideString("STATIC")
         val hwnd = createHandle.invokeExact(
             0,                       // dwExStyle
-            className,               // lpClassName (classe système prédéfinie)
+            className,               // lpClassName (predefined system class)
             MemorySegment.NULL,      // lpWindowName
-            WS_POPUP,                // dwStyle — invisible (pas de WS_VISIBLE)
+            WS_POPUP,                // dwStyle — invisible (no WS_VISIBLE)
             0, 0,                    // X, Y
             CAPTURE_WIDTH, CAPTURE_HEIGHT,
             MemorySegment.NULL,      // hWndParent

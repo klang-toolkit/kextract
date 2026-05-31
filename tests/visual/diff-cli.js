@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-// CLI de diff d'images cross-plateforme.
+// Cross-platform image diff CLI.
 //
-// Compare deux PNG (capture courante vs baseline) avec une tolérance en % de pixels
-// différents. Conçu pour être appelé par n'importe quel job CI de plateforme, quelle
-// que soit la source de la capture (readback GPU desktop, Playwright web, etc.).
+// Compares two PNGs (current capture vs baseline) with a tolerance in % of differing
+// pixels. Designed to be called by any platform CI job, whatever the source of the
+// capture (desktop GPU readback, Playwright web, etc.).
 //
-// Usage : node diff-cli.js <actual.png> <baseline.png> <diffOut.png> [tolerance] [reportOut.json] [label]
+// Usage: node diff-cli.js <actual.png> <baseline.png> <diffOut.png> [tolerance] [reportOut.json] [label]
 //
-// NON BLOQUANT : affiche le verdict et écrit le diff + un report.json, mais sort toujours
-// en 0 (le rendu GPU n'est pas déterministe au pixel près entre machines).
+// NON-BLOCKING: prints the verdict and writes the diff + a report.json, but always exits
+// 0 (GPU rendering is not pixel-perfect deterministic across machines).
 //
-// Le rendu inline des captures dans l'UI GitHub n'est PAS fait ici : les `data:` URI sont
-// assainies par GitHub. À la place, on émet un report.json que l'action `visual-report`
-// consomme pour héberger les PNG (branche orpheline) et bâtir un Job Summary + commentaire
-// de PR avec de vraies URLs `raw.githubusercontent.com` (rendues inline sur repo public).
+// Inline rendering of the captures in the GitHub UI is NOT done here: the `data:` URIs are
+// sanitized by GitHub. Instead, we emit a report.json that the `visual-report` action
+// consumes to host the PNGs (orphan branch) and build a Job Summary + PR comment
+// with real `raw.githubusercontent.com` URLs (rendered inline on a public repo).
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
@@ -58,7 +58,7 @@ const line = `${icon} ${status} — diff ${pct}% (tolérance ${tolerance * 100}%
 console.log(`[visual] ${line}`);
 
 if (reportOut) {
-  // Émet un manifeste consommé par l'action `visual-report` (hébergement + rendu inline).
+  // Emits a manifest consumed by the `visual-report` action (hosting + inline rendering).
   const report = {
     platform,
     sample: 'hello-triangle',
@@ -75,5 +75,5 @@ if (reportOut) {
   fs.writeFileSync(reportOut, JSON.stringify(report, null, 2));
 }
 
-// Non bloquant.
+// Non-blocking.
 process.exit(0);

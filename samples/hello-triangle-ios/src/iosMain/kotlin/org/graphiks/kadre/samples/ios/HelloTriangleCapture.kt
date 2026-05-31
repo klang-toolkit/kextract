@@ -1,9 +1,9 @@
 /**
- * Capture GPU offscreen iOS — Kotlin/Native + wgpu4k Metal.
+ * iOS offscreen GPU capture — Kotlin/Native + wgpu4k Metal.
  *
- * Rend le triangle RGB dans une texture offscreen (un CAMetalLayer offscreen sert
- * uniquement à satisfaire requestAdapter, comme sur macOS), relit le framebuffer via
- * un buffer de readback, et retourne les octets RGBA. Aucune fenêtre/UIView.
+ * Renders the RGB triangle into an offscreen texture (an offscreen CAMetalLayer serves
+ * only to satisfy requestAdapter, as on macOS), reads back the framebuffer via
+ * a readback buffer, and returns the RGBA bytes. No window/UIView.
  */
 @file:OptIn(ExperimentalForeignApi::class, WGPULowLevelApi::class)
 
@@ -72,18 +72,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 }
 """.trimIndent()
 
-/** Image capturée : octets RGBA (sans padding) + dimensions. */
+/** Captured image: RGBA bytes (without padding) + dimensions. */
 class CaptureImage(val width: Int, val height: Int, val rgba: ByteArray)
 
 /**
- * Rend le triangle offscreen et retourne l'image RGBA via readback GPU.
+ * Renders the triangle offscreen and returns the RGBA image via GPU readback.
  */
 fun captureTriangle(): CaptureImage {
     val instance = WGPU.createInstance(WGPUInstanceBackend.Metal)
         ?: error("Échec création WGPU Instance (Metal)")
 
-    // CAMetalLayer offscreen, configurée (device Metal + drawableSize) pour que wgpu
-    // trouve un adapter compatible sur le simulateur. Le rendu cible une texture.
+    // Offscreen CAMetalLayer, configured (Metal device + drawableSize) so that wgpu
+    // finds a compatible adapter on the simulator. Rendering targets a texture.
     val layer = CAMetalLayer()
     layer.setDrawableSize(CGSizeMake(CAPTURE_WIDTH.toDouble(), CAPTURE_HEIGHT.toDouble()))
     val surface = instance.getSurfaceFromMetalLayer(NativeAddress(layer.objcPtr().toLong().toCPointer<ByteVar>()!!))

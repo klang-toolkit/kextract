@@ -1,96 +1,95 @@
 /**
- * Interface principale du gestionnaire d'application kadre.
+ * Main interface of the kadre application handler.
  *
- * Périmètre : interface pure Kotlin, aucune référence native.
+ * Scope: pure Kotlin interface, no native reference.
  */
 package org.graphiks.kadre.core
 
 /**
- * Gestionnaire du cycle de vie de l'application et des événements de la boucle.
+ * Handler for the application lifecycle and the loop's events.
  *
- * L'implémentation de cette interface constitue le point d'entrée métier
- * de toute application kadre. La boucle d'événements invoque les méthodes
- * de ce gestionnaire en réponse aux événements système et aux changements
- * d'état du cycle de vie.
+ * The implementation of this interface is the business entry point of any
+ * kadre application. The event loop invokes the methods of this handler in
+ * response to system events and lifecycle state changes.
  *
- * Les méthodes [canCreateSurfaces] et [windowEvent] sont obligatoires
- * (aucune implémentation par défaut). Toutes les autres méthodes disposent
- * d'une implémentation par défaut vide et peuvent être surchargées au besoin.
+ * The [canCreateSurfaces] and [windowEvent] methods are mandatory
+ * (no default implementation). All other methods have an empty default
+ * implementation and may be overridden as needed.
  */
 interface ApplicationHandler {
 
     /**
-     * Appelé lorsque la plateforme autorise la création de surfaces de rendu.
+     * Called when the platform allows the creation of rendering surfaces.
      *
-     * Obligatoire — aucune implémentation par défaut.
+     * Mandatory — no default implementation.
      *
-     * C'est le moment idéal pour créer les fenêtres et initialiser le pipeline
-     * de rendu.
+     * This is the ideal moment to create windows and initialize the rendering
+     * pipeline.
      *
-     * @param eventLoop Boucle d'événements active, permettant de créer des fenêtres.
+     * @param eventLoop Active event loop, allowing windows to be created.
      */
     fun canCreateSurfaces(eventLoop: ActiveEventLoop)
 
     /**
-     * Appelé lorsqu'un événement de fenêtre est reçu.
+     * Called when a window event is received.
      *
-     * Obligatoire — aucune implémentation par défaut.
+     * Mandatory — no default implementation.
      *
-     * Les types d'événements de fenêtre seront définis dans GRA-123.
+     * The window event types will be defined in GRA-123.
      *
-     * @param eventLoop Boucle d'événements active.
-     * @param windowId  Identifiant de la fenêtre ayant émis l'événement.
-     * @param event     Événement reçu (type Any en attente de GRA-123).
+     * @param eventLoop Active event loop.
+     * @param windowId  Identifier of the window that emitted the event.
+     * @param event     Received event (Any type pending GRA-123).
      */
     fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any)
 
     /**
-     * Appelé lorsqu'un événement de périphérique d'entrée est reçu.
+     * Called when an input device event is received.
      *
-     * @param eventLoop Boucle d'événements active.
-     * @param deviceId  Identifiant du périphérique ayant émis l'événement.
-     * @param event     Événement reçu (type Any en attente de GRA-123).
+     * @param eventLoop Active event loop.
+     * @param deviceId  Identifier of the device that emitted the event.
+     * @param event     Received event (Any type pending GRA-123).
      */
     fun deviceEvent(eventLoop: ActiveEventLoop, deviceId: DeviceId, event: Any): Unit = Unit
 
     /**
-     * Appelé au début de chaque itération de la boucle d'événements,
-     * avant la distribution des événements accumulés.
+     * Called at the start of each event loop iteration,
+     * before the accumulated events are dispatched.
      *
-     * @param eventLoop  Boucle d'événements active.
-     * @param startCause Cause ayant déclenché cette nouvelle itération.
+     * @param eventLoop  Active event loop.
+     * @param startCause Cause that triggered this new iteration.
      */
     fun newEvents(eventLoop: ActiveEventLoop, startCause: StartCause): Unit = Unit
 
     /**
-     * Appelé lorsque tous les événements de l'itération courante ont été distribués
-     * et que la boucle est sur le point de se mettre en attente.
+     * Called when all events of the current iteration have been dispatched
+     * and the loop is about to go into a waiting state.
      *
-     * @param eventLoop Boucle d'événements active.
+     * @param eventLoop Active event loop.
      */
     fun aboutToWait(eventLoop: ActiveEventLoop): Unit = Unit
 
     /**
-     * Appelé lorsque l'application reprend son exécution après une suspension.
+     * Called when the application resumes execution after a suspension.
      *
-     * @param eventLoop Boucle d'événements active.
+     * @param eventLoop Active event loop.
      */
     fun resumed(eventLoop: ActiveEventLoop): Unit = Unit
 
     /**
-     * Appelé lorsque l'application est sur le point d'être suspendue.
+     * Called when the application is about to be suspended.
      *
-     * @param eventLoop Boucle d'événements active.
+     * @param eventLoop Active event loop.
      */
     fun suspended(eventLoop: ActiveEventLoop): Unit = Unit
 
     /**
-     * Appelé lorsque la plateforme demande la destruction des surfaces de rendu.
+     * Called when the platform requests the destruction of rendering surfaces.
      *
-     * C'est le moment idéal pour libérer les ressources graphiques liées
-     * aux surfaces avant leur invalidation.
+     * This is the ideal moment to release the graphics resources tied to the
+     * surfaces before they are invalidated.
      *
-     * @param eventLoop Boucle d'événements active.
+     * @param eventLoop Active event loop.
      */
     fun destroySurfaces(eventLoop: ActiveEventLoop): Unit = Unit
 }

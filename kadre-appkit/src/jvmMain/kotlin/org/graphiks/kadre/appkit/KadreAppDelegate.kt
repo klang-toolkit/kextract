@@ -1,15 +1,15 @@
 /**
- * Implémentation Kotlin de `NSApplicationDelegate` via subclassing ObjC runtime.
+ * Kotlin implementation of `NSApplicationDelegate` via ObjC runtime subclassing.
  *
- * Utilise les upcall stubs de Panama FFM pour exposer des fonctions statiques
- * Kotlin (`@JvmStatic`) comme implémentations de méthodes Objective-C.
+ * Uses Panama FFM upcall stubs to expose Kotlin static functions
+ * (`@JvmStatic`) as Objective-C method implementations.
  *
- * Stratégie de dispatch : la classe ObjC `KadreAppDelegateNative` n'embarque pas
- * de pointeur vers le delegate Kotlin. À la place, on indexe les instances dans
- * une [java.util.concurrent.ConcurrentHashMap] globale dont la clé est l'adresse
- * mémoire (`MemorySegment.address()`) du `self` ObjC. Le premier argument de
- * tout upcall ObjC étant `self`, cela suffit à retrouver l'instance Kotlin
- * cible lors d'un callback natif.
+ * Dispatch strategy: the ObjC class `KadreAppDelegateNative` does not embed
+ * a pointer to the Kotlin delegate. Instead, instances are indexed in a
+ * global [java.util.concurrent.ConcurrentHashMap] keyed by the memory
+ * address (`MemorySegment.address()`) of the ObjC `self`. Since the first
+ * argument of any ObjC upcall is `self`, this is enough to retrieve the
+ * target Kotlin instance during a native callback.
  */
 package org.graphiks.kadre.appkit
 
@@ -30,7 +30,7 @@ class KadreAppDelegate(
     private val handler: ApplicationHandler,
     private val eventLoop: ActiveEventLoop,
 ) {
-    /** Pointeur vers l'objet Objective-C wrappé par ce délégué. */
+    /** Pointer to the Objective-C object wrapped by this delegate. */
     val ptr: MemorySegment
 
     init {
@@ -51,16 +51,16 @@ class KadreAppDelegate(
         delegateTable[ptr.address()] = this
     }
 
-    /** Callback Kotlin pour `applicationDidFinishLaunching:`. */
+    /** Kotlin callback for `applicationDidFinishLaunching:`. */
     fun onDidFinishLaunching() {
         handler.canCreateSurfaces(eventLoop)
     }
 
     /**
-     * Callback Kotlin pour `applicationShouldTerminate:`.
+     * Kotlin callback for `applicationShouldTerminate:`.
      *
-     * Retourne `NSTerminateNow` lorsque la boucle est déjà en cours d'arrêt,
-     * `NSTerminateCancel` sinon — l'arrêt est piloté côté Kadre via
+     * Returns `NSTerminateNow` when the loop is already shutting down,
+     * `NSTerminateCancel` otherwise — shutdown is driven on the Kadre side via
      * [ActiveEventLoop.exit].
      */
     fun onShouldTerminate(): Long {
@@ -72,7 +72,7 @@ class KadreAppDelegate(
     }
 
     companion object {
-        /** Table globale : adresse mémoire ObjC → delegate Kotlin associé. */
+        /** Global table: ObjC memory address → associated Kotlin delegate. */
         private val delegateTable = ConcurrentHashMap<Long, KadreAppDelegate>()
 
         @Volatile
@@ -151,11 +151,11 @@ class KadreAppDelegate(
     }
 
     /**
-     * Trampolines `@JvmStatic` invoqués par les upcall stubs Panama.
+     * `@JvmStatic` trampolines invoked by the Panama upcall stubs.
      *
-     * Les méthodes statiques sont indispensables : `Linker.upcallStub` ne sait
-     * pas lier de méthodes d'instance car le `self` ObjC est passé en premier
-     * argument, pas via le receiver Java.
+     * The static methods are essential: `Linker.upcallStub` cannot bind
+     * instance methods because the ObjC `self` is passed as the first
+     * argument, not via the Java receiver.
      */
     object Callbacks {
         @JvmStatic

@@ -1,5 +1,5 @@
 /**
- * Implémentation iOS Simulator arm64 de la boucle d'événements — délègue à kadre-uikit.
+ * iOS Simulator arm64 implementation of the event loop — delegates to kadre-uikit.
  */
 package org.graphiks.kadre
 

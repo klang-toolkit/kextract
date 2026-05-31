@@ -1,25 +1,25 @@
 /**
- * Bindings FFM pour les fonctions X11 nécessaires à la gestion de fenêtres.
+ * FFM bindings for the X11 functions required for window management.
  *
- * Charge libX11.so.6 via SymbolLookup.libraryLookup avec un pattern tryCreate
- * (try/catch Throwable) pour que le build passe sur macOS/Windows.
+ * Loads libX11.so.6 via SymbolLookup.libraryLookup with a tryCreate pattern
+ * (try/catch Throwable) so the build passes on macOS/Windows.
  *
- * Fonctions exposées :
- *  - XOpenDisplay      — ouvre la connexion au serveur X
- *  - XCloseDisplay     — ferme la connexion au serveur X
- *  - XCreateSimpleWindow — crée une fenêtre simple
- *  - XSelectInput      — sélectionne les événements à recevoir
- *  - XDestroyWindow    — détruit une fenêtre
- *  - XFlush            — vide la file de commandes vers le serveur X
- *  - XPending          — retourne le nombre d'événements en attente
- *  - XNextEvent        — lit le prochain événement
- *  - XStoreName        — définit le titre de la fenêtre
- *  - XInternAtom       — obtient un atome par nom
- *  - XSetWMProtocols   — définit les protocoles WM (ex. WM_DELETE_WINDOW)
- *  - XMapWindow        — rend une fenêtre visible
- *  - XSendEvent        — envoie un événement synthétique (wakeUp ClientMessage)
+ * Exposed functions:
+ *  - XOpenDisplay      — opens the connection to the X server
+ *  - XCloseDisplay     — closes the connection to the X server
+ *  - XCreateSimpleWindow — creates a simple window
+ *  - XSelectInput      — selects the events to receive
+ *  - XDestroyWindow    — destroys a window
+ *  - XFlush            — flushes the command queue to the X server
+ *  - XPending          — returns the number of pending events
+ *  - XNextEvent        — reads the next event
+ *  - XStoreName        — sets the window title
+ *  - XInternAtom       — obtains an atom by name
+ *  - XSetWMProtocols   — sets the WM protocols (e.g. WM_DELETE_WINDOW)
+ *  - XMapWindow        — makes a window visible
+ *  - XSendEvent        — sends a synthetic event (wakeUp ClientMessage)
  *
- * Référence : https://www.x.org/releases/current/doc/libX11/libX11/libX11.html
+ * Reference: https://www.x.org/releases/current/doc/libX11/libX11/libX11.html
  */
 package org.graphiks.kadre.x11
 
@@ -30,14 +30,14 @@ import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
 import java.lang.invoke.MethodHandle
 
-// ── Lazy loading de la bibliothèque ───────────────────────────────────────────
+// ── Lazy loading of the library ───────────────────────────────────────────────
 
 /**
- * Lookup libX11.so.6 — null sur les plateformes non-Linux (macOS, Windows).
+ * Lookup of libX11.so.6 — null on non-Linux platforms (macOS, Windows).
  *
- * Le try/catch sur Throwable est intentionnel : SymbolLookup.libraryLookup
- * peut lever IllegalArgumentException ou UnsatisfiedLinkError sur macOS/Windows,
- * et on veut que le build reste vert dans tous les cas.
+ * The try/catch on Throwable is intentional: SymbolLookup.libraryLookup
+ * may throw IllegalArgumentException or UnsatisfiedLinkError on macOS/Windows,
+ * and we want the build to stay green in all cases.
  */
 internal val libX11: SymbolLookup? by lazy {
     try {
@@ -52,8 +52,8 @@ private val linker: Linker = Linker.nativeLinker()
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Recherche un symbole dans un SymbolLookup et crée un MethodHandle downcall.
- * Retourne null si le lookup est null ou si le symbole est introuvable.
+ * Looks up a symbol in a SymbolLookup and creates a downcall MethodHandle.
+ * Returns null if the lookup is null or if the symbol is not found.
  */
 private fun SymbolLookup?.downcall(name: String, desc: FunctionDescriptor): MethodHandle? {
     this ?: return null
@@ -65,15 +65,15 @@ private fun SymbolLookup?.downcall(name: String, desc: FunctionDescriptor): Meth
 /**
  * Display *XOpenDisplay(char *display_name);
  *
- * Ouvre la connexion au serveur X. Passer NULL pour utiliser la variable
- * d'environnement DISPLAY. Retourne un pointeur Display* (NULL en cas d'échec).
+ * Opens the connection to the X server. Pass NULL to use the DISPLAY
+ * environment variable. Returns a Display* pointer (NULL on failure).
  */
 internal val xOpenDisplay: MethodHandle? by lazy {
     libX11.downcall(
         "XOpenDisplay",
         FunctionDescriptor.of(
-            ValueLayout.ADDRESS,    // Display* retour
-            ValueLayout.ADDRESS,    // char* display_name (ou NULL)
+            ValueLayout.ADDRESS,    // Display* return
+            ValueLayout.ADDRESS,    // char* display_name (or NULL)
         )
     )
 }
@@ -83,13 +83,13 @@ internal val xOpenDisplay: MethodHandle? by lazy {
 /**
  * int XCloseDisplay(Display *display);
  *
- * Ferme la connexion au serveur X et libère les ressources associées.
+ * Closes the connection to the X server and frees the associated resources.
  */
 internal val xCloseDisplay: MethodHandle? by lazy {
     libX11.downcall(
         "XCloseDisplay",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // int retour
+            ValueLayout.JAVA_INT,   // int return
             ValueLayout.ADDRESS,    // Display*
         )
     )
@@ -108,14 +108,14 @@ internal val xCloseDisplay: MethodHandle? by lazy {
  *     unsigned long background
  * );
  *
- * Crée une fenêtre enfant simple. Window est un XID = unsigned long (64 bits).
+ * Creates a simple child window. Window is an XID = unsigned long (64 bits).
  */
 /**
  * Window XRootWindow(Display *display, int screen_number);
  *
- * Retourne l'XID de la fenêtre racine de l'écran (équivalent macro DefaultRootWindow).
- * Indispensable comme parent de XCreateSimpleWindow : une valeur conventionnelle erronée
- * provoque `BadWindow`.
+ * Returns the XID of the screen's root window (equivalent to the DefaultRootWindow macro).
+ * Essential as the parent of XCreateSimpleWindow: an incorrect hardcoded value
+ * causes `BadWindow`.
  */
 internal val xRootWindow: MethodHandle? by lazy {
     libX11.downcall(
@@ -151,13 +151,13 @@ internal val xCreateSimpleWindow: MethodHandle? by lazy {
 /**
  * int XSelectInput(Display *display, Window w, long event_mask);
  *
- * Sélectionne les types d'événements à recevoir pour la fenêtre donnée.
+ * Selects the event types to receive for the given window.
  */
 internal val xSelectInput: MethodHandle? by lazy {
     libX11.downcall(
         "XSelectInput",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // int retour
+            ValueLayout.JAVA_INT,   // int return
             ValueLayout.ADDRESS,    // Display*
             ValueLayout.JAVA_LONG,  // Window (XID)
             ValueLayout.JAVA_LONG,  // long event_mask
@@ -170,13 +170,13 @@ internal val xSelectInput: MethodHandle? by lazy {
 /**
  * int XDestroyWindow(Display *display, Window w);
  *
- * Détruit la fenêtre et toutes ses sous-fenêtres.
+ * Destroys the window and all its subwindows.
  */
 internal val xDestroyWindow: MethodHandle? by lazy {
     libX11.downcall(
         "XDestroyWindow",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // int retour
+            ValueLayout.JAVA_INT,   // int return
             ValueLayout.ADDRESS,    // Display*
             ValueLayout.JAVA_LONG,  // Window (XID)
         )
@@ -188,13 +188,13 @@ internal val xDestroyWindow: MethodHandle? by lazy {
 /**
  * int XFlush(Display *display);
  *
- * Vide la file de commandes en attente vers le serveur X.
+ * Flushes the pending command queue to the X server.
  */
 internal val xFlush: MethodHandle? by lazy {
     libX11.downcall(
         "XFlush",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // int retour
+            ValueLayout.JAVA_INT,   // int return
             ValueLayout.ADDRESS,    // Display*
         )
     )
@@ -205,14 +205,14 @@ internal val xFlush: MethodHandle? by lazy {
 /**
  * int XPending(Display *display);
  *
- * Retourne le nombre d'événements en attente dans la file côté client.
- * Retourne 0 si la file est vide (sans bloquer).
+ * Returns the number of pending events in the client-side queue.
+ * Returns 0 if the queue is empty (without blocking).
  */
 internal val xPending: MethodHandle? by lazy {
     libX11.downcall(
         "XPending",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // int (nombre d'événements)
+            ValueLayout.JAVA_INT,   // int (number of events)
             ValueLayout.ADDRESS,    // Display*
         )
     )
@@ -223,14 +223,14 @@ internal val xPending: MethodHandle? by lazy {
 /**
  * int XNextEvent(Display *display, XEvent *event_return);
  *
- * Lit le prochain événement de la file, en bloquant si nécessaire.
- * L'événement est écrit dans le MemorySegment pointé par event_return.
+ * Reads the next event from the queue, blocking if necessary.
+ * The event is written into the MemorySegment pointed to by event_return.
  */
 internal val xNextEvent: MethodHandle? by lazy {
     libX11.downcall(
         "XNextEvent",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // int retour
+            ValueLayout.JAVA_INT,   // int return
             ValueLayout.ADDRESS,    // Display*
             ValueLayout.ADDRESS,    // XEvent* event_return
         )
@@ -242,14 +242,14 @@ internal val xNextEvent: MethodHandle? by lazy {
 /**
  * int XStoreName(Display *display, Window w, char *window_name);
  *
- * Définit le titre (nom) de la fenêtre dans la barre de titre du gestionnaire
- * de fenêtres. La chaîne doit être encodée en Latin-1 ou UTF-8 selon le WM.
+ * Sets the title (name) of the window in the window manager's title bar.
+ * The string must be encoded in Latin-1 or UTF-8 depending on the WM.
  */
 internal val xStoreName: MethodHandle? by lazy {
     libX11.downcall(
         "XStoreName",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // int retour
+            ValueLayout.JAVA_INT,   // int return
             ValueLayout.ADDRESS,    // Display*
             ValueLayout.JAVA_LONG,  // Window (XID)
             ValueLayout.ADDRESS,    // char* window_name
@@ -262,8 +262,8 @@ internal val xStoreName: MethodHandle? by lazy {
 /**
  * Atom XInternAtom(Display *display, char *atom_name, Bool only_if_exists);
  *
- * Obtient l'identifiant (Atom) d'une propriété par son nom.
- * Utilisé notamment pour WM_DELETE_WINDOW et WM_PROTOCOLS.
+ * Obtains the identifier (Atom) of a property by its name.
+ * Used in particular for WM_DELETE_WINDOW and WM_PROTOCOLS.
  * Atom = unsigned long (64 bits).
  */
 internal val xInternAtom: MethodHandle? by lazy {
@@ -283,9 +283,9 @@ internal val xInternAtom: MethodHandle? by lazy {
 /**
  * Status XSetWMProtocols(Display *display, Window w, Atom *protocols, int count);
  *
- * Définit la propriété WM_PROTOCOLS de la fenêtre. Utilisé pour demander au
- * gestionnaire de fenêtres d'envoyer un ClientMessage au lieu de détruire
- * directement la fenêtre (WM_DELETE_WINDOW).
+ * Sets the window's WM_PROTOCOLS property. Used to ask the window manager
+ * to send a ClientMessage instead of destroying the window directly
+ * (WM_DELETE_WINDOW).
  */
 internal val xSetWMProtocols: MethodHandle? by lazy {
     libX11.downcall(
@@ -305,14 +305,14 @@ internal val xSetWMProtocols: MethodHandle? by lazy {
 /**
  * int XMapWindow(Display *display, Window w);
  *
- * Rend la fenêtre visible à l'écran. La fenêtre doit d'abord avoir été créée
- * avec XCreateSimpleWindow ou XCreateWindow.
+ * Makes the window visible on screen. The window must first have been created
+ * with XCreateSimpleWindow or XCreateWindow.
  */
 internal val xMapWindow: MethodHandle? by lazy {
     libX11.downcall(
         "XMapWindow",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // int retour
+            ValueLayout.JAVA_INT,   // int return
             ValueLayout.ADDRESS,    // Display*
             ValueLayout.JAVA_LONG,  // Window (XID)
         )
@@ -330,11 +330,11 @@ internal val xMapWindow: MethodHandle? by lazy {
  *     XEvent *event_send
  * );
  *
- * Envoie un événement synthétique à une fenêtre.
- * Utilisé par X11EventLoopProxy.wakeUp() pour débloquer XNextEvent via
- * un ClientMessage envoyé à la fenêtre principale.
+ * Sends a synthetic event to a window.
+ * Used by X11EventLoopProxy.wakeUp() to unblock XNextEvent via
+ * a ClientMessage sent to the main window.
  *
- * Retourne Status (int) : 0 en cas d'échec, non-nul en cas de succès.
+ * Returns Status (int): 0 on failure, non-zero on success.
  */
 internal val xSendEvent: MethodHandle? by lazy {
     libX11.downcall(
@@ -355,17 +355,17 @@ internal val xSendEvent: MethodHandle? by lazy {
 /**
  * Bool XkbSetDetectableAutoRepeat(Display *display, Bool detectable, Bool *supported_rtrn);
  *
- * Active le mode "detectable auto-repeat" permettant de distinguer les vraies
- * répétitions automatiques des frappes et relâchements réels.
+ * Enables "detectable auto-repeat" mode, allowing real automatic repeats
+ * to be distinguished from genuine key presses and releases.
  */
 internal val xkbSetDetectableAutoRepeat: MethodHandle? by lazy {
     libX11.downcall(
         "XkbSetDetectableAutoRepeat",
         FunctionDescriptor.of(
-            ValueLayout.JAVA_INT,   // Bool retour
+            ValueLayout.JAVA_INT,   // Bool return
             ValueLayout.ADDRESS,    // Display*
             ValueLayout.JAVA_INT,   // Bool detectable
-            ValueLayout.ADDRESS,    // Bool* supported_rtrn (peut être NULL)
+            ValueLayout.ADDRESS,    // Bool* supported_rtrn (may be NULL)
         )
     )
 }
@@ -375,14 +375,14 @@ internal val xkbSetDetectableAutoRepeat: MethodHandle? by lazy {
 /**
  * char *XResourceManagerString(Display *display);
  *
- * Retourne la chaîne de la base de données de ressources X11 (RESOURCE_MANAGER).
- * Utilisée pour lire les préférences DPI (Xft.dpi), la police, etc.
+ * Returns the X11 resource database string (RESOURCE_MANAGER).
+ * Used to read DPI preferences (Xft.dpi), the font, etc.
  */
 internal val xResourceManagerString: MethodHandle? by lazy {
     libX11.downcall(
         "XResourceManagerString",
         FunctionDescriptor.of(
-            ValueLayout.ADDRESS,    // char* retour
+            ValueLayout.ADDRESS,    // char* return
             ValueLayout.ADDRESS,    // Display*
         )
     )

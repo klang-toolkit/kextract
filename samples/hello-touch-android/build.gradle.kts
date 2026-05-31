@@ -1,9 +1,9 @@
 /**
- * Sample hello-touch-android — application Android de démonstration touch events.
+ * Sample hello-touch-android — Android touch events demonstration application.
  *
- * Consomme [org.graphiks.kadre.samples.hellotouch.HelloTouchHandler] depuis
- * `:samples:hello-touch` (commonMain KMP), démontrant que le handler est
- * 100 % Kotlin commun entre iOS et Android.
+ * Consumes [org.graphiks.kadre.samples.hellotouch.HelloTouchHandler] from
+ * `:samples:hello-touch` (commonMain KMP), demonstrating that the handler is
+ * 100% common Kotlin shared between iOS and Android.
  */
 plugins {
     id("com.android.application")

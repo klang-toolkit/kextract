@@ -69,11 +69,11 @@ class KadreMetalView(
 }
 
 /**
- * UiKitWindow — implémente Window pour iOS.
+ * UiKitWindow — implements Window for iOS.
  *
- * Crée UIWindow → UIViewController → KadreMetalView (plein écran).
- * CAMetalLayer est le backing layer de la vue (via +layerClass).
- * Les événements tactiles sont dispatchés vers [eventLoop].handler.
+ * Creates UIWindow → UIViewController → KadreMetalView (full screen).
+ * CAMetalLayer is the view's backing layer (via +layerClass).
+ * Touch events are dispatched to [eventLoop].handler.
  */
 @OptIn(ExperimentalForeignApi::class)
 internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKitActiveEventLoop) : Window {
@@ -96,15 +96,15 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         // that the compiler might consider uninitialized at lambda-definition time.
         val windowId = id
 
-        // 1. KadreMetalView plein écran (dispatch lambda uses windowId)
+        // 1. Full-screen KadreMetalView (dispatch lambda uses windowId)
         metalView = KadreMetalView(frame = screenBounds) { event ->
             eventLoop.handler.windowEvent(eventLoop, windowId, event)
         }
 
-        // 2. contentsScale pour HiDPI / Retina
+        // 2. contentsScale for HiDPI / Retina
         metalView.metalLayer.setContentsScale(screen.scale)
 
-        // 3. Root view controller hébergeant la metal view
+        // 3. Root view controller hosting the metal view
         viewController = UIViewController(nibName = null, bundle = null)
         viewController.setView(metalView)
 
@@ -125,7 +125,7 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         get() = RawDisplayHandle.UiKit
 
     override fun requestRedraw() {
-        // Redraw signaling — no-op pour M3 ; le loop CADisplayLink (GRA-144+) cadence les frames.
+        // Redraw signaling — no-op for M3; the CADisplayLink loop (GRA-144+) paces the frames.
     }
 
     override fun setTitle(title: String) {

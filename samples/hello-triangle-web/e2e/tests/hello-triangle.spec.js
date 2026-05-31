@@ -1,9 +1,9 @@
-// Smoke E2E Web : « au moins une frame présentée » sur hello-triangle-web.
+// Web E2E smoke: "at least one frame presented" on hello-triangle-web.
 //
-// Charge le sample dans Chromium headless (WebGPU SwiftShader), attend que la stack
-// wgpu4k Web ait initialisé le pipeline (log « Pipeline prêt »), vérifie l'absence
-// d'erreur d'acquisition adapter/device et d'erreur JS, puis capture un screenshot
-// du canvas comme artefact de preuve.
+// Loads the sample in headless Chromium (WebGPU SwiftShader), waits for the
+// wgpu4k Web stack to initialize the pipeline (log « Pipeline prêt »), checks for the absence
+// of adapter/device acquisition errors and JS errors, then captures a screenshot
+// of the canvas as a proof artifact.
 const { test, expect } = require('@playwright/test');
 
 test('hello-triangle-web initialise wgpu4k et présente des frames', async ({ page }) => {
@@ -14,25 +14,25 @@ test('hello-triangle-web initialise wgpu4k et présente des frames', async ({ pa
 
   await page.goto('/');
 
-  // Le canvas cible doit être présent.
+  // The target canvas must be present.
   await expect(page.locator('#kadre-canvas')).toBeVisible();
 
-  // Attendre l'initialisation complète : device + pipeline créés.
-  // C'est le signal « la stack Kadre + wgpu4k Web a démarré bout-en-bout ».
+  // Wait for full initialization: device + pipeline created.
+  // This is the signal that "the Kadre + wgpu4k Web stack started end-to-end".
   await expect
     .poll(() => logs.some((l) => l.includes('Pipeline prêt')), { timeout: 60_000 })
     .toBe(true);
 
-  // L'acquisition WebGPU ne doit pas avoir échoué.
+  // WebGPU acquisition must not have failed.
   const acquisitionFailure = logs.find((l) => l.includes('Échec acquisition'));
   expect(acquisitionFailure, `Échec WebGPU: ${acquisitionFailure}`).toBeUndefined();
 
-  // Laisser quelques frames se présenter (la boucle requestRedraw tourne en continu).
+  // Let a few frames present (the requestRedraw loop runs continuously).
   await page.waitForTimeout(2_000);
 
-  // Artefact de preuve visuelle.
+  // Visual proof artifact.
   await page.locator('#kadre-canvas').screenshot({ path: 'triangle.png' });
 
-  // Aucune exception JS non gérée pendant le rendu.
+  // No unhandled JS exception during rendering.
   expect(errors, `Erreurs JS: ${errors.join(' | ')}`).toEqual([]);
 });

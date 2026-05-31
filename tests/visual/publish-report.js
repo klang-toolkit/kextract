@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Publie un rapport de régression visuelle dans l'UI GitHub CI.
+// Publishes a visual regression report in the GitHub CI UI.
 //
-// Pourquoi : GitHub assainit les `data:` URI dans les Job Summaries et les commentaires
-// → les captures encodées en base64 ne s'affichent JAMAIS inline. Seules de vraies URLs
-// sont rendues. Sur un repo PUBLIC, `raw.githubusercontent.com` est rendu inline via le
-// proxy camo de GitHub, sans dépendance externe ni API non documentée (le CDN
-// user-attachments exige un cookie de session navigateur, inadapté à la CI).
+// Why: GitHub sanitizes the `data:` URIs in Job Summaries and comments
+// → base64-encoded captures are NEVER displayed inline. Only real URLs
+// are rendered. On a PUBLIC repo, `raw.githubusercontent.com` is rendered inline via
+// GitHub's camo proxy, without an external dependency or an undocumented API (the
+// user-attachments CDN requires a browser session cookie, unsuitable for CI).
 //
-// Stratégie : ce script reçoit un report.json (produit par diff-cli.js), copie les PNG
-// dans <stagingDir>/<run_id>/<platform>/ pour que l'action puisse les pousser sur la
-// branche orpheline `ci-visual-reports`, puis écrit :
-//   - un fragment de Job Summary (galerie d'images via URLs raw),
-//   - un fragment de commentaire de PR (même galerie),
-// les deux référençant les URLs raw définitives.
+// Strategy: this script receives a report.json (produced by diff-cli.js), copies the PNGs
+// into <stagingDir>/<run_id>/<platform>/ so the action can push them to the
+// orphan branch `ci-visual-reports`, then writes:
+//   - a Job Summary fragment (image gallery via raw URLs),
+//   - a PR comment fragment (same gallery),
+// both referencing the final raw URLs.
 //
-// Usage :
+// Usage:
 //   node publish-report.js <report.json> <stagingDir> <repo> <branch> <runId> \
 //                          <summaryOut.md> <commentOut.md>
 const fs = require('fs');
@@ -25,20 +25,20 @@ const [reportPath, stagingDir, repo, branch, runId, summaryOut, commentOut] =
 
 if (!reportPath || !fs.existsSync(reportPath)) {
   console.error(`[visual-report] report introuvable: ${reportPath}`);
-  process.exit(0); // non bloquant
+  process.exit(0); // non-blocking
 }
 
 const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
 const platform = report.platform || 'inconnu';
-// Slug sûr pour chemins/URLs (ex. "Linux X11" → "linux-x11").
+// Safe slug for paths/URLs (e.g. "Linux X11" → "linux-x11").
 const slug = platform.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'inconnu';
 
-// Sous-dossier de staging propre à ce run + plateforme (évite les collisions entre jobs).
+// Staging subfolder specific to this run + platform (avoids collisions between jobs).
 const subPath = `${runId}/${slug}`;
 const outDir = path.join(stagingDir, subPath);
 fs.mkdirSync(outDir, { recursive: true });
 
-// Copie chaque image présente et calcule son URL raw définitive.
+// Copy each present image and compute its final raw URL.
 const rawBase = `https://raw.githubusercontent.com/${repo}/${branch}/${subPath}`;
 const urls = {};
 for (const [kind, srcPath] of Object.entries(report.images || {})) {
@@ -68,7 +68,7 @@ if (summaryOut) {
   fs.writeFileSync(summaryOut, body);
 }
 if (commentOut) {
-  // Marqueur HTML pour permettre l'upsert d'un commentaire « collant » par plateforme.
+  // HTML marker to allow upsert of a "sticky" comment per platform.
   const marker = `<!-- visual-report:${slug} -->`;
   fs.mkdirSync(path.dirname(commentOut), { recursive: true });
   fs.writeFileSync(commentOut, `${marker}\n${body}`);

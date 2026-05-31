@@ -7,8 +7,8 @@ import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
 
 /**
- * Adaptateur d'entrée cross-platform pour Pong.
- * Mappe clavier (desktop/web) et touch (mobile/web) vers PaddleInput.
+ * Cross-platform input adapter for Pong.
+ * Maps keyboard (desktop/web) and touch (mobile/web) to PaddleInput.
  *
  * .
  */
@@ -27,10 +27,10 @@ class InputAdapter {
     }
 
     /**
-     * Gère un contact tactile.
+     * Handles a touch contact.
      *
-     * Zone de jeu : côté droit de l'écran (x > width/2).
-     * Moitié supérieure → UP, moitié inférieure → DOWN.
+     * Play zone: right side of the screen (x > width/2).
+     * Upper half → UP, lower half → DOWN.
      * Touch ended/cancelled → NONE.
      */
     fun onTouch(event: WindowEvent.Touch, screenSize: PhysicalSize<Int>) {

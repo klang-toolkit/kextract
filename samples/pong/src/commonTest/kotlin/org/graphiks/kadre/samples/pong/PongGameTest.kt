@@ -1,10 +1,10 @@
 /**
- * Tests pour PongGame.
+ * Tests for PongGame.
  *
- * Vérifie le comportement du gestionnaire d'application sans GPU :
- *   - [aboutToWait] avance l'état du jeu
- *   - [windowEvent] avec CloseRequested appelle [eventLoop.exit()]
- *   - [canCreateSurfaces] initialise le rendu et configure Poll
+ * Verifies the application handler's behavior without GPU:
+ *   - [aboutToWait] advances the game state
+ *   - [windowEvent] with CloseRequested calls [eventLoop.exit()]
+ *   - [canCreateSurfaces] initializes rendering and configures Poll
  */
 package org.graphiks.kadre.samples.pong
 
@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
 // Mocks
 // ---------------------------------------------------------------------------
 
-/** Renderer fictif — enregistre les appels. */
+/** Fake renderer — records the calls. */
 class FakeRenderer : PongRendererInterface {
     var drawCount = 0
     var resizeCount = 0
@@ -47,10 +47,10 @@ class FakeRenderer : PongRendererInterface {
     }
 }
 
-/** Fenêtre fictive — retourne un handle Win32 stub pour déclencher la factory. */
+/** Fake window — returns a Win32 stub handle to trigger the factory. */
 class FakeWindow : Window {
     override val id = WindowId(1L)
-    // Win32 stub — satisfait le check `handle is RawWindowHandle` dans PongGame
+    // Win32 stub — satisfies the `handle is RawWindowHandle` check in PongGame
     override val rawWindowHandle: Any = RawWindowHandle.Win32(hwnd = 0L, hinstance = 0L)
     override val rawDisplayHandle: Any = Unit
     var redrawRequested = false
@@ -63,7 +63,7 @@ class FakeWindow : Window {
     override fun close() {}
 }
 
-/** EventLoop fictif — enregistre les appels. */
+/** Fake EventLoop — records the calls. */
 class FakeEventLoop : ActiveEventLoop {
     var exited = false
     private var _controlFlow: ControlFlow = ControlFlow.Wait
@@ -123,7 +123,7 @@ class PongGameTest {
     }
 
     // -------------------------------------------------------------------------
-    // aboutToWait — avance l'état du jeu
+    // aboutToWait — advances the game state
     // -------------------------------------------------------------------------
 
     @Test

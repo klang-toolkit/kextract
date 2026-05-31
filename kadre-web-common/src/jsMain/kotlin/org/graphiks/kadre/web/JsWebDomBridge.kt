@@ -1,11 +1,11 @@
 /**
- * Implémentation JS de [WebDomBridge].
+ * JS implementation of [WebDomBridge].
  *
- * Attache tous les écouteurs DOM nécessaires au canvas cible et les retire
- * lors du détachement. Les événements DOM sont convertis en [WebWindowEvent]
- * via les fonctions pures de [DomEventMapper].
+ * Attaches all the DOM listeners required by the target canvas and removes them
+ * on detach. DOM events are converted into [WebWindowEvent]
+ * via the pure functions of [DomEventMapper].
  *
- * Ce fichier PEUT utiliser kotlinx.browser et org.w3c.dom.* car il est dans jsMain.
+ * This file MAY use kotlinx.browser and org.w3c.dom.* since it is in jsMain.
  *
  * @since 1.0.0
  */
@@ -18,16 +18,16 @@ import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.WheelEvent
 
 /**
- * Pont DOM JS vers le moteur Kadre.
+ * JS DOM bridge to the Kadre engine.
  *
- * Écoute et dispatche les événements DOM suivants :
- * - Clavier : `keydown` / `keyup` → [WebWindowEvent.KeyboardInput]
- * - Pointeur : `pointermove` → [WebWindowEvent.PointerMoved]
- * - Pointeur : `pointerdown` / `pointerup` → [WebWindowEvent.MouseInput]
- * - Pointeur : `pointerenter` / `pointerleave` → [WebWindowEvent.PointerEntered] / [WebWindowEvent.PointerLeft]
- * - Molette : `wheel` → [WebWindowEvent.MouseWheel]
- * - Redimensionnement : `ResizeObserver` sur le canvas → [WebWindowEvent.Resized]
- * - Visibilité : `visibilitychange` → [WebWindowEvent.Focused]
+ * Listens to and dispatches the following DOM events:
+ * - Keyboard: `keydown` / `keyup` → [WebWindowEvent.KeyboardInput]
+ * - Pointer: `pointermove` → [WebWindowEvent.PointerMoved]
+ * - Pointer: `pointerdown` / `pointerup` → [WebWindowEvent.MouseInput]
+ * - Pointer: `pointerenter` / `pointerleave` → [WebWindowEvent.PointerEntered] / [WebWindowEvent.PointerLeft]
+ * - Wheel: `wheel` → [WebWindowEvent.MouseWheel]
+ * - Resize: `ResizeObserver` on the canvas → [WebWindowEvent.Resized]
+ * - Visibility: `visibilitychange` → [WebWindowEvent.Focused]
  */
 class JsWebDomBridge : WebDomBridge {
 
@@ -45,7 +45,7 @@ class JsWebDomBridge : WebDomBridge {
         canvas.id = id
         canvas.width = attrs.width
         canvas.height = attrs.height
-        // tabIndex pour rendre le canvas focusable (sans cela, keydown/keyup ne remontent pas).
+        // tabIndex to make the canvas focusable (without it, keydown/keyup do not fire).
         canvas.tabIndex = 0
         val parent = attrs.parentElementId?.let { document.getElementById(it) }
             ?: document.body
@@ -67,7 +67,7 @@ class JsWebDomBridge : WebDomBridge {
         val canvas = document.getElementById(targetElementId) ?: return
         targetElement = canvas
 
-        // --- Clavier ---
+        // --- Keyboard ---
         addListener(canvas, "keydown") { e ->
             val ke = e as KeyboardEvent
             dispatch(
@@ -92,7 +92,7 @@ class JsWebDomBridge : WebDomBridge {
             )
         }
 
-        // --- Pointeur (PointerEvent unifié) ---
+        // --- Pointer (unified PointerEvent) ---
         addListener(canvas, "pointermove") { e ->
             val pe = e.unsafeCast<PointerEventData>()
             dispatch(WebWindowEvent.PointerMoved(x = pe.clientX, y = pe.clientY))
@@ -126,7 +126,7 @@ class JsWebDomBridge : WebDomBridge {
             dispatch(WebWindowEvent.PointerLeft)
         }
 
-        // --- Molette ---
+        // --- Wheel ---
         addListener(canvas, "wheel") { e ->
             val we = e as WheelEvent
             dispatch(
@@ -137,7 +137,7 @@ class JsWebDomBridge : WebDomBridge {
             )
         }
 
-        // --- Redimensionnement via ResizeObserver ---
+        // --- Resize via ResizeObserver ---
         resizeObserver = js("new ResizeObserver(function(entries) { return entries; })")
         val self = this
         resizeObserver = js("""(function(callback) {
@@ -150,7 +150,7 @@ class JsWebDomBridge : WebDomBridge {
         })(function(w, h) { self.dispatchResized(w, h); })""")
         resizeObserver.observe(canvas)
 
-        // --- Visibilité de page → Suspended/Resumed via Focused ---
+        // --- Page visibility → Suspended/Resumed via Focused ---
         addDocumentListener("visibilitychange") { _ ->
             val hidden: Boolean = js("document.hidden")
             dispatch(WebWindowEvent.Focused(gained = !hidden))
@@ -158,7 +158,7 @@ class JsWebDomBridge : WebDomBridge {
     }
 
     /**
-     * Appelé depuis le ResizeObserver JS avec les nouvelles dimensions.
+     * Called from the JS ResizeObserver with the new dimensions.
      */
     @JsName("dispatchResized")
     fun dispatchResized(width: Int, height: Int) {
@@ -187,7 +187,7 @@ class JsWebDomBridge : WebDomBridge {
     }
 
     // -----------------------------------------------------------------------
-    // Helpers privés
+    // Private helpers
     // -----------------------------------------------------------------------
 
     private fun addListener(target: Element, type: String, handler: (Event) -> Unit) {
@@ -206,11 +206,11 @@ class JsWebDomBridge : WebDomBridge {
 }
 
 /**
- * Interface externe décrivant les champs d'un PointerEvent DOM accessibles en JS.
+ * External interface describing the fields of a DOM PointerEvent accessible from JS.
  *
- * Utilisée pour accéder à `clientX`, `clientY` et `button` sur les événements
- * de type `pointerdown`, `pointerup` et `pointermove`, qui héritent de MouseEvent
- * mais dont le cast direct via `as MouseEvent` n'est pas toujours stable en IR.
+ * Used to access `clientX`, `clientY` and `button` on `pointerdown`,
+ * `pointerup` and `pointermove` events, which inherit from MouseEvent
+ * but whose direct cast via `as MouseEvent` is not always stable in IR.
  */
 private external interface PointerEventData {
     val clientX: Double

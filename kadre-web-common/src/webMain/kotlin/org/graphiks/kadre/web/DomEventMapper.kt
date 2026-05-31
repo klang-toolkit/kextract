@@ -1,28 +1,28 @@
 /**
- * Mapping DOM → types Kadre web (fonctions pures, sans imports DOM).
+ * DOM → Kadre web types mapping (pure functions, no DOM imports).
  *
- * Ce fichier est dans webMain. Il ne doit contenir AUCUN import DOM
- * (pas de kotlinx.browser, org.w3c.dom.*, ni interop JS Wasm).
- * Les paramètres reçoivent des types Kotlin purs (String, Short, Boolean)
- * extraits par les implémentations dans jsMain / wasmJsMain.
+ * This file is in webMain. It must contain NO DOM import
+ * (no kotlinx.browser, org.w3c.dom.*, nor Wasm JS interop).
+ * The parameters receive pure Kotlin types (String, Short, Boolean)
+ * extracted by the implementations in jsMain / wasmJsMain.
  *
- * Les fonctions sont `internal` pour éviter de polluer l'API publique.
+ * The functions are `internal` to avoid polluting the public API.
  *
  * @since 1.0.0
  */
 package org.graphiks.kadre.web
 
 /**
- * Convertit un code DOM (`KeyboardEvent.code`) en [WebKey] Kadre.
+ * Converts a DOM code (`KeyboardEvent.code`) into a Kadre [WebKey].
  *
- * Les codes DOM sont des chaînes de la forme `"KeyA"`, `"Digit1"`, `"ArrowUp"`, etc.
- * Voir : https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_code_values
+ * DOM codes are strings of the form `"KeyA"`, `"Digit1"`, `"ArrowUp"`, etc.
+ * See: https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_code_values
  *
- * @param code Valeur de `KeyboardEvent.code` (ex. `"KeyA"`, `"Space"`, `"F1"`).
- * @return [WebKey] correspondant, ou [WebKey.Unknown] si le code n'est pas reconnu.
+ * @param code Value of `KeyboardEvent.code` (e.g. `"KeyA"`, `"Space"`, `"F1"`).
+ * @return The corresponding [WebKey], or [WebKey.Unknown] if the code is not recognized.
  */
 internal fun domCodeToKey(code: String): WebKey = when (code) {
-    // Lettres
+    // Letters
     "KeyA" -> WebKey.A
     "KeyB" -> WebKey.B
     "KeyC" -> WebKey.C
@@ -50,7 +50,7 @@ internal fun domCodeToKey(code: String): WebKey = when (code) {
     "KeyY" -> WebKey.Y
     "KeyZ" -> WebKey.Z
 
-    // Chiffres
+    // Digits
     "Digit0" -> WebKey.Digit0
     "Digit1" -> WebKey.Digit1
     "Digit2" -> WebKey.Digit2
@@ -62,7 +62,7 @@ internal fun domCodeToKey(code: String): WebKey = when (code) {
     "Digit8" -> WebKey.Digit8
     "Digit9" -> WebKey.Digit9
 
-    // Touches de fonction
+    // Function keys
     "F1"  -> WebKey.F1
     "F2"  -> WebKey.F2
     "F3"  -> WebKey.F3
@@ -76,7 +76,7 @@ internal fun domCodeToKey(code: String): WebKey = when (code) {
     "F11" -> WebKey.F11
     "F12" -> WebKey.F12
 
-    // Touches spéciales
+    // Special keys
     "Space"     -> WebKey.Space
     "Enter"     -> WebKey.Enter
     "Escape"    -> WebKey.Escape
@@ -89,7 +89,7 @@ internal fun domCodeToKey(code: String): WebKey = when (code) {
     "ArrowLeft"  -> WebKey.ArrowLeft
     "ArrowRight" -> WebKey.ArrowRight
 
-    // Modificateurs
+    // Modifiers
     "ShiftLeft"    -> WebKey.ShiftLeft
     "ShiftRight"   -> WebKey.ShiftRight
     "ControlLeft"  -> WebKey.ControlLeft
@@ -103,13 +103,13 @@ internal fun domCodeToKey(code: String): WebKey = when (code) {
 }
 
 /**
- * Construit un [WebModifiers] à partir des champs booléens d'un `KeyboardEvent` ou `MouseEvent` DOM.
+ * Builds a [WebModifiers] from the boolean fields of a DOM `KeyboardEvent` or `MouseEvent`.
  *
- * @param shiftKey  Valeur de `event.shiftKey`.
- * @param ctrlKey   Valeur de `event.ctrlKey`.
- * @param altKey    Valeur de `event.altKey`.
- * @param metaKey   Valeur de `event.metaKey`.
- * @return [WebModifiers] avec les bits correspondants positionnés.
+ * @param shiftKey  Value of `event.shiftKey`.
+ * @param ctrlKey   Value of `event.ctrlKey`.
+ * @param altKey    Value of `event.altKey`.
+ * @param metaKey   Value of `event.metaKey`.
+ * @return [WebModifiers] with the corresponding bits set.
  */
 internal fun domModifiers(
     shiftKey: Boolean,
@@ -126,16 +126,16 @@ internal fun domModifiers(
 }
 
 /**
- * Convertit un index de bouton DOM (`MouseEvent.button`) en [WebMouseButton] Kadre.
+ * Converts a DOM button index (`MouseEvent.button`) into a Kadre [WebMouseButton].
  *
- * Mapping standard DOM :
- * - `0` → bouton gauche
- * - `1` → bouton milieu (molette)
- * - `2` → bouton droit
- * - `≥3` → boutons supplémentaires ([WebMouseButton.Other])
+ * Standard DOM mapping:
+ * - `0` → left button
+ * - `1` → middle button (wheel)
+ * - `2` → right button
+ * - `≥3` → additional buttons ([WebMouseButton.Other])
  *
- * @param button Valeur de `MouseEvent.button` (Short côté DOM).
- * @return [WebMouseButton] correspondant.
+ * @param button Value of `MouseEvent.button` (Short on the DOM side).
+ * @return The corresponding [WebMouseButton].
  */
 internal fun domButtonToMouseButton(button: Short): WebMouseButton = when (button.toInt()) {
     0    -> WebMouseButton.Left
@@ -145,10 +145,10 @@ internal fun domButtonToMouseButton(button: Short): WebMouseButton = when (butto
 }
 
 /**
- * Déduit le [WebKeyState] à partir du type d'événement DOM (`"keydown"` ou `"keyup"`).
+ * Derives the [WebKeyState] from the DOM event type (`"keydown"` or `"keyup"`).
  *
- * @param eventType Valeur de `event.type` (`"keydown"` ou `"keyup"`).
- * @return [WebKeyState.Pressed] pour `"keydown"`, [WebKeyState.Released] sinon.
+ * @param eventType Value of `event.type` (`"keydown"` or `"keyup"`).
+ * @return [WebKeyState.Pressed] for `"keydown"`, [WebKeyState.Released] otherwise.
  */
 internal fun domKeyStateFromEventType(eventType: String): WebKeyState = when (eventType) {
     "keydown"     -> WebKeyState.Pressed
@@ -157,16 +157,16 @@ internal fun domKeyStateFromEventType(eventType: String): WebKeyState = when (ev
 }
 
 /**
- * Normalise un delta de molette DOM en pixels logiques.
+ * Normalizes a DOM wheel delta into logical pixels.
  *
- * Le DOM expose trois modes de défilement :
- * - `0` (DOM_DELTA_PIXEL) : le delta est déjà en pixels — pas de transformation.
- * - `1` (DOM_DELTA_LINE)  : le delta est en lignes — multiplie par 16 px.
- * - `2` (DOM_DELTA_PAGE)  : le delta est en pages — multiplie par 600 px.
+ * The DOM exposes three scroll modes:
+ * - `0` (DOM_DELTA_PIXEL): the delta is already in pixels — no transformation.
+ * - `1` (DOM_DELTA_LINE) : the delta is in lines — multiply by 16 px.
+ * - `2` (DOM_DELTA_PAGE) : the delta is in pages — multiply by 600 px.
  *
- * @param delta     Valeur brute de `WheelEvent.deltaX` ou `deltaY`.
- * @param deltaMode Valeur de `WheelEvent.deltaMode` (0, 1 ou 2).
- * @return Delta normalisé en pixels logiques.
+ * @param delta     Raw value of `WheelEvent.deltaX` or `deltaY`.
+ * @param deltaMode Value of `WheelEvent.deltaMode` (0, 1 or 2).
+ * @return Delta normalized into logical pixels.
  */
 internal fun normalizeWheelDelta(delta: Double, deltaMode: Int): Double {
     val scale = when (deltaMode) {

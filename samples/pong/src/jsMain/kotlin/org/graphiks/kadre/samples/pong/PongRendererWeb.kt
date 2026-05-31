@@ -1,19 +1,19 @@
 /**
- * PongRendererWeb — rendu wgpu4k 2D pour Pong côté navigateur (JS/IR).
+ * PongRendererWeb — 2D wgpu4k rendering for Pong on the browser side (JS/IR).
  *
- * Porte le pattern du [PongRenderer] JVM vers wgpu4k Web :
- *   - canvas DOM → [CanvasSurface]
- *   - Adapter + Device acquis via coroutine (requestAdapter / requestDevice sont suspend)
- *   - Pipeline 2D identique (WGSL quad par vertex_index, uniforms x/y/w/h/r/g/b/_pad)
- *   - Pool d'uniform buffers + bind groups (1 par quad) — corrige le bug du buffer
- *     unique partagé qui n'affichait que le dernier quad (cf. PR #129).
- *   - writeBuffer pour tous les quads AVANT beginRenderPass (spec WebGPU stricte).
+ * Ports the JVM [PongRenderer] pattern to wgpu4k Web:
+ *   - DOM canvas → [CanvasSurface]
+ *   - Adapter + Device acquired via coroutine (requestAdapter / requestDevice are suspend)
+ *   - Identical 2D pipeline (WGSL quad by vertex_index, uniforms x/y/w/h/r/g/b/_pad)
+ *   - Pool of uniform buffers + bind groups (1 per quad) — fixes the bug of the single
+ *     shared buffer that only displayed the last quad (cf. PR #129).
+ *   - writeBuffer for all quads BEFORE beginRenderPass (strict WebGPU spec).
  *
- * L'init wgpu est asynchrone côté Web ; [draw] est un no-op tant que le pipeline
- * n'est pas prêt — ce qui est compatible avec le tick PongGame (les premières
- * frames sont silencieusement perdues le temps de l'init).
+ * The wgpu init is asynchronous on the Web side; [draw] is a no-op as long as the pipeline
+ * is not ready — which is compatible with the PongGame tick (the first
+ * frames are silently dropped during init).
  *
- * (extension web — JVM initialement).
+ * (web extension — JVM initially).
  */
 package org.graphiks.kadre.samples.pong
 
@@ -58,11 +58,11 @@ import kotlinx.coroutines.launch
 import kotlin.js.unsafeCast
 
 // ---------------------------------------------------------------------------
-// Le shader WGSL, les constantes de layout et `buildPongQuads` sont en commonMain
-// (cf. PongRendererCore.kt). On expose ici juste l'alias ULong pour l'API wgpu4k Web.
+// The WGSL shader, the layout constants and `buildPongQuads` are in commonMain
+// (cf. PongRendererCore.kt). Here we just expose the ULong alias for the wgpu4k Web API.
 // ---------------------------------------------------------------------------
 
-// 32 bytes (cf. UNIFORM_BYTES_LONG en commonMain — wgpu4k veut un ULong côté API).
+// 32 bytes (cf. UNIFORM_BYTES_LONG in commonMain — wgpu4k wants a ULong on the API side).
 private val UNIFORM_BYTES: ULong = 32uL
 
 // ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
     private var surface: CanvasSurface? = null
     private var device: GPUDevice? = null
     private var pipeline: GPURenderPipeline? = null
-    // Pool : un uniform buffer + un bind group par quad (cf. fix PR #129).
+    // Pool: one uniform buffer + one bind group per quad (cf. fix PR #129).
     private val uniformBuffers = mutableListOf<GPUBuffer>()
     private val bindGroups = mutableListOf<GPUBindGroup>()
     private var format: GPUTextureFormat = GPUTextureFormat.BGRA8Unorm
@@ -86,10 +86,10 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
         if (windowHandle !is RawWindowHandle.Web) {
             println("[PongRendererWeb] Handle non supporté : $windowHandle")
         } else {
-            // Résolution canvas en cascade :
-            //   1. canvasElementId du handle (sur Kadre Web actuel, c'est le `title` du WindowAttributes
-            //      — convention discutable, à corriger côté backend ; suivi à ouvrir).
-            //   2. Fallback "kadre-canvas" (id présent dans index.html du sample).
+            // Cascading canvas resolution:
+            //   1. canvasElementId from the handle (on the current Kadre Web, it is the `title` of WindowAttributes
+            //      — debatable convention, to be fixed on the backend side; follow-up to open).
+            //   2. Fallback "kadre-canvas" (id present in the sample's index.html).
             val requestedId = windowHandle.canvasElementId
             val domCanvas = requestedId?.let { document.getElementById(it) }
                 ?: document.getElementById("kadre-canvas")
@@ -147,7 +147,7 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
                 )
             )
 
-            // Pool : un uniform buffer + un bind group par draw call (cf. PR #129).
+            // Pool: one uniform buffer + one bind group per draw call (cf. PR #129).
             repeat(MAX_QUADS_PER_FRAME) {
                 val buf = gpuDevice.createBuffer(
                     BufferDescriptor(
@@ -206,9 +206,9 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
     // -------------------------------------------------------------------------
 
     override fun resize(width: Int, height: Int) {
-        // Sur Web, le drawing buffer du canvas est ajusté côté backend Kadre
-        // (cf. WebWindow / ResizeObserver). On reconfigure le swap chain au
-        // nouveau format si device prêt.
+        // On Web, the canvas drawing buffer is adjusted on the Kadre backend side
+        // (cf. WebWindow / ResizeObserver). We reconfigure the swap chain to the
+        // new format if the device is ready.
         val s = surface ?: return
         val d = device ?: return
         if (!ready) return
@@ -228,7 +228,7 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
         val pipe = pipeline ?: return
         if (uniformBuffers.isEmpty()) return
 
-        // Liste de quads construite par `buildPongQuads` en commonMain (cf. PongRendererCore).
+        // List of quads built by `buildPongQuads` in commonMain (cf. PongRendererCore).
         val quads = buildPongQuads(state)
 
         val drawCount = minOf(quads.size, uniformBuffers.size)
@@ -236,7 +236,7 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
             println("[PongRendererWeb] Pool insuffisant : ${quads.size} > $MAX_QUADS_PER_FRAME")
         }
 
-        // CRITIQUE : tous les writeBuffer AVANT beginRenderPass (spec WebGPU + cf. PR #129).
+        // CRITICAL: all writeBuffer BEFORE beginRenderPass (WebGPU spec + cf. PR #129).
         for (i in 0 until drawCount) {
             val data = quads[i]
             dev.queue.writeBuffer(uniformBuffers[i], 0uL, data, 0uL, data.size.toULong())

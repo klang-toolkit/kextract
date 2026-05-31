@@ -1,11 +1,11 @@
 name: linux-visual
 
-# Régression visuelle Linux via readback GPU.
-# La capture réutilise l'EventLoop kadre pour obtenir une fenêtre Wayland, d'où la
-# surface wgpu, puis rend offscreen + readback. NON BLOQUANT.
+# Linux visual regression via GPU readback.
+# The capture reuses the kadre EventLoop to obtain a Wayland window, hence the
+# wgpu surface, then renders offscreen + readback. NON-BLOCKING.
 #
-# Headless : compositor Wayland Weston (backend headless) + Vulkan logiciel (Mesa
-# lavapipe), les runners n'ayant pas de GPU.
+# Headless: Weston Wayland compositor (headless backend) + software Vulkan (Mesa
+# lavapipe), since the runners have no GPU.
 
 on:
   push:
@@ -27,8 +27,8 @@ jobs:
     name: linux-visual
     runs-on: ubuntu-latest
     permissions:
-      contents: write        # push des captures sur la branche orpheline ci-visual-reports
-      pull-requests: write   # commentaire de PR avec la galerie inline
+      contents: write        # push captures to the orphan branch ci-visual-reports
+      pull-requests: write   # PR comment with the inline gallery
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,8 +58,8 @@ jobs:
           weston --version || true
           export XDG_RUNTIME_DIR=/tmp/wl-runtime
           mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
-          # weston 13 (Ubuntu 24.04) : module headless-backend.so + renderer Pixman
-          # (logiciel — pas d'EGL/GPU requis pour le compositor lui-même).
+          # weston 13 (Ubuntu 24.04): headless-backend.so module + Pixman renderer
+          # (software — no EGL/GPU required for the compositor itself).
           weston \
             --backend=headless-backend.so \
             --renderer=pixman \
@@ -85,7 +85,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Diagnostic : où est l'ICD lavapipe + le Vulkan logiciel est-il chargé ?
+      # Diagnostic: where is the lavapipe ICD + is the software Vulkan loaded?
       - name: Vulkan/WSI diagnostic
         continue-on-error: true
         run: |
@@ -102,13 +102,13 @@ jobs:
         id: capture
         continue-on-error: true
         env:
-          # Laisser le loader Vulkan auto-découvrir les ICD installés (lavapipe inclus),
-          # plutôt que forcer un chemin qui peut être faux. Fallback GL en logiciel.
+          # Let the Vulkan loader auto-discover the installed ICDs (lavapipe included),
+          # rather than forcing a path that may be wrong. Software GL fallback.
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
         run: |
-          # Ne lance la capture que si un compositor Wayland est disponible
-          # (évite un abort natif de la pile Wayland sans display).
+          # Only run the capture if a Wayland compositor is available
+          # (avoids a native abort of the Wayland stack without a display).
           if [ -z "$WAYLAND_DISPLAY" ] || [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then
             echo "::warning::pas de compositor Wayland — capture Linux sautée"
             exit 0
@@ -117,8 +117,8 @@ jobs:
             --args="--capture build/visual/hello-triangle.actual.png" \
             --no-daemon --stacktrace
 
-      # Diagnostic : si la JVM a crashé (FFM natif), remonter le hs_err (frames Java
-      # appelantes + frames natives) directement dans le log CI.
+      # Diagnostic: if the JVM crashed (native FFM), surface the hs_err (calling Java
+      # frames + native frames) directly in the CI log.
       - name: Dump crash report (hs_err)
         if: always()
         run: |

@@ -1,9 +1,9 @@
 /**
  * Tests unitaires pour [WaylandKeyMapper] et [WaylandMouseMapper].
  *
- * Ces tests vérifient la correction des tables de mappage et des fonctions
- * de conversion sans dépendance à libwayland-client.so.0.
- * Ils s'exécutent sur toutes les plateformes (macOS, Windows, Linux).
+ * These tests verify the correctness of the mapping tables and the conversion
+ * functions without a dependency on libwayland-client.so.0.
+ * They run on all platforms (macOS, Windows, Linux).
  */
 package org.graphiks.kadre.wayland
 

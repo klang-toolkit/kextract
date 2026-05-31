@@ -1,22 +1,22 @@
 /**
- * Attributs de création d'une fenêtre Web — extension web-only du contrat
- * [org.graphiks.kadre.core.WindowAttributes].
+ * Web window creation attributes — web-only extension of the
+ * [org.graphiks.kadre.core.WindowAttributes] contract.
  *
- * Inspiré du trait `WindowAttributesExtWebSys` de [winit](https://docs.rs/winit/latest/winit/platform/web/trait.WindowAttributesExtWebSys.html),
- * qui ajoute à `WindowAttributes` les méthodes `with_canvas(...)` et `with_append(...)`
- * spécifiques à la cible web. Le contrat core reste agnostique du DOM.
+ * Inspired by the `WindowAttributesExtWebSys` trait of [winit](https://docs.rs/winit/latest/winit/platform/web/trait.WindowAttributesExtWebSys.html),
+ * which adds the web-target-specific `with_canvas(...)` and `with_append(...)` methods
+ * to `WindowAttributes`. The core contract stays DOM-agnostic.
  *
- * ## Cas d'usage
+ * ## Use cases
  *
- * 1. **Canvas DOM existant** (cas typique d'un embed dans une page hôte) :
+ * 1. **Existing DOM canvas** (typical case of an embed in a host page):
  *    ```kotlin
  *    webLoop.createWindow(WebWindowAttributes(canvasId = "my-canvas"))
  *    ```
- * 2. **Création auto, append au `<body>`** (cas typique d'une démo standalone) :
+ * 2. **Auto-creation, append to `<body>`** (typical case of a standalone demo):
  *    ```kotlin
  *    webLoop.createWindow(WebWindowAttributes(appendToBody = true, width = 800, height = 600))
  *    ```
- * 3. **Création auto, parent explicite** :
+ * 3. **Auto-creation, explicit parent**:
  *    ```kotlin
  *    webLoop.createWindow(WebWindowAttributes(
  *        canvasId = "kadre",
@@ -25,25 +25,25 @@
  *    ))
  *    ```
  *
- * ## Contrainte webMain
- * Ce fichier réside dans `webMain` : aucun type DOM (`HTMLCanvasElement`, …)
- * ne peut transiter ici. Le canvas est référencé par son `id` CSS uniquement.
- * Un overload exposant directement un `HTMLCanvasElement` pourrait être ajouté
- * en `jsMain` / `wasmJsMain` si nécessaire (out of scope cette PR).
+ * ## webMain constraint
+ * This file resides in `webMain`: no DOM type (`HTMLCanvasElement`, …)
+ * can pass through here. The canvas is referenced by its CSS `id` only.
+ * An overload directly exposing an `HTMLCanvasElement` could be added
+ * in `jsMain` / `wasmJsMain` if needed (out of scope for this PR).
  *
- * @property canvasId          Id CSS d'un `<canvas>` DOM existant ou à créer.
- *                              `null` ⇒ id par défaut `"kadre-canvas"`.
- * @property appendToBody       Si `true` et qu'aucun canvas portant [canvasId] n'existe,
- *                              Kadre crée un `<canvas>` (avec [width] × [height]) et
- *                              l'ajoute au DOM (dans [parentElementId] ou `<body>`).
- * @property parentElementId    Id CSS du parent où insérer le canvas créé.
- *                              Ignoré si le canvas préexiste. `null` ⇒ `<body>`.
- * @property width              Largeur initiale en pixels physiques du canvas créé.
- * @property height             Hauteur initiale en pixels physiques du canvas créé.
- * @property core               Attributs cross-platform sous-jacents
+ * @property canvasId          CSS id of an existing DOM `<canvas>` or one to create.
+ *                              `null` ⇒ default id `"kadre-canvas"`.
+ * @property appendToBody       If `true` and no canvas with [canvasId] exists,
+ *                              Kadre creates a `<canvas>` (with [width] × [height]) and
+ *                              adds it to the DOM (within [parentElementId] or `<body>`).
+ * @property parentElementId    CSS id of the parent in which to insert the created canvas.
+ *                              Ignored if the canvas already exists. `null` ⇒ `<body>`.
+ * @property width              Initial width in physical pixels of the created canvas.
+ * @property height             Initial height in physical pixels of the created canvas.
+ * @property core               Underlying cross-platform attributes
  *                              ([org.graphiks.kadre.core.WindowAttributes.title],
- *                              size, visible, resizable) — la majorité sont no-op
- *                              côté Web mais conservés pour cohérence multi-plateforme.
+ *                              size, visible, resizable) — most are no-op
+ *                              on the Web side but kept for multi-platform consistency.
  *
  * @since 1.0.0
  */
@@ -59,7 +59,7 @@ data class WebWindowAttributes(
     val height: Int = 600,
     val core: WindowAttributes = WindowAttributes(),
 ) {
-    /** Identifiant CSS effectif du canvas (avec fallback `"kadre-canvas"`). */
+    /** Effective CSS identifier of the canvas (with `"kadre-canvas"` fallback). */
     val effectiveCanvasId: String get() = canvasId ?: DEFAULT_CANVAS_ID
 
     companion object {

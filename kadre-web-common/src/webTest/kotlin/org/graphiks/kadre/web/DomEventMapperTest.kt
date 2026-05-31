@@ -1,9 +1,9 @@
 /**
- * Tests des fonctions pures de DomEventMapper.
+ * Tests for the pure functions of DomEventMapper.
  *
- * Ces tests vivent dans webTest (source set intermédiaire) : ils s'exécutent
- * aussi bien sur la cible js que sur wasmJs. Aucune dépendance DOM n'est requise
- * car les fonctions testées sont 100 % Kotlin pur.
+ * These tests live in webTest (intermediate source set): they run
+ * both on the js target and on wasmJs. No DOM dependency is required
+ * since the tested functions are 100% pure Kotlin.
  */
 package org.graphiks.kadre.web
 
@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 class DomEventMapperTest {
 
     // -----------------------------------------------------------------------
-    // domCodeToKey — lettres
+    // domCodeToKey — letters
     // -----------------------------------------------------------------------
 
     @Test
@@ -26,7 +26,7 @@ class DomEventMapperTest {
     }
 
     // -----------------------------------------------------------------------
-    // domCodeToKey — chiffres
+    // domCodeToKey — digits
     // -----------------------------------------------------------------------
 
     @Test
@@ -37,7 +37,7 @@ class DomEventMapperTest {
     }
 
     // -----------------------------------------------------------------------
-    // domCodeToKey — touches de fonction
+    // domCodeToKey — function keys
     // -----------------------------------------------------------------------
 
     @Test
@@ -48,7 +48,7 @@ class DomEventMapperTest {
     }
 
     // -----------------------------------------------------------------------
-    // domCodeToKey — touches spéciales
+    // domCodeToKey — special keys
     // -----------------------------------------------------------------------
 
     @Test
@@ -73,7 +73,7 @@ class DomEventMapperTest {
     }
 
     // -----------------------------------------------------------------------
-    // domCodeToKey — modificateurs
+    // domCodeToKey — modifiers
     // -----------------------------------------------------------------------
 
     @Test
@@ -89,7 +89,7 @@ class DomEventMapperTest {
     }
 
     // -----------------------------------------------------------------------
-    // domCodeToKey — inconnu
+    // domCodeToKey — unknown
     // -----------------------------------------------------------------------
 
     @Test
@@ -247,7 +247,7 @@ class DomEventMapperTest {
     }
 
     // -----------------------------------------------------------------------
-    // WebWindowEvent — vérification des data class equals
+    // WebWindowEvent — data class equals verification
     // -----------------------------------------------------------------------
 
     @Test

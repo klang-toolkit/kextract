@@ -9,27 +9,27 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Tests de contrat pour [AndroidWindow] et [AndroidEventLoop] (GRA-47).
+ * Contract tests for [AndroidWindow] and [AndroidEventLoop] (GRA-47).
  *
- * Ces tests vérifient les signatures et contrats d'interface via réflexion,
- * sans instancier d'objets Android réels (qui nécessitent un émulateur ou Robolectric).
+ * These tests verify the interface signatures and contracts via reflection,
+ * without instantiating real Android objects (which require an emulator or Robolectric).
  *
- * ## Contrat "pending window"
+ * ## "pending window" contract
  *
- * 1. [AndroidEventLoop.createWindow] retourne immédiatement un [AndroidWindow] valide,
- *    même avant que la [android.view.Surface] ne soit disponible.
- * 2. [AndroidWindow.rawWindowHandle] lance [IllegalStateException] si appelé avant
+ * 1. [AndroidEventLoop.createWindow] immediately returns a valid [AndroidWindow],
+ *    even before the [android.view.Surface] is available.
+ * 2. [AndroidWindow.rawWindowHandle] throws [IllegalStateException] if called before
  *    [AndroidWindow.onSurfaceAvailable].
- * 3. [AndroidEventLoop.onSurfaceCreated] transfère la surface vers l'[AndroidWindow]
- *    stocké dans [AndroidEventLoop.pendingWindow].
- * 4. [AndroidEventLoop.onSurfaceDestroyed] invalide la surface de l'[AndroidWindow].
+ * 3. [AndroidEventLoop.onSurfaceCreated] transfers the surface to the [AndroidWindow]
+ *    stored in [AndroidEventLoop.pendingWindow].
+ * 4. [AndroidEventLoop.onSurfaceDestroyed] invalidates the [AndroidWindow]'s surface.
  *
- * Les tests d'exécution réels sont validés manuellement via hello-window-android
- * sur émulateur/appareil Android.
+ * The actual runtime tests are validated manually via hello-window-android
+ * on an Android emulator/device.
  */
 class AndroidWindowContractTest {
 
-    // ── Vérification d'interface ─────────────────────────────────────────────
+    // ── Interface verification ─────────────────────────────────────────────
 
     @Test
     fun `AndroidWindow implemente Window`() {
@@ -47,7 +47,7 @@ class AndroidWindowContractTest {
         )
     }
 
-    // ── Vérification de createWindow ─────────────────────────────────────────
+    // ── createWindow verification ─────────────────────────────────────────
 
     @Test
     fun `AndroidEventLoop expose createWindow retournant Window`() {
@@ -65,14 +65,14 @@ class AndroidWindowContractTest {
         )
     }
 
-    // ── Vérification de pendingWindow ────────────────────────────────────────
+    // ── pendingWindow verification ────────────────────────────────────────
 
     @Test
     fun `AndroidEventLoop expose pendingWindow de type AndroidWindow nullable`() {
-        // Les membres `internal` Kotlin sont manglés en JVM : le getter généré pour
-        // `internal var pendingWindow` s'appelle `getPendingWindow$<module>` et
-        // n'est pas accessible via `Class.methods` (public uniquement).
-        // On passe donc sur `declaredMethods` avec un match par préfixe.
+        // Kotlin `internal` members are mangled on the JVM: the getter generated for
+        // `internal var pendingWindow` is named `getPendingWindow$<module>` and
+        // is not accessible via `Class.methods` (public only).
+        // So we go through `declaredMethods` with a prefix match.
         val method = AndroidEventLoop::class.java.declaredMethods
             .firstOrNull { it.name.startsWith("getPendingWindow") }
         assertNotNull(method, "AndroidEventLoop doit exposer pendingWindow (getter interne manglé)")
@@ -83,12 +83,12 @@ class AndroidWindowContractTest {
         )
     }
 
-    // ── Vérification du cycle de vie de la surface ───────────────────────────
+    // ── Surface lifecycle verification ───────────────────────────
 
     @Test
     fun `AndroidEventLoop expose onSurfaceCreated avec parametre Surface`() {
-        // `internal fun` est manglé en JVM : onSurfaceCreated → onSurfaceCreated$<module>.
-        // On utilise startsWith pour être insensible au suffixe de module.
+        // `internal fun` is mangled on the JVM: onSurfaceCreated → onSurfaceCreated$<module>.
+        // We use startsWith to be insensitive to the module suffix.
         val method = AndroidEventLoop::class.java.declaredMethods
             .firstOrNull { it.name.startsWith("onSurfaceCreated") }
         assertNotNull(method, "AndroidEventLoop.onSurfaceCreated(Surface) doit exister")
@@ -102,7 +102,7 @@ class AndroidWindowContractTest {
 
     @Test
     fun `AndroidEventLoop expose onSurfaceDestroyed sans parametre`() {
-        // Même raison : suffixe de mangling Kotlin `internal`.
+        // Same reason: Kotlin `internal` mangling suffix.
         val method = AndroidEventLoop::class.java.declaredMethods
             .firstOrNull { it.name.startsWith("onSurfaceDestroyed") }
         assertNotNull(method, "AndroidEventLoop.onSurfaceDestroyed() doit exister")
@@ -111,7 +111,7 @@ class AndroidWindowContractTest {
 
     @Test
     fun `AndroidWindow expose onSurfaceAvailable avec parametre Surface`() {
-        // `internal fun` dans AndroidWindow → nom manglé, on recherche par préfixe.
+        // `internal fun` in AndroidWindow → mangled name, we search by prefix.
         val method = AndroidWindow::class.java.declaredMethods
             .firstOrNull { it.name.startsWith("onSurfaceAvailable") }
         assertNotNull(method, "AndroidWindow.onSurfaceAvailable(Surface) doit exister")
@@ -124,14 +124,14 @@ class AndroidWindowContractTest {
 
     @Test
     fun `AndroidWindow expose onSurfaceReleased sans parametre`() {
-        // `internal fun` dans AndroidWindow → nom manglé, on recherche par préfixe.
+        // `internal fun` in AndroidWindow → mangled name, we search by prefix.
         val method = AndroidWindow::class.java.declaredMethods
             .firstOrNull { it.name.startsWith("onSurfaceReleased") }
         assertNotNull(method, "AndroidWindow.onSurfaceReleased() doit exister")
         assertEquals(0, method.parameterCount)
     }
 
-    // ── Vérification de rawWindowHandle ─────────────────────────────────────
+    // ── rawWindowHandle verification ─────────────────────────────────────
 
     @Test
     fun `AndroidWindow rawWindowHandle retourne Any`() {
@@ -146,18 +146,18 @@ class AndroidWindowContractTest {
     }
 
     /**
-     * Documente le contrat : [AndroidWindow.rawWindowHandle] lance
-     * [IllegalStateException] avant que [AndroidWindow.onSurfaceAvailable] soit appelé.
+     * Documents the contract: [AndroidWindow.rawWindowHandle] throws
+     * [IllegalStateException] before [AndroidWindow.onSurfaceAvailable] is called.
      *
-     * Validé par inspection du code (throw explicite dans le getter) et par
-     * test d'intégration manuel sur émulateur Android.
+     * Validated by code inspection (explicit throw in the getter) and by
+     * manual integration test on an Android emulator.
      */
     @Test
     fun `AndroidWindow rawWindowHandle est documente comme levant IllegalStateException avant surfaceCreated`() {
         val method = AndroidWindow::class.java.methods
             .firstOrNull { it.name == "getRawWindowHandle" }
         assertNotNull(method, "rawWindowHandle doit exister sur AndroidWindow")
-        // Le contrat de throw est dans l'implémentation (surface == null → throw).
-        // Vérifiable uniquement sur émulateur avec un SurfaceView réel.
+        // The throw contract is in the implementation (surface == null → throw).
+        // Only verifiable on an emulator with a real SurfaceView.
     }
 }

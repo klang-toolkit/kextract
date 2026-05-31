@@ -1,29 +1,29 @@
 /**
- * Layout mémoire pour la structure MSG Win32.
+ * Memory layout for the Win32 MSG structure.
  *
- * La structure MSG est passée à PeekMessageW, GetMessageW, TranslateMessage
- * et DispatchMessageW. Elle doit être allouée dans une arène pour que les
- * appels FFM puissent écrire directement en mémoire.
+ * The MSG structure is passed to PeekMessageW, GetMessageW, TranslateMessage
+ * and DispatchMessageW. It must be allocated in an arena so that the
+ * FFM calls can write directly into memory.
  *
- * Structure MSG (Win64, 64 bits) :
+ * MSG structure (Win64, 64-bit):
  * Offset  Size  Field
- *  0       8    hwnd      (HWND — pointeur 64 bits)
- *  8       4    message   (UINT — 32 bits)
- * 12       4    (padding pour aligner wParam sur 8 octets)
- * 16       8    wParam    (WPARAM = UINT_PTR — 64 bits)
- * 24       8    lParam    (LPARAM = LONG_PTR — 64 bits)
- * 32       4    time      (DWORD — 32 bits)
- * 36       4    pt.x      (LONG — 32 bits)
- * 40       4    pt.y      (LONG — 32 bits)
- * 44       4    (padding final)
+ *  0       8    hwnd      (HWND — 64-bit pointer)
+ *  8       4    message   (UINT — 32-bit)
+ * 12       4    (padding to align wParam on 8 bytes)
+ * 16       8    wParam    (WPARAM = UINT_PTR — 64-bit)
+ * 24       8    lParam    (LPARAM = LONG_PTR — 64-bit)
+ * 32       4    time      (DWORD — 32-bit)
+ * 36       4    pt.x      (LONG — 32-bit)
+ * 40       4    pt.y      (LONG — 32-bit)
+ * 44       4    (final padding)
  * Total = 48 bytes
  *
- * Note : Sur Windows x64, le compilateur MSVC insère 4 octets de padding entre
- * `message` (UINT, 4 bytes) et `wParam` (UINT_PTR, 8 bytes) pour l'alignement
- * sur 8 octets. Le champ `pt` est un POINT (deux LONG = 8 bytes) suivi d'un
- * padding de 4 bytes pour aligner le sizeof sur 8.
+ * Note: On Windows x64, the MSVC compiler inserts 4 bytes of padding between
+ * `message` (UINT, 4 bytes) and `wParam` (UINT_PTR, 8 bytes) for 8-byte
+ * alignment. The `pt` field is a POINT (two LONGs = 8 bytes) followed by
+ * 4 bytes of padding to align the sizeof on 8.
  *
- * Référence : https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-msg
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-msg
  */
 package org.graphiks.kadre.win32
 
@@ -33,14 +33,14 @@ import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
 /**
- * Offsets et constantes du layout MSG Win64.
+ * Offsets and constants of the Win64 MSG layout.
  *
- * Permet l'accès direct aux champs du segment mémoire MSG sans passer
- * par VarHandle (approche identique à WndClassExW pour la cohérence).
+ * Enables direct access to the fields of the MSG memory segment without going
+ * through a VarHandle (same approach as WndClassExW for consistency).
  */
 internal object MsgLayout {
 
-    // ── Offsets (en octets) ──────────────────────────────────────────────────
+    // ── Offsets (in bytes) ───────────────────────────────────────────────────
     //
     // Offset  Type      Field
     //  0      PTR(8)    hwnd
@@ -62,17 +62,17 @@ internal object MsgLayout {
     const val OFFSET_PT_X: Int    = 36
     const val OFFSET_PT_Y: Int    = 40
 
-    /** Taille totale de la structure MSG en octets (48 bytes sur Win64). */
+    /** Total size of the MSG structure in bytes (48 bytes on Win64). */
     const val SIZEOF: Int = 48
 
-    /** Alignement requis (8 octets, alignement des pointeurs Win64). */
+    /** Required alignment (8 bytes, Win64 pointer alignment). */
     const val ALIGN: Int = 8
 
     /**
-     * Layout MemoryLayout équivalent à MSG Win64.
+     * MemoryLayout equivalent to the Win64 MSG.
      *
-     * Fourni pour documentation et validation, non utilisé directement
-     * dans les appels FFM (on utilise les offsets manuels).
+     * Provided for documentation and validation, not used directly
+     * in the FFM calls (the manual offsets are used instead).
      */
     val LAYOUT: MemoryLayout = MemoryLayout.structLayout(
         ValueLayout.ADDRESS.withName("hwnd"),            //  0: HWND (8 bytes)
@@ -88,20 +88,20 @@ internal object MsgLayout {
 }
 
 /**
- * Alloue un segment mémoire pour une structure MSG dans l'arène fournie.
+ * Allocates a memory segment for a MSG structure in the given arena.
  *
- * Le segment est initialisé à zéro par défaut (comportement de l'allocateur FFM).
- * À utiliser avec PeekMessageW, GetMessageW, TranslateMessage, DispatchMessageW.
+ * The segment is zero-initialized by default (FFM allocator behavior).
+ * To be used with PeekMessageW, GetMessageW, TranslateMessage, DispatchMessageW.
  *
- * @return Segment mémoire de [MsgLayout.SIZEOF] octets, aligné sur [MsgLayout.ALIGN].
+ * @return Memory segment of [MsgLayout.SIZEOF] bytes, aligned on [MsgLayout.ALIGN].
  */
 internal fun Arena.allocateMsg(): MemorySegment =
     this.allocate(MsgLayout.SIZEOF.toLong(), MsgLayout.ALIGN.toLong())
 
 /**
- * Lit le champ `message` (UINT) depuis un segment MSG.
+ * Reads the `message` field (UINT) from a MSG segment.
  *
- * Utile pour inspecter le type de message sans passer par un VarHandle.
+ * Useful for inspecting the message type without going through a VarHandle.
  */
 internal fun MemorySegment.msgMessage(): Int =
     this.get(ValueLayout.JAVA_INT, MsgLayout.OFFSET_MESSAGE.toLong())

@@ -10,40 +10,40 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 
 /**
- * Implémentation Android de [ActiveEventLoop].
+ * Android implementation of [ActiveEventLoop].
  *
- * ## Cycle de vie de la fenêtre — pattern "pending window"
+ * ## Window lifecycle — "pending window" pattern
  *
- * Sur Android, la [android.view.Surface] n'est disponible qu'après le callback
- * [android.view.SurfaceHolder.Callback.surfaceCreated] ; elle peut être libérée
- * et recréée (ex. : rotation, onPause/onResume). Le pattern "pending window"
- * dissocie la création de l'objet [AndroidWindow] de la disponibilité de la surface :
+ * On Android, the [android.view.Surface] is only available after the
+ * [android.view.SurfaceHolder.Callback.surfaceCreated] callback; it can be released
+ * and recreated (e.g. rotation, onPause/onResume). The "pending window" pattern
+ * decouples the creation of the [AndroidWindow] object from the surface availability:
  *
- * 1. **[createWindow]** — appelé depuis [org.graphiks.kadre.core.ApplicationHandler.canCreateSurfaces] :
- *    crée immédiatement un [AndroidWindow] lié au [SurfaceView] de l'Activity **avant**
- *    que la surface soit disponible. La fenêtre est stockée dans [pendingWindow].
+ * 1. **[createWindow]** — called from [org.graphiks.kadre.core.ApplicationHandler.canCreateSurfaces]:
+ *    immediately creates an [AndroidWindow] bound to the Activity's [SurfaceView] **before**
+ *    the surface is available. The window is stored in [pendingWindow].
  *
- * 2. **[onSurfaceCreated]** — appelé par [KadreActivity] lors de `surfaceCreated` :
- *    transfère la surface vers le [AndroidWindow] via [AndroidWindow.onSurfaceAvailable].
- *    À partir de cet instant, [AndroidWindow.rawWindowHandle] est valide.
+ * 2. **[onSurfaceCreated]** — called by [KadreActivity] on `surfaceCreated`:
+ *    transfers the surface to the [AndroidWindow] via [AndroidWindow.onSurfaceAvailable].
+ *    From that point on, [AndroidWindow.rawWindowHandle] is valid.
  *
- * 3. **[onSurfaceDestroyed]** — appelé par [KadreActivity] lors de `surfaceDestroyed` :
- *    invalide la surface via [AndroidWindow.onSurfaceReleased].
+ * 3. **[onSurfaceDestroyed]** — called by [KadreActivity] on `surfaceDestroyed`:
+ *    invalidates the surface via [AndroidWindow.onSurfaceReleased].
  *
- * ## Contrat de timing pour [AndroidWindow.rawWindowHandle]
+ * ## Timing contract for [AndroidWindow.rawWindowHandle]
  *
- * [AndroidWindow.rawWindowHandle] lance [IllegalStateException] si la surface n'est pas
- * encore disponible (entre [createWindow] et [onSurfaceCreated]). Les renderers doivent
- * n'accéder au handle que dans ou après [ApplicationHandler.canCreateSurfaces].
+ * [AndroidWindow.rawWindowHandle] throws [IllegalStateException] if the surface is not
+ * yet available (between [createWindow] and [onSurfaceCreated]). Renderers must
+ * only access the handle within or after [ApplicationHandler.canCreateSurfaces].
  *
- * ## Scheduling des frames
+ * ## Frame scheduling
  *
- * Le timing des frames est géré par [Choreographer] : [scheduleFrameIfNeeded]
- * programme un callback vsync qui dispatche [WindowEvent.RedrawRequested]
- * si [AndroidWindow.needsRedraw] est positionné, puis [org.graphiks.kadre.core.ApplicationHandler.aboutToWait].
- * En mode [ControlFlow.Poll], le callback se reprogramme automatiquement.
+ * Frame timing is handled by [Choreographer]: [scheduleFrameIfNeeded]
+ * schedules a vsync callback that dispatches [WindowEvent.RedrawRequested]
+ * if [AndroidWindow.needsRedraw] is set, then [org.graphiks.kadre.core.ApplicationHandler.aboutToWait].
+ * In [ControlFlow.Poll] mode, the callback reschedules itself automatically.
  *
- * [exit] termine l'Activity parente via [ComponentActivity.finish].
+ * [exit] terminates the parent Activity via [ComponentActivity.finish].
  */
 internal class AndroidEventLoop(
     private val activity: ComponentActivity,
@@ -59,28 +59,28 @@ internal class AndroidEventLoop(
     private var frameCallbackScheduled = false
 
     /**
-     * Fenêtre créée via [createWindow] et en attente de surface.
+     * Window created via [createWindow] and awaiting a surface.
      *
-     * Nulle avant le premier appel à [createWindow], non nulle ensuite.
-     * La surface elle-même est disponible uniquement après [onSurfaceCreated].
+     * Null before the first call to [createWindow], non-null afterwards.
+     * The surface itself is only available after [onSurfaceCreated].
      */
     @Volatile
     internal var pendingWindow: AndroidWindow? = null
         private set
 
     /**
-     * Crée un [AndroidWindow] lié au [SurfaceView] de l'Activity.
+     * Creates an [AndroidWindow] bound to the Activity's [SurfaceView].
      *
-     * Retourne immédiatement un [AndroidWindow] valide **avant** que la
-     * [android.view.Surface] ne soit disponible (pattern "pending window").
-     * [AndroidWindow.rawWindowHandle] n'est accessible qu'après [onSurfaceCreated].
+     * Immediately returns a valid [AndroidWindow] **before** the
+     * [android.view.Surface] is available ("pending window" pattern).
+     * [AndroidWindow.rawWindowHandle] is only accessible after [onSurfaceCreated].
      *
-     * Peut être appelé plusieurs fois : chaque appel remplace la référence
-     * [pendingWindow] (cas rare — une seule fenêtre par Activity est la norme).
+     * May be called multiple times: each call replaces the [pendingWindow]
+     * reference (rare case — a single window per Activity is the norm).
      *
-     * @param attributes Attributs de fenêtre (titre, taille, etc.).
-     *                   Sur Android, titre et redimensionnement sont ignorés.
-     * @return Un [AndroidWindow] dont la surface sera disponible après [onSurfaceCreated].
+     * @param attributes Window attributes (title, size, etc.).
+     *                   On Android, title and resizing are ignored.
+     * @return An [AndroidWindow] whose surface will be available after [onSurfaceCreated].
      */
     override fun createWindow(attributes: WindowAttributes): Window {
         val kadreActivity = activity as KadreActivity
@@ -90,25 +90,26 @@ internal class AndroidEventLoop(
     }
 
     /**
-     * Transfère la [android.view.Surface] vers la fenêtre en attente.
+     * Transfers the [android.view.Surface] to the pending window.
      *
-     * Appelé par [KadreActivity] lors de `surfaceCreated`. Après cet appel,
-     * [AndroidWindow.rawWindowHandle] retourne un [org.graphiks.kadre.core.RawWindowHandle.Android]
-     * valide. Si aucune fenêtre n'a encore été créée via [createWindow], le
-     * [holder] est ignoré (la surface sera fournie lors du prochain [createWindow]).
+     * Called by [KadreActivity] on `surfaceCreated`. After this call,
+     * [AndroidWindow.rawWindowHandle] returns a valid
+     * [org.graphiks.kadre.core.RawWindowHandle.Android]. If no window has yet been
+     * created via [createWindow], the [holder] is ignored (the surface will be
+     * provided on the next [createWindow]).
      *
-     * @param surface La surface Android fraîchement créée par le SurfaceHolder.
+     * @param surface The Android surface freshly created by the SurfaceHolder.
      */
     internal fun onSurfaceCreated(surface: android.view.Surface) {
         pendingWindow?.onSurfaceAvailable(surface)
     }
 
     /**
-     * Invalide la surface de la fenêtre active.
+     * Invalidates the active window's surface.
      *
-     * Appelé par [KadreActivity] lors de `surfaceDestroyed`. Après cet appel,
-     * [AndroidWindow.rawWindowHandle] lance [IllegalStateException] jusqu'à la
-     * prochaine invocation de [onSurfaceCreated].
+     * Called by [KadreActivity] on `surfaceDestroyed`. After this call,
+     * [AndroidWindow.rawWindowHandle] throws [IllegalStateException] until the
+     * next invocation of [onSurfaceCreated].
      */
     internal fun onSurfaceDestroyed() {
         pendingWindow?.onSurfaceReleased()
@@ -127,13 +128,13 @@ internal class AndroidEventLoop(
 
     override fun createProxy(): EventLoopProxy = object : EventLoopProxy {
         override fun wakeUp() {
-            // No-op : Android gère son propre scheduling via le Looper/Handler
+            // No-op: Android manages its own scheduling via the Looper/Handler
         }
     }
 
     /**
-     * Programme le prochain callback vsync si ce n'est pas déjà fait.
-     * Doit être appelé depuis le thread principal.
+     * Schedules the next vsync callback if not already scheduled.
+     * Must be called from the main thread.
      */
     internal fun scheduleFrameIfNeeded(window: AndroidWindow) {
         if (!frameCallbackScheduled) {
@@ -150,7 +151,7 @@ internal class AndroidEventLoop(
         val kadreActivity = activity as KadreActivity
         if (kadreActivity.destroyed) return
 
-        // Dispatch RedrawRequested si needsRedraw est positionné
+        // Dispatch RedrawRequested if needsRedraw is set
         if (window.needsRedraw) {
             window.needsRedraw = false
             kadreActivity.handler.windowEvent(this, window.id, WindowEvent.RedrawRequested)
@@ -159,7 +160,7 @@ internal class AndroidEventLoop(
         // Dispatch aboutToWait
         kadreActivity.handler.aboutToWait(this)
 
-        // Re-programmer si mode Poll ou si needsRedraw a été repositionné
+        // Reschedule if in Poll mode or if needsRedraw was set again
         if (controlFlow == ControlFlow.Poll || window.needsRedraw) {
             scheduleFrameIfNeeded(window)
         }

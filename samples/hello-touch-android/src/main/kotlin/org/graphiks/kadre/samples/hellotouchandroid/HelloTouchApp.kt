@@ -5,10 +5,10 @@ import org.graphiks.kadre.EventLoop
 import org.graphiks.kadre.samples.hellotouch.HelloTouchHandler
 
 /**
- * Application Android de démonstration.
+ * Android demonstration application.
  *
- * Instancie [HelloTouchHandler] depuis `:samples:hello-touch` (commonMain)
- * et démarre l'EventLoop Kadre.
+ * Instantiates [HelloTouchHandler] from `:samples:hello-touch` (commonMain)
+ * and starts the Kadre EventLoop.
  */
 class HelloTouchApp : Application() {
     override fun onCreate() {

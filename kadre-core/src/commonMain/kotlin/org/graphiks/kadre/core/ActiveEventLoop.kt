@@ -1,59 +1,59 @@
 /**
- * Interface représentant la boucle d'événements active lors d'un rappel.
+ * Interface representing the event loop that is active during a callback.
  *
- * Périmètre : interface pure Kotlin, aucune référence native.
+ * Scope: pure Kotlin interface, no native reference.
  */
 package org.graphiks.kadre.core
 
 /**
- * Accès à la boucle d'événements depuis les rappels de [ApplicationHandler].
+ * Access to the event loop from [ApplicationHandler] callbacks.
  *
- * Cette interface est passée en paramètre lors de chaque appel entrant dans
- * le gestionnaire d'application, permettant à ce dernier de créer des fenêtres,
- * de contrôler le flux d'exécution et d'initier l'arrêt de la boucle.
+ * This interface is passed as a parameter on each incoming call into the
+ * application handler, allowing the latter to create windows, control the
+ * execution flow, and initiate shutdown of the loop.
  */
 interface ActiveEventLoop {
 
     /**
-     * Crée une nouvelle fenêtre avec les attributs spécifiés.
+     * Creates a new window with the specified attributes.
      *
-     * @param attributes Paramètres de configuration de la fenêtre à créer.
-     * @return La fenêtre créée.
+     * @param attributes Configuration parameters of the window to create.
+     * @return The created window.
      */
     fun createWindow(attributes: WindowAttributes): Window
 
     /**
-     * Définit le comportement d'attente de la boucle d'événements
-     * après la fin de l'itération courante.
+     * Sets the waiting behavior of the event loop
+     * after the end of the current iteration.
      *
-     * @param controlFlow Nouveau comportement d'attente.
+     * @param controlFlow New waiting behavior.
      */
     fun setControlFlow(controlFlow: ControlFlow)
 
     /**
-     * Retourne le comportement d'attente actuellement configuré.
+     * Returns the currently configured waiting behavior.
      */
     val controlFlow: ControlFlow
 
     /**
-     * Demande l'arrêt de la boucle d'événements.
+     * Requests shutdown of the event loop.
      *
-     * La boucle ne s'arrête pas immédiatement ; elle termine l'itération
-     * courante avant de s'arrêter.
+     * The loop does not stop immediately; it finishes the current
+     * iteration before stopping.
      */
     fun exit()
 
     /**
-     * Indique si une demande d'arrêt a été émise.
+     * Indicates whether a shutdown request has been issued.
      *
-     * @return true si [exit] a été appelé et que la boucle va s'arrêter.
+     * @return true if [exit] has been called and the loop is going to stop.
      */
     val isExiting: Boolean
 
     /**
-     * Crée un proxy thread-safe vers cette boucle d'événements.
+     * Creates a thread-safe proxy to this event loop.
      *
-     * @return Un [EventLoopProxy] utilisable depuis n'importe quel fil d'exécution.
+     * @return An [EventLoopProxy] usable from any thread.
      */
     fun createProxy(): EventLoopProxy
 }

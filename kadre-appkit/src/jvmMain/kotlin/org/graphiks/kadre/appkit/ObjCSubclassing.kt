@@ -1,12 +1,12 @@
 /**
- * Primitives pour créer dynamiquement des sous-classes Objective-C
- * depuis Kotlin/JVM via Panama FFM.
+ * Primitives for dynamically creating Objective-C subclasses
+ * from Kotlin/JVM via Panama FFM.
  *
- * Wrappe les fonctions du runtime ObjC nécessaires à l'enregistrement
- * de classes : objc_allocateClassPair, class_addMethod, class_addProtocol,
+ * Wraps the ObjC runtime functions required to register classes:
+ * objc_allocateClassPair, class_addMethod, class_addProtocol,
  * objc_registerClassPair.
  *
- * Réservé à un usage interne au module `kadre-appkit`.
+ * Reserved for internal use within the `kadre-appkit` module.
  */
 package org.graphiks.kadre.appkit
 
@@ -84,9 +84,9 @@ internal object ObjCSubclassing {
     )
 
     /**
-     * Alloue une paire de classes ObjC (classe + métaclasse) dérivée
-     * de [superclassName]. La classe doit ensuite être enregistrée
-     * via [registerClass] après ajout des méthodes/protocoles.
+     * Allocates an ObjC class pair (class + metaclass) derived
+     * from [superclassName]. The class must then be registered
+     * via [registerClass] after adding the methods/protocols.
      */
     fun allocateClass(superclassName: String, subclassName: String): MemorySegment {
         val superclass = ObjCRuntime.getClass(superclassName)
@@ -95,8 +95,8 @@ internal object ObjCSubclassing {
     }
 
     /**
-     * Ajoute une méthode à une classe non encore enregistrée.
-     * [typeEncoding] suit la grammaire ObjC : ex. `"v@:@"` pour
+     * Adds a method to a not-yet-registered class.
+     * [typeEncoding] follows the ObjC grammar: e.g. `"v@:@"` for
      * `void (id, SEL, id)`.
      */
     fun addMethod(
@@ -111,16 +111,16 @@ internal object ObjCSubclassing {
     }
 
     /**
-     * Enregistre la paire de classes auprès du runtime ObjC.
-     * Aucun appel à [addMethod]/[addProtocol] n'est possible après cet appel.
+     * Registers the class pair with the ObjC runtime.
+     * No call to [addMethod]/[addProtocol] is possible after this call.
      */
     fun registerClass(cls: MemorySegment) {
         registerClassPair.invokeExact(cls)
     }
 
     /**
-     * Déclare la conformance d'une classe à un protocole ObjC.
-     * Ignoré silencieusement si le protocole n'est pas trouvé.
+     * Declares a class's conformance to an ObjC protocol.
+     * Silently ignored if the protocol is not found.
      */
     fun addProtocol(cls: MemorySegment, protocolName: String): Boolean {
         val nameCStr = arena.allocateFrom(protocolName)

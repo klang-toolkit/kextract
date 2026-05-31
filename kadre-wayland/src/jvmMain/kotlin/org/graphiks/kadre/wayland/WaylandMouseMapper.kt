@@ -1,25 +1,25 @@
 /**
- * Mappeur d'événements pointeur Wayland vers les événements [WindowEvent] de kadre-core.
+ * Mapper from Wayland pointer events to kadre-core [WindowEvent]s.
  *
- * Wayland transmet les événements souris via l'interface wl_pointer avec les callbacks :
+ * Wayland sends mouse events via the wl_pointer interface with the callbacks:
  *  - wl_pointer.enter  → [WindowEvent.PointerEntered]
  *  - wl_pointer.leave  → [WindowEvent.PointerLeft]
  *  - wl_pointer.motion → [WindowEvent.PointerMoved]
  *  - wl_pointer.button → [WindowEvent.MouseInput]
  *  - wl_pointer.axis   → [WindowEvent.MouseWheel]
  *
- * ## Coordonnées wl_fixed
- * Wayland utilise le type wl_fixed_t (entier 24.8 virgule fixe) pour les positions.
- * Conversion : valeur_réelle = wl_fixed_t / 256.0
+ * ## wl_fixed coordinates
+ * Wayland uses the wl_fixed_t type (24.8 fixed-point integer) for positions.
+ * Conversion: real_value = wl_fixed_t / 256.0
  *
- * ## Boutons souris (Linux evdev, BTN_*)
+ * ## Mouse buttons (Linux evdev, BTN_*)
  *  - BTN_LEFT   = 272
  *  - BTN_RIGHT  = 273
  *  - BTN_MIDDLE = 274
- *  - BTN_SIDE   = 275 (bouton latéral avant)
- *  - BTN_EXTRA  = 276 (bouton latéral arrière)
+ *  - BTN_SIDE   = 275 (forward side button)
+ *  - BTN_EXTRA  = 276 (back side button)
  *
- * ## Axes wl_pointer
+ * ## wl_pointer axes
  *  - WL_POINTER_AXIS_VERTICAL_SCROLL   = 0
  *  - WL_POINTER_AXIS_HORIZONTAL_SCROLL = 1
  *
@@ -33,63 +33,63 @@ import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.WindowEvent
 
 // ---------------------------------------------------------------------------
-// Constantes Linux evdev BTN_*
+// Linux evdev BTN_* constants
 // ---------------------------------------------------------------------------
 
-/** BTN_LEFT (bouton gauche) : code Linux evdev 272. */
+/** BTN_LEFT (left button): Linux evdev code 272. */
 internal const val BTN_LEFT: Int = 272
 
-/** BTN_RIGHT (bouton droit) : code Linux evdev 273. */
+/** BTN_RIGHT (right button): Linux evdev code 273. */
 internal const val BTN_RIGHT: Int = 273
 
-/** BTN_MIDDLE (bouton du milieu) : code Linux evdev 274. */
+/** BTN_MIDDLE (middle button): Linux evdev code 274. */
 internal const val BTN_MIDDLE: Int = 274
 
-/** BTN_SIDE (bouton latéral avant) : code Linux evdev 275. */
+/** BTN_SIDE (forward side button): Linux evdev code 275. */
 internal const val BTN_SIDE: Int = 275
 
-/** BTN_EXTRA (bouton latéral arrière) : code Linux evdev 276. */
+/** BTN_EXTRA (back side button): Linux evdev code 276. */
 internal const val BTN_EXTRA: Int = 276
 
 // ---------------------------------------------------------------------------
-// Constantes wl_pointer axes
+// wl_pointer axes constants
 // ---------------------------------------------------------------------------
 
-/** wl_pointer_axis : défilement vertical. */
+/** wl_pointer_axis: vertical scroll. */
 internal const val WL_POINTER_AXIS_VERTICAL_SCROLL: Int = 0
 
-/** wl_pointer_axis : défilement horizontal. */
+/** wl_pointer_axis: horizontal scroll. */
 internal const val WL_POINTER_AXIS_HORIZONTAL_SCROLL: Int = 1
 
 // ---------------------------------------------------------------------------
-// Constantes wl_pointer button state
+// wl_pointer button state constants
 // ---------------------------------------------------------------------------
 
-/** wl_pointer_button_state : bouton relâché. */
+/** wl_pointer_button_state: button released. */
 internal const val WL_POINTER_BUTTON_STATE_RELEASED: Int = 0
 
-/** wl_pointer_button_state : bouton enfoncé. */
+/** wl_pointer_button_state: button pressed. */
 internal const val WL_POINTER_BUTTON_STATE_PRESSED: Int = 1
 
 // ---------------------------------------------------------------------------
-// Fonctions de conversion
+// Conversion functions
 // ---------------------------------------------------------------------------
 
 /**
- * Convertit une valeur wl_fixed_t en Double.
+ * Converts a wl_fixed_t value into a Double.
  *
- * wl_fixed_t est un entier 24.8 virgule fixe : la valeur réelle vaut `wlFixed / 256.0`.
+ * wl_fixed_t is a 24.8 fixed-point integer: the real value is `wlFixed / 256.0`.
  *
- * @param wlFixed Valeur entière wl_fixed_t reçue dans les callbacks wl_pointer.
- * @return La coordonnée réelle en pixels physiques.
+ * @param wlFixed Integer wl_fixed_t value received in wl_pointer callbacks.
+ * @return The real coordinate in physical pixels.
  */
 fun wlFixedToDouble(wlFixed: Int): Double = wlFixed / 256.0
 
 /**
- * Convertit un code de bouton Linux evdev en [MouseButton] kadre.
+ * Converts a Linux evdev button code into a kadre [MouseButton].
  *
- * @param button Code Linux evdev (BTN_LEFT=272, BTN_RIGHT=273, etc.).
- * @return Le bouton souris logique correspondant.
+ * @param button Linux evdev code (BTN_LEFT=272, BTN_RIGHT=273, etc.).
+ * @return The corresponding logical mouse button.
  */
 fun linuxButtonToMouseButton(button: Int): MouseButton = when (button) {
     BTN_LEFT   -> MouseButton.Left
@@ -99,10 +99,10 @@ fun linuxButtonToMouseButton(button: Int): MouseButton = when (button) {
 }
 
 /**
- * Convertit un état wl_pointer_button_state en [KeyState] kadre.
+ * Converts a wl_pointer_button_state value into a kadre [KeyState].
  *
- * @param state État Wayland (0 = released, 1 = pressed).
- * @return [KeyState.Pressed] ou [KeyState.Released].
+ * @param state Wayland state (0 = released, 1 = pressed).
+ * @return [KeyState.Pressed] or [KeyState.Released].
  */
 fun waylandButtonStateToKeyState(state: Int): KeyState = when (state) {
     WL_POINTER_BUTTON_STATE_RELEASED -> KeyState.Released
@@ -110,15 +110,15 @@ fun waylandButtonStateToKeyState(state: Int): KeyState = when (state) {
 }
 
 // ---------------------------------------------------------------------------
-// Constructeurs d'événements WindowEvent
+// WindowEvent builders
 // ---------------------------------------------------------------------------
 
 /**
- * Construit un [WindowEvent.PointerMoved] à partir d'un événement wl_pointer.motion.
+ * Builds a [WindowEvent.PointerMoved] from a wl_pointer.motion event.
  *
- * @param xFixed Coordonnée X en wl_fixed_t.
- * @param yFixed Coordonnée Y en wl_fixed_t.
- * @return L'événement de déplacement du pointeur.
+ * @param xFixed X coordinate in wl_fixed_t.
+ * @param yFixed Y coordinate in wl_fixed_t.
+ * @return The pointer move event.
  */
 fun mapWaylandPointerMotion(xFixed: Int, yFixed: Int): WindowEvent.PointerMoved =
     WindowEvent.PointerMoved(
@@ -129,11 +129,11 @@ fun mapWaylandPointerMotion(xFixed: Int, yFixed: Int): WindowEvent.PointerMoved 
     )
 
 /**
- * Construit un [WindowEvent.MouseInput] à partir d'un événement wl_pointer.button.
+ * Builds a [WindowEvent.MouseInput] from a wl_pointer.button event.
  *
- * @param button Code Linux evdev du bouton (BTN_LEFT, BTN_RIGHT, etc.).
- * @param state  État wl_pointer_button_state (0 = released, 1 = pressed).
- * @return L'événement d'entrée souris correspondant.
+ * @param button Linux evdev button code (BTN_LEFT, BTN_RIGHT, etc.).
+ * @param state  wl_pointer_button_state value (0 = released, 1 = pressed).
+ * @return The corresponding mouse input event.
  */
 fun mapWaylandPointerButton(button: Int, state: Int): WindowEvent.MouseInput =
     WindowEvent.MouseInput(
@@ -142,11 +142,11 @@ fun mapWaylandPointerButton(button: Int, state: Int): WindowEvent.MouseInput =
     )
 
 /**
- * Construit un [WindowEvent.MouseWheel] à partir d'un événement wl_pointer.axis.
+ * Builds a [WindowEvent.MouseWheel] from a wl_pointer.axis event.
  *
- * @param axis      Axe Wayland (0 = vertical, 1 = horizontal).
- * @param valueFixed Valeur de défilement en wl_fixed_t.
- * @return L'événement de molette correspondant.
+ * @param axis      Wayland axis (0 = vertical, 1 = horizontal).
+ * @param valueFixed Scroll value in wl_fixed_t.
+ * @return The corresponding mouse wheel event.
  */
 fun mapWaylandPointerAxis(axis: Int, valueFixed: Int): WindowEvent.MouseWheel {
     val value = wlFixedToDouble(valueFixed)

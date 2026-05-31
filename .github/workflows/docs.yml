@@ -1,9 +1,9 @@
 name: Deploy docs (MkDocs Material → GitHub Pages)
 
-# Déclenché sur push master quand les sources docs changent,
-# ou manuellement via workflow_dispatch.
-# La génération Dokka GFM est faite localement et committée dans docs/
-# (voir buildSrc/.../kmp-dokka.gradle.kts + GRA-157).
+# Triggered on push to master when the docs sources change,
+# or manually via workflow_dispatch.
+# The Dokka GFM generation is done locally and committed in docs/
+# (see buildSrc/.../kmp-dokka.gradle.kts + GRA-157).
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - '.github/workflows/docs.yml'
-      # redéployer les démos web quand les samples ou la stack web changent.
+      # redeploy the web demos when the samples or the web stack change.
       - 'samples/hello-window-web/**'
       - 'samples/hello-triangle-web/**'
       - 'kadre-js/**'
@@ -43,20 +43,20 @@ jobs:
       - name: Install MkDocs Material + plugins
         run: |
           python -m pip install --upgrade pip
-          # awesome-pages retiré : incompatible avec mkdocs-static-i18n
-          # (NavEntryNotFound pendant le rebuild de la langue secondaire).
-          # Navigation explicite dans mkdocs.yml à la place.
+          # awesome-pages removed: incompatible with mkdocs-static-i18n
+          # (NavEntryNotFound during the secondary-language rebuild).
+          # Explicit navigation in mkdocs.yml instead.
           pip install mkdocs-material mkdocs-static-i18n
 
-      # Les fichiers GFM Dokka sont déjà committés dans docs/kadre/api/.
-      # Aucune régénération Gradle nécessaire ici.
+      # The Dokka GFM files are already committed in docs/kadre/api/.
+      # No Gradle regeneration needed here.
       - name: Build site (MkDocs)
         run: mkdocs build
 
-      # ── Démos web live ──────────────────────────────────────
-      # Build des samples web en production (variante JS) et copie sous _site/demos/
-      # pour qu'ils soient servis sur le même site Pages que la doc, sans conflit
-      # de concurrency group. La toolchain Node/webpack est activée par #91.
+      # ── Live web demos ──────────────────────────────────────
+      # Build the web samples in production (JS variant) and copy them under _site/demos/
+      # so they are served on the same Pages site as the docs, without a
+      # concurrency-group conflict. The Node/webpack toolchain is enabled by #91.
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:

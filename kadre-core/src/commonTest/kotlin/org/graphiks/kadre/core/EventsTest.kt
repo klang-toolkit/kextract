@@ -1,13 +1,13 @@
 /**
- * Tests unitaires pour le modèle d'événements kadre-core.
+ * Unit tests for the kadre-core event model.
  *
- * Vérifie :
- * - L'exhaustivité des `when` sur [WindowEvent] et [DeviceEvent] (sans `else`)
- * - La logique de bits de [Modifiers] : combinaison et appartenance
- * - La construction et l'égalité de chaque variant
- * - L'enum [Key] couvre au moins le set requis (lettres, chiffres, F1–F12, navigation)
- * - L'enum [KeyState] possède exactement les deux états attendus
- * - L'enum [TouchPhase] possède exactement les quatre phases attendues
+ * Verifies:
+ * - The exhaustiveness of the `when` on [WindowEvent] and [DeviceEvent] (without `else`)
+ * - The bit logic of [Modifiers]: combination and membership
+ * - The construction and equality of each variant
+ * - The [Key] enum covers at least the required set (letters, digits, F1–F12, navigation)
+ * - The [KeyState] enum has exactly the two expected states
+ * - The [TouchPhase] enum has exactly the four expected phases
  */
 package org.graphiks.kadre.core
 
@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 class EventsTest {
 
     // -----------------------------------------------------------------------
-    // Modifiers — logique de bits
+    // Modifiers — bit logic
     // -----------------------------------------------------------------------
 
     @Test
@@ -79,7 +79,7 @@ class EventsTest {
     }
 
     // -----------------------------------------------------------------------
-    // Key — couverture du set requis
+    // Key — coverage of the required set
     // -----------------------------------------------------------------------
 
     @Test
@@ -162,7 +162,7 @@ class EventsTest {
     }
 
     // -----------------------------------------------------------------------
-    // MouseButton — égalité et structure
+    // MouseButton — equality and structure
     // -----------------------------------------------------------------------
 
     @Test
@@ -182,12 +182,12 @@ class EventsTest {
     }
 
     // -----------------------------------------------------------------------
-    // WindowEvent — exhaustivité when (sans else) + construction des variants
+    // WindowEvent — when exhaustiveness (without else) + variant construction
     // -----------------------------------------------------------------------
 
     /**
-     * Enumère explicitement les 14 variants sans clause `else`.
-     * Si un variant est ajouté ou retiré, ce `when` ne compilera plus.
+     * Explicitly enumerates the 14 variants without an `else` clause.
+     * If a variant is added or removed, this `when` will no longer compile.
      */
     private fun classerWindowEvent(event: WindowEvent): String = when (event) {
         WindowEvent.CloseRequested        -> "CloseRequested"
@@ -307,11 +307,11 @@ class EventsTest {
     }
 
     // -----------------------------------------------------------------------
-    // DeviceEvent — exhaustivité when (sans else) + construction des variants
+    // DeviceEvent — when exhaustiveness (without else) + variant construction
     // -----------------------------------------------------------------------
 
     /**
-     * Enumère explicitement les 3 variants sans clause `else`.
+     * Explicitly enumerates the 3 variants without an `else` clause.
      */
     private fun classerDeviceEvent(event: DeviceEvent): String = when (event) {
         is DeviceEvent.PointerMotion -> "PointerMotion"

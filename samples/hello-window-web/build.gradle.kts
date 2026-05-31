@@ -1,10 +1,10 @@
 /**
- * Sample hello-window-web — fenêtre canvas web cross-cible (JS + Wasm).
+ * Sample hello-window-web — cross-target web canvas window (JS + Wasm).
  *
- * Démontre l'API Kadre de base pour les cibles navigateur :
- * création de fenêtre canvas, journalisation des événements DOM.
+ * Demonstrates the basic Kadre API for browser targets:
+ * canvas window creation, logging of DOM events.
  *
- * Cibles : js(IR) browser, wasmJs browser.
+ * Targets: js(IR) browser, wasmJs browser.
  *
  * setup module samples/hello-window-web.
  */

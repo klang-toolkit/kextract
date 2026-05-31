@@ -1,15 +1,15 @@
 name: pong-e2e
 
-# Test E2E scénarisé Pong (Web) — entrées clavier scriptées + assertions
-# multi-frame + vidéo. Suivi du smoke `web-e2e` sur hello-triangle ;
-# ici on prouve qu'une démo interactive complète tourne bout-en-bout :
+# Scripted Pong (Web) E2E test — scripted keyboard input + multi-frame
+# assertions + video. Follow-up to the `web-e2e` smoke on hello-triangle;
+# here we prove that a complete interactive demo runs end-to-end:
 #   1. Boot wgpu4k Web
-#   2. Animation continue (balle + IA en mouvement sans input)
-#   3. Inputs clavier scriptés (ArrowDown / ArrowUp) qui remontent au handler
-#   4. Effet visible des inputs (raquette droite déplacée)
+#   2. Continuous animation (ball + AI moving without input)
+#   3. Scripted keyboard input (ArrowDown / ArrowUp) reaching the handler
+#   4. Visible effect of the input (right paddle moved)
 #
-# La vidéo .webm + la trace Playwright sont systématiquement archivées en
-# artefact — utilisable pour la com, le debugging, et la review visuelle des PR.
+# The .webm video + the Playwright trace are systematically archived as an
+# artifact — usable for communication, debugging, and visual review of PRs.
 
 on:
   push:
@@ -33,11 +33,11 @@ on:
 jobs:
   pong-e2e:
     name: pong-e2e
-    # macOS runner avec Chrome stable (canal release) : GPU accéléré + WebGPU
-    # mature. Le scénario Pong (animation multi-seconde + assertions de diff
-    # pixel) est plus exigeant que le smoke single-frame de hello-triangle ;
-    # SwiftShader sur Linux donne des frames plus lentes et moins déterministes.
-    # Même choix que `web-e2e` (cf. branche `feat/web-e2e-chrome-mac-win`).
+    # macOS runner with stable Chrome (release channel): accelerated GPU + mature
+    # WebGPU. The Pong scenario (multi-second animation + pixel-diff assertions)
+    # is more demanding than the single-frame smoke of hello-triangle;
+    # SwiftShader on Linux gives slower and less deterministic frames.
+    # Same choice as `web-e2e` (see branch `feat/web-e2e-chrome-mac-win`).
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -65,15 +65,15 @@ jobs:
         working-directory: samples/pong/e2e
         run: |
           npm install
-          # Chrome stable (canal release) — pas Chromium ; pas de --with-deps
-          # (macOS n'a pas besoin d'apt-get install pour les libs natives).
+          # Stable Chrome (release channel) — not Chromium; no --with-deps
+          # (macOS does not need apt-get install for the native libs).
           npx playwright install chrome
 
       - name: Run Playwright scenario
         working-directory: samples/pong/e2e
         run: npx playwright test
 
-      # Résumé du scénario dans le Job Summary (visible directement sur la page du run).
+      # Scenario summary in the Job Summary (visible directly on the run page).
       - name: Publier le résumé du scénario
         if: always()
         run: |
@@ -82,7 +82,7 @@ jobs:
             cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # Vidéo, trace, frames-clés — tous récupérables depuis l'onglet artefacts du run.
+      # Video, trace, key frames — all retrievable from the run's artifacts tab.
       - name: Upload artefacts (vidéo, trace, frames)
         if: always()
         uses: actions/upload-artifact@v4

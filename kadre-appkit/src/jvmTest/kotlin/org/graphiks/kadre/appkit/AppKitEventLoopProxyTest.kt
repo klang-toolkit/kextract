@@ -8,9 +8,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Tests de typage pour GRA-136. Pas d'invocation runtime native
- * (les downcalls CF nécessitent un environnement macOS configuré ;
- *  les chemins runtime sont couverts par les tests d'intégration).
+ * Typing tests for GRA-136. No native runtime invocation
+ * (the CF downcalls require a configured macOS environment;
+ *  the runtime paths are covered by the integration tests).
  */
 class AppKitEventLoopProxyTest {
 
@@ -28,7 +28,7 @@ class AppKitEventLoopProxyTest {
         val method = companionClass.declaredMethods
             .firstOrNull { it.name == "create" }
         assertNotNull(method, "AppKitEventLoopProxy.Companion doit exposer create()")
-        // Le retour effectif est AppKitEventLoopProxy (sous-type d'EventLoopProxy).
+        // The actual return is AppKitEventLoopProxy (a subtype of EventLoopProxy).
         assertTrue(
             EventLoopProxy::class.java.isAssignableFrom(method.returnType),
             "create() doit retourner un EventLoopProxy",

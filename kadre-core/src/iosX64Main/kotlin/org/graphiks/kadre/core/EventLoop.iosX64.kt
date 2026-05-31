@@ -1,22 +1,22 @@
 /**
- * Implémentation iOS x64 (stub) de la boucle d'événements.
+ * iOS x64 (stub) implementation of the event loop.
  *
- * Cette implémentation est un stub provisoire. L'implémentation complète
- * sera fournie dans un ticket dédié iOS.
+ * This implementation is a temporary stub. The complete implementation
+ * will be provided in a dedicated iOS ticket.
  */
 package org.graphiks.kadre.core
 
 /**
- * Implémentation iOS x64 de [EventLoop].
+ * iOS x64 implementation of [EventLoop].
  *
- * Stub provisoire — l'implémentation réelle sera apportée dans un ticket dédié.
+ * Temporary stub — the real implementation will be provided in a dedicated ticket.
  */
 actual class EventLoop actual constructor() {
 
     /**
-     * Démarre la boucle d'événements et délègue les rappels au gestionnaire fourni.
+     * Starts the event loop and delegates callbacks to the provided handler.
      *
-     * @param handler Gestionnaire du cycle de vie et des événements de l'application.
+     * @param handler Handler for the application lifecycle and events.
      */
     actual fun runApp(handler: ApplicationHandler) {
         throw UnsupportedOperationException(

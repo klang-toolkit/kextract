@@ -1,13 +1,13 @@
 name: web-e2e
 
-# Test E2E smoke Web : « au moins une frame présentée »
-# + diff visuel sur hello-triangle-web. Build le bundle JS de production, le
-# sert, puis lance **Chrome stable** sur macOS (Metal) et Windows (D3D12).
+# Web E2E smoke test: "at least one frame presented"
+# + visual diff on hello-triangle-web. Builds the production JS bundle, serves
+# it, then launches **stable Chrome** on macOS (Metal) and Windows (D3D12).
 #
-# Pourquoi pas Linux/SwiftShader ?
-# - WebGPU encore expérimental sur Linux, rendu logiciel pouvant différer.
-# - Chrome stable sur macOS/Windows = WebGPU stable depuis Chrome 113 +
-#   GPU réel (Metal/D3D12) = reflète mieux l'usage des end-users.
+# Why not Linux/SwiftShader?
+# - WebGPU still experimental on Linux, software rendering may differ.
+# - Stable Chrome on macOS/Windows = WebGPU stable since Chrome 113 +
+#   real GPU (Metal/D3D12) = better reflects end-user usage.
 
 on:
   push:
@@ -32,22 +32,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Windows-latest exclu : les runners GitHub Actions Windows sont des VMs
-        # Hyper-V sans GPU passthrough, et ni Chrome stable ni Chromium ne
-        # parviennent à initialiser un adapter WebGPU exploitable (testé avec
-        # toutes les combinaisons --enable-unsafe-webgpu / SwiftShader ANGLE /
+        # Windows-latest excluded: the GitHub Actions Windows runners are Hyper-V
+        # VMs without GPU passthrough, and neither stable Chrome nor Chromium
+        # manage to initialize a usable WebGPU adapter (tested with all the
+        # combinations --enable-unsafe-webgpu / SwiftShader ANGLE /
         # SwiftShader Vulkan / --use-vulkan=swiftshader — `requestAdapter()`
-        # retourne `null` à chaque fois). Cf. PR #131 pour l'historique des
-        # 3 tentatives. À revisiter quand des runners Windows avec GPU
-        # passthrough seront disponibles (ou via self-hosted).
-        # La couverture compile/tests Windows reste assurée par `Kadre CI`
+        # returns `null` every time). See PR #131 for the history of the
+        # 3 attempts. To be revisited when Windows runners with GPU
+        # passthrough become available (or via self-hosted).
+        # Windows compile/test coverage remains ensured by `Kadre CI`
         # (job `windows-build`).
         os: [macos-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        # Bash sur tous les runners (Git Bash sur Windows) pour homogénéiser
-        # les commandes (./gradlew, redirections, [ -f ... ]).
+        # Bash on all runners (Git Bash on Windows) to standardize the
+        # commands (./gradlew, redirections, [ -f ... ]).
         shell: bash
     steps:
       - name: Checkout
@@ -77,15 +77,15 @@ jobs:
 
       - name: Install Chrome stable
         working-directory: samples/hello-triangle-web/e2e
-        # Chrome stable (canal release) installé par Playwright. Pas de
-        # `--with-deps` (Linux-only, on est sur macOS).
+        # Stable Chrome (release channel) installed by Playwright. No
+        # `--with-deps` (Linux-only, we are on macOS).
         run: npx playwright install chrome
 
       - name: Run Playwright smoke + visual tests
         working-directory: samples/hello-triangle-web/e2e
         run: npx playwright test
 
-      # Résumé visuel directement sur la page du run.
+      # Visual summary directly on the run page.
       - name: Publier le résumé visuel
         if: always()
         run: |
@@ -94,10 +94,10 @@ jobs:
             cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # Captures (smoke + régression visuelle) — séparées par OS pour pouvoir
-      # comparer macOS Metal vs Windows SwiftShader. Inclut également les
-      # `error-context.md` produits par Playwright en cas d'échec (console
-      # logs, page errors, network) pour faciliter le débogage à distance.
+      # Captures (smoke + visual regression) — separated by OS so we can
+      # compare macOS Metal vs Windows SwiftShader. Also includes the
+      # `error-context.md` produced by Playwright on failure (console
+      # logs, page errors, network) to ease remote debugging.
       - name: Upload captures + debug context
         if: always()
         uses: actions/upload-artifact@v4

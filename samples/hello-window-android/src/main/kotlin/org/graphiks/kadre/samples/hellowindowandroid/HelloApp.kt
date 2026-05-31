@@ -1,11 +1,11 @@
 /**
- * Handler partagé cross-platform — identique à samples/hello-window/commonMain.
+ * Shared cross-platform handler — identical to samples/hello-window/commonMain.
  *
- * Sur toutes les plateformes (Android inclus), [createWindow] est appelé depuis
- * [canCreateSurfaces]. Sur Android, la surface n'est pas encore disponible au
- * moment de [createWindow] ; elle le devient quelques instants plus tard via
- * [AndroidWindow.onSurfaceAvailable]. Les renderers doivent accéder à
- * [rawWindowHandle] uniquement dans ou après ce callback.
+ * On all platforms (Android included), [createWindow] is called from
+ * [canCreateSurfaces]. On Android, the surface is not yet available at
+ * the time of [createWindow]; it becomes available a few moments later via
+ * [AndroidWindow.onSurfaceAvailable]. Renderers must access
+ * [rawWindowHandle] only in or after this callback.
  */
 package org.graphiks.kadre.samples.hellowindowandroid
 
@@ -17,10 +17,10 @@ import org.graphiks.kadre.WindowId
 import org.graphiks.kadre.core.WindowEvent
 
 /**
- * Handler de démonstration Hello Window.
+ * Hello Window demonstration handler.
  *
- * Crée une fenêtre via [ActiveEventLoop.createWindow] dans [canCreateSurfaces]
- * et logue tous les événements reçus. Identique sur Android, iOS et JVM.
+ * Creates a window via [ActiveEventLoop.createWindow] in [canCreateSurfaces]
+ * and logs all received events. Identical on Android, iOS and JVM.
  */
 class HelloApp : ApplicationHandler {
 

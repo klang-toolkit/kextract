@@ -1,8 +1,8 @@
 /**
- * PongGame — gestionnaire d'application principal pour Pong.
+ * PongGame — main application handler for Pong.
  *
- * Orchestre la boucle de jeu, les entrées, l'IA et le rendu.
- * Délègue le rendu à [PongRendererInterface], implémentée en jvmMain via wgpu4k.
+ * Orchestrates the game loop, the inputs, the AI and the rendering.
+ * Delegates rendering to [PongRendererInterface], implemented in jvmMain via wgpu4k.
  *
  * .
  */
@@ -21,10 +21,10 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * Interface de rendu Pong — implémentée par plateforme.
+ * Pong render interface — implemented per platform.
  *
- * jvmMain : PongRenderer (wgpu4k)
- * Autres plateformes : implémentations à venir dans les tickets suivants.
+ * jvmMain: PongRenderer (wgpu4k)
+ * Other platforms: implementations coming in the following tickets.
  */
 interface PongRendererInterface {
     fun draw(state: GameState)
@@ -33,10 +33,10 @@ interface PongRendererInterface {
 }
 
 /**
- * Gestionnaire d'application Pong.
+ * Pong application handler.
  *
- * @param rendererFactory Fabrique de rendu — reçoit le [RawWindowHandle] natif
- *   et retourne un [PongRendererInterface] initialisé.
+ * @param rendererFactory Render factory — receives the native [RawWindowHandle]
+ *   and returns an initialized [PongRendererInterface].
  */
 @OptIn(ExperimentalTime::class)
 class PongGame(
@@ -51,7 +51,7 @@ class PongGame(
     private var lastFrameMs: Long = 0L
 
     // -------------------------------------------------------------------------
-    // Cycle de vie
+    // Lifecycle
     // -------------------------------------------------------------------------
 
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
@@ -72,7 +72,7 @@ class PongGame(
     }
 
     // -------------------------------------------------------------------------
-    // Événements fenêtre
+    // Window events
     // -------------------------------------------------------------------------
 
     override fun windowEvent(
@@ -100,7 +100,7 @@ class PongGame(
     }
 
     // -------------------------------------------------------------------------
-    // Boucle de jeu
+    // Game loop
     // -------------------------------------------------------------------------
 
     @OptIn(ExperimentalTime::class)
@@ -116,11 +116,11 @@ class PongGame(
     }
 
     override fun suspended(eventLoop: ActiveEventLoop) {
-        // Pause — rien à faire pour l'instant
+        // Pause — nothing to do for now
     }
 
     override fun resumed(eventLoop: ActiveEventLoop) {
-        lastFrameMs = 0L // Évite un spike de dt au retour
+        lastFrameMs = 0L // Avoids a dt spike on return
     }
 
     override fun destroySurfaces(eventLoop: ActiveEventLoop) {

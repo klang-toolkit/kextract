@@ -42,7 +42,7 @@ class BitmapFontTest {
         val x0 = 0.1
         val y0 = 0.2
         val quads = BitmapFont.renderDigit(0, x0, y0, pixelSize)
-        // Tous les quads doivent être dans le rectangle 5×7 pixels
+        // All quads must be within the 5×7 pixel rectangle
         for (q in quads) {
             assertTrue(q.x >= x0, "quad.x ${q.x} < x0 $x0")
             assertTrue(q.y >= y0, "quad.y ${q.y} < y0 $y0")
@@ -80,7 +80,7 @@ class BitmapFontTest {
         val quads4 = BitmapFont.renderDigit(4, 0.0, 0.0, pixelSize)
         val quads2 = BitmapFont.renderDigit(2, 0.0, 0.0, pixelSize)
         val quads42 = BitmapFont.renderNumber(42, 0.0, 0.0, pixelSize)
-        // Le nombre de quads doit correspondre aux deux chiffres individuels
+        // The number of quads must match the two individual digits
         assertEquals(quads4.size + quads2.size, quads42.size)
     }
 
@@ -100,7 +100,7 @@ class BitmapFontTest {
         val quadsNumber = BitmapFont.renderNumber(12, x0, 0.0, pixelSize)
 
         assertEquals(quadsFirst.size + quadsSecond.size, quadsNumber.size)
-        // Vérifie que les positions correspondent
+        // Verify that the positions match
         val expected = (quadsFirst + quadsSecond).sortedWith(compareBy({ it.y }, { it.x }))
         val actual = quadsNumber.sortedWith(compareBy({ it.y }, { it.x }))
         for (i in expected.indices) {

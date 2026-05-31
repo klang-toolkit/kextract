@@ -1,25 +1,25 @@
 /**
- * Sous-classe Objective-C de NSApplication pour kadre.
+ * Objective-C subclass of NSApplication for kadre.
  *
- * Override de `sendEvent:` pour intercepter les événements clavier (NSEventTypeKeyDown /
- * NSEventTypeKeyUp) et les dispatcher comme [WindowEvent.KeyboardInput] vers
- * l'[AppKitEventLoop] actif, et les événements souris comme [WindowEvent] correspondants.
+ * Overrides `sendEvent:` to intercept keyboard events (NSEventTypeKeyDown /
+ * NSEventTypeKeyUp) and dispatch them as [WindowEvent.KeyboardInput] to the
+ * active [AppKitEventLoop], and mouse events as the corresponding [WindowEvent].
  *
- * La référence à [AppKitEventLoop] est stockée dans l'instance [KadreApplication]
- * (propriété [eventLoop]) et récupérée dans le bridge `sendEvent:` via
- * `NSApp as? KadreApplication` — concrètement : [Companion.sharedApp] qui mémorise
- * l'unique instance Kotlin retournée par [initialize].
+ * The reference to [AppKitEventLoop] is stored in the [KadreApplication] instance
+ * (the [eventLoop] property) and retrieved in the `sendEvent:` bridge via
+ * `NSApp as? KadreApplication` — concretely: [Companion.sharedApp] which stores
+ * the unique Kotlin instance returned by [initialize].
  *
- * Ce design évite la variable statique mutable globale qui rendait le code
- * non-réentrant et corruptible par des tests parallèles.
+ * This design avoids the global mutable static variable that made the code
+ * non-reentrant and corruptible by parallel tests.
  *
- * **Contrainte non-réentrante** : une seule instance de [AppKitEventLoop] doit être
- * attachée à la fois. Créer deux boucles dans le même processus ou appeler [runApp]
- * depuis plusieurs threads simultanément n'est pas supporté — AppKit impose que
- * `NSApp.run()` s'exécute sur le thread principal et ne retourne qu'à la fermeture.
+ * **Non-reentrant constraint**: a single [AppKitEventLoop] instance must be
+ * attached at a time. Creating two loops in the same process or calling [runApp]
+ * from several threads simultaneously is not supported — AppKit requires that
+ * `NSApp.run()` runs on the main thread and only returns on close.
  *
- * GRA-154 : ajout du support clavier via sendEvent: NSEvent interception.
- * refactor eventLoop static → instance scopée.
+ * GRA-154: added keyboard support via sendEvent: NSEvent interception.
+ * Refactored eventLoop from static → scoped instance.
  */
 package org.graphiks.kadre.appkit
 
@@ -45,22 +45,22 @@ import java.lang.invoke.MethodType
 class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(ptr) {
 
     /**
-     * Référence à la boucle d'événements active, scopée à cette instance.
+     * Reference to the active event loop, scoped to this instance.
      *
-     * Assignée par [runApp] immédiatement après [initialize] et avant le lancement
-     * de `NSApp.run()`. Récupérée dans [Callbacks.sendEvent] via [Companion.sharedApp]
-     * (équivalent de `NSApp as? KadreApplication`).
+     * Assigned by [runApp] immediately after [initialize] and before launching
+     * `NSApp.run()`. Retrieved in [Callbacks.sendEvent] via [Companion.sharedApp]
+     * (equivalent to `NSApp as? KadreApplication`).
      *
-     * **Contrainte non-réentrante** : ne doit être assignée qu'une seule fois par
-     * cycle de vie de l'application. Deux appels simultanés à [runApp] dans le même
-     * processus ne sont pas supportés.
+     * **Non-reentrant constraint**: must only be assigned once per
+     * application lifecycle. Two simultaneous calls to [runApp] in the same
+     * process are not supported.
      */
     @Volatile
     internal var eventLoop: AppKitEventLoop? = null
 
     /**
-     * Définit la politique d'activation de l'application
-     * (par défaut : `NSApplicationActivationPolicyRegular`).
+     * Sets the application's activation policy
+     * (default: `NSApplicationActivationPolicyRegular`).
      */
     fun setActivationPolicyRegular() {
         ObjCRuntime.msgSend(
@@ -73,16 +73,16 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
 
     companion object {
         /**
-         * Instance unique de [KadreApplication] créée par [initialize].
+         * Unique [KadreApplication] instance created by [initialize].
          *
-         * Joue le rôle de `NSApp as? KadreApplication` : point d'accès à l'instance
-         * Kotlin qui porte la propriété [eventLoop]. Initialisé par [initialize] et
-         * utilisé par [Callbacks.sendEvent] pour récupérer la boucle active.
+         * Plays the role of `NSApp as? KadreApplication`: access point to the Kotlin
+         * instance that carries the [eventLoop] property. Initialized by [initialize] and
+         * used by [Callbacks.sendEvent] to retrieve the active loop.
          */
         @Volatile
         internal var sharedApp: KadreApplication? = null
 
-        /** Initialise la sous-classe ObjC une seule fois. */
+        /** Initializes the ObjC subclass only once. */
         private val klass: MemorySegment by lazy {
             val cls = ObjCSubclassing.allocateClass("NSApplication", "KadreApplication")
 
@@ -114,19 +114,19 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
         }
 
         /**
-         * Crée (ou récupère) l'instance unique partagée de `KadreApplication`.
+         * Creates (or retrieves) the unique shared `KadreApplication` instance.
          *
-         * Mémorise l'instance dans [sharedApp] — équivalent du pattern
-         * `NSApp as? KadreApplication` : toute autre partie du code peut
-         * récupérer l'instance et sa propriété [eventLoop] sans variable statique
-         * mutable dédiée.
+         * Stores the instance in [sharedApp] — equivalent to the
+         * `NSApp as? KadreApplication` pattern: any other part of the code can
+         * retrieve the instance and its [eventLoop] property without a dedicated
+         * mutable static variable.
          *
-         * Doit être appelé depuis le thread principal — l'invariant est validé
+         * Must be called from the main thread — the invariant is validated
          * via [MainThreadCheck].
          */
         fun initialize(): KadreApplication {
             MainThreadCheck.require()
-            // Force la registration de la sous-classe avant le sharedApplication.
+            // Force registration of the subclass before sharedApplication.
             klass
             val appClass = ObjCRuntime.getClass("KadreApplication")
             val sharedAppPtr = ObjCRuntime.msgSend(
@@ -139,17 +139,17 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
     }
 
     /**
-     * Trampolines `@JvmStatic` invoqués par les upcall stubs Panama.
+     * `@JvmStatic` trampolines invoked by the Panama upcall stubs.
      *
-     * `sendEvent:` est overridé pour intercepter keyDown/keyUp et les dispatcher
-     * vers [AppKitEventLoop] comme [WindowEvent.KeyboardInput].
+     * `sendEvent:` is overridden to intercept keyDown/keyUp and dispatch them
+     * to [AppKitEventLoop] as [WindowEvent.KeyboardInput].
      *
-     * La boucle d'événements est récupérée via [Companion.sharedApp] (équivalent
-     * de `NSApp as? KadreApplication`) — aucune variable statique mutable dédiée
-     * à la boucle.
+     * The event loop is retrieved via [Companion.sharedApp] (equivalent
+     * to `NSApp as? KadreApplication`) — no mutable static variable dedicated
+     * to the loop.
      *
-     * @throws IllegalStateException si [Companion.sharedApp] est null (initialize()
-     * non appelé) ou si [eventLoop] est null (runApp() n'a pas câblé la boucle).
+     * @throws IllegalStateException if [Companion.sharedApp] is null (initialize()
+     * not called) or if [eventLoop] is null (runApp() did not wire the loop).
      */
     private object Callbacks {
         @JvmStatic
@@ -157,7 +157,7 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
             // 1. FIRST call super (objc_msgSendSuper) so AppKit processes normally
             callSuperSendEvent(self, sel, event)
 
-            // 2. Récupère la boucle d'événements via sharedApp (NSApp as? KadreApplication).
+            // 2. Retrieve the event loop via sharedApp (NSApp as? KadreApplication).
             val kadreApp = sharedApp
                 ?: throw IllegalStateException(
                     "KadreApplication.sharedApp est null dans sendEvent: — " +

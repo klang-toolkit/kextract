@@ -14,67 +14,67 @@ import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
 
 /**
- * Activity racine Kadre pour Android.
+ * Root Kadre Activity for Android.
  *
- * Héberge un [SurfaceView] plein écran dont la [android.view.Surface] est
- * exposée via [AndroidWindow.rawWindowHandle] → [RawWindowHandle.Android].
+ * Hosts a full-screen [SurfaceView] whose [android.view.Surface] is
+ * exposed via [AndroidWindow.rawWindowHandle] → [RawWindowHandle.Android].
  *
  * ## Usage
- * Sous-classer et implémenter [createHandler] :
+ * Subclass and implement [createHandler]:
  * ```kotlin
  * class MyActivity : KadreActivity() {
  *     override fun createHandler() = MyApplicationHandler()
  * }
  * ```
  *
- * ## Lifecycle → callbacks Kadre
+ * ## Lifecycle → Kadre callbacks
  * - [onResume]  → [ApplicationHandler.resumed]
  * - [onPause]   → [ApplicationHandler.suspended]
- * - Surface créée   → [ApplicationHandler.canCreateSurfaces]
- * - Surface changée → [ApplicationHandler.windowEvent] ([WindowEvent.Resized])
- * - Surface détruite → [ApplicationHandler.destroySurfaces]
- * - [onDestroy] → guard `destroyed` activé, puis nettoyage
+ * - Surface created   → [ApplicationHandler.canCreateSurfaces]
+ * - Surface changed → [ApplicationHandler.windowEvent] ([WindowEvent.Resized])
+ * - Surface destroyed → [ApplicationHandler.destroySurfaces]
+ * - [onDestroy] → `destroyed` guard set, then cleanup
  *
- * ## Plein écran
- * Status bar et navigation bar masquées via `FLAG_FULLSCREEN` et layout cutout-aware.
+ * ## Full screen
+ * Status bar and navigation bar hidden via `FLAG_FULLSCREEN` and cutout-aware layout.
  */
 abstract class KadreActivity : ComponentActivity() {
 
     /**
-     * Crée le gestionnaire d'application Kadre.
-     * Appelé depuis [onCreate] avant toute initialisation de surface.
+     * Creates the Kadre application handler.
+     * Called from [onCreate] before any surface initialization.
      */
     abstract fun createHandler(): ApplicationHandler
 
-    /** Handler instancié lors de [onCreate]. */
+    /** Handler instantiated in [onCreate]. */
     lateinit var handler: ApplicationHandler
         private set
 
     /**
-     * Fenêtre Android Kadre.
+     * Kadre Android window.
      *
-     * Initialisée lors du premier appel à [AndroidEventLoop.createWindow] (typiquement
-     * dans [ApplicationHandler.canCreateSurfaces] via [surfaceCreated]).
-     * Délègue la gestion de la surface à [AndroidEventLoop].
+     * Initialized on the first call to [AndroidEventLoop.createWindow] (typically
+     * in [ApplicationHandler.canCreateSurfaces] via [surfaceCreated]).
+     * Delegates surface management to [AndroidEventLoop].
      */
     val kadreWindow: AndroidWindow?
         get() = eventLoop.pendingWindow
 
-    /** Boucle d'événements Android. */
+    /** Android event loop. */
     internal lateinit var eventLoop: AndroidEventLoop
 
     /**
-     * SurfaceView plein écran hébergeant la surface de rendu.
+     * Full-screen SurfaceView hosting the rendering surface.
      *
-     * Exposé en `internal` pour que [AndroidEventLoop.createWindow] puisse
-     * instancier [AndroidWindow] avec le SurfaceView de cette Activity.
+     * Exposed as `internal` so that [AndroidEventLoop.createWindow] can
+     * instantiate [AndroidWindow] with this Activity's SurfaceView.
      */
     internal lateinit var surfaceView: SurfaceView
 
     /**
-     * Guard contre tout dispatch de callback après [onDestroy].
-     * Mis à `true` au début de [onDestroy], avant tout nettoyage.
-     * Exposé en `internal` pour que [AndroidEventLoop.onFrame] puisse le lire.
+     * Guard against any callback dispatch after [onDestroy].
+     * Set to `true` at the start of [onDestroy], before any cleanup.
+     * Exposed as `internal` so that [AndroidEventLoop.onFrame] can read it.
      */
     @Volatile
     internal var destroyed = false
@@ -82,17 +82,17 @@ abstract class KadreActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ── Plein écran ────────────────────────────────────────────────────────
+        // ── Full screen ────────────────────────────────────────────────────────
         @Suppress("DEPRECATION")
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Cutout-aware (API 28+) — flag appliqué sans import direct pour compat
+        // Cutout-aware (API 28+) — flag applied without a direct import for compatibility
         if (android.os.Build.VERSION.SDK_INT >= 28) {
             window.attributes.layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
-        // ── SurfaceView plein écran ────────────────────────────────────────────
+        // ── Full-screen SurfaceView ────────────────────────────────────────────
         surfaceView = SurfaceView(this).apply {
             layoutParams = android.view.ViewGroup.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
@@ -116,9 +116,9 @@ abstract class KadreActivity : ComponentActivity() {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 if (destroyed) return
                 println("[KadreActivity] surfaceCreated → surface available")
-                // canCreateSurfaces déclenche createWindow dans le handler,
-                // ce qui crée l'AndroidWindow via AndroidEventLoop.createWindow.
-                // Ensuite on transfère la surface vers la fenêtre créée.
+                // canCreateSurfaces triggers createWindow in the handler,
+                // which creates the AndroidWindow via AndroidEventLoop.createWindow.
+                // Then we transfer the surface to the created window.
                 handler.canCreateSurfaces(eventLoop)
                 eventLoop.onSurfaceCreated(holder.surface)
                 eventLoop.pendingWindow?.let { eventLoop.scheduleFrameIfNeeded(it) }

@@ -1,21 +1,21 @@
 /**
- * Détecte le backend Linux approprié (X11 ou Wayland) à l'exécution.
+ * Detects the appropriate Linux backend (X11 or Wayland) at runtime.
  *
- * Stratégie de détection (sans appels FFM, safe dans tous les contextes) :
- *  1. Variable d'environnement KADRE_LINUX_BACKEND — override explicite.
- *  2. XDG_SESSION_TYPE / WAYLAND_DISPLAY — indice session courante.
- *  3. Tentative de chargement réflexif des classes de backend disponibles.
+ * Detection strategy (no FFM calls, safe in all contexts):
+ *  1. KADRE_LINUX_BACKEND environment variable — explicit override.
+ *  2. XDG_SESSION_TYPE / WAYLAND_DISPLAY — current session hint.
+ *  3. Reflective load attempt of the available backend classes.
  *
- * détection X11/Wayland Linux.
- * extension de la façade kadre.
+ * Linux X11/Wayland detection.
+ * kadre facade extension.
  */
 package org.graphiks.kadre
 
 /**
- * Détecteur de backend Linux — sélectionne X11 ou Wayland selon l'environnement.
+ * Linux backend detector — selects X11 or Wayland depending on the environment.
  *
- * Toutes les détections reposent sur des variables d'environnement ou
- * [Class.forName] : aucun appel FFM dans les initialiseurs statiques.
+ * All detections rely on environment variables or
+ * [Class.forName]: no FFM calls in the static initializers.
  */
 internal object LinuxBackendDetector {
 
@@ -23,16 +23,16 @@ internal object LinuxBackendDetector {
     internal const val WAYLAND_CLASS = "org.graphiks.kadre.wayland.WaylandEventLoopKt"
 
     /**
-     * Résout le nom de classe du backend Linux à utiliser.
+     * Resolves the class name of the Linux backend to use.
      *
-     * @return Nom complet de la classe backend à instancier par réflexion.
-     * @throws IllegalStateException si aucun backend n'est disponible.
-     * @throws IllegalArgumentException si KADRE_LINUX_BACKEND contient une valeur invalide.
+     * @return Fully qualified name of the backend class to instantiate via reflection.
+     * @throws IllegalStateException if no backend is available.
+     * @throws IllegalArgumentException if KADRE_LINUX_BACKEND contains an invalid value.
      */
     fun detectBackendClass(): String {
         val debug = System.getenv("KADRE_DEBUG") == "1"
 
-        // Priorité 1 : override explicite par variable d'environnement
+        // Priority 1: explicit override via environment variable
         val override = System.getenv("KADRE_LINUX_BACKEND")?.lowercase()
         if (override != null) {
             return when (override) {
@@ -45,13 +45,13 @@ internal object LinuxBackendDetector {
             }
         }
 
-        // Priorité 2 : indices de session (variables d'environnement, pas de FFM)
+        // Priority 2: session hints (environment variables, no FFM)
         val xdgSession = System.getenv("XDG_SESSION_TYPE")?.lowercase()
         val waylandDisplay = System.getenv("WAYLAND_DISPLAY")
         val display = System.getenv("DISPLAY")
         val preferWayland = xdgSession == "wayland" || waylandDisplay != null
 
-        // Essaie le backend préféré en premier, puis l'autre en fallback
+        // Try the preferred backend first, then the other as fallback
         val candidates = if (preferWayland) listOf(WAYLAND_CLASS, X11_CLASS)
                          else listOf(X11_CLASS, WAYLAND_CLASS)
 
@@ -68,15 +68,15 @@ internal object LinuxBackendDetector {
     }
 
     /**
-     * Vérifie si une classe est accessible sur le classpath courant.
+     * Checks whether a class is reachable on the current classpath.
      *
-     * Utilise [Class.forName] et intercepte tout [Throwable] (couvre
+     * Uses [Class.forName] and catches any [Throwable] (covers
      * [ClassNotFoundException], [LinkageError], [ExceptionInInitializerError],
-     * [UnsatisfiedLinkError]) conformément à la règle PR #49 §1B.
+     * [UnsatisfiedLinkError]) per rule PR #49 §1B.
      *
-     * @param className Nom complet de la classe à tester.
-     * @param debug Si `true`, affiche un message de diagnostic en cas d'échec.
-     * @return `true` si la classe est chargeable, `false` sinon.
+     * @param className Fully qualified name of the class to test.
+     * @param debug If `true`, prints a diagnostic message on failure.
+     * @return `true` if the class is loadable, `false` otherwise.
      */
     internal fun canLoad(className: String, debug: Boolean = false): Boolean {
         return try {

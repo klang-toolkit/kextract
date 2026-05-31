@@ -1,9 +1,9 @@
 /**
- * Tests d'exhaustivité des sealed interfaces [RawWindowHandle] et [RawDisplayHandle].
+ * Exhaustiveness tests for the sealed interfaces [RawWindowHandle] and [RawDisplayHandle].
  *
- * Chaque branche `when` est écrite SANS clause `else` afin que le compilateur
- * Kotlin signale une erreur à la compilation si un variant venait à être ajouté
- * sans mise à jour de ces tests (garantie d'exhaustivité).
+ * Each `when` branch is written WITHOUT an `else` clause so that the Kotlin
+ * compiler reports an error at compile time if a variant were to be added
+ * without updating these tests (exhaustiveness guarantee).
  */
 package org.graphiks.kadre.core
 
@@ -17,11 +17,11 @@ import kotlin.test.assertTrue
 class RawHandlesTest {
 
     // -------------------------------------------------------------------------
-    // RawWindowHandle — exhaustivité
+    // RawWindowHandle — exhaustiveness
     // -------------------------------------------------------------------------
 
     /**
-     * Vérifie que le `when` sur [RawWindowHandle] couvre tous les variants sans `else`.
+     * Verifies that the `when` on [RawWindowHandle] covers all variants without `else`.
      */
     @Test
     fun `when sur RawWindowHandle est exhaustif`() {
@@ -37,7 +37,7 @@ class RawHandlesTest {
         )
 
         for (handle in handles) {
-            // Sans clause `else` — le compilateur garantit l'exhaustivité.
+            // Without an `else` clause — the compiler guarantees exhaustiveness.
             val nom: String = when (handle) {
                 is RawWindowHandle.AppKit   -> "AppKit"
                 is RawWindowHandle.UiKit    -> "UiKit"
@@ -77,11 +77,11 @@ class RawHandlesTest {
     }
 
     // -------------------------------------------------------------------------
-    // RawDisplayHandle — exhaustivité
+    // RawDisplayHandle — exhaustiveness
     // -------------------------------------------------------------------------
 
     /**
-     * Vérifie que le `when` sur [RawDisplayHandle] couvre tous les variants sans `else`.
+     * Verifies that the `when` on [RawDisplayHandle] covers all variants without `else`.
      */
     @Test
     fun `when sur RawDisplayHandle est exhaustif`() {
@@ -96,7 +96,7 @@ class RawHandlesTest {
         )
 
         for (handle in handles) {
-            // Sans clause `else` — le compilateur garantit l'exhaustivité.
+            // Without an `else` clause — the compiler guarantees exhaustiveness.
             val nom: String = when (handle) {
                 RawDisplayHandle.AppKit      -> "AppKit"
                 RawDisplayHandle.UiKit       -> "UiKit"
@@ -126,7 +126,7 @@ class RawHandlesTest {
     }
 
     // -------------------------------------------------------------------------
-    // Win32 — tests spécifiques
+    // Win32 — specific tests
     // -------------------------------------------------------------------------
 
     @Test
@@ -143,7 +143,7 @@ class RawHandlesTest {
     }
 
     // -------------------------------------------------------------------------
-    // Web — tests spécifiques
+    // Web — specific tests
     // -------------------------------------------------------------------------
 
     @Test

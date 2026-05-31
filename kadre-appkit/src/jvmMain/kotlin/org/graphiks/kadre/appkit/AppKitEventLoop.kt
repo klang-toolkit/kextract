@@ -1,12 +1,12 @@
 /**
- * Implémentation AppKit de [ActiveEventLoop] et point d'entrée [runApp].
+ * AppKit implementation of [ActiveEventLoop] and the [runApp] entry point.
  *
- * [AppKitEventLoop] implémente [ActiveEventLoop] et est passé à chaque
- * callback de [ApplicationHandler]. La fonction top-level [runApp] orchestre
- * l'initialisation AppKit (KadreApplication + KadreAppDelegate + NSApp.run).
+ * [AppKitEventLoop] implements [ActiveEventLoop] and is passed to each
+ * [ApplicationHandler] callback. The top-level [runApp] function orchestrates
+ * AppKit initialization (KadreApplication + KadreAppDelegate + NSApp.run).
  *
- * GRA-128 : premier câblage complet — M1.
- * GRA-136 : ControlFlow effectif + CFRunLoopObserver + proxy thread-safe.
+ * GRA-128: first complete wiring — M1.
+ * GRA-136: effective ControlFlow + CFRunLoopObserver + thread-safe proxy.
  */
 package org.graphiks.kadre.appkit
 
@@ -23,34 +23,34 @@ import java.lang.foreign.ValueLayout
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Verrou global garantissant qu'une seule boucle d'événements AppKit est active
- * à la fois dans le processus. DoD #3.
+ * Global lock guaranteeing that only a single AppKit event loop is active
+ * at a time within the process. DoD #3.
  *
- * Utilisation de [java.util.concurrent.atomic.AtomicBoolean] pour la thread-safety :
- * [runApp] fait un CAS atomique false→true au démarrage et lève
- * [IllegalStateException] si la valeur était déjà true.
+ * Uses [java.util.concurrent.atomic.AtomicBoolean] for thread-safety:
+ * [runApp] performs an atomic CAS false→true at startup and raises
+ * [IllegalStateException] if the value was already true.
  */
 internal val appKitRunning = java.util.concurrent.atomic.AtomicBoolean(false)
 
 /**
- * Implémentation interne de [ActiveEventLoop] pour la plateforme AppKit (macOS).
+ * Internal implementation of [ActiveEventLoop] for the AppKit platform (macOS).
  *
- * Une instance est créée par appel à [runApp] et passée comme récepteur
- * à tous les callbacks [ApplicationHandler].
+ * One instance is created per call to [runApp] and passed as the receiver
+ * to all [ApplicationHandler] callbacks.
  *
- * Périmètre M1 :
- * - [createWindow] : crée une [AppKitWindow] et lui installe un
- *   [KadreWindowDelegate] pour la gestion de la fermeture.
- * - [exit] : lève le drapeau [isExiting] puis déclenche
- *   `[NSApp terminate:nil]` pour quitter la boucle AppKit.
- * - [controlFlow] / [setControlFlow] : état piloté par [CFRunLoopRedrawObserver] (GRA-136).
- * - [createProxy] : implémenté via [AppKitEventLoopProxy] (GRA-136) — wakeUp thread-safe.
+ * M1 scope:
+ * - [createWindow]: creates an [AppKitWindow] and installs a
+ *   [KadreWindowDelegate] on it for close handling.
+ * - [exit]: raises the [isExiting] flag then triggers
+ *   `[NSApp terminate:nil]` to quit the AppKit loop.
+ * - [controlFlow] / [setControlFlow]: state driven by [CFRunLoopRedrawObserver] (GRA-136).
+ * - [createProxy]: implemented via [AppKitEventLoopProxy] (GRA-136) — thread-safe wakeUp.
  */
 internal class AppKitEventLoop(
     internal val handler: ApplicationHandler,
 ) : ActiveEventLoop {
 
-    /** Fenêtres vivantes : windowId → AppKitWindow. */
+    /** Live windows: windowId → AppKitWindow. */
     internal val windows = ConcurrentHashMap<Long, AppKitWindow>()
 
     @Volatile
@@ -70,9 +70,9 @@ internal class AppKitEventLoop(
     }
 
     /**
-     * Crée une nouvelle fenêtre AppKit et installe le delegate de fermeture.
+     * Creates a new AppKit window and installs the close delegate.
      *
-     * Doit être appelé depuis le thread principal (validé par [AppKitWindow.init]).
+     * Must be called from the main thread (validated by [AppKitWindow.init]).
      */
     override fun createWindow(attributes: WindowAttributes): Window {
         val window = AppKitWindow(attributes)
@@ -82,11 +82,11 @@ internal class AppKitEventLoop(
     }
 
     /**
-     * Demande l'arrêt de la boucle d'événements AppKit.
+     * Requests shutdown of the AppKit event loop.
      *
-     * Lève [isExiting] puis appelle `[NSApp terminate:nil]`, ce qui déclenche
-     * `applicationShouldTerminate:` dans [KadreAppDelegate] — qui retourne
-     * `NSTerminateNow` car [isExiting] vaut déjà true.
+     * Raises [isExiting] then calls `[NSApp terminate:nil]`, which triggers
+     * `applicationShouldTerminate:` in [KadreAppDelegate] — which returns
+     * `NSTerminateNow` because [isExiting] is already true.
      */
     override fun exit() {
         _isExiting = true
@@ -104,22 +104,22 @@ internal class AppKitEventLoop(
     }
 
     /**
-     * Crée un [EventLoopProxy] dont [EventLoopProxy.wakeUp] est thread-safe
-     * (GRA-136). Implémenté via `CFRunLoopWakeUp(CFRunLoopGetMain())` — voir
+     * Creates an [EventLoopProxy] whose [EventLoopProxy.wakeUp] is thread-safe
+     * (GRA-136). Implemented via `CFRunLoopWakeUp(CFRunLoopGetMain())` — see
      * [AppKitEventLoopProxy].
      */
     override fun createProxy(): EventLoopProxy = AppKitEventLoopProxy.create()
 }
 
 /**
- * Point d'entrée de la boucle d'événements kadre sur macOS.
+ * Entry point of the kadre event loop on macOS.
  *
- * Initialise AppKit, installe les delegates et lance la boucle bloquante
- * `NSApp.run()`. Ne retourne qu'à la fermeture de l'application.
+ * Initializes AppKit, installs the delegates and starts the blocking
+ * `NSApp.run()` loop. Only returns when the application closes.
  *
- * Doit être appelé depuis le thread principal macOS.
+ * Must be called from the macOS main thread.
  *
- * @param handler Gestionnaire du cycle de vie et des événements.
+ * @param handler Lifecycle and event handler.
  */
 fun runApp(handler: ApplicationHandler) {
     check(appKitRunning.compareAndSet(false, true)) {
@@ -130,29 +130,29 @@ fun runApp(handler: ApplicationHandler) {
 
     val eventLoop = AppKitEventLoop(handler)
 
-    // 1. Sous-classe KadreApplication + sharedApplication (mémorisé dans sharedApp)
+    // 1. Subclass KadreApplication + sharedApplication (stored in sharedApp)
     val app = KadreApplication.initialize()
 
     try {
-        // 2. Câble la boucle sur l'instance — récupérée via sharedApp (NSApp as? KadreApplication)
-        //    dans sendEvent:. Aucune variable statique mutable dédiée.
+        // 2. Wire the loop onto the instance — retrieved via sharedApp (NSApp as? KadreApplication)
+        //    in sendEvent:. No dedicated mutable static variable.
         app.eventLoop = eventLoop
 
-        // 3. Politique d'activation : application régulière (icône dans le Dock)
+        // 3. Activation policy: regular application (icon in the Dock)
         app.setActivationPolicyRegular()
 
-        // 4. Délégué d'application — câble canCreateSurfaces / shouldTerminate
+        // 4. Application delegate — wires canCreateSurfaces / shouldTerminate
         val appDelegate = KadreAppDelegate(handler, eventLoop)
         app.setDelegate(appDelegate.ptr)
 
-        // 5. Installer l'observer CFRunLoop pour le coalescing RedrawRequested (GRA-134)
+        // 5. Install the CFRunLoop observer for RedrawRequested coalescing (GRA-134)
         CFRunLoopRedrawObserver.install(handler, eventLoop, eventLoop.windows)
 
-        // 6. Lance la boucle bloquante AppKit — retourne à la fermeture
+        // 6. Start the blocking AppKit loop — returns on close
         app.run()
     } finally {
-        // Nettoyage : libère les références et remet le verrou à false
-        // pour permettre un éventuel re-démarrage (tests ou processus réentrants).
+        // Cleanup: releases the references and resets the lock to false
+        // to allow a possible restart (tests or reentrant processes).
         app.eventLoop = null
         KadreApplication.sharedApp = null
         appKitRunning.set(false)

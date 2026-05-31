@@ -1,9 +1,9 @@
 /**
- * Sample hello-touch — démontre le pipeline touch events Kadre.
+ * Sample hello-touch — demonstrates the Kadre touch events pipeline.
  *
- * Cibles KMP : androidTarget + iOS (iosArm64, iosSimulatorArm64).
- * Le handler [HelloTouchHandler] est défini en commonMain et partagé
- * entre la cible Android (consommée par hello-touch-android) et iOS.
+ * KMP targets: androidTarget + iOS (iosArm64, iosSimulatorArm64).
+ * The [HelloTouchHandler] handler is defined in commonMain and shared
+ * between the Android target (consumed by hello-touch-android) and iOS.
  */
 plugins {
     id("ygdrasil.conventions.kmp-library")

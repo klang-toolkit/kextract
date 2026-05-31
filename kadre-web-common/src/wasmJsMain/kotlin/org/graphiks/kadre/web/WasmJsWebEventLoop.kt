@@ -1,15 +1,15 @@
 /**
- * Implémentation wasmJs de [WebEventLoop] via `requestAnimationFrame` interop Wasm.
+ * wasmJs implementation of [WebEventLoop] via `requestAnimationFrame` Wasm interop.
  *
- * Ce fichier réside dans `wasmJsMain` — il peut utiliser les déclarations `external`
- * et l'interopérabilité JS Wasm (JsAny, JsReference, etc.).
+ * This file resides in `wasmJsMain` — it can use `external` declarations
+ * and Wasm JS interop (JsAny, JsReference, etc.).
  *
- * ## requestAnimationFrame via interop Wasm
- * L'API `window.requestAnimationFrame` est exposée via une déclaration `external`
- * puisque les bindings automatiques DOM ne sont pas disponibles en wasmJs comme en JS.
+ * ## requestAnimationFrame via Wasm interop
+ * The `window.requestAnimationFrame` API is exposed via an `external` declaration
+ * since automatic DOM bindings are not available in wasmJs like in JS.
  *
- * ## setTimeout (mode WaitUntil)
- * En mode [ControlFlow.WaitUntil], un `setTimeout` est planifié pour l'instant cible.
+ * ## setTimeout (WaitUntil mode)
+ * In [ControlFlow.WaitUntil] mode, a `setTimeout` is scheduled for the target instant.
  *
  * @since 1.0.0
  */
@@ -19,22 +19,22 @@ import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
 
 // ---------------------------------------------------------------------------
-// Interop JS Wasm — requestAnimationFrame et setTimeout
+// Wasm JS interop — requestAnimationFrame and setTimeout
 // ---------------------------------------------------------------------------
 
-/** Callback passé à requestAnimationFrame : reçoit le timestamp en ms. */
+/** Callback passed to requestAnimationFrame: receives the timestamp in ms. */
 private external fun requestAnimationFrame(callback: (Double) -> Unit): Int
 
 /**
- * Planifie l'exécution d'un callback après [delayMs] millisecondes.
+ * Schedules the execution of a callback after [delayMs] milliseconds.
  *
- * @param callback Callback à exécuter.
- * @param delayMs  Délai en millisecondes (0 = dès que possible).
- * @return Identifiant du timer (non utilisé ici).
+ * @param callback Callback to execute.
+ * @param delayMs  Delay in milliseconds (0 = as soon as possible).
+ * @return Timer identifier (not used here).
  */
 private external fun setTimeout(callback: () -> Unit, delayMs: Int): Int
 
-/** Retourne le timestamp actuel en millisecondes depuis l'époque Unix. */
+/** Returns the current timestamp in milliseconds since the Unix epoch. */
 private external fun dateNow(): Double
 
 // ---------------------------------------------------------------------------
@@ -42,19 +42,19 @@ private external fun dateNow(): Double
 // ---------------------------------------------------------------------------
 
 /**
- * Boucle d'événements wasmJs — orchestre les frames via `requestAnimationFrame` interop Wasm.
+ * wasmJs event loop — orchestrates frames via `requestAnimationFrame` Wasm interop.
  */
 class WasmJsWebEventLoop : WebEventLoop() {
 
-    /** true si un RAF est déjà en file d'attente, pour éviter les doublons en mode Wait. */
+    /** true if a RAF is already queued, to avoid duplicates in Wait mode. */
     private var rafPending = false
 
     /**
-     * Planifie la prochaine frame selon le [controlFlow] courant.
+     * Schedules the next frame according to the current [controlFlow].
      *
-     * - [ControlFlow.Poll]      → RAF immédiat
-     * - [ControlFlow.Wait]      → pas de RAF (sera déclenché par [scheduleWakeUp])
-     * - [ControlFlow.WaitUntil] → setTimeout jusqu'à [ControlFlow.WaitUntil.instant], puis RAF
+     * - [ControlFlow.Poll]      → immediate RAF
+     * - [ControlFlow.Wait]      → no RAF (will be triggered by [scheduleWakeUp])
+     * - [ControlFlow.WaitUntil] → setTimeout until [ControlFlow.WaitUntil.instant], then RAF
      */
     override fun scheduleNextFrame(handler: ApplicationHandler) {
         when (val cf = controlFlow) {
@@ -66,8 +66,8 @@ class WasmJsWebEventLoop : WebEventLoop() {
                 }
             }
             is ControlFlow.Wait -> {
-                // En mode Wait, on attend un événement DOM.
-                // scheduleWakeUp() sera appelé par le pont DOM lorsqu'un événement arrive.
+                // In Wait mode, we wait for a DOM event.
+                // scheduleWakeUp() will be called by the DOM bridge when an event arrives.
             }
             is ControlFlow.WaitUntil -> {
                 val delayMs = maxOf(0L, cf.instant - dateNow().toLong()).toInt()
@@ -85,11 +85,11 @@ class WasmJsWebEventLoop : WebEventLoop() {
     }
 
     /**
-     * Réveille la boucle via un RAF unique.
+     * Wakes up the loop via a single RAF.
      *
-     * Appelé en mode [ControlFlow.Wait] lorsqu'un événement DOM arrive,
-     * ou depuis [createProxy] pour notifier depuis un autre contexte.
-     * Guard [rafPending] pour éviter les RAF en double.
+     * Called in [ControlFlow.Wait] mode when a DOM event arrives,
+     * or from [createProxy] to notify from another context.
+     * Guarded by [rafPending] to avoid duplicate RAFs.
      */
     override fun scheduleWakeUp() {
         if (!rafPending) {
@@ -101,7 +101,7 @@ class WasmJsWebEventLoop : WebEventLoop() {
         }
     }
 
-    /** Handler mémorisé pour [scheduleWakeUp] hors du contexte de [scheduleNextFrame]. */
+    /** Handler memoized for [scheduleWakeUp] outside the [scheduleNextFrame] context. */
     private var _pendingWakeUpHandler: ApplicationHandler? = null
 
     override fun runApp(handler: ApplicationHandler) {
@@ -110,7 +110,7 @@ class WasmJsWebEventLoop : WebEventLoop() {
     }
 
     /**
-     * Crée un [WasmJsWebDomBridge] — pont DOM wasmJs vers le moteur Kadre.
+     * Creates a [WasmJsWebDomBridge] — wasmJs DOM bridge to the Kadre engine.
      */
     override fun createDomBridge(): WebDomBridge = WasmJsWebDomBridge()
 }

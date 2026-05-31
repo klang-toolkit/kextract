@@ -1,10 +1,10 @@
 /**
  * Tests unitaires pour X11KeyMapper, X11MouseMapper et X11DrawMapper.
  *
- * Ces tests sont purement en mémoire (pas de FFM, pas de libX11) :
- * - Les keysyms sont testés via la table KEYSYM_TABLE.
- * - Les événements souris sont testés via des MemorySegments alloués en Java.
- * - Les événements ConfigureNotify/Expose sont testés avec des segments synthétiques.
+ * These tests are purely in-memory (no FFM, no libX11):
+ * - The keysyms are tested via the KEYSYM_TABLE table.
+ * - The mouse events are tested via MemorySegments allocated in Java.
+ * - The ConfigureNotify/Expose events are tested with synthetic segments.
  *
  * , #62, #63.
  */
@@ -25,23 +25,23 @@ import kotlin.test.assertNull
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Alloue un segment XEvent de 96 octets, initialisé à zéro. */
+/** Allocates a 96-byte XEvent segment, zero-initialized. */
 private fun xEventSegment(arena: Arena): MemorySegment =
     arena.allocate(96L)
 
-/** Pose le type à l'offset 0. */
+/** Sets the type at offset 0. */
 private fun MemorySegment.setType(type: Int): MemorySegment {
     set(ValueLayout.JAVA_INT, 0L, type)
     return this
 }
 
-/** Pose un Int à l'offset donné. */
+/** Sets an Int at the given offset. */
 private fun MemorySegment.setInt(offset: Long, value: Int): MemorySegment {
     set(ValueLayout.JAVA_INT, offset, value)
     return this
 }
 
-/** Pose un Long à l'offset donné. */
+/** Sets a Long at the given offset. */
 private fun MemorySegment.setLong(offset: Long, value: Long): MemorySegment {
     set(ValueLayout.JAVA_LONG, offset, value)
     return this
@@ -212,12 +212,12 @@ class X11KeyMapperTest {
                 .setInt(68L, 38)
 
             X11KeyMapper.resetState()
-            // Première pression — pas une répétition
+            // First press — not a repeat
             val first = X11KeyMapper.fromXEvent(seg, KeyPress, keysym = 0x61)
             assertIs<WindowEvent.KeyboardInput>(first)
             assertEquals(false, first.isRepeat)
 
-            // Deuxième pression sans relâchement — répétition
+            // Second press without release — repeat
             val second = X11KeyMapper.fromXEvent(seg, KeyPress, keysym = 0x61)
             assertIs<WindowEvent.KeyboardInput>(second)
             assertEquals(true, second.isRepeat)
@@ -455,7 +455,7 @@ class X11DrawMapperTest {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(Expose)
-                .setInt(40L, 2)   // count = 2 (deux Expose supplémentaires vont suivre)
+                .setInt(40L, 2)   // count = 2 (two additional Expose events will follow)
 
             val event = X11DrawMapper.fromXEvent(seg, Expose, null, 0L)
             assertNull(event)
@@ -498,7 +498,7 @@ class X11DrawMapperTest {
             val wmDelete = 0x1234_5678L
             val seg = xEventSegment(arena)
                 .setType(ClientMessage)
-                .setLong(64L, 0x9999L)   // différent de wmDeleteWindow
+                .setLong(64L, 0x9999L)   // different from wmDeleteWindow
 
             val event = X11DrawMapper.fromXEvent(seg, ClientMessage, null, wmDelete)
             assertNull(event)

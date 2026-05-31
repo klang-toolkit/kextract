@@ -1,9 +1,9 @@
 /**
- * Smoke tests pour WaylandEventLoop et WaylandEventLoopProxy.
+ * Smoke tests for WaylandEventLoop and WaylandEventLoopProxy.
  *
- * Ces tests ne requièrent pas de serveur Wayland en fonctionnement :
- * ils vérifient uniquement les invariants statiques et le comportement
- * null-safe des bindings.
+ * These tests do not require a running Wayland server:
+ * they only verify the static invariants and the null-safe
+ * behavior of the bindings.
  *
  * WaylandEventLoop.
  */
@@ -16,10 +16,10 @@ import kotlin.test.assertNotNull
 class WaylandEventLoopSmokeTest {
 
     /**
-     * Vérifie que waylandRunning est false au démarrage de la JVM.
+     * Verifies that waylandRunning is false at JVM startup.
      *
-     * Si ce test échoue, c'est qu'une boucle Wayland est déjà en cours — ce qui
-     * serait inattendu dans un contexte de test unitaire isolé.
+     * If this test fails, it means a Wayland loop is already running — which
+     * would be unexpected in an isolated unit-test context.
      */
     @Test
     fun `waylandRunning starts false`() {
@@ -27,52 +27,52 @@ class WaylandEventLoopSmokeTest {
     }
 
     /**
-     * Vérifie que WaylandEventLoopProxy.wakeUp() ne plante pas quand libC est absent.
+     * Verifies that WaylandEventLoopProxy.wakeUp() does not crash when libC is absent.
      *
-     * Sur macOS/Windows, nativeWrite est null — wakeUp() doit simplement retourner
-     * sans lever d'exception.
+     * On macOS/Windows, nativeWrite is null — wakeUp() must simply return
+     * without throwing an exception.
      */
     @Test
     fun `wakeUp proxy no-crash when libC absent`() {
-        // On passe fd=-1 pour simuler l'absence d'eventfd (retour immédiat dans wakeUp)
+        // We pass fd=-1 to simulate the absence of eventfd (immediate return in wakeUp)
         val proxy = WaylandEventLoopProxy(eventFd = -1)
-        proxy.wakeUp()  // ne doit pas lever d'exception
-        proxy.wakeUp()  // deuxième appel — idempotent
+        proxy.wakeUp()  // must not throw an exception
+        proxy.wakeUp()  // second call — idempotent
     }
 
     /**
-     * Vérifie que WaylandEventLoopProxy.wakeUp() est sans effet si nativeWrite est null
-     * et que l'eventFd est valide (simulation).
+     * Verifies that WaylandEventLoopProxy.wakeUp() has no effect if nativeWrite is null
+     * and the eventFd is valid (simulation).
      *
-     * Sur les plateformes sans libc.so.6, nativeWrite est null et wakeUp() doit retourner
-     * proprement, même avec un fd > 0.
+     * On platforms without libc.so.6, nativeWrite is null and wakeUp() must return
+     * cleanly, even with an fd > 0.
      */
     @Test
     fun `wakeUp proxy handles missing nativeWrite gracefully`() {
-        // fd=42 — fictif, jamais ouvert
+        // fd=42 — fictitious, never opened
         val proxy = WaylandEventLoopProxy(eventFd = 42)
-        // Sur macOS/Windows, nativeWrite est null → wakeUp retourne proprement
-        // Sur Linux avec libc, un write sur fd=42 (invalide) retournera -1 ou EBADF
-        // mais ne doit pas lever d'exception (try/catch dans wakeUp)
+        // On macOS/Windows, nativeWrite is null → wakeUp returns cleanly
+        // On Linux with libc, a write on fd=42 (invalid) will return -1 or EBADF
+        // but must not throw an exception (try/catch in wakeUp)
         try {
             proxy.wakeUp()
         } catch (e: Throwable) {
-            // Toléré uniquement si l'exception est inattendue — logguer pour le diagnostic
+            // Tolerated only if the exception is unexpected — log for diagnosis
             throw AssertionError("wakeUp() ne doit jamais propager d'exception : $e", e)
         }
     }
 
     /**
-     * Vérifie que libC se charge sans exception (ou est null proprement).
+     * Verifies that libC loads without exception (or is null cleanly).
      *
-     * Sur Linux : libC est non-null.
-     * Sur macOS/Windows : libC est null (libc.so.6 absent).
+     * On Linux: libC is non-null.
+     * On macOS/Windows: libC is null (libc.so.6 absent).
      */
     @Test
     fun `libC loads safely on any platform`() {
-        // Pas d'assertion sur la valeur — on vérifie juste que l'accès ne plante pas
-        val lib = libC  // peut être null
-        // Sur Linux, on peut vérifier les handles dérivés
+        // No assertion on the value — we just verify that the access does not crash
+        val lib = libC  // may be null
+        // On Linux, we can verify the derived handles
         if (lib != null) {
             assertNotNull(nativePoll, "nativePoll doit être non-null si libC est disponible")
             assertNotNull(nativeEventfd, "nativeEventfd doit être non-null si libC est disponible")

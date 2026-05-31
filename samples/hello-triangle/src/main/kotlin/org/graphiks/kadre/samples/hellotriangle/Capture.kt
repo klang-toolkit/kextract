@@ -1,27 +1,27 @@
 /**
- * Mode capture offscreen GPU pour le sample hello-triangle.
+ * Offscreen GPU capture mode for the hello-triangle sample.
  *
- * Rend le triangle RGB dans une texture offscreen (sans fenêtre visible), relit le
- * framebuffer via un buffer de readback, et écrit le résultat dans un fichier PNG, puis
- * quitte. Conçu pour être exécutable en CI (headless), bien qu'il exige un GPU réel.
+ * Renders the RGB triangle into an offscreen texture (no visible window), reads back the
+ * framebuffer via a readback buffer, and writes the result to a PNG file, then
+ * exits. Designed to be runnable in CI (headless), though it requires a real GPU.
  *
- * Séquence :
- *   Instance → CAMetalLayer offscreen → Surface → Adapter → Device → Texture (RGBA8Unorm)
- *   → render pass (clear noir + triangle) → copyTextureToBuffer → mapAsync → lecture FFM
- *   → reconstruction BufferedImage → ImageIO PNG.
+ * Sequence:
+ *   Instance → offscreen CAMetalLayer → Surface → Adapter → Device → Texture (RGBA8Unorm)
+ *   → render pass (black clear + triangle) → copyTextureToBuffer → mapAsync → FFM read
+ *   → BufferedImage reconstruction → ImageIO PNG.
  *
- * Limitation connue (wgpu4k 0.1.1) :
- *   `WGPU.requestAdapter(surface, ...)` exige une surface NON-nulle (le handle de la surface
- *   est déréférencé sans condition côté natif). Un adapter purement « headless » sans aucune
- *   surface n'est donc pas exposé par l'API haut-niveau. On crée donc un `CAMetalLayer`
- *   offscreen (sans NSView/fenêtre) uniquement pour satisfaire `requestAdapter`, puis on rend
- *   exclusivement dans une texture offscreen — aucune fenêtre n'est ouverte.
+ * Known limitation (wgpu4k 0.1.1):
+ *   `WGPU.requestAdapter(surface, ...)` requires a NON-null surface (the surface handle
+ *   is dereferenced unconditionally on the native side). A purely "headless" adapter without any
+ *   surface is therefore not exposed by the high-level API. So we create an offscreen
+ *   `CAMetalLayer` (without NSView/window) solely to satisfy `requestAdapter`, then we render
+ *   exclusively into an offscreen texture — no window is opened.
  *
- * Polling natif : sur wgpu natif, `mapAsync` ne se résout pas sans faire avancer le device.
- *   wgpu4k 0.1.1 appelle `wgpuDevicePoll(device, wait=true, null)` en interne dans `mapAsync`,
- *   donc `runBlocking { buffer.mapAsync(...) }` se résout sans poll manuel.
+ * Native polling: on native wgpu, `mapAsync` does not resolve without advancing the device.
+ *   wgpu4k 0.1.1 calls `wgpuDevicePoll(device, wait=true, null)` internally inside `mapAsync`,
+ *   so `runBlocking { buffer.mapAsync(...) }` resolves without manual polling.
  *
- * Usage : ./gradlew :samples:hello-triangle:run --args="--capture /tmp/htri-capture.png"
+ * Usage: ./gradlew :samples:hello-triangle:run --args="--capture /tmp/htri-capture.png"
  */
 package org.graphiks.kadre.samples.hellotriangle
 
@@ -58,21 +58,21 @@ import java.lang.foreign.ValueLayout
 import javax.imageio.ImageIO
 import kotlin.math.ceil
 
-/** Dimensions fixes de la capture offscreen. */
+/** Fixed dimensions of the offscreen capture. */
 internal const val CAPTURE_WIDTH = 800
 internal const val CAPTURE_HEIGHT = 600
 
-/** Alignement WebGPU : `bytesPerRow` doit être un multiple de 256 octets. */
+/** WebGPU alignment: `bytesPerRow` must be a multiple of 256 bytes. */
 private const val BYTES_PER_ROW_ALIGNMENT = 256
 
 /**
- * Crée un `CAMetalLayer` offscreen via le runtime ObjC (sans NSView ni fenêtre).
+ * Creates an offscreen `CAMetalLayer` via the ObjC runtime (without NSView or window).
  *
- * Équivalent ObjC : `[[CAMetalLayer alloc] init]`. Le layer est dimensionné via
- * `drawableSize` mais cela n'a pas d'impact ici : le rendu cible une texture offscreen
- * indépendante, le layer ne sert qu'à satisfaire `WGPU.requestAdapter` (qui exige une surface).
+ * ObjC equivalent: `[[CAMetalLayer alloc] init]`. The layer is sized via
+ * `drawableSize` but this has no impact here: rendering targets an independent offscreen
+ * texture, the layer only serves to satisfy `WGPU.requestAdapter` (which requires a surface).
  *
- * @return Adresse native du `CAMetalLayer`, ou 0 en cas d'échec.
+ * @return Native address of the `CAMetalLayer`, or 0 on failure.
  */
 private fun createOffscreenMetalLayer(): Long {
     val cls = ObjCRuntime.getClass("CAMetalLayer")
@@ -84,9 +84,9 @@ private fun createOffscreenMetalLayer(): Long {
 }
 
 /**
- * Exécute le mode capture : rend le triangle dans une texture offscreen et écrit un PNG.
+ * Runs capture mode: renders the triangle into an offscreen texture and writes a PNG.
  *
- * @param path Chemin du fichier PNG à écrire.
+ * @param path Path of the PNG file to write.
  */
 @OptIn(WGPULowLevelApi::class)
 fun captureFrame(path: String) {
@@ -103,8 +103,8 @@ fun captureFrame(path: String) {
 }
 
 /**
- * Capture macOS : Instance Metal + CAMetalLayer offscreen (sans fenêtre, cf. KDoc d'en-tête),
- * puis pipeline commun [renderSurfaceToPng].
+ * macOS capture: Metal Instance + offscreen CAMetalLayer (without window, cf. header KDoc),
+ * then the common [renderSurfaceToPng] pipeline.
  */
 @OptIn(WGPULowLevelApi::class)
 private fun captureMacOs(path: String) {
@@ -125,9 +125,9 @@ private fun captureMacOs(path: String) {
 }
 
 /**
- * Pipeline commun de capture : depuis une [instance] et une [surface] déjà créées par le
- * code spécifique à l'OS, acquiert adapter+device, rend le triangle dans une texture
- * offscreen RGBA8, relit le framebuffer et écrit le PNG. Libère toutes les ressources.
+ * Common capture pipeline: from an [instance] and a [surface] already created by the
+ * OS-specific code, acquires adapter+device, renders the triangle into an offscreen
+ * RGBA8 texture, reads back the framebuffer and writes the PNG. Releases all resources.
  */
 @OptIn(WGPULowLevelApi::class)
 internal fun renderSurfaceToPng(
@@ -157,7 +157,7 @@ internal fun renderSurfaceToPng(
         )
     )
 
-    // 5. Shader + pipeline (réutilise le WGSL du sample, cible RGBA8Unorm)
+    // 5. Shader + pipeline (reuses the sample's WGSL, targets RGBA8Unorm)
     val shaderModule = device.createShaderModule(ShaderModuleDescriptor(code = TRIANGLE_WGSL))
     val pipeline = device.createRenderPipeline(
         RenderPipelineDescriptor(
@@ -172,7 +172,7 @@ internal fun renderSurfaceToPng(
     )
     shaderModule.close()
 
-    // 6. Buffer de readback — bytesPerRow aligné à 256 octets
+    // 6. Readback buffer — bytesPerRow aligned to 256 bytes
     val alignedBytesPerRow = (ceil(CAPTURE_WIDTH * 4.0 / BYTES_PER_ROW_ALIGNMENT) * BYTES_PER_ROW_ALIGNMENT).toInt()
     val bufferSize = (alignedBytesPerRow.toLong() * CAPTURE_HEIGHT).toULong()
     val readbackBuffer = device.createBuffer(
@@ -183,7 +183,7 @@ internal fun renderSurfaceToPng(
         )
     )
 
-    // 7. Render pass : clear noir + triangle
+    // 7. Render pass: black clear + triangle
     val textureView = texture.createView(null)
     val encoder = device.createCommandEncoder()
     val renderPass = encoder.beginRenderPass(
@@ -202,7 +202,7 @@ internal fun renderSurfaceToPng(
     renderPass.draw(3u, 1u, 0u, 0u)
     renderPass.end()
 
-    // 8. Copie texture → buffer de readback
+    // 8. Copy texture → readback buffer
     encoder.copyTextureToBuffer(
         TexelCopyTextureInfo(texture = texture, mipLevel = 0u),
         TexelCopyBufferInfo(
@@ -215,7 +215,7 @@ internal fun renderSurfaceToPng(
     )
     device.queue.submit(listOf(encoder.finish()))
 
-    // 9. Map + lecture (mapAsync poll le device en interne sur wgpu4k 0.1.1)
+    // 9. Map + read (mapAsync polls the device internally on wgpu4k 0.1.1)
     runBlocking { readbackBuffer.mapAsync(setOf(GPUMapMode.Read), 0u, bufferSize) }
         .getOrElse { err -> error("Échec mapAsync du buffer de readback : $err") }
     val mapped = readbackBuffer.getMappedRange(0u, bufferSize)
@@ -225,7 +225,7 @@ internal fun renderSurfaceToPng(
         .reinterpret(size)
         .toArray(ValueLayout.JAVA_BYTE)
 
-    // 10. Reconstruction de l'image (RGBA → ARGB, retrait du padding par ligne)
+    // 10. Image reconstruction (RGBA → ARGB, removal of per-row padding)
     val image = BufferedImage(CAPTURE_WIDTH, CAPTURE_HEIGHT, BufferedImage.TYPE_INT_ARGB)
     for (y in 0 until CAPTURE_HEIGHT) {
         val rowStart = y * alignedBytesPerRow
@@ -245,7 +245,7 @@ internal fun renderSurfaceToPng(
     ImageIO.write(image, "png", outFile)
     println("[hello-triangle] PNG écrit : ${outFile.absolutePath} (${outFile.length()} octets)")
 
-    // 11. Libération des ressources
+    // 11. Resource release
     readbackBuffer.close()
     textureView.close()
     encoder.close()

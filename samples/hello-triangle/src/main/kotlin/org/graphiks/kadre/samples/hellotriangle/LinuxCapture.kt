@@ -1,19 +1,19 @@
 /**
- * Capture offscreen GPU sur Linux.
+ * Offscreen GPU capture on Linux.
  *
- * Contrairement à macOS/Windows où l'on fabrique la surface « à la main » (CAMetalLayer /
- * HWND cachés), créer une `wl_surface` Wayland (ou une fenêtre X11) à la main en FFM est
- * lourd. On réutilise donc l'**EventLoop kadre** : il sait déjà créer une fenêtre
- * Wayland/X11 et expose son [RawWindowHandle]. On en dérive la surface wgpu, on rend dans
- * une texture offscreen, on relit le framebuffer (pipeline commun [renderSurfaceToPng]),
- * puis on quitte la boucle.
+ * Unlike macOS/Windows where the surface is built "by hand" (hidden CAMetalLayer /
+ * HWND), creating a Wayland `wl_surface` (or an X11 window) by hand in FFM is
+ * heavy. So we reuse the **kadre EventLoop**: it already knows how to create a
+ * Wayland/X11 window and exposes its [RawWindowHandle]. We derive the wgpu surface from it, render into
+ * an offscreen texture, read back the framebuffer (common [renderSurfaceToPng] pipeline),
+ * then exit the loop.
  *
- * Prérequis CI (headless) :
- * - un compositor Wayland headless (ex. `weston --backend=headless`) avec `WAYLAND_DISPLAY`
- *   et `XDG_RUNTIME_DIR` positionnés, OU un serveur X11 virtuel (`Xvfb`) ;
- * - un Vulkan logiciel (Mesa lavapipe) via `VK_ICD_FILENAMES` — les runners n'ont pas de GPU.
+ * CI requirements (headless):
+ * - a headless Wayland compositor (e.g. `weston --backend=headless`) with `WAYLAND_DISPLAY`
+ *   and `XDG_RUNTIME_DIR` set, OR a virtual X11 server (`Xvfb`);
+ * - software Vulkan (Mesa lavapipe) via `VK_ICD_FILENAMES` — the runners have no GPU.
  *
- * Backend wgpu : `Vulkan` (lavapipe).
+ * wgpu backend: `Vulkan` (lavapipe).
  */
 package org.graphiks.kadre.samples.hellotriangle
 
@@ -30,13 +30,13 @@ import io.ygdrasil.webgpu.WGPUInstanceBackend
 import io.ygdrasil.webgpu.WGPULowLevelApi
 import java.lang.foreign.MemorySegment
 
-/** Enveloppe une adresse native (pointeur) en [JvmNativeAddress] pour wgpu4k. */
+/** Wraps a native address (pointer) into a [JvmNativeAddress] for wgpu4k. */
 private fun nativeAddr(addr: Long): JvmNativeAddress =
     JvmNativeAddress(MemorySegment.ofAddress(addr))
 
 /**
- * Capture Linux : crée une fenêtre via l'EventLoop kadre (Wayland ou X11 selon le backend
- * détecté), dérive la surface wgpu de son [RawWindowHandle], rend + readback, puis quitte.
+ * Linux capture: creates a window via the kadre EventLoop (Wayland or X11 depending on the
+ * detected backend), derives the wgpu surface from its [RawWindowHandle], renders + readback, then exits.
  */
 @OptIn(WGPULowLevelApi::class)
 internal fun captureLinux(path: String) {
@@ -54,8 +54,8 @@ internal fun captureLinux(path: String) {
                     )
                 )
 
-                // Primary = Vulkan + GL : laisse wgpu retomber sur GL/EGL (llvmpipe) si la
-                // création de surface Vulkan échoue (lavapipe a un support WSI limité).
+                // Primary = Vulkan + GL: lets wgpu fall back to GL/EGL (llvmpipe) if
+                // Vulkan surface creation fails (lavapipe has limited WSI support).
                 val instance = WGPU.createInstance(WGPUInstanceBackend.Primary)
                     ?: error("Échec création WGPU Instance (Primary)")
 
@@ -88,7 +88,7 @@ internal fun captureLinux(path: String) {
         }
 
         override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
-            // Aucun événement à traiter : la capture est faite dans canCreateSurfaces.
+            // No event to handle: the capture is done in canCreateSurfaces.
         }
     }
 

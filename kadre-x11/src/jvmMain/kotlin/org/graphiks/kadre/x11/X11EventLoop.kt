@@ -1,19 +1,19 @@
 /**
- * Implémentation X11 de [ActiveEventLoop] et point d'entrée [runApp].
+ * X11 implementation of [ActiveEventLoop] and the [runApp] entry point.
  *
- * [X11EventLoop] implémente [ActiveEventLoop] et est passé à chaque
- * callback de [ApplicationHandler]. La fonction [runApp] orchestre
- * l'initialisation X11 (XOpenDisplay) et la boucle d'événements
- * avec commutation dynamique selon [ControlFlow] :
+ * [X11EventLoop] implements [ActiveEventLoop] and is passed to each
+ * [ApplicationHandler] callback. The [runApp] function orchestrates
+ * the X11 initialization (XOpenDisplay) and the event loop
+ * with dynamic switching according to [ControlFlow]:
  *
- * - [ControlFlow.Poll]      → XFlush + while(XPending > 0) { XNextEvent } — non-bloquant
- * - [ControlFlow.Wait]      → XNextEvent bloquant — CPU < 1 % en idle
- * - [ControlFlow.WaitUntil] → poll avec Thread.sleep(1) jusqu'au deadline
+ * - [ControlFlow.Poll]      → XFlush + while(XPending > 0) { XNextEvent } — non-blocking
+ * - [ControlFlow.Wait]      → blocking XNextEvent — CPU < 1 % when idle
+ * - [ControlFlow.WaitUntil] → poll with Thread.sleep(1) until the deadline
  *
- * Pattern Lazy FFM (tryCreate) : tous les MethodHandle sont null sur macOS/Windows,
- * ce qui permet au build de passer sur toutes les plateformes.
+ * Lazy FFM pattern (tryCreate): all MethodHandles are null on macOS/Windows,
+ * which lets the build pass on all platforms.
  *
- * X11EventLoop — boucle d'événements X11 avec commutation ControlFlow.
+ * X11EventLoop — X11 event loop with ControlFlow switching.
  */
 package org.graphiks.kadre.x11
 
@@ -38,53 +38,53 @@ import java.lang.foreign.ValueLayout
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
-// ── Constantes XEvent ─────────────────────────────────────────────────────────
+// ── XEvent constants ──────────────────────────────────────────────────────────
 
-/** Taille de XEvent en octets sur les systèmes 64-bit (96 octets). */
+/** Size of XEvent in bytes on 64-bit systems (96 bytes). */
 private const val XEVENT_SIZE: Long = 96L
 
-/** Alignement de XEvent (8 octets pour les pointeurs 64-bit). */
+/** Alignment of XEvent (8 bytes for 64-bit pointers). */
 private const val XEVENT_ALIGN: Long = 8L
 
-// Offsets dans XEvent pour les champs communs (XAnyEvent)
+// Offsets in XEvent for the common fields (XAnyEvent)
 private const val XEVENT_TYPE_OFFSET: Long = 0L     // int type
 private const val XEVENT_WINDOW_OFFSET: Long = 16L  // Window window (unsigned long)
 
-// Offsets XKeyEvent (type=KeyPress ou KeyRelease)
-private const val XKEY_STATE_OFFSET: Long = 28L     // unsigned int state (modificateurs)
+// XKeyEvent offsets (type=KeyPress or KeyRelease)
+private const val XKEY_STATE_OFFSET: Long = 28L     // unsigned int state (modifiers)
 private const val XKEY_KEYCODE_OFFSET: Long = 32L   // unsigned int keycode
 
-// Offsets XButtonEvent (type=ButtonPress ou ButtonRelease)
+// XButtonEvent offsets (type=ButtonPress or ButtonRelease)
 private const val XBUTTON_X_OFFSET: Long = 20L      // int x
 private const val XBUTTON_Y_OFFSET: Long = 24L      // int y
 private const val XBUTTON_BUTTON_OFFSET: Long = 32L // unsigned int button
 
-// Offsets XMotionEvent (type=MotionNotify)
+// XMotionEvent offsets (type=MotionNotify)
 private const val XMOTION_X_OFFSET: Long = 20L      // int x
 private const val XMOTION_Y_OFFSET: Long = 24L      // int y
 
-// Offsets XConfigureEvent (type=ConfigureNotify)
+// XConfigureEvent offsets (type=ConfigureNotify)
 private const val XCONFIGURE_WIDTH_OFFSET: Long = 28L   // int width
 private const val XCONFIGURE_HEIGHT_OFFSET: Long = 32L  // int height
 
-// Offsets XClientMessageEvent (type=ClientMessage)
+// XClientMessageEvent offsets (type=ClientMessage)
 private const val XCLIENT_MESSAGE_TYPE_OFFSET: Long = 20L  // Atom message_type (unsigned long)
 private const val XCLIENT_DATA_L0_OFFSET: Long = 32L       // long data.l[0]
 
-// Modificateurs X11
+// X11 modifiers
 private const val X11_SHIFT_MASK: Int = 0x0001
 private const val X11_CONTROL_MASK: Int = 0x0004
 private const val X11_MOD1_MASK: Int = 0x0008  // Alt
 
-// Boutons X11
+// X11 buttons
 private const val X11_BUTTON1: Int = 1
 private const val X11_BUTTON2: Int = 2
 private const val X11_BUTTON3: Int = 3
-private const val X11_BUTTON4: Int = 4  // molette haut
-private const val X11_BUTTON5: Int = 5  // molette bas
+private const val X11_BUTTON4: Int = 4  // scroll up
+private const val X11_BUTTON5: Int = 5  // scroll down
 
-// Keysym → Key mapping (keysyms courants)
-// Référence : /usr/include/X11/keysymdef.h
+// Keysym → Key mapping (common keysyms)
+// Reference: /usr/include/X11/keysymdef.h
 private const val XK_BackSpace: Int = 0xFF08
 private const val XK_Tab: Int = 0xFF09
 private const val XK_Return: Int = 0xFF0D
@@ -107,46 +107,46 @@ private const val XK_Meta_R: Int = 0xFFE8
 private const val XK_Super_L: Int = 0xFFEB
 private const val XK_Super_R: Int = 0xFFEC
 
-// ── Verrou d'instance unique ──────────────────────────────────────────────────
+// ── Single-instance lock ──────────────────────────────────────────────────────
 
 /**
- * Verrou global garantissant qu'une seule boucle d'événements X11 est active
- * à la fois dans le processus.
+ * Global lock guaranteeing that only a single X11 event loop is active
+ * at a time in the process.
  */
 internal val x11Running = AtomicBoolean(false)
 
 // ── X11EventLoop ──────────────────────────────────────────────────────────────
 
 /**
- * Implémentation interne de [ActiveEventLoop] pour la plateforme X11 (Linux).
+ * Internal implementation of [ActiveEventLoop] for the X11 platform (Linux).
  *
- * Une instance est créée par appel à [runApp] et passée comme récepteur
- * à tous les callbacks [ApplicationHandler].
+ * An instance is created by a call to [runApp] and passed as the receiver
+ * to all [ApplicationHandler] callbacks.
  *
- * ### Cycle de vie
+ * ### Lifecycle
  * ```
  * runApp(handler)
  *   └─ handler.resumed(this)
  *   └─ handler.canCreateSurfaces(this)
- *   └─ boucle d'événements
+ *   └─ event loop
  *        ├─ handler.newEvents(this, cause)
- *        ├─ dispatch events selon ControlFlow
+ *        ├─ dispatch events according to ControlFlow
  *        └─ handler.aboutToWait(this)
  *   └─ handler.suspended(this)
  * ```
  *
  * ### Thread-safety
- * - [_controlFlow] est @Volatile : lisible depuis tout thread.
- * - [_isExiting] est @Volatile : lisible depuis tout thread.
- * - [windows] est un ConcurrentHashMap.
- * - La boucle d'événements elle-même s'exécute dans le thread appelant.
+ * - [_controlFlow] is @Volatile: readable from any thread.
+ * - [_isExiting] is @Volatile: readable from any thread.
+ * - [windows] is a ConcurrentHashMap.
+ * - The event loop itself runs in the calling thread.
  */
 class X11EventLoop internal constructor(
     internal val displayPtr: Long,
     internal val screen: Int,
 ) : ActiveEventLoop {
 
-    /** Fenêtres vivantes : windowId (XID) → X11Window. */
+    /** Live windows: windowId (XID) → X11Window. */
     internal val windows = ConcurrentHashMap<Long, X11Window>()
 
     @Volatile
@@ -166,11 +166,11 @@ class X11EventLoop internal constructor(
     }
 
     /**
-     * Crée une nouvelle fenêtre X11 native et l'enregistre dans la table de fenêtres.
+     * Creates a new native X11 window and registers it in the window table.
      *
-     * @param attributes Attributs de configuration de la fenêtre.
-     * @return La fenêtre créée.
-     * @throws IllegalStateException si les bindings libX11 ne sont pas disponibles.
+     * @param attributes Window configuration attributes.
+     * @return The created window.
+     * @throws IllegalStateException if the libX11 bindings are not available.
      */
     override fun createWindow(attributes: WindowAttributes): Window {
         val window = X11Window.create(displayPtr, screen, attributes)
@@ -183,14 +183,14 @@ class X11EventLoop internal constructor(
     }
 
     /**
-     * Demande l'arrêt de la boucle d'événements X11.
+     * Requests the X11 event loop to stop.
      */
     override fun exit() {
         _isExiting = true
     }
 
     /**
-     * Crée un proxy thread-safe vers cette boucle d'événements.
+     * Creates a thread-safe proxy to this event loop.
      */
     override fun createProxy(): EventLoopProxy =
         X11EventLoopProxy(this, displayPtr)
@@ -199,22 +199,22 @@ class X11EventLoop internal constructor(
 // ── Dispatch X11 events ───────────────────────────────────────────────────────
 
 /**
- * Traduit un keysym X11 en [Key] kadre.
+ * Translates an X11 keysym into a kadre [Key].
  *
- * Keysym X11 = code symbolique de touche (défini dans keysymdef.h).
- * Pour les lettres a-z et chiffres 0-9, les keysyms sont identiques aux codes ASCII.
+ * X11 keysym = symbolic key code (defined in keysymdef.h).
+ * For letters a-z and digits 0-9, the keysyms are identical to the ASCII codes.
  *
- * @param keysym Keysym X11 (INT dans XKeyEvent.keycode, traduit via XLookupKeysym).
- * @return Touche kadre correspondante, ou [Key.Unknown] si non reconnue.
+ * @param keysym X11 keysym (INT in XKeyEvent.keycode, translated via XLookupKeysym).
+ * @return The corresponding kadre key, or [Key.Unknown] if unrecognized.
  */
 private fun keysymToKey(keysym: Int): Key = when (keysym) {
-    // Lettres a-z (keysyms = codes ASCII minuscules 0x61–0x7A)
-    in 0x61..0x7A -> enumValues<Key>()[keysym - 0x61]  // A-Z ont les même indices 0-25
+    // Letters a-z (keysyms = lowercase ASCII codes 0x61–0x7A)
+    in 0x61..0x7A -> enumValues<Key>()[keysym - 0x61]  // A-Z have the same indices 0-25
 
-    // Lettres A-Z (keysyms = codes ASCII majuscules 0x41–0x5A)
+    // Letters A-Z (keysyms = uppercase ASCII codes 0x41–0x5A)
     in 0x41..0x5A -> enumValues<Key>()[keysym - 0x41]
 
-    // Chiffres 0-9 (keysyms = codes ASCII 0x30–0x39)
+    // Digits 0-9 (keysyms = ASCII codes 0x30–0x39)
     0x30 -> Key.Digit0
     0x31 -> Key.Digit1
     0x32 -> Key.Digit2
@@ -226,23 +226,23 @@ private fun keysymToKey(keysym: Int): Key = when (keysym) {
     0x38 -> Key.Digit8
     0x39 -> Key.Digit9
 
-    // Touches de fonction F1-F12
+    // Function keys F1-F12
     in XK_F1..XK_F12 -> enumValues<Key>()[Key.F1.ordinal + (keysym - XK_F1)]
 
-    // Touches de navigation
+    // Navigation keys
     XK_Left  -> Key.ArrowLeft
     XK_Right -> Key.ArrowRight
     XK_Up    -> Key.ArrowUp
     XK_Down  -> Key.ArrowDown
 
-    // Touches spéciales
+    // Special keys
     XK_space     -> Key.Space
     XK_Return    -> Key.Enter
     XK_Escape    -> Key.Escape
     XK_BackSpace -> Key.Backspace
     XK_Tab       -> Key.Tab
 
-    // Modificateurs
+    // Modifiers
     XK_Shift_L   -> Key.ShiftLeft
     XK_Shift_R   -> Key.ShiftRight
     XK_Control_L -> Key.ControlLeft
@@ -258,10 +258,10 @@ private fun keysymToKey(keysym: Int): Key = when (keysym) {
 }
 
 /**
- * Traduit un champ state X11 (modificateurs) en [Modifiers] kadre.
+ * Translates an X11 state field (modifiers) into kadre [Modifiers].
  *
- * @param state Champ state de XKeyEvent ou XButtonEvent.
- * @return [Modifiers] correspondant.
+ * @param state state field of XKeyEvent or XButtonEvent.
+ * @return The corresponding [Modifiers].
  */
 private fun x11StateToModifiers(state: Int): Modifiers {
     var bits = 0
@@ -272,21 +272,21 @@ private fun x11StateToModifiers(state: Int): Modifiers {
 }
 
 /**
- * Lecture d'un keycode X11 depuis l'event buffer.
+ * Reads an X11 keycode from the event buffer.
  *
- * Note : une implémentation correcte utiliserait XLookupKeysym ou XkbKeycodeToKeysym
- * pour convertir un keycode en keysym. Pour simplifier (pas de binding XLookupKeysym),
- * on mappe directement keycode → keysym de façon heuristique basée sur la disposition
- * clavier standard PC (X11 ajoute 8 au keycode hardware).
+ * Note: a correct implementation would use XLookupKeysym or XkbKeycodeToKeysym
+ * to convert a keycode into a keysym. For simplicity (no XLookupKeysym binding),
+ * we map keycode → keysym directly using a heuristic based on the standard
+ * PC keyboard layout (X11 adds 8 to the hardware keycode).
  *
- * Par exemple : keycode 38 → 'a' (keysym 0x61) sur un clavier QWERTY.
- * Cette heuristique fonctionne pour les claviers standard PC.
+ * For example: keycode 38 → 'a' (keysym 0x61) on a QWERTY keyboard.
+ * This heuristic works for standard PC keyboards.
  */
 private fun keycodeToKeysym(keycode: Int): Int {
-    // Mapping keycode X11 (hardware + 8) → keysym approximatif pour QWERTY
-    // Les keycodes X11 sont layout-dependent — ceci est une approximation
+    // X11 keycode mapping (hardware + 8) → approximate keysym for QWERTY
+    // X11 keycodes are layout-dependent — this is an approximation
     return when (keycode) {
-        // Lettres (disposition QWERTY standard)
+        // Letters (standard QWERTY layout)
         38 -> 0x61  // a
         56 -> 0x62  // b
         54 -> 0x63  // c
@@ -313,7 +313,7 @@ private fun keycodeToKeysym(keycode: Int): Int {
         53 -> 0x78  // x
         29 -> 0x79  // y
         52 -> 0x7A  // z
-        // Chiffres
+        // Digits
         19 -> 0x30  // 0
         10 -> 0x31  // 1
         11 -> 0x32  // 2
@@ -324,13 +324,13 @@ private fun keycodeToKeysym(keycode: Int): Int {
         16 -> 0x37  // 7
         17 -> 0x38  // 8
         18 -> 0x39  // 9
-        // Touches spéciales
+        // Special keys
         65  -> XK_space
         36  -> XK_Return
         9   -> XK_Escape
         22  -> XK_BackSpace
         23  -> XK_Tab
-        // Fonctions
+        // Function keys
         67  -> XK_F1
         68  -> XK_F1 + 1   // F2
         69  -> XK_F1 + 2   // F3
@@ -348,7 +348,7 @@ private fun keycodeToKeysym(keycode: Int): Int {
         114 -> XK_Right
         111 -> XK_Up
         116 -> XK_Down
-        // Modificateurs
+        // Modifiers
         50  -> XK_Shift_L
         62  -> XK_Shift_R
         37  -> XK_Control_L
@@ -362,12 +362,12 @@ private fun keycodeToKeysym(keycode: Int): Int {
 }
 
 /**
- * Dispatche un seul XEvent vers les callbacks [ApplicationHandler].
+ * Dispatches a single XEvent to the [ApplicationHandler] callbacks.
  *
- * @param eventBuf Buffer contenant l'XEvent lu par XNextEvent.
- * @param loop     Boucle d'événements active.
- * @param handler  Gestionnaire d'application à notifier.
- * @param wmDeleteWindow Atome WM_DELETE_WINDOW pour détecter la fermeture de fenêtre.
+ * @param eventBuf Buffer containing the XEvent read by XNextEvent.
+ * @param loop     Active event loop.
+ * @param handler  Application handler to notify.
+ * @param wmDeleteWindow WM_DELETE_WINDOW atom for detecting window close.
  */
 private fun dispatchEvent(
     eventBuf: MemorySegment,
@@ -381,12 +381,12 @@ private fun dispatchEvent(
 
     when (eventType) {
 
-        // ── Exposition (redraw) ───────────────────────────────────────────────
+        // ── Exposure (redraw) ─────────────────────────────────────────────────
         Expose -> {
             handler.windowEvent(loop, windowId, WindowEvent.RedrawRequested)
         }
 
-        // ── Redimensionnement ─────────────────────────────────────────────────
+        // ── Resize ────────────────────────────────────────────────────────────
         ConfigureNotify -> {
             val width  = eventBuf.get(ValueLayout.JAVA_INT, XCONFIGURE_WIDTH_OFFSET)
             val height = eventBuf.get(ValueLayout.JAVA_INT, XCONFIGURE_HEIGHT_OFFSET)
@@ -396,7 +396,7 @@ private fun dispatchEvent(
             }
         }
 
-        // ── Clavier ───────────────────────────────────────────────────────────
+        // ── Keyboard ──────────────────────────────────────────────────────────
         KeyPress -> {
             val keycode = eventBuf.get(ValueLayout.JAVA_INT, XKEY_KEYCODE_OFFSET)
             val state   = eventBuf.get(ValueLayout.JAVA_INT, XKEY_STATE_OFFSET)
@@ -415,7 +415,7 @@ private fun dispatchEvent(
             handler.windowEvent(loop, windowId, WindowEvent.KeyboardInput(key, KeyState.Released, mods))
         }
 
-        // ── Boutons souris ────────────────────────────────────────────────────
+        // ── Mouse buttons ─────────────────────────────────────────────────────
         ButtonPress -> {
             val button = eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_BUTTON_OFFSET)
             when (button) {
@@ -436,7 +436,7 @@ private fun dispatchEvent(
 
         ButtonRelease -> {
             val button = eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_BUTTON_OFFSET)
-            // Ne pas émettre MouseInput Released pour les événements de molette (4 et 5)
+            // Do not emit MouseInput Released for scroll wheel events (4 and 5)
             when (button) {
                 X11_BUTTON1 -> handler.windowEvent(loop, windowId,
                     WindowEvent.MouseInput(MouseButton.Left, KeyState.Released))
@@ -444,20 +444,20 @@ private fun dispatchEvent(
                     WindowEvent.MouseInput(MouseButton.Middle, KeyState.Released))
                 X11_BUTTON3 -> handler.windowEvent(loop, windowId,
                     WindowEvent.MouseInput(MouseButton.Right, KeyState.Released))
-                X11_BUTTON4, X11_BUTTON5 -> { /* molette — pas de Released */ }
+                X11_BUTTON4, X11_BUTTON5 -> { /* scroll wheel — no Released */ }
                 else -> handler.windowEvent(loop, windowId,
                     WindowEvent.MouseInput(MouseButton.Other(button), KeyState.Released))
             }
         }
 
-        // ── Mouvement de souris ───────────────────────────────────────────────
+        // ── Mouse motion ──────────────────────────────────────────────────────
         MotionNotify -> {
             val x = eventBuf.get(ValueLayout.JAVA_INT, XMOTION_X_OFFSET).toDouble()
             val y = eventBuf.get(ValueLayout.JAVA_INT, XMOTION_Y_OFFSET).toDouble()
             handler.windowEvent(loop, windowId, WindowEvent.PointerMoved(PhysicalPosition(x, y)))
         }
 
-        // ── Entrée/sortie du curseur ──────────────────────────────────────────
+        // ── Cursor enter/leave ────────────────────────────────────────────────
         EnterNotify -> {
             handler.windowEvent(loop, windowId, WindowEvent.PointerEntered)
         }
@@ -466,30 +466,30 @@ private fun dispatchEvent(
             handler.windowEvent(loop, windowId, WindowEvent.PointerLeft)
         }
 
-        // ── Destruction de fenêtre ────────────────────────────────────────────
+        // ── Window destruction ────────────────────────────────────────────────
         DestroyNotify -> {
             handler.windowEvent(loop, windowId, WindowEvent.Destroyed)
             loop.windows.remove(windowXid)
         }
 
-        // ── ClientMessage (fermeture WM + wakeUp) ─────────────────────────────
+        // ── ClientMessage (WM close + wakeUp) ─────────────────────────────────
         ClientMessage -> {
             val messageType = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_MESSAGE_TYPE_OFFSET)
             if (messageType == wmDeleteWindow) {
                 handler.windowEvent(loop, windowId, WindowEvent.CloseRequested)
             }
-            // Les ClientMessage de wakeUp (KADRE_WAKEUP_TYPE) sont simplement ignorés —
-            // leur seul rôle est de débloquer XNextEvent.
+            // The wakeUp ClientMessages (KADRE_WAKEUP_TYPE) are simply ignored —
+            // their only role is to unblock XNextEvent.
         }
     }
 }
 
-// ── Modes de dispatch ─────────────────────────────────────────────────────────
+// ── Dispatch modes ──────────────────────────────────────────────────────────
 
 /**
- * Mode Poll : XFlush + while(XPending > 0) { XNextEvent; dispatch } — non-bloquant.
+ * Poll mode: XFlush + while(XPending > 0) { XNextEvent; dispatch } — non-blocking.
  *
- * Vide la file d'événements en une passe et retourne immédiatement.
+ * Drains the event queue in a single pass and returns immediately.
  */
 private fun dispatchPoll(
     displaySeg: MemorySegment,
@@ -516,9 +516,9 @@ private fun dispatchPoll(
 }
 
 /**
- * Mode Wait : XNextEvent bloquant — CPU < 1 % en idle.
+ * Wait mode: blocking XNextEvent — CPU < 1 % when idle.
  *
- * Bloque le thread jusqu'à la réception du prochain événement.
+ * Blocks the thread until the next event is received.
  */
 private fun dispatchWait(
     displaySeg: MemorySegment,
@@ -529,11 +529,11 @@ private fun dispatchWait(
 ): StartCause {
     val nextHandle = xNextEvent ?: return StartCause.WaitCancelled()
 
-    // XNextEvent bloque jusqu'à l'arrivée d'un événement
+    // XNextEvent blocks until an event arrives
     nextHandle.invokeExact(displaySeg, eventBuf) as Int
     dispatchEvent(eventBuf, loop, handler, wmDeleteWindow)
 
-    // Drainer les événements supplémentaires déjà disponibles
+    // Drain the additional events already available
     val pendingHandle = xPending
     if (pendingHandle != null) {
         while (!loop.isExiting) {
@@ -548,10 +548,10 @@ private fun dispatchWait(
 }
 
 /**
- * Mode WaitUntil : poll avec Thread.sleep(1ms) jusqu'au deadline.
+ * WaitUntil mode: poll with Thread.sleep(1ms) until the deadline.
  *
- * Dispatche les événements disponibles et dort 1ms entre chaque vérification,
- * jusqu'à l'expiration du délai ou la réception d'un événement.
+ * Dispatches available events and sleeps 1ms between each check,
+ * until the timeout expires or an event is received.
  */
 private fun dispatchWaitUntil(
     displaySeg: MemorySegment,
@@ -574,7 +574,7 @@ private fun dispatchWaitUntil(
             )
         }
 
-        // Tenter de dispatcher les événements disponibles
+        // Attempt to dispatch the available events
         if (pendingHandle != null && nextHandle != null) {
             val pending = pendingHandle.invokeExact(displaySeg) as Int
             if (pending > 0) {
@@ -590,19 +590,19 @@ private fun dispatchWaitUntil(
     return StartCause.WaitCancelled(deadline)
 }
 
-// ── Point d'entrée ────────────────────────────────────────────────────────────
+// ── Entry point ───────────────────────────────────────────────────────────────
 
 /**
- * Point d'entrée de la boucle d'événements kadre sur Linux (X11).
+ * Entry point of the kadre event loop on Linux (X11).
  *
- * Ouvre la connexion au serveur X (XOpenDisplay), crée une [X11EventLoop],
- * appelle [ApplicationHandler.resumed], puis lance la boucle d'événements
- * bloquante. Ne retourne qu'à la fermeture de l'application.
+ * Opens the connection to the X server (XOpenDisplay), creates an [X11EventLoop],
+ * calls [ApplicationHandler.resumed], then starts the blocking event loop.
+ * Only returns when the application closes.
  *
- * Doit être appelé depuis le thread principal (celui qui a ouvert le display).
+ * Must be called from the main thread (the one that opened the display).
  *
- * @param handler Gestionnaire du cycle de vie et des événements.
- * @throws IllegalStateException si une boucle X11 est déjà active dans ce processus.
+ * @param handler Lifecycle and event handler.
+ * @throws IllegalStateException if an X11 loop is already active in this process.
  */
 fun runApp(handler: ApplicationHandler) {
     check(x11Running.compareAndSet(false, true)) {
@@ -613,19 +613,19 @@ fun runApp(handler: ApplicationHandler) {
     try {
         val openHandle = xOpenDisplay
         if (openHandle == null) {
-            // libX11 indisponible (macOS/Windows) — no-op gracieux
+            // libX11 unavailable (macOS/Windows) — graceful no-op
             return
         }
 
-        // XOpenDisplay(NULL) → utilise la variable d'environnement DISPLAY
+        // XOpenDisplay(NULL) → uses the DISPLAY environment variable
         val displaySeg = openHandle.invokeExact(MemorySegment.NULL) as MemorySegment
         if (displaySeg == MemorySegment.NULL || displaySeg.address() == 0L) {
-            return  // Aucun serveur X disponible
+            return  // No X server available
         }
         val displayPtr = displaySeg.address()
-        val screen = 0  // écran par défaut
+        val screen = 0  // default screen
 
-        // Obtenir l'atome WM_DELETE_WINDOW pour détecter la fermeture propre
+        // Obtain the WM_DELETE_WINDOW atom to detect a clean close
         val wmDeleteWindow: Long = Arena.ofConfined().use { arena ->
             val atomName = "WM_DELETE_WINDOW".toByteArray(Charsets.US_ASCII)
             val namePtr = arena.allocate(atomName.size.toLong() + 1)
@@ -636,32 +636,32 @@ fun runApp(handler: ApplicationHandler) {
 
         val loop = X11EventLoop(displayPtr, screen)
 
-        // Allouer le buffer XEvent (96 bytes, aligné 8) pour la durée de la boucle
+        // Allocate the XEvent buffer (96 bytes, 8-aligned) for the duration of the loop
         val arena = Arena.ofConfined()
         try {
             val eventBuf = arena.allocate(XEVENT_SIZE, XEVENT_ALIGN)
 
-            // Notifier le gestionnaire que l'application reprend
+            // Notify the handler that the application resumes
             handler.resumed(loop)
 
-            // Notifier que les surfaces peuvent être créées
+            // Notify that surfaces can be created
             handler.canCreateSurfaces(loop)
 
             var startCause: StartCause = StartCause.Init
 
             while (!loop.isExiting) {
-                // Notifier le gestionnaire du début d'itération
+                // Notify the handler of the iteration start
                 handler.newEvents(loop, startCause)
                 if (loop.isExiting) break
 
-                // Dispatcher les événements selon le ControlFlow courant
+                // Dispatch the events according to the current ControlFlow
                 startCause = when (val cf = loop.controlFlow) {
                     is ControlFlow.Poll      -> dispatchPoll(displaySeg, eventBuf, loop, handler, wmDeleteWindow)
                     is ControlFlow.Wait      -> dispatchWait(displaySeg, eventBuf, loop, handler, wmDeleteWindow)
                     is ControlFlow.WaitUntil -> dispatchWaitUntil(displaySeg, eventBuf, loop, handler, cf, wmDeleteWindow)
                 }
 
-                // Notifier le gestionnaire que la boucle est sur le point d'attendre
+                // Notify the handler that the loop is about to wait
                 handler.aboutToWait(loop)
             }
 

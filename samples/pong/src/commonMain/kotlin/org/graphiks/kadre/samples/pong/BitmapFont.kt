@@ -1,17 +1,17 @@
 package org.graphiks.kadre.samples.pong
 
-/** Quad en coordonnées normalisées [0..1] pour le rendu de score. */
+/** Quad in normalized coordinates [0..1] for score rendering. */
 data class Quad(val x: Double, val y: Double, val w: Double, val h: Double)
 
 /**
- * Police bitmap hardcodée 5×7 pixels pour les chiffres 0–9.
- * Chaque rangée est encodée sur 5 bits (MSB = colonne gauche).
+ * Hardcoded 5×7 pixel bitmap font for digits 0–9.
+ * Each row is encoded on 5 bits (MSB = left column).
  *
  * .
  */
 object BitmapFont {
 
-    // Chaque IntArray = 7 rangées de 5 bits (colonnes 0-4, bit 4 = gauche)
+    // Each IntArray = 7 rows of 5 bits (columns 0-4, bit 4 = left)
     private val DIGITS = arrayOf(
         // 0
         intArrayOf(0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110),
@@ -36,13 +36,13 @@ object BitmapFont {
     )
 
     /**
-     * Génère les quads d'un chiffre unique.
+     * Generates the quads of a single digit.
      *
-     * @param digit    Chiffre à rendre (0–9).
-     * @param x        Coin supérieur gauche X (coordonnées normalisées).
-     * @param y        Coin supérieur gauche Y (coordonnées normalisées).
-     * @param pixelSize Taille d'un pixel bitmap en coordonnées normalisées.
-     * @return Liste des quads correspondant aux pixels allumés.
+     * @param digit    Digit to render (0–9).
+     * @param x        Top-left corner X (normalized coordinates).
+     * @param y        Top-left corner Y (normalized coordinates).
+     * @param pixelSize Size of one bitmap pixel in normalized coordinates.
+     * @return List of quads corresponding to the lit pixels.
      */
     fun renderDigit(digit: Int, x: Double, y: Double, pixelSize: Double): List<Quad> {
         require(digit in 0..9) { "digit must be 0..9, got $digit" }
@@ -67,17 +67,17 @@ object BitmapFont {
     }
 
     /**
-     * Génère les quads d'un nombre entier positif (plusieurs chiffres).
+     * Generates the quads of a positive integer (multiple digits).
      *
-     * @param n         Nombre à rendre (>= 0).
-     * @param x         Coin supérieur gauche X du premier chiffre.
-     * @param y         Coin supérieur gauche Y.
-     * @param pixelSize Taille d'un pixel bitmap en coordonnées normalisées.
-     * @return Liste concaténée des quads de tous les chiffres.
+     * @param n         Number to render (>= 0).
+     * @param x         Top-left corner X of the first digit.
+     * @param y         Top-left corner Y.
+     * @param pixelSize Size of one bitmap pixel in normalized coordinates.
+     * @return Concatenated list of quads of all digits.
      */
     fun renderNumber(n: Int, x: Double, y: Double, pixelSize: Double): List<Quad> {
         val digits = n.toString().map { it.digitToInt() }
-        val spacing = 6 * pixelSize  // 5 pixels de large + 1 pixel de gap
+        val spacing = 6 * pixelSize  // 5 pixels wide + 1 pixel gap
         return digits.flatMapIndexed { i, d ->
             renderDigit(d, x + i * spacing, y, pixelSize)
         }

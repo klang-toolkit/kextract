@@ -3,10 +3,10 @@ package org.graphiks.kadre.android
 import org.graphiks.kadre.core.ApplicationHandler
 
 /**
- * Registre global pour le runtime Kadre sur Android.
+ * Global registry for the Kadre runtime on Android.
  *
- * Stocke le [ApplicationHandler] enregistré via [org.graphiks.kadre.EventLoop.runApp]
- * afin qu'il soit récupéré par [KadreActivity.createHandler].
+ * Stores the [ApplicationHandler] registered via [org.graphiks.kadre.EventLoop.runApp]
+ * so that it is retrieved by [KadreActivity.createHandler].
  */
 object AndroidKadreRuntime {
     var currentHandler: ApplicationHandler? = null

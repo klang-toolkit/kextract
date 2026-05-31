@@ -13,24 +13,24 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    // PREFER_SETTINGS : les repos déclarés ici priment pour la résolution, mais on
-    // tolère qu'un plugin (typiquement Kotlin/Wasm via `BinaryenSetupTask`) ajoute
-    // SON propre repo au niveau projet sans faire crasher le build. La sécurité
-    // est préservée — un repo projet ne peut pas override un repo settings — et
-    // le build wasm de production (Binaryen / wasm-opt) débloque.
-    // Avant : FAIL_ON_PROJECT_REPOS rejetait tout repo projet, y compris celui
-    // ajouté par le plugin Wasm lui-même → `wasmJsBrowserProductionWebpack` échouait.
+    // PREFER_SETTINGS: the repos declared here take precedence for resolution, but we
+    // tolerate that a plugin (typically Kotlin/Wasm via `BinaryenSetupTask`) adds
+    // ITS own repo at the project level without crashing the build. Security
+    // is preserved — a project repo cannot override a settings repo — and
+    // the production wasm build (Binaryen / wasm-opt) is unblocked.
+    // Before: FAIL_ON_PROJECT_REPOS rejected every project repo, including the one
+    // added by the Wasm plugin itself → `wasmJsBrowserProductionWebpack` failed.
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
 
-        // Toolchain Kotlin/JS : le plugin KGP télécharge Node.js et Yarn depuis des
-        // repos ivy qu'il ajoute normalement au niveau projet — ce que
-        // FAIL_ON_PROJECT_REPOS rejette (échec de `kotlinNodeJsSetup`). On les déclare
-        // donc ici, côté settings, pour rester hermétique tout en permettant les builds
-        // webpack de production (jsBrowserDistribution / wasmJsBrowserDistribution).
-        // Voir ; débloque #20 (GitHub Pages) et #22 (E2E web).
+        // Kotlin/JS toolchain: the KGP plugin downloads Node.js and Yarn from ivy
+        // repos that it normally adds at the project level — which
+        // FAIL_ON_PROJECT_REPOS rejects (failure of `kotlinNodeJsSetup`). We therefore
+        // declare them here, in settings, to stay hermetic while still allowing the
+        // production webpack builds (jsBrowserDistribution / wasmJsBrowserDistribution).
+        // See; unblocks #20 (GitHub Pages) and #22 (web E2E).
         ivy("https://nodejs.org/dist") {
             name = "Node.js Distributions"
             patternLayout { artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]") }
@@ -43,12 +43,12 @@ dependencyResolutionManagement {
             metadataSources { artifact() }
             content { includeModule("com.yarnpkg", "yarn") }
         }
-        // Binaryen (wasm-opt) — utilisé par le plugin Kotlin/Wasm pour optimiser le
-        // bundle `.wasm` du build de production (`wasmJsBrowserProductionWebpack`).
-        // Déclaré ici (en plus du repo que le plugin ajoute au niveau projet via
-        // `BinaryenSetupTask`) pour garantir la résolution hermétique en `PREFER_SETTINGS`
-        // et documenter la dépendance externe au même titre que Node / Yarn.
-        // URL réelle :
+        // Binaryen (wasm-opt) — used by the Kotlin/Wasm plugin to optimize the
+        // `.wasm` bundle of the production build (`wasmJsBrowserProductionWebpack`).
+        // Declared here (in addition to the repo the plugin adds at the project level via
+        // `BinaryenSetupTask`) to ensure hermetic resolution under `PREFER_SETTINGS`
+        // and to document the external dependency just like Node / Yarn.
+        // Actual URL:
         //   https://github.com/WebAssembly/binaryen/releases/download/version_<v>/binaryen-version_<v>-<classifier>.tar.gz
         ivy("https://github.com/WebAssembly/binaryen/releases/download") {
             name = "Binaryen Distributions"
@@ -61,7 +61,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "kadre"
 
-// Modules Kadre
+// Kadre modules
 include(":kadre-web-common")
 include(":kadre-core")
 include(":kadre-test")
