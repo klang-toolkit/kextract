@@ -11,6 +11,7 @@ package org.graphiks.kadre.samples.hellocompose
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.input.pointer.PointerButton
+import org.graphiks.kadre.coroutines.EventLoopDispatcher
 import org.graphiks.kadre.core.RawWindowHandle
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.EncodedImageFormat
@@ -53,19 +54,23 @@ interface ComposeWindowRenderer {
          * Builds the renderer matching the window's native handle, or returns null with a
          * reason if the platform/handle is unsupported.
          */
-        fun create(handle: RawWindowHandle, scaleFactor: Double): Result<ComposeWindowRenderer> =
+        fun create(
+            handle: RawWindowHandle,
+            scaleFactor: Double,
+            dispatcher: EventLoopDispatcher,
+        ): Result<ComposeWindowRenderer> =
             runCatching {
                 when (handle) {
                     is RawWindowHandle.AppKit -> {
                         require(handle.nsLayer != 0L) { "AppKit handle without a CAMetalLayer (nsLayer=0)" }
-                        MetalComposeRenderer(handle.nsLayer, scaleFactor)
+                        MetalComposeRenderer(handle.nsLayer, scaleFactor, dispatcher)
                     }
                     is RawWindowHandle.Win32 ->
-                        GlComposeRenderer(Win32WglContext(handle.hwnd), scaleFactor)
+                        GlComposeRenderer(Win32WglContext(handle.hwnd), scaleFactor, dispatcher)
                     is RawWindowHandle.Xlib ->
-                        GlComposeRenderer(X11GlxContext(handle.display, handle.window), scaleFactor)
+                        GlComposeRenderer(X11GlxContext(handle.display, handle.window), scaleFactor, dispatcher)
                     is RawWindowHandle.Wayland ->
-                        GlComposeRenderer(WaylandEglContext(handle.display, handle.surface), scaleFactor)
+                        GlComposeRenderer(WaylandEglContext(handle.display, handle.surface), scaleFactor, dispatcher)
                     else -> throw UnsupportedOperationException("Unsupported window handle: $handle")
                 }
             }

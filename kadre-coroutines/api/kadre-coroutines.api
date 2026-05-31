@@ -1,0 +1,25 @@
+public final class org/graphiks/kadre/coroutines/EventLoopDispatcher : kotlinx/coroutines/CoroutineDispatcher, kotlinx/coroutines/Delay {
+	public fun <init> ()V
+	public final fun attach (Lorg/graphiks/kadre/core/ActiveEventLoop;)V
+	public fun delay (JLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun dispatch (Lkotlin/coroutines/CoroutineContext;Ljava/lang/Runnable;)V
+	public fun invokeOnTimeout (JLjava/lang/Runnable;Lkotlin/coroutines/CoroutineContext;)Lkotlinx/coroutines/DisposableHandle;
+	public final fun pump ()Lorg/graphiks/kadre/core/ControlFlow;
+	public fun scheduleResumeAfterDelay (JLkotlinx/coroutines/CancellableContinuation;)V
+}
+
+public abstract interface class org/graphiks/kadre/coroutines/KadreAppScope : kotlinx/coroutines/CoroutineScope {
+	public abstract fun createWindow (Lorg/graphiks/kadre/core/WindowAttributes;)Lorg/graphiks/kadre/coroutines/KadreWindow;
+	public abstract fun exit ()V
+	public abstract fun getDispatcher ()Lorg/graphiks/kadre/coroutines/EventLoopDispatcher;
+}
+
+public final class org/graphiks/kadre/coroutines/KadreApplicationKt {
+	public static final fun kadreApplication (Lkotlin/jvm/functions/Function2;)V
+}
+
+public final class org/graphiks/kadre/coroutines/KadreWindow {
+	public final fun getEvents ()Lkotlinx/coroutines/flow/SharedFlow;
+	public final fun getWindow ()Lorg/graphiks/kadre/core/Window;
+}
+

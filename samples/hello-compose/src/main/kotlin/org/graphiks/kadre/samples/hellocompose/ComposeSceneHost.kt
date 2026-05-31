@@ -29,17 +29,23 @@ import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import org.graphiks.kadre.coroutines.EventLoopDispatcher
 import org.jetbrains.skia.Canvas
-import kotlinx.coroutines.Dispatchers
 
-class ComposeSceneHost(scaleFactor: Double) {
+/**
+ * @param dispatcher the Kadre main-thread coroutine dispatcher (Level 1). The scene's recomposer
+ *   runs on it — unified with app coroutines — and [frameClock] (a [MonotonicFrameClock]) is
+ *   advanced from the render loop so `withFrameNanos`/Compose animations work natively (Level 2).
+ *   This replaces the previous Dispatchers.Unconfined + standalone-clock hack.
+ */
+class ComposeSceneHost(scaleFactor: Double, private val dispatcher: EventLoopDispatcher) {
 
     private val frameClock = BroadcastFrameClock()
     private val scene: ComposeScene = CanvasLayersComposeScene(
         density = Density(scaleFactor.toFloat()),
         layoutDirection = LayoutDirection.Ltr,
         size = IntSize(1, 1), // real size set by the first resize() before rendering
-        coroutineContext = Dispatchers.Unconfined + frameClock,
+        coroutineContext = dispatcher + frameClock,
         invalidate = { /* continuous redraw is driven by the host loop */ },
     )
 
@@ -64,7 +70,12 @@ class ComposeSceneHost(scaleFactor: Double) {
      */
     fun pumpAndRender(skiaCanvas: Canvas, widthPx: Int, heightPx: Int) {
         Snapshot.sendApplyNotifications()
+        // Let the recomposer compose and reach its withFrameNanos await…
+        dispatcher.pump()
+        // …deliver a frame (wakes animations / withFrameNanos awaiters)…
         frameClock.sendFrame(System.nanoTime())
+        // …then run the resumed continuations (animation values + recomposition).
+        dispatcher.pump()
         if (scene.size != IntSize(widthPx, heightPx)) {
             scene.size = IntSize(widthPx, heightPx)
         }

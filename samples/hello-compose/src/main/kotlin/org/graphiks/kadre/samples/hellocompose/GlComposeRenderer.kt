@@ -11,6 +11,7 @@
  */
 package org.graphiks.kadre.samples.hellocompose
 
+import org.graphiks.kadre.coroutines.EventLoopDispatcher
 import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.ColorSpace
 import org.jetbrains.skia.DirectContext
@@ -48,9 +49,10 @@ interface GlContext {
 class GlComposeRenderer(
     private val gl: GlContext,
     scaleFactor: Double,
+    dispatcher: EventLoopDispatcher,
 ) : ComposeWindowRenderer {
 
-    override val host = ComposeSceneHost(scaleFactor)
+    override val host = ComposeSceneHost(scaleFactor, dispatcher)
 
     private var context: DirectContext? = null
     private var width = 0

@@ -1,15 +1,12 @@
 /**
  * Sample hello-compose — interactive Jetpack Compose UI inside a native Kadre window.
  *
- * Opens an 800×600 Kadre window and renders a Material3 Compose UI into its CAMetalLayer
- * via Skiko's Metal backend (see [ComposeMetalRenderer]). Mouse events from Kadre are
- * forwarded to the ComposeScene, so the button below is genuinely clickable.
- *
- * Frame loop (same pattern as hello-triangle):
- *   aboutToWait → requestRedraw → WindowEvent.RedrawRequested → renderer.renderFrame()
+ * The live app is written with the coroutine-friendly layer ([kadreApplication]): windows are
+ * created in a coroutine scope, events are collected as a Flow, and a coroutine ticks an
+ * "uptime" state via `delay()` while a Material3 spinner animates through the loop-driven frame
+ * clock. Rendering goes through Skiko (Metal on macOS, OpenGL on Windows/Linux).
  *
  * Usage: ./gradlew :samples:hello-compose:run
- * Requirements: macOS arm64 with JDK 25 (run on the main thread by Gradle).
  */
 package org.graphiks.kadre.samples.hellocompose
 
@@ -18,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -28,32 +26,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.unit.dp
-import java.awt.Component
-import java.awt.event.InputEvent
-import java.awt.event.KeyEvent as AwtKeyEvent
 import org.graphiks.kadre.ActiveEventLoop
 import org.graphiks.kadre.ApplicationHandler
 import org.graphiks.kadre.EventLoop
 import org.graphiks.kadre.PhysicalSize
 import org.graphiks.kadre.WindowAttributes
 import org.graphiks.kadre.WindowId
-import org.graphiks.kadre.core.Key as KadreKey
-import org.graphiks.kadre.core.MouseButton
-import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.RawWindowHandle
-import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowEvent
+import org.graphiks.kadre.coroutines.EventLoopDispatcher
+import org.graphiks.kadre.coroutines.kadreApplication
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * The Compose UI shown inside the Kadre window.
  *
- * A counter incremented by a Material3 button — clicking it proves the whole chain works:
- * input forwarding → snapshot apply → recomposition → frame clock → Skia/Metal present.
+ * - the button + text field prove input forwarding (pointer + keyboard),
+ * - the spinner animates via withFrameNanos against the loop-driven frame clock,
+ * - [uptimeSeconds] (≥ 0) is driven by a coroutine via `delay()`.
  */
 @androidx.compose.runtime.Composable
-fun DemoUi() {
+fun DemoUi(uptimeSeconds: Int = -1) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             var clicks by remember { mutableStateOf(0) }
@@ -65,6 +62,13 @@ fun DemoUi() {
             ) {
                 Text("Jetpack Compose in a Kadre window 🪟", style = MaterialTheme.typography.headlineSmall)
                 Text("Rendered via Skiko (Metal on macOS, OpenGL on Windows/Linux)", style = MaterialTheme.typography.bodyMedium)
+                if (uptimeSeconds >= 0) {
+                    // Driven by a coroutine via EventLoopDispatcher + delay() — updates on the main thread.
+                    Text("⏱ coroutine uptime: ${uptimeSeconds}s", style = MaterialTheme.typography.titleMedium)
+                }
+                // Indeterminate spinner — animates via withFrameNanos against the loop-driven
+                // MonotonicFrameClock (Level 2). A smooth spin proves the frame clock works.
+                CircularProgressIndicator()
                 Button(onClick = { clicks++ }) {
                     Text("Clicked $clicks times")
                 }
@@ -80,201 +84,85 @@ fun DemoUi() {
 }
 
 /**
- * @param windowCapturePath when set, the app renders a few frames into the real Kadre window
- *   (Metal/GL), snapshots the rendered surface to this PNG path, and exits. Used by CI to
- *   exercise the windowed platform present path headlessly.
+ * The interactive app, expressed with the coroutine/Flow layer (Level 3).
+ *
+ * No [ApplicationHandler] boilerplate: create a window, launch coroutines, collect its events.
  */
-class HelloComposeApp(private val windowCapturePath: String? = null) : ApplicationHandler {
+private fun runComposeApp() = kadreApplication {
+    val uptime = mutableStateOf(0)
+    val keys = KeyForwarder()
 
-    private var window: Window? = null
-    private var renderer: ComposeWindowRenderer? = null
+    val win = createWindow(
+        WindowAttributes("Hello Compose — Kadre + Skiko", PhysicalSize(800, 600), visible = true, resizable = true),
+    )
+    val handle = win.window.rawWindowHandle as? RawWindowHandle ?: run {
+        println("[hello-compose] Unexpected window handle: ${win.window.rawWindowHandle}")
+        exit(); return@kadreApplication
+    }
+    val renderer = ComposeWindowRenderer.create(handle, win.window.scaleFactor, dispatcher).getOrElse {
+        println("[hello-compose] Cannot create renderer: ${it.message}")
+        exit(); return@kadreApplication
+    }
+    val inner = win.window.innerSize
+    renderer.resize(inner.width, inner.height, win.window.scaleFactor)
+    renderer.setContent { DemoUi(uptimeSeconds = uptime.value) }
+    println("[hello-compose] Ready — ${inner.width}×${inner.height} @ ${win.window.scaleFactor}x (${renderer::class.simpleName})")
 
-    // Keyboard forwarding builds real AWT KeyEvents (required for text input — see
-    // ComposeSceneHost.sendKey). The source Component is created lazily and guarded:
-    // if AWT init misbehaves under -XstartOnFirstThread, keyboard is disabled, not fatal.
-    private var keyboardDisabled = false
-    private val keyEventSource: Component? by lazy {
-        runCatching { object : Component() {} }.getOrNull()
+    // A coroutine ticking a Compose state via delay() — coroutine-driven UI.
+    launch {
+        while (isActive) {
+            delay(1000)
+            uptime.value += 1
+        }
     }
 
-    override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
-        println("[hello-compose] canCreateSurfaces — creating window + ComposeScene")
-
-        val win = eventLoop.createWindow(
-            WindowAttributes(
-                title = "Hello Compose — Kadre + Skiko",
-                size = PhysicalSize(width = 800, height = 600),
-                visible = true,
-                resizable = true,
-            ),
-        )
-        window = win
-
-        val handle = win.rawWindowHandle as? RawWindowHandle ?: run {
-            println("[hello-compose] Unexpected window handle: ${win.rawWindowHandle}")
-            eventLoop.exit()
-            return
+    // Window events as a Flow. collect suspends until the loop exits.
+    win.events.collect { event ->
+        if (event is WindowEvent.CloseRequested) {
+            println("[hello-compose] CloseRequested — closing")
+            renderer.dispose()
+            exit()
+        } else {
+            renderer.applyWindowEvent(event, win.window, keys)
         }
+    }
+}
 
-        val r = ComposeWindowRenderer.create(handle, win.scaleFactor).getOrElse {
-            println("[hello-compose] Cannot create renderer: ${it.message}")
-            eventLoop.exit()
-            return
+/**
+ * Headless windowed capture (callback style, synchronous): open a window, render a few frames
+ * through the real platform present path (Metal/GL), snapshot to a PNG, and exit. Used by CI.
+ */
+private class CaptureApp(private val capturePath: String) : ApplicationHandler {
+    private val dispatcher = EventLoopDispatcher()
+
+    override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
+        val win = eventLoop.createWindow(
+            WindowAttributes("Hello Compose — capture", PhysicalSize(800, 600), visible = true, resizable = true),
+        )
+        val handle = win.rawWindowHandle as? RawWindowHandle ?: run { eventLoop.exit(); return }
+        val r = ComposeWindowRenderer.create(handle, win.scaleFactor, dispatcher).getOrElse {
+            println("[hello-compose] Cannot create renderer: ${it.message}"); eventLoop.exit(); return
         }
         val inner = win.innerSize
         r.resize(inner.width, inner.height, win.scaleFactor)
         r.setContent { DemoUi() }
-        renderer = r
-
-        println("[hello-compose] Ready — ${inner.width}×${inner.height} @ ${win.scaleFactor}x (${r::class.simpleName})")
-
-        // Headless windowed capture: render a few frames synchronously (so composition + first
-        // paint settle) through the real platform present path, snapshot, and exit immediately —
-        // without depending on the event loop's redraw cadence (which may never fire headlessly).
-        if (windowCapturePath != null) {
-            repeat(4) { r.renderFrame() }
-            val ok = r.captureFrameToPng(windowCapturePath)
-            println("[hello-compose] window-capture ${if (ok) "written" else "FAILED"}: $windowCapturePath")
-            r.dispose()
-            renderer = null
-            eventLoop.exit()
-        }
+        // Render a few frames so composition + first paint settle, then snapshot and exit —
+        // independent of the event loop's redraw cadence (which may never fire headlessly).
+        repeat(4) { r.renderFrame() }
+        val ok = r.captureFrameToPng(capturePath)
+        println("[hello-compose] window-capture ${if (ok) "written" else "FAILED"}: $capturePath")
+        r.dispose()
+        eventLoop.exit()
     }
 
-    override fun aboutToWait(eventLoop: ActiveEventLoop) {
-        // Continuous redraw (~vsync) keeps recomposition/animation pumped — like hello-triangle.
-        window?.requestRedraw()
-    }
-
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
-        val r = renderer
-        when (event) {
-            is WindowEvent.RedrawRequested -> r?.renderFrame()
-
-            is WindowEvent.PointerMoved ->
-                r?.onPointerMoved(event.position.x, event.position.y)
-
-            is WindowEvent.MouseInput -> {
-                val (bit, button) = mapButton(event.button) ?: return
-                r?.onPointerButton(bit, event.state == KeyState.Pressed, button)
-            }
-
-            is WindowEvent.MouseWheel -> r?.onScroll(event.deltaX, event.deltaY)
-            is WindowEvent.PointerEntered -> r?.onPointerEnter()
-            is WindowEvent.PointerLeft -> r?.onPointerExit()
-
-            is WindowEvent.KeyboardInput -> forwardKey(event, r)
-
-            is WindowEvent.Resized -> {
-                val win = window ?: return
-                r?.resize(event.size.width, event.size.height, win.scaleFactor)
-            }
-
-            is WindowEvent.ScaleFactorChanged -> {
-                val win = window ?: return
-                val inner = win.innerSize
-                r?.resize(inner.width, inner.height, event.factor)
-            }
-
-            is WindowEvent.CloseRequested -> {
-                println("[hello-compose] CloseRequested — closing")
-                r?.dispose()
-                renderer = null
-                eventLoop.exit()
-            }
-
-            else -> { /* ignore (keyboard forwarding is out of scope for this POC) */ }
-        }
-    }
-
-    /** Maps a Kadre [MouseButton] to (Compose PointerButtons bit, [PointerButton]). */
-    private fun mapButton(button: MouseButton): Pair<Int, PointerButton>? = when (button) {
-        MouseButton.Left -> 1 to PointerButton.Primary
-        MouseButton.Right -> 2 to PointerButton.Secondary
-        MouseButton.Middle -> 4 to PointerButton.Tertiary
-        is MouseButton.Other -> null
-    }
-
-    /**
-     * Forwards a Kadre keyboard event to Compose as real AWT events:
-     * - KEY_PRESSED / KEY_RELEASED drive editing commands (backspace, arrows, shortcuts).
-     * - KEY_TYPED (on press, for printable keys) drives character insertion in text fields,
-     *   which Compose only performs for genuine AWT typed events.
-     */
-    private fun forwardKey(event: WindowEvent.KeyboardInput, renderer: ComposeWindowRenderer?) {
-        if (keyboardDisabled || renderer == null) return
-        val source = keyEventSource ?: run { keyboardDisabled = true; return }
-
-        val mods = awtModifiers(event.modifiers)
-        val vk = toAwtKeyCode(event.key)
-        val now = System.currentTimeMillis()
-
-        runCatching {
-            if (event.state == KeyState.Pressed) {
-                if (vk != AwtKeyEvent.VK_UNDEFINED) {
-                    renderer.sendKey(AwtKeyEvent(source, AwtKeyEvent.KEY_PRESSED, now, mods, vk, AwtKeyEvent.CHAR_UNDEFINED))
-                }
-                val ch = typedChar(event.key, event.modifiers.shift)
-                if (ch != null && !event.modifiers.ctrl && !event.modifiers.meta) {
-                    renderer.sendKey(AwtKeyEvent(source, AwtKeyEvent.KEY_TYPED, now, mods, AwtKeyEvent.VK_UNDEFINED, ch))
-                }
-            } else if (vk != AwtKeyEvent.VK_UNDEFINED) {
-                renderer.sendKey(AwtKeyEvent(source, AwtKeyEvent.KEY_RELEASED, now, mods, vk, AwtKeyEvent.CHAR_UNDEFINED))
-            }
-        }.onFailure {
-            keyboardDisabled = true
-            println("[hello-compose] keyboard forwarding disabled: ${it.message}")
-        }
-    }
-}
-
-/** Builds the AWT extended-modifier mask from Kadre modifiers. */
-private fun awtModifiers(m: org.graphiks.kadre.core.Modifiers): Int {
-    var mask = 0
-    if (m.shift) mask = mask or InputEvent.SHIFT_DOWN_MASK
-    if (m.ctrl) mask = mask or InputEvent.CTRL_DOWN_MASK
-    if (m.alt) mask = mask or InputEvent.ALT_DOWN_MASK
-    if (m.meta) mask = mask or InputEvent.META_DOWN_MASK
-    return mask
-}
-
-/** Maps a Kadre logical [KadreKey] to its AWT virtual key code (`VK_UNDEFINED` if unmapped). */
-private fun toAwtKeyCode(key: KadreKey): Int = when (key) {
-    in KadreKey.A..KadreKey.Z -> AwtKeyEvent.VK_A + (key.ordinal - KadreKey.A.ordinal)
-    in KadreKey.Digit0..KadreKey.Digit9 -> AwtKeyEvent.VK_0 + (key.ordinal - KadreKey.Digit0.ordinal)
-    in KadreKey.F1..KadreKey.F12 -> AwtKeyEvent.VK_F1 + (key.ordinal - KadreKey.F1.ordinal)
-    KadreKey.Space -> AwtKeyEvent.VK_SPACE
-    KadreKey.Enter -> AwtKeyEvent.VK_ENTER
-    KadreKey.Escape -> AwtKeyEvent.VK_ESCAPE
-    KadreKey.Backspace -> AwtKeyEvent.VK_BACK_SPACE
-    KadreKey.Tab -> AwtKeyEvent.VK_TAB
-    KadreKey.ArrowUp -> AwtKeyEvent.VK_UP
-    KadreKey.ArrowDown -> AwtKeyEvent.VK_DOWN
-    KadreKey.ArrowLeft -> AwtKeyEvent.VK_LEFT
-    KadreKey.ArrowRight -> AwtKeyEvent.VK_RIGHT
-    KadreKey.ShiftLeft, KadreKey.ShiftRight -> AwtKeyEvent.VK_SHIFT
-    KadreKey.ControlLeft, KadreKey.ControlRight -> AwtKeyEvent.VK_CONTROL
-    KadreKey.AltLeft, KadreKey.AltRight -> AwtKeyEvent.VK_ALT
-    KadreKey.MetaLeft, KadreKey.MetaRight -> AwtKeyEvent.VK_META
-    else -> AwtKeyEvent.VK_UNDEFINED
-}
-
-/** The character a printable key produces (respecting Shift for letters), or null. */
-private fun typedChar(key: KadreKey, shift: Boolean): Char? = when {
-    key in KadreKey.A..KadreKey.Z -> {
-        val upper = 'A' + (key.ordinal - KadreKey.A.ordinal)
-        if (shift) upper else upper.lowercaseChar()
-    }
-    key in KadreKey.Digit0..KadreKey.Digit9 -> '0' + (key.ordinal - KadreKey.Digit0.ordinal)
-    key == KadreKey.Space -> ' '
-    else -> null
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
 }
 
 /**
  * Entry point. Must run on the main macOS thread (Gradle adds `-XstartOnFirstThread`).
  *
- * Offscreen capture mode: `--capture <path>` renders [DemoUi] into an offscreen Skia raster
- * surface and writes a PNG, then exits — no window, no GPU, headless-safe (useful for CI).
+ * Modes: `--keytest`, `--capture <png>` (offscreen raster), `--ci-headless <dir>`,
+ * `--window-capture <png>` (windowed GL/Metal capture), `--coroutines-demo`.
  */
 fun main(args: Array<String>) {
     if (args.contains("--keytest")) {
@@ -282,9 +170,12 @@ fun main(args: Array<String>) {
         return
     }
 
-    // Combined headless checks in a single JVM (keytest + raster capture) — lets CI do both
-    // with one Gradle invocation instead of two. Windowed GL capture stays a separate process
-    // so a native GL crash can't fail the headless checks.
+    if (args.contains("--coroutines-demo")) {
+        runCoroutinesDemo()
+        return
+    }
+
+    // Combined headless checks in one JVM (keytest + raster capture) — one Gradle invocation.
     val ciHeadlessIndex = args.indexOf("--ci-headless")
     if (ciHeadlessIndex >= 0) {
         val dir = args.getOrNull(ciHeadlessIndex + 1)
@@ -302,28 +193,17 @@ fun main(args: Array<String>) {
         return
     }
 
-    // Windowed capture: open the real Kadre window, render via the platform present path
-    // (Metal/WGL/GLX/EGL), snapshot to PNG and exit. Used to exercise the GL path in CI.
     val windowCaptureIndex = args.indexOf("--window-capture")
-    val windowCapturePath = if (windowCaptureIndex >= 0) {
-        args.getOrNull(windowCaptureIndex + 1)
+    if (windowCaptureIndex >= 0) {
+        val path = args.getOrNull(windowCaptureIndex + 1)
             ?: error("--window-capture requires a file path: --window-capture <path>")
-    } else {
-        null
+        startCaptureWatchdog()
+        EventLoop().runApp(CaptureApp(path))
+        return
     }
 
-    // Capture mode must never hang CI: if the synchronous capture path is blocked (e.g. a native
-    // swapBuffers waiting on a frame callback), a watchdog force-exits the JVM.
-    if (windowCapturePath != null) {
-        Thread {
-            Thread.sleep(30_000)
-            System.err.println("[hello-compose] window-capture watchdog: not done after 30s — forcing exit")
-            Runtime.getRuntime().halt(3)
-        }.apply { isDaemon = true }.start()
-    }
-
-    println("[hello-compose] Starting — Compose Multiplatform in a Kadre window")
-    EventLoop().runApp(HelloComposeApp(windowCapturePath))
+    println("[hello-compose] Starting — Compose Multiplatform in a Kadre window (coroutines/Flow)")
+    runComposeApp()
     println("[hello-compose] Done")
 }
 
@@ -333,4 +213,13 @@ private fun runKeytest() {
     println("[hello-compose] keytest — text field received: '$typed' (expected 'hi')")
     if (typed != "hi") error("keytest FAILED: '$typed' != 'hi'")
     println("[hello-compose] keytest OK")
+}
+
+/** Force-exits the JVM if a windowed capture is still blocked after 30s (CI safety net). */
+private fun startCaptureWatchdog() {
+    Thread {
+        Thread.sleep(30_000)
+        System.err.println("[hello-compose] window-capture watchdog: not done after 30s — forcing exit")
+        Runtime.getRuntime().halt(3)
+    }.apply { isDaemon = true }.start()
 }

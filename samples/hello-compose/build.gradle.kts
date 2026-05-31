@@ -51,6 +51,8 @@ application {
 
 dependencies {
     implementation(project(":kadre"))
+    // Coroutine-friendly layer: main-thread dispatcher + application { } + window events Flow.
+    implementation(project(":kadre-coroutines"))
 
     // Kadre platform backends. The :kadre facade selects one by reflection at runtime
     // (AppKit on macOS, Win32 on Windows, X11/Wayland on Linux), so all desktop backends
