@@ -45,10 +45,38 @@ markdown_extensions:
   - toc:
       permalink: true
 
+# Navigation explicite — remplace `awesome-pages` (incompatible avec
+# mkdocs-static-i18n : pendant le rebuild FR, i18n remappe `index.fr.md`
+# en `index.md` actif du build FR et awesome-pages ne retrouve plus les
+# entrées listées dans les `.pages`, levant `NavEntryNotFound`).
+#
+# Les fichiers sont référencés sans suffixe de langue ; le plugin i18n
+# choisit la bonne variante (`*.md` pour EN, `*.fr.md` pour FR) selon
+# le build en cours.
+nav:
+  - Home: koreos/index.md
+  - Blog:
+      - koreos/blog/v0.2.0-release.md
+  - Tutorials:
+      - koreos/tutorials/windows-app.md
+      - koreos/tutorials/linux-app.md
+      - koreos/tutorials/web-embed.md
+  - Plan: koreos/plan.md
+  - Plan v0.2: koreos/plan-v0.2.md
+  - Sprint Review v0.1: koreos/sprint-review-v0.1.md
+  - Post-mortem M2: koreos/postmortem-m2.md
+  - Specs: koreos/specs.md
+  - Specs v0.2: koreos/specs-v0.2.md
+  - API Stability: koreos/api-stability.md
+  - Performance: koreos/performance.md
+  - Release Process: koreos/release-process.md
+  - Testing: koreos/testing.md
+  - Visual Testing: koreos/visual-testing.md
+  - Roadmap Progress: koreos/roadmap-progress.md
+  - API Reference: koreos/api/index.md
+
 plugins:
   - search
-  - awesome-pages:
-      collapse_single_pages: true
   - i18n:
       docs_structure: suffix
       languages:
@@ -61,3 +89,22 @@ plugins:
           build: true
           site_name: Koreos
           site_description: Fenêtrage et événements multiplateforme pour Kotlin Multiplatform
+          # Traductions des titres de nav (les sections / pages listées dans
+          # le `nav:` global ci-dessus).
+          nav_translations:
+            Home: Accueil
+            Blog: Blog
+            Tutorials: Tutoriels
+            Plan: Plan
+            Plan v0.2: Plan v0.2
+            Sprint Review v0.1: Sprint Review v0.1
+            Post-mortem M2: Post-mortem M2
+            Specs: Spécifications
+            Specs v0.2: Spécifications v0.2
+            API Stability: Stabilité API
+            Performance: Performance
+            Release Process: Processus de release
+            Testing: Tests
+            Visual Testing: Tests visuels
+            Roadmap Progress: Avancement roadmap
+            API Reference: Référence API

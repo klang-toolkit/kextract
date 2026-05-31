@@ -43,7 +43,10 @@ jobs:
       - name: Install MkDocs Material + plugins
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs-material mkdocs-awesome-pages-plugin mkdocs-static-i18n
+          # awesome-pages retiré : incompatible avec mkdocs-static-i18n
+          # (NavEntryNotFound pendant le rebuild de la langue secondaire).
+          # Navigation explicite dans mkdocs.yml à la place.
+          pip install mkdocs-material mkdocs-static-i18n
 
       # Les fichiers GFM Dokka sont déjà committés dans docs/koreos/api/.
       # Aucune régénération Gradle nécessaire ici.
