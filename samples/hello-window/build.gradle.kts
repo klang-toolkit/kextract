@@ -25,6 +25,17 @@ kotlin {
                 implementation(project(":kadre"))
             }
         }
+        jvmMain {
+            dependencies {
+                // Kadre platform backends. The :kadre facade selects one by reflection at
+                // runtime (AppKit on macOS, Win32 on Windows, X11/Wayland on Linux), so every
+                // desktop backend must be on the classpath for the sample to open a window on
+                // each OS. Inert on the other platforms.
+                implementation(project(":kadre-win32"))
+                implementation(project(":kadre-x11"))
+                implementation(project(":kadre-wayland"))
+            }
+        }
     }
 }
 

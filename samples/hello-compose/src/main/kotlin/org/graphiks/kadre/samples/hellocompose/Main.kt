@@ -236,6 +236,8 @@ private fun startCaptureWatchdog() {
     Thread {
         Thread.sleep(30_000)
         System.err.println("[hello-compose] window-capture watchdog: not done after 30s — forcing exit")
+        System.out.flush()
+        System.err.flush()
         Runtime.getRuntime().halt(3)
     }.apply { isDaemon = true }.start()
 }

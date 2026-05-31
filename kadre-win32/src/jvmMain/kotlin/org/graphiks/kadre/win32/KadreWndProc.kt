@@ -99,6 +99,9 @@ object KadreWndProc {
     @Volatile
     private var handler: WindowEventHandler? = null
 
+    /** Windows whose cursor is currently inside (to emit PointerEntered on the first move in). */
+    private val insideWindows = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+
     // ── Installation ──────────────────────────────────────────────────────────
 
     /**
@@ -197,6 +200,10 @@ object KadreWndProc {
 
             // ── Cursor movement ───────────────────────────────────────────────
             WM_MOUSEMOVE.toUInt() -> {
+                // First move after the cursor entered the client area → PointerEntered.
+                if (insideWindows.add(hwnd)) {
+                    emit(hwnd, WindowEvent.PointerEntered)
+                }
                 val x = (lParam and 0xFFFF).toDouble()
                 val y = ((lParam ushr 16) and 0xFFFF).toDouble()
                 emit(hwnd, WindowEvent.PointerMoved(PhysicalPosition(x, y)))
@@ -209,6 +216,7 @@ object KadreWndProc {
             WM_MOUSELEAVE.toUInt() -> {
                 // WM_MOUSELEAVE tracking is automatically disarmed after receipt.
                 // It will be re-armed on the next WM_MOUSEMOVE if the cursor returns.
+                insideWindows.remove(hwnd)
                 emit(hwnd, WindowEvent.PointerLeft)
                 0L
             }

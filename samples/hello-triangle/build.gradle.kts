@@ -40,9 +40,10 @@ dependencies {
     implementation(libs.webgpu.ktypes.descriptors)
     // runBlocking — transitive via wgpu4k but declared explicitly for clarity
     implementation(libs.kotlinx.coroutines.core)
-    // Linux backends: required by --capture mode, which reuses
-    // the kadre EventLoop to obtain a Wayland/X11 window. The facade loads them
-    // by reflection → they must be on the classpath. Inert on macOS/Windows.
+    // Kadre platform backends. The :kadre facade selects one by reflection at runtime
+    // (AppKit on macOS, Win32 on Windows, X11/Wayland on Linux), so every desktop backend
+    // must be on the classpath for the sample to open a window on each OS. Inert elsewhere.
+    implementation(project(":kadre-win32"))
     implementation(project(":kadre-wayland"))
     implementation(project(":kadre-x11"))
 }

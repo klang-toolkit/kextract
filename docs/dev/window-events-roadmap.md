@@ -43,11 +43,16 @@ High value, low effort, testable on macOS.
 - **Destroyed**
   - appkit: emit in `windowWillClose:` (already removes the window from the map)
 
-### Phase 2 — Linux completion
-- wayland: `CloseRequested` (xdg_toplevel close), `Resized` (xdg configure), `Focused`
-  (wl_keyboard enter/leave), `RedrawRequested` (frame callback), `Destroyed`, `Moved` is n/a.
+### Phase 2 — Linux completion + win32 PointerEntered
+- ✅ **win32 `PointerEntered`** — emitted on the first `WM_MOUSEMOVE` after entering (tracked per
+  hwnd; cleared on `WM_MOUSELEAVE`).
 - x11 + wayland: `ScaleFactorChanged` (XSETTINGS `Xft.dpi` / RandR; wl_output / fractional-scale).
-- win32: `PointerEntered` (first `WM_MOUSEMOVE` after a leave, via TrackMouseEvent — already armed).
+- ⚠️ **wayland is a partial stub**: `handler.windowEvent(...)` is **not wired anywhere** (the
+  pointer/keyboard mappers exist but their listeners don't dispatch to the handler yet; see the
+  `stub #66` comment). Emitting `CloseRequested` (xdg_toplevel.close), `Resized` (xdg configure),
+  `Focused` (wl_keyboard enter/leave), `RedrawRequested` (frame callback) and `Destroyed` is a
+  **dedicated task** — it first needs the event-dispatch path wired, and on-device testing.
+  (`Moved` is n/a on Wayland — clients don't know their global position.)
 
 ### Phase 3 — Touch
 - appkit: `touchesBegan/Moved/Ended/Cancelled:` (trackpad), or NSTouch.
