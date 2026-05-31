@@ -1,6 +1,6 @@
-# Welcome to Koreos Documentation
+# Welcome to Kadre Documentation
 
-This site centralizes all technical documentation, architecture guidelines, and API references for **Koreos** — a cross-platform windowing & events library for Kotlin Multiplatform.
+This site centralizes all technical documentation, architecture guidelines, and API references for **Kadre** — a cross-platform windowing & events library for Kotlin Multiplatform.
 
 ---
 

@@ -15,10 +15,10 @@ test('hello-triangle-web initialise wgpu4k et présente des frames', async ({ pa
   await page.goto('/');
 
   // Le canvas cible doit être présent.
-  await expect(page.locator('#koreos-canvas')).toBeVisible();
+  await expect(page.locator('#kadre-canvas')).toBeVisible();
 
   // Attendre l'initialisation complète : device + pipeline créés.
-  // C'est le signal « la stack Koreos + wgpu4k Web a démarré bout-en-bout ».
+  // C'est le signal « la stack Kadre + wgpu4k Web a démarré bout-en-bout ».
   await expect
     .poll(() => logs.some((l) => l.includes('Pipeline prêt')), { timeout: 60_000 })
     .toBe(true);
@@ -31,7 +31,7 @@ test('hello-triangle-web initialise wgpu4k et présente des frames', async ({ pa
   await page.waitForTimeout(2_000);
 
   // Artefact de preuve visuelle.
-  await page.locator('#koreos-canvas').screenshot({ path: 'triangle.png' });
+  await page.locator('#kadre-canvas').screenshot({ path: 'triangle.png' });
 
   // Aucune exception JS non gérée pendant le rendu.
   expect(errors, `Erreurs JS: ${errors.join(' | ')}`).toEqual([]);

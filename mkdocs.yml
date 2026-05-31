@@ -1,4 +1,4 @@
-site_name: Koreos
+site_name: Kadre
 site_description: Cross-platform windowing & events for Kotlin Multiplatform
 site_url: https://ygdrasil-io.github.io/poc-koreos/
 repo_url: https://github.com/ygdrasil-io/poc-koreos
@@ -54,26 +54,26 @@ markdown_extensions:
 # choisit la bonne variante (`*.md` pour EN, `*.fr.md` pour FR) selon
 # le build en cours.
 nav:
-  - Home: koreos/index.md
+  - Home: kadre/index.md
   - Blog:
-      - koreos/blog/v0.2.0-release.md
+      - kadre/blog/v0.2.0-release.md
   - Tutorials:
-      - koreos/tutorials/windows-app.md
-      - koreos/tutorials/linux-app.md
-      - koreos/tutorials/web-embed.md
-  - Plan: koreos/plan.md
-  - Plan v0.2: koreos/plan-v0.2.md
-  - Sprint Review v0.1: koreos/sprint-review-v0.1.md
-  - Post-mortem M2: koreos/postmortem-m2.md
-  - Specs: koreos/specs.md
-  - Specs v0.2: koreos/specs-v0.2.md
-  - API Stability: koreos/api-stability.md
-  - Performance: koreos/performance.md
-  - Release Process: koreos/release-process.md
-  - Testing: koreos/testing.md
-  - Visual Testing: koreos/visual-testing.md
-  - Roadmap Progress: koreos/roadmap-progress.md
-  - API Reference: koreos/api/index.md
+      - kadre/tutorials/windows-app.md
+      - kadre/tutorials/linux-app.md
+      - kadre/tutorials/web-embed.md
+  - Plan: kadre/plan.md
+  - Plan v0.2: kadre/plan-v0.2.md
+  - Sprint Review v0.1: kadre/sprint-review-v0.1.md
+  - Post-mortem M2: kadre/postmortem-m2.md
+  - Specs: kadre/specs.md
+  - Specs v0.2: kadre/specs-v0.2.md
+  - API Stability: kadre/api-stability.md
+  - Performance: kadre/performance.md
+  - Release Process: kadre/release-process.md
+  - Testing: kadre/testing.md
+  - Visual Testing: kadre/visual-testing.md
+  - Roadmap Progress: kadre/roadmap-progress.md
+  - API Reference: kadre/api/index.md
 
 plugins:
   - search
@@ -87,7 +87,7 @@ plugins:
         - locale: fr
           name: Français
           build: true
-          site_name: Koreos
+          site_name: Kadre
           site_description: Fenêtrage et événements multiplateforme pour Kotlin Multiplatform
           # Traductions des titres de nav (les sections / pages listées dans
           # le `nav:` global ci-dessus).

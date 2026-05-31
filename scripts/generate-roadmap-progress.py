@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Génère docs/koreos/roadmap-progress.md depuis Redmine + git log (Redmine #87).
+"""Génère docs/kadre/roadmap-progress.md depuis Redmine + git log (Redmine #87).
 
 Lecture seule. Combine :
 - l'API Redmine (tickets project=1 : statut, priorité, dates, sprint depuis la description)
@@ -27,7 +27,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 
 PROJECT_ID = 1
-OUTPUT = "docs/koreos/roadmap-progress.md"
+OUTPUT = "docs/kadre/roadmap-progress.md"
 OPEN_STATUSES = {"Nouveau", "En cours", "À prioriser", "En attente", "Info nécessaire", "Review", "À tester"}
 BLOCKED_STATUSES = {"En attente", "Info nécessaire"}
 

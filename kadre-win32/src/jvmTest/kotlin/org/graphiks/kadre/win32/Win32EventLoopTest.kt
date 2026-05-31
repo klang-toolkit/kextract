@@ -1,0 +1,222 @@
+/**
+ * Tests unitaires pour Win32EventLoop.
+ *
+ * Ces tests vérifient la logique pure Kotlin de Win32EventLoop (gestion du ControlFlow,
+ * cycle de vie, isExiting) sans déclencher de vrais appels FFM Win32.
+ *
+ * Sur macOS/Linux : tous les tests s'exécutent car la logique testée est indépendante
+ * des bindings FFM (peekMessageW, getMessageW sont null → branches fallback).
+ *
+ * Sur Windows : les tests supplémentaires de runApp peuvent être activés
+ * (voir bloc `if (!isWindows()) return`).
+ */
+package org.graphiks.kadre.win32
+
+import org.graphiks.kadre.core.ActiveEventLoop
+import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.DeviceId
+import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.Window
+import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowId
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+
+/** Retourne true si le test tourne sur Windows. */
+private fun isWindows(): Boolean =
+    System.getProperty("os.name", "").contains("Windows", ignoreCase = true)
+
+// ── Implémentation ApplicationHandler minimale pour les tests ─────────────────
+
+/**
+ * ApplicationHandler de test qui enregistre les callbacks reçus.
+ */
+private class TestApplicationHandler(
+    private val onResumed: (ActiveEventLoop) -> Unit = {},
+    private val onSuspended: (ActiveEventLoop) -> Unit = {},
+    private val onNewEvents: (ActiveEventLoop, StartCause) -> Unit = { _, _ -> },
+    private val onAboutToWait: (ActiveEventLoop) -> Unit = {},
+    private val onCanCreateSurfaces: (ActiveEventLoop) -> Unit = {},
+) : ApplicationHandler {
+    override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = onCanCreateSurfaces(eventLoop)
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {}
+    override fun resumed(eventLoop: ActiveEventLoop) = onResumed(eventLoop)
+    override fun suspended(eventLoop: ActiveEventLoop) = onSuspended(eventLoop)
+    override fun newEvents(eventLoop: ActiveEventLoop, startCause: StartCause) = onNewEvents(eventLoop, startCause)
+    override fun aboutToWait(eventLoop: ActiveEventLoop) = onAboutToWait(eventLoop)
+}
+
+// ── Tests Win32EventLoop ──────────────────────────────────────────────────────
+
+class Win32EventLoopTest {
+
+    // ── ControlFlow ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `ControlFlow initial est Wait`() {
+        val loop = Win32EventLoop()
+        assertTrue(loop.controlFlow is ControlFlow.Wait)
+    }
+
+    @Test
+    fun `setControlFlow Poll change le mode`() {
+        val loop = Win32EventLoop()
+        loop.setControlFlow(ControlFlow.Poll)
+        assertTrue(loop.controlFlow is ControlFlow.Poll)
+    }
+
+    @Test
+    fun `setControlFlow WaitUntil change le mode avec l instant cible`() {
+        val loop = Win32EventLoop()
+        val instant = System.currentTimeMillis() + 1000L
+        loop.setControlFlow(ControlFlow.WaitUntil(instant))
+        val cf = loop.controlFlow
+        assertTrue(cf is ControlFlow.WaitUntil)
+        assertEquals(instant, cf.instant)
+    }
+
+    @Test
+    fun `setControlFlow Wait revient au mode attente bloquant`() {
+        val loop = Win32EventLoop()
+        loop.setControlFlow(ControlFlow.Poll)
+        loop.setControlFlow(ControlFlow.Wait)
+        assertTrue(loop.controlFlow is ControlFlow.Wait)
+    }
+
+    // ── isExiting ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `isExiting est false au demarrage`() {
+        val loop = Win32EventLoop()
+        assertFalse(loop.isExiting)
+    }
+
+    @Test
+    fun `exit positionne isExiting a true`() {
+        val loop = Win32EventLoop()
+        loop.exit()
+        assertTrue(loop.isExiting)
+    }
+
+    // ── createProxy ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `createProxy retourne un proxy non null`() {
+        val loop = Win32EventLoop()
+        val proxy = loop.createProxy()
+        assertNotNull(proxy)
+    }
+
+    @Test
+    fun `wakeUp du proxy ne leve pas d exception sur non-Windows`() {
+        if (isWindows()) return
+        val loop = Win32EventLoop()
+        val proxy = loop.createProxy()
+        // Ne doit pas lever d'exception sur macOS/Linux (PostThreadMessageW est null)
+        proxy.wakeUp()
+    }
+
+    // ── Constantes de boucle de messages ─────────────────────────────────────
+
+    @Test
+    fun `PM_REMOVE a la valeur 0x0001`() {
+        assertEquals(0x0001, PM_REMOVE)
+    }
+
+    @Test
+    fun `PM_NOREMOVE a la valeur 0x0000`() {
+        assertEquals(0x0000, PM_NOREMOVE)
+    }
+
+    @Test
+    fun `QS_ALLINPUT a la valeur 0x04FF`() {
+        assertEquals(0x04FF, QS_ALLINPUT)
+    }
+
+    @Test
+    fun `MWMO_INPUTAVAILABLE a la valeur 0x0004`() {
+        assertEquals(0x0004, MWMO_INPUTAVAILABLE)
+    }
+
+    @Test
+    fun `WAIT_OBJECT_0 a la valeur 0`() {
+        assertEquals(0, WAIT_OBJECT_0)
+    }
+
+    @Test
+    fun `WAIT_TIMEOUT a la valeur 0x102`() {
+        assertEquals(0x00000102, WAIT_TIMEOUT)
+    }
+
+    // ── MSG Layout ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `MsgLayout SIZEOF est 48 octets`() {
+        assertEquals(48, MsgLayout.SIZEOF)
+    }
+
+    @Test
+    fun `MsgLayout ALIGN est 8`() {
+        assertEquals(8, MsgLayout.ALIGN)
+    }
+
+    @Test
+    fun `MsgLayout LAYOUT byte size correspond a SIZEOF`() {
+        assertEquals(MsgLayout.SIZEOF.toLong(), MsgLayout.LAYOUT.byteSize())
+    }
+
+    @Test
+    fun `MsgLayout offsets corrects pour Win64 ABI`() {
+        assertEquals(0,  MsgLayout.OFFSET_HWND)
+        assertEquals(8,  MsgLayout.OFFSET_MESSAGE)
+        assertEquals(16, MsgLayout.OFFSET_WPARAM)
+        assertEquals(24, MsgLayout.OFFSET_LPARAM)
+        assertEquals(32, MsgLayout.OFFSET_TIME)
+        assertEquals(36, MsgLayout.OFFSET_PT_X)
+        assertEquals(40, MsgLayout.OFFSET_PT_Y)
+    }
+
+    // ── Bindings FFM — null sur non-Windows ──────────────────────────────────
+
+    @Test
+    fun `peekMessageW est null sur plateforme non-Windows`() {
+        if (isWindows()) return
+        assertEquals(null, peekMessageW)
+    }
+
+    @Test
+    fun `getMessageW est null sur plateforme non-Windows`() {
+        if (isWindows()) return
+        assertEquals(null, getMessageW)
+    }
+
+    @Test
+    fun `translateMessage est null sur plateforme non-Windows`() {
+        if (isWindows()) return
+        assertEquals(null, translateMessage)
+    }
+
+    @Test
+    fun `dispatchMessageW est null sur plateforme non-Windows`() {
+        if (isWindows()) return
+        assertEquals(null, dispatchMessageW)
+    }
+
+    @Test
+    fun `msgWaitForMultipleObjectsEx est null sur plateforme non-Windows`() {
+        if (isWindows()) return
+        assertEquals(null, msgWaitForMultipleObjectsEx)
+    }
+
+    // ── runApp — verrou singleton ─────────────────────────────────────────────
+
+    @Test
+    fun `win32Running est false avant runApp`() {
+        // Si un autre test a oublié de remettre le verrou, ce test le détectera
+        assertFalse(win32Running.get(), "win32Running doit être false au démarrage du test")
+    }
+}

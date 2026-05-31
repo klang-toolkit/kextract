@@ -1,6 +1,6 @@
 name: update-roadmap-dashboard
 
-# Régénère docs/koreos/roadmap-progress.md depuis Redmine + git log (Redmine #87).
+# Régénère docs/kadre/roadmap-progress.md depuis Redmine + git log (Redmine #87).
 # Tourne chaque jour à 9h UTC et sur push master. Commit auto si le contenu change.
 # Requiert les secrets REDMINE_URL et REDMINE_API_KEY.
 
@@ -48,10 +48,10 @@ jobs:
 
       - name: Commit if changed
         run: |
-          if [ -n "$(git status --porcelain docs/koreos/roadmap-progress.md)" ]; then
-            git config user.name "koreos-bot"
+          if [ -n "$(git status --porcelain docs/kadre/roadmap-progress.md)" ]; then
+            git config user.name "kadre-bot"
             git config user.email "bot@ygdrasil.io"
-            git add docs/koreos/roadmap-progress.md
+            git add docs/kadre/roadmap-progress.md
             git commit -m "chore(dashboard): update roadmap-progress"
             git push
           else

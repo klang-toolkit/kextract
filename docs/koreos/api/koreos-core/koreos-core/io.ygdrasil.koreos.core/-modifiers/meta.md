@@ -1,8 +1,0 @@
-//[koreos-core](../../../index.md)/[io.ygdrasil.koreos.core](../index.md)/[Modifiers](index.md)/[meta](meta.md)
-
-# meta
-
-[common]\
-val [meta](meta.md): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)
-
-`true` si la touche Meta (⌘ / Win) est enfoncée.

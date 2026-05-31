@@ -11,7 +11,7 @@ plugins {
 }
 
 android {
-    namespace = "io.ygdrasil.koreos.samples.androidcapture"
+    namespace = "org.graphiks.kadre.samples.androidcapture"
     compileSdk = 35
     defaultConfig {
         minSdk = 26

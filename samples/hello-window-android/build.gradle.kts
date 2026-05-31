@@ -1,8 +1,8 @@
 /**
- * Sample hello-window-android — fenêtre Koreos sur Android.
+ * Sample hello-window-android — fenêtre Kadre sur Android.
  *
  * Miroir Android du sample hello-window (JVM/iOS).
- * Démontre la convergence d'API Koreos : même HelloApp, même comportement
+ * Démontre la convergence d'API Kadre : même HelloApp, même comportement
  * sur les trois plateformes.
  *
  * Usage : ./gradlew :samples:hello-window-android:assembleDebug
@@ -13,10 +13,10 @@ plugins {
 }
 
 android {
-    namespace = "io.ygdrasil.koreos.samples.hellowindowandroid"
+    namespace = "org.graphiks.kadre.samples.hellowindowandroid"
     compileSdk = 35
     defaultConfig {
-        applicationId = "io.ygdrasil.koreos.samples.hellowindowandroid"
+        applicationId = "org.graphiks.kadre.samples.hellowindowandroid"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -32,6 +32,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":koreos"))
+    implementation(project(":kadre"))
     implementation("androidx.activity:activity:1.10.1")
 }

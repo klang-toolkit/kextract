@@ -1,6 +1,6 @@
-# Bienvenue sur la Documentation Koreos
+# Bienvenue sur la Documentation Kadre
 
-Ce site regroupe l'ensemble des documentations techniques, des guides d'architecture et de la référence API de **Koreos** — une bibliothèque de fenêtrage et d'événements multiplateforme pour Kotlin Multiplatform.
+Ce site regroupe l'ensemble des documentations techniques, des guides d'architecture et de la référence API de **Kadre** — une bibliothèque de fenêtrage et d'événements multiplateforme pour Kotlin Multiplatform.
 
 ---
 

@@ -1,7 +1,7 @@
 /**
  * Sample hello-touch-android — application Android de démonstration touch events.
  *
- * Consomme [io.ygdrasil.koreos.samples.hellotouch.HelloTouchHandler] depuis
+ * Consomme [org.graphiks.kadre.samples.hellotouch.HelloTouchHandler] depuis
  * `:samples:hello-touch` (commonMain KMP), démontrant que le handler est
  * 100 % Kotlin commun entre iOS et Android.
  */
@@ -11,10 +11,10 @@ plugins {
 }
 
 android {
-    namespace = "io.ygdrasil.koreos.samples.hellotouchandroid"
+    namespace = "org.graphiks.kadre.samples.hellotouchandroid"
     compileSdk = 35
     defaultConfig {
-        applicationId = "io.ygdrasil.koreos.samples.hellotouchandroid"
+        applicationId = "org.graphiks.kadre.samples.hellotouchandroid"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -30,7 +30,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":koreos"))
+    implementation(project(":kadre"))
     implementation(project(":samples:hello-touch"))
     implementation("androidx.activity:activity:1.10.1")
 }

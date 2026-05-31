@@ -16,17 +16,17 @@ on:
     branches: [master]
     paths:
       - 'samples/pong/**'
-      - 'koreos-js/**'
-      - 'koreos-web-common/**'
-      - 'koreos-core/**'
+      - 'kadre-js/**'
+      - 'kadre-web-common/**'
+      - 'kadre-core/**'
       - '.github/workflows/pong-e2e.yml'
   pull_request:
     branches: [master]
     paths:
       - 'samples/pong/**'
-      - 'koreos-js/**'
-      - 'koreos-web-common/**'
-      - 'koreos-core/**'
+      - 'kadre-js/**'
+      - 'kadre-web-common/**'
+      - 'kadre-core/**'
       - '.github/workflows/pong-e2e.yml'
   workflow_dispatch:
 

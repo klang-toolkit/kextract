@@ -1,0 +1,31 @@
+public final class org/graphiks/kadre/android/AndroidKadreRuntime {
+	public static final field INSTANCE Lorg/graphiks/kadre/android/AndroidKadreRuntime;
+	public final fun getCurrentHandler ()Lorg/graphiks/kadre/core/ApplicationHandler;
+	public final fun setCurrentHandler (Lorg/graphiks/kadre/core/ApplicationHandler;)V
+}
+
+public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre/core/Window {
+	public fun close ()V
+	public fun getId-1uDr44Y ()J
+	public fun getInnerSize ()Lorg/graphiks/kadre/core/PhysicalSize;
+	public fun getOuterSize ()Lorg/graphiks/kadre/core/PhysicalSize;
+	public fun getRawDisplayHandle ()Ljava/lang/Object;
+	public fun getRawWindowHandle ()Ljava/lang/Object;
+	public fun getScaleFactor ()D
+	public fun requestRedraw ()V
+	public fun setTitle (Ljava/lang/String;)V
+	public fun setVisible (Z)V
+}
+
+public abstract class org/graphiks/kadre/android/KadreActivity : androidx/activity/ComponentActivity {
+	public fun <init> ()V
+	public abstract fun createHandler ()Lorg/graphiks/kadre/core/ApplicationHandler;
+	public final fun getHandler ()Lorg/graphiks/kadre/core/ApplicationHandler;
+	public final fun getKadreWindow ()Lorg/graphiks/kadre/android/AndroidWindow;
+	protected fun onCreate (Landroid/os/Bundle;)V
+	protected fun onDestroy ()V
+	protected fun onPause ()V
+	protected fun onResume ()V
+	public fun onTouchEvent (Landroid/view/MotionEvent;)Z
+}
+

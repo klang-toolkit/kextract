@@ -16,7 +16,7 @@ plugins {
 }
 
 android {
-    namespace = "io.ygdrasil.koreos.samples.pong"
+    namespace = "org.graphiks.kadre.samples.pong"
 }
 
 kotlin {
@@ -44,7 +44,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                api(project(":koreos"))
+                api(project(":kadre"))
             }
         }
         commonTest {
@@ -58,17 +58,17 @@ kotlin {
                 implementation(libs.wgpu4k)
                 implementation(libs.webgpu.ktypes.descriptors)
                 implementation(libs.kotlinx.coroutines.core)
-                // koreos-appkit — ObjCRuntime (macOS CAMetalLayer)
-                implementation(project(":koreos-appkit"))
+                // kadre-appkit — ObjCRuntime (macOS CAMetalLayer)
+                implementation(project(":kadre-appkit"))
             }
         }
         jsMain {
             dependencies {
-                // wgpu4k Web (CanvasSurface, requestAdapter suspend) + facade koreos JS
+                // wgpu4k Web (CanvasSurface, requestAdapter suspend) + facade kadre JS
                 implementation(libs.wgpu4k)
                 implementation(libs.webgpu.ktypes.descriptors)
                 implementation(libs.kotlinx.coroutines.core)
-                implementation(project(":koreos-js"))
+                implementation(project(":kadre-js"))
             }
         }
         wasmJsMain {
@@ -76,7 +76,7 @@ kotlin {
                 implementation(libs.wgpu4k)
                 implementation(libs.webgpu.ktypes.descriptors)
                 implementation(libs.kotlinx.coroutines.core)
-                implementation(project(":koreos-wasm"))
+                implementation(project(":kadre-wasm"))
             }
         }
     }
@@ -88,7 +88,7 @@ tasks.register<JavaExec>("run") {
     group = "application"
     description = "Runs Pong on JVM (macOS AppKit + wgpu4k)"
     dependsOn("jvmJar")
-    mainClass.set("io.ygdrasil.koreos.samples.pong.MainKt")
+    mainClass.set("org.graphiks.kadre.samples.pong.MainKt")
     classpath = files(
         kotlin.targets.getByName("jvm").compilations.getByName("main").output.allOutputs,
         configurations.getByName("jvmRuntimeClasspath"),

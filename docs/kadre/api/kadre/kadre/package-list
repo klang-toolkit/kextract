@@ -1,0 +1,24 @@
+$dokka.format:html-v1
+$dokka.linkExtension:html
+$dokka.location:org.graphiks.kadre////PointingToDeclaration/kadre/org.graphiks.kadre/index.html
+$dokka.location:org.graphiks.kadre/ActiveEventLoop///PointingToDeclaration/kadre/org.graphiks.kadre/-active-event-loop/index.html
+$dokka.location:org.graphiks.kadre/ApplicationHandler///PointingToDeclaration/kadre/org.graphiks.kadre/-application-handler/index.html
+$dokka.location:org.graphiks.kadre/ControlFlow///PointingToDeclaration/kadre/org.graphiks.kadre/-control-flow/index.html
+$dokka.location:org.graphiks.kadre/DeviceEvent///PointingToDeclaration/kadre/org.graphiks.kadre/-device-event/index.html
+$dokka.location:org.graphiks.kadre/DeviceId///PointingToDeclaration/kadre/org.graphiks.kadre/-device-id/index.html
+$dokka.location:org.graphiks.kadre/EventLoop///PointingToDeclaration/kadre/org.graphiks.kadre/-event-loop/index.html
+$dokka.location:org.graphiks.kadre/EventLoop/EventLoop/#/PointingToDeclaration/kadre/org.graphiks.kadre/-event-loop/-event-loop.html
+$dokka.location:org.graphiks.kadre/EventLoop/runApp/#org.graphiks.kadre.core.ApplicationHandler/PointingToDeclaration/kadre/org.graphiks.kadre/-event-loop/run-app.html
+$dokka.location:org.graphiks.kadre/EventLoopProxy///PointingToDeclaration/kadre/org.graphiks.kadre/-event-loop-proxy/index.html
+$dokka.location:org.graphiks.kadre/LogicalPosition///PointingToDeclaration/kadre/org.graphiks.kadre/-logical-position/index.html
+$dokka.location:org.graphiks.kadre/LogicalSize///PointingToDeclaration/kadre/org.graphiks.kadre/-logical-size/index.html
+$dokka.location:org.graphiks.kadre/PhysicalPosition///PointingToDeclaration/kadre/org.graphiks.kadre/-physical-position/index.html
+$dokka.location:org.graphiks.kadre/PhysicalSize///PointingToDeclaration/kadre/org.graphiks.kadre/-physical-size/index.html
+$dokka.location:org.graphiks.kadre/RawDisplayHandle///PointingToDeclaration/kadre/org.graphiks.kadre/-raw-display-handle/index.html
+$dokka.location:org.graphiks.kadre/RawWindowHandle///PointingToDeclaration/kadre/org.graphiks.kadre/-raw-window-handle/index.html
+$dokka.location:org.graphiks.kadre/StartCause///PointingToDeclaration/kadre/org.graphiks.kadre/-start-cause/index.html
+$dokka.location:org.graphiks.kadre/Window///PointingToDeclaration/kadre/org.graphiks.kadre/-window/index.html
+$dokka.location:org.graphiks.kadre/WindowAttributes///PointingToDeclaration/kadre/org.graphiks.kadre/-window-attributes/index.html
+$dokka.location:org.graphiks.kadre/WindowEvent///PointingToDeclaration/kadre/org.graphiks.kadre/-window-event/index.html
+$dokka.location:org.graphiks.kadre/WindowId///PointingToDeclaration/kadre/org.graphiks.kadre/-window-id/index.html
+org.graphiks.kadre

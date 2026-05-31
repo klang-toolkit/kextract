@@ -4,7 +4,7 @@
 //   - Scripte une séquence d'inputs clavier (ArrowDown / ArrowUp / release)
 //   - Capture plusieurs frames à des instants distincts
 //   - Vérifie que des frames consécutives **diffèrent** (animation effective)
-//   - Vérifie que les events clavier remontent jusqu'au handler Koreos
+//   - Vérifie que les events clavier remontent jusqu'au handler Kadre
 //     (log `[pong-web] key X Pressed/Released` émis par PongAppWeb)
 //   - Vidéo .webm + trace Playwright systématiquement archivées
 //
@@ -46,7 +46,7 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   // 1. Boot — chargement page + initialisation wgpu4k Web
   // -------------------------------------------------------------------------
   await page.goto('/');
-  await expect(page.locator('#koreos-canvas')).toBeVisible();
+  await expect(page.locator('#kadre-canvas')).toBeVisible();
   await expect
     .poll(() => logs.some((l) => l.includes('Pipeline prêt')), { timeout: 60_000 })
     .toBe(true);
@@ -61,11 +61,11 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   // on observe l'animation sur une fenêtre de 2.5s.
   await page.waitForTimeout(1_500);
 
-  const frame1 = await page.locator('#koreos-canvas').screenshot();
+  const frame1 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame1-animation-start.png'), frame1);
 
   await page.waitForTimeout(2_500);
-  const frame2 = await page.locator('#koreos-canvas').screenshot();
+  const frame2 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame2-animation-2.5s.png'), frame2);
 
   // -------------------------------------------------------------------------
@@ -88,7 +88,7 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   // index.html du sample fait un .focus() au load + au click. On clique pour
   // garantir le focus avant d'envoyer des keyboard events (l'auto-focus initial
   // peut être perdu pendant les `waitForTimeout` selon l'env headless).
-  await page.locator('#koreos-canvas').click();
+  await page.locator('#kadre-canvas').click();
 
   // ArrowDown maintenu ~1s
   await page.keyboard.down('ArrowDown');
@@ -106,7 +106,7 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   ).toBe(true);
   expect(downReleased, 'Event ArrowDown Released jamais reçu').toBe(true);
 
-  const frame3 = await page.locator('#koreos-canvas').screenshot();
+  const frame3 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame3-after-arrowdown.png'), frame3);
 
   // ArrowUp maintenu ~1s — devrait remonter la raquette droite
@@ -118,7 +118,7 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   const upPressed = logs.some((l) => l.includes('key ArrowUp Pressed'));
   expect(upPressed, 'Event ArrowUp Pressed jamais reçu').toBe(true);
 
-  const frame4 = await page.locator('#koreos-canvas').screenshot();
+  const frame4 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame4-after-arrowup.png'), frame4);
 
   // -------------------------------------------------------------------------

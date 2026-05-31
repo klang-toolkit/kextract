@@ -1,5 +1,0 @@
-public final class io/ygdrasil/koreos/EventLoop {
-	public fun <init> ()V
-	public final fun runApp (Lio/ygdrasil/koreos/core/ApplicationHandler;)V
-}
-

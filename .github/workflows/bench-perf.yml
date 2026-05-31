@@ -3,7 +3,7 @@ name: bench-perf
 # Suite de benchmarks JMH (Redmine #90). Tourne sur push master et à la demande.
 # Mesure les composants purs (tick physique, IA, BitmapFont, InputAdapter) et publie
 # le JSON de résultats en artefact. La comparaison automatique à une baseline avec
-# seuil de régression reste un point ouvert (voir docs/koreos/performance.md).
+# seuil de régression reste un point ouvert (voir docs/kadre/performance.md).
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
     paths:
       - 'benchmarks/**'
       - 'samples/pong/**'
-      - 'koreos-core/**'
+      - 'kadre-core/**'
       - '.github/workflows/bench-perf.yml'
   workflow_dispatch:
 

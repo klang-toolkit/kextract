@@ -15,9 +15,9 @@ on:
       # Redmine #20 : redéployer les démos web quand les samples ou la stack web changent.
       - 'samples/hello-window-web/**'
       - 'samples/hello-triangle-web/**'
-      - 'koreos-js/**'
-      - 'koreos-wasm/**'
-      - 'koreos-web-common/**'
+      - 'kadre-js/**'
+      - 'kadre-wasm/**'
+      - 'kadre-web-common/**'
   workflow_dispatch:
 
 permissions:
@@ -48,7 +48,7 @@ jobs:
           # Navigation explicite dans mkdocs.yml à la place.
           pip install mkdocs-material mkdocs-static-i18n
 
-      # Les fichiers GFM Dokka sont déjà committés dans docs/koreos/api/.
+      # Les fichiers GFM Dokka sont déjà committés dans docs/kadre/api/.
       # Aucune régénération Gradle nécessaire ici.
       - name: Build site (MkDocs)
         run: mkdocs build
@@ -90,7 +90,7 @@ jobs:
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Koreos — démos web live</title>
+            <title>Kadre — démos web live</title>
             <style>
               body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; }
               h1 { font-size: 1.5rem; }
@@ -98,8 +98,8 @@ jobs:
             </style>
           </head>
           <body>
-            <h1>Koreos — démos web live</h1>
-            <p>Samples Koreos compilés en Kotlin/JS et exécutés dans le navigateur (WebGPU requis pour le triangle).</p>
+            <h1>Kadre — démos web live</h1>
+            <p>Samples Kadre compilés en Kotlin/JS et exécutés dans le navigateur (WebGPU requis pour le triangle).</p>
             <ul>
               <li><a href="hello-window-web/">hello-window-web</a> — fenêtre canvas + journal d'événements DOM</li>
               <li><a href="hello-triangle-web/">hello-triangle-web</a> — triangle RGB via wgpu4k Web</li>

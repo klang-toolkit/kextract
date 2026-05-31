@@ -1,5 +1,5 @@
 /**
- * Module benchmarks/jmh-core — suite JMH sur les composants purs de Koreos (Redmine #90).
+ * Module benchmarks/jmh-core — suite JMH sur les composants purs de Kadre (Redmine #90).
  *
  * JVM-only. Mesure les composants commonMain critiques : tick physique du jeu,
  * rendu BitmapFont, IA, adaptateur d'entrée. Lancer : `./gradlew :benchmarks:jmh-core:jmh`.
@@ -13,7 +13,7 @@ kotlin { jvmToolchain(25) }
 
 dependencies {
     jmh(project(":samples:pong"))
-    jmh(project(":koreos-core"))
+    jmh(project(":kadre-core"))
 }
 
 jmh {

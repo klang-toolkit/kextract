@@ -1,0 +1,5 @@
+public final class org/graphiks/kadre/EventLoop {
+	public fun <init> ()V
+	public final fun runApp (Lorg/graphiks/kadre/core/ApplicationHandler;)V
+}
+

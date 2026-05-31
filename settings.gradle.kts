@@ -61,20 +61,20 @@ dependencyResolutionManagement {
 
 rootProject.name = "kadre"
 
-// Modules Koreos
-include(":koreos-web-common")
-include(":koreos-core")
-include(":koreos-test")
+// Modules Kadre
+include(":kadre-web-common")
+include(":kadre-core")
+include(":kadre-test")
 include(":benchmarks:jmh-core")
-include(":koreos-appkit")
-include(":koreos-uikit")
-include(":koreos-win32")
-include(":koreos-x11")
-include(":koreos-wayland")
-include(":koreos-js")
-include(":koreos-wasm")
-include(":koreos")
-include(":koreos-android")
+include(":kadre-appkit")
+include(":kadre-uikit")
+include(":kadre-win32")
+include(":kadre-x11")
+include(":kadre-wayland")
+include(":kadre-js")
+include(":kadre-wasm")
+include(":kadre")
+include(":kadre-android")
 include(":samples:hello-metal")
 include(":samples:hello-triangle")
 include(":samples:hello-touch")

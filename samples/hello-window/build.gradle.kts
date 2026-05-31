@@ -1,7 +1,7 @@
 /**
  * Sample hello-window — fenêtre native cross-platform.
  *
- * Démontre l'API Koreos de base : création de fenêtre, gestion des
+ * Démontre l'API Kadre de base : création de fenêtre, gestion des
  * événements clavier/souris/cycle de vie depuis un handler commun.
  *
  * Cibles : JVM (macOS via AppKit), iOS.
@@ -22,7 +22,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation(project(":koreos"))
+                implementation(project(":kadre"))
             }
         }
     }
@@ -33,7 +33,7 @@ tasks.register<JavaExec>("run") {
     group = "application"
     description = "Runs hello-window on JVM (macOS AppKit)"
     dependsOn("jvmJar")
-    mainClass.set("io.ygdrasil.koreos.samples.hellowindow.MainKt")
+    mainClass.set("org.graphiks.kadre.samples.hellowindow.MainKt")
     classpath = files(
         kotlin.targets.getByName("jvm").compilations.getByName("main").output.allOutputs,
         configurations.getByName("jvmRuntimeClasspath"),

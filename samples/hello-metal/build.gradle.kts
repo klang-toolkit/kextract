@@ -1,12 +1,12 @@
 /**
  * Sample hello-metal — démonstrateur POC Metal view minimale (Jalon M1).
  *
- * Ce module illustre l'utilisation de koreos pour ouvrir une fenêtre macOS
+ * Ce module illustre l'utilisation de kadre pour ouvrir une fenêtre macOS
  * native avec un contentView layer-backed (CAMetalLayer), prête pour un
  * renderer Metal ou wgpu4k.
  *
  * Cible : jvm (JDK 25, macOS Desktop uniquement).
- * Dépendance : koreos (façade) qui embarque koreos-appkit en jvmMain.
+ * Dépendance : kadre (façade) qui embarque kadre-appkit en jvmMain.
  *
  * Note : ce module utilise le plugin Kotlin/JVM (non KMP) car il est jvm-only
  * et doit pouvoir déclarer un point d'entrée d'application standard.
@@ -21,7 +21,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("io.ygdrasil.koreos.samples.hellometal.MainKt")
+    mainClass.set("org.graphiks.kadre.samples.hellometal.MainKt")
 
     // macOS exige que NSApplication tourne sur le thread principal (AppKit).
     // -XstartOnFirstThread garantit que le thread JVM principal = thread macOS principal.
@@ -37,5 +37,5 @@ application {
 }
 
 dependencies {
-    implementation(project(":koreos"))
+    implementation(project(":kadre"))
 }

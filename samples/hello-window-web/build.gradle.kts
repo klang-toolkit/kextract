@@ -1,7 +1,7 @@
 /**
  * Sample hello-window-web — fenêtre canvas web cross-cible (JS + Wasm).
  *
- * Démontre l'API Koreos de base pour les cibles navigateur :
+ * Démontre l'API Kadre de base pour les cibles navigateur :
  * création de fenêtre canvas, journalisation des événements DOM.
  *
  * Cibles : js(IR) browser, wasmJs browser.
@@ -37,17 +37,17 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation(project(":koreos"))
+                implementation(project(":kadre"))
             }
         }
         jsMain {
             dependencies {
-                implementation(project(":koreos-js"))
+                implementation(project(":kadre-js"))
             }
         }
         wasmJsMain {
             dependencies {
-                implementation(project(":koreos-wasm"))
+                implementation(project(":kadre-wasm"))
             }
         }
     }

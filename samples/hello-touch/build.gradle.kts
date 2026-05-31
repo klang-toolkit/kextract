@@ -1,5 +1,5 @@
 /**
- * Sample hello-touch — démontre le pipeline touch events Koreos.
+ * Sample hello-touch — démontre le pipeline touch events Kadre.
  *
  * Cibles KMP : androidTarget + iOS (iosArm64, iosSimulatorArm64).
  * Le handler [HelloTouchHandler] est défini en commonMain et partagé
@@ -10,14 +10,14 @@ plugins {
 }
 
 android {
-    namespace = "io.ygdrasil.koreos.samples.hellotouch"
+    namespace = "org.graphiks.kadre.samples.hellotouch"
 }
 
 kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation(project(":koreos"))
+                implementation(project(":kadre"))
             }
         }
     }

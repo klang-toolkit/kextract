@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Koreos CI — Multi-Platform
+# Kadre CI — Multi-Platform
 #
 # Stratégie à deux niveaux (GRA-160 + GRA-39) :
 #
@@ -25,7 +25,7 @@
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
-name: Koreos CI
+name: Kadre CI
 
 on:
   push:
@@ -78,13 +78,13 @@ jobs:
         if: steps.strategy.outputs.mode == 'fast-track'
         run: |
           ./gradlew \
-            :koreos-core:jvmTest \
-            :koreos-appkit:jvmTest \
-            :koreos-core:checkKotlinAbi \
-            :koreos-appkit:checkKotlinAbi \
-            :koreos-uikit:checkKotlinAbi \
-            :koreos-android:checkKotlinAbi \
-            :koreos:checkKotlinAbi \
+            :kadre-core:jvmTest \
+            :kadre-appkit:jvmTest \
+            :kadre-core:checkKotlinAbi \
+            :kadre-appkit:checkKotlinAbi \
+            :kadre-uikit:checkKotlinAbi \
+            :kadre-android:checkKotlinAbi \
+            :kadre:checkKotlinAbi \
             --no-daemon \
             --stacktrace
 
@@ -94,23 +94,23 @@ jobs:
         if: steps.strategy.outputs.mode == 'deep'
         run: |
           ./gradlew \
-            :koreos-core:jvmTest \
-            :koreos-core:iosSimulatorArm64Test \
-            :koreos-appkit:jvmTest \
-            :koreos:jvmTest \
-            :koreos:iosSimulatorArm64Test \
-            :koreos-core:checkKotlinAbi \
-            :koreos-appkit:checkKotlinAbi \
-            :koreos-uikit:checkKotlinAbi \
-            :koreos-android:checkKotlinAbi \
-            :koreos:checkKotlinAbi \
+            :kadre-core:jvmTest \
+            :kadre-core:iosSimulatorArm64Test \
+            :kadre-appkit:jvmTest \
+            :kadre:jvmTest \
+            :kadre:iosSimulatorArm64Test \
+            :kadre-core:checkKotlinAbi \
+            :kadre-appkit:checkKotlinAbi \
+            :kadre-uikit:checkKotlinAbi \
+            :kadre-android:checkKotlinAbi \
+            :kadre:checkKotlinAbi \
             --no-daemon \
             --stacktrace
 
   # ── Job 2 : macos-build ──────────────────────────────────────────────────
   #
   # Compile les modules macOS-spécifiques (AppKit FFM) et les samples JVM/macOS.
-  # Valide que koreos-appkit + samples compilent sur un runner macOS standard.
+  # Valide que kadre-appkit + samples compilent sur un runner macOS standard.
   # S'exécute sur toutes les branches pour un feedback rapide.
   macos-build:
     name: macos-build
@@ -135,9 +135,9 @@ jobs:
       - name: Build macOS modules + JVM samples
         run: |
           ./gradlew \
-            :koreos-core:jvmTest \
-            :koreos-appkit:build \
-            :koreos:jvmTest \
+            :kadre-core:jvmTest \
+            :kadre-appkit:build \
+            :kadre:jvmTest \
             :samples:hello-metal:build \
             :samples:hello-triangle:build \
             :samples:hello-window:compileKotlinJvm \
@@ -181,9 +181,9 @@ jobs:
       - name: Build iOS targets (iosSimulatorArm64)
         run: |
           ./gradlew \
-            :koreos-core:compileKotlinIosSimulatorArm64 \
-            :koreos-uikit:compileKotlinIosSimulatorArm64 \
-            :koreos:compileKotlinIosSimulatorArm64 \
+            :kadre-core:compileKotlinIosSimulatorArm64 \
+            :kadre-uikit:compileKotlinIosSimulatorArm64 \
+            :kadre:compileKotlinIosSimulatorArm64 \
             :samples:hello-touch:compileKotlinIosSimulatorArm64 \
             :samples:hello-window:compileKotlinIosSimulatorArm64 \
             --no-daemon \
@@ -193,8 +193,8 @@ jobs:
       - name: Run iOS simulator tests
         run: |
           ./gradlew \
-            :koreos-core:iosSimulatorArm64Test \
-            :koreos:iosSimulatorArm64Test \
+            :kadre-core:iosSimulatorArm64Test \
+            :kadre:iosSimulatorArm64Test \
             --no-daemon \
             --stacktrace
 
@@ -207,7 +207,7 @@ jobs:
   #   • PRs vers master / push sur master
   #   • push ou PR sur les branches claude/** (feature branches CI)
   #
-  # Tests instrumentés : les modules Koreos n'ont pas encore de tests
+  # Tests instrumentés : les modules Kadre n'ont pas encore de tests
   # Robolectric — le job valide la compilation et le packaging APK.
   # À étendre avec Robolectric quand des tests Android seront ajoutés.
   android-build:
@@ -245,8 +245,8 @@ jobs:
       - name: Build Android modules + samples
         run: |
           ./gradlew \
-            :koreos-android:build \
-            :koreos:compileDebugKotlinAndroid \
+            :kadre-android:build \
+            :kadre:compileDebugKotlinAndroid \
             :samples:hello-touch-android:assembleDebug \
             :samples:hello-window-android:assembleDebug \
             --no-daemon \
@@ -287,15 +287,15 @@ jobs:
       - name: Build web modules (JS + Wasm)
         run: |
           ./gradlew \
-            :koreos-core:jvmTest \
-            :koreos-js:compileKotlinJs \
-            :koreos-wasm:compileKotlinWasmJs \
+            :kadre-core:jvmTest \
+            :kadre-js:compileKotlinJs \
+            :kadre-wasm:compileKotlinWasmJs \
             --no-daemon \
             --stacktrace
 
   # ── Job 6 : windows-build ────────────────────────────────────────────────
   #
-  # Build les modules Win32 (koreos-win32 FFM) et exécute les tests JVM Windows.
+  # Build les modules Win32 (kadre-win32 FFM) et exécute les tests JVM Windows.
   # Valide la compilation Win32-specific et le sample hello-triangle sur Windows.
   #
   # S'exécute sur Deep-Testing :
@@ -330,23 +330,23 @@ jobs:
         shell: bash
         run: |
           ./gradlew \
-            :koreos-core:jvmTest \
-            :koreos-win32:build \
-            :koreos-win32:jvmTest \
+            :kadre-core:jvmTest \
+            :kadre-win32:build \
+            :kadre-win32:jvmTest \
             :samples:hello-triangle:build \
             --no-daemon \
             --stacktrace
 
   # ── Job 6 : linux-x11-build ─────────────────────────────────────────────
   #
-  # Build le module koreos-x11 et exécute les tests JVM sous Xvfb (X11 virtuel).
+  # Build le module kadre-x11 et exécute les tests JVM sous Xvfb (X11 virtuel).
   # Utilise ubuntu-latest avec les paquets X11 dev pour fournir libX11 au runtime.
   #
   # S'exécute sur Deep-Testing :
   #   • PRs vers master / push sur master
   #   • push ou PR sur les branches claude/** (feature branches CI)
   #
-  # Note : koreos-x11:jvmTest détecte automatiquement l'absence de display et
+  # Note : kadre-x11:jvmTest détecte automatiquement l'absence de display et
   # saute les tests nécessitant un serveur X — xvfb-run -a fournit un display
   # virtuel stable pour les tests qui en ont besoin.
   # hello-triangle (wgpu native) est exclu pour v0.2.
@@ -370,7 +370,7 @@ jobs:
           java-version: '25'
           cache: 'gradle'
 
-      # Installe les dépendances X11 requises par koreos-x11 (FFM + JNI).
+      # Installe les dépendances X11 requises par kadre-x11 (FFM + JNI).
       # libX11-dev fournit le .so runtime ; xvfb fournit un serveur X virtuel.
       - name: Install X11 dependencies
         run: sudo apt-get install -y xvfb libx11-dev libxi-dev libxkbcommon-dev
@@ -383,14 +383,14 @@ jobs:
       - name: Build X11 modules + JVM tests (Xvfb)
         run: |
           xvfb-run -a ./gradlew \
-            :koreos-core:jvmTest \
-            :koreos-x11:build \
+            :kadre-core:jvmTest \
+            :kadre-x11:build \
             --no-daemon \
             --stacktrace
 
   # ── Job 7 : linux-wayland-build ─────────────────────────────────────────
   #
-  # Build le module koreos-wayland et exécute les tests JVM Wayland.
+  # Build le module kadre-wayland et exécute les tests JVM Wayland.
   # Utilise ubuntu-latest avec les paquets Wayland dev.
   #
   # S'exécute sur Deep-Testing :
@@ -421,7 +421,7 @@ jobs:
           java-version: '25'
           cache: 'gradle'
 
-      # Installe les dépendances Wayland requises par koreos-wayland (FFM + JNI).
+      # Installe les dépendances Wayland requises par kadre-wayland (FFM + JNI).
       - name: Install Wayland dependencies
         run: sudo apt-get install -y libwayland-dev wayland-protocols libxkbcommon-dev
 
@@ -433,7 +433,7 @@ jobs:
       - name: Build Wayland modules + JVM tests
         run: |
           ./gradlew \
-            :koreos-core:jvmTest \
-            :koreos-wayland:build \
+            :kadre-core:jvmTest \
+            :kadre-wayland:build \
             --no-daemon \
             --stacktrace

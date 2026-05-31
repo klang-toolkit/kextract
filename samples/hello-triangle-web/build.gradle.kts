@@ -5,7 +5,7 @@
  *   canvas DOM → [RawWindowHandle.Web] → CanvasSurface → Adapter → Device → Pipeline → render loop.
  *
  * Réutilise le shader WGSL et la séquence de rendu du sample desktop
- * [io.ygdrasil.koreos.samples.hellotriangle], adaptés à l'API web de wgpu4k
+ * [org.graphiks.kadre.samples.hellotriangle], adaptés à l'API web de wgpu4k
  * (getCanvasSurface / requestAdapter top-level / configure sans Set d'usage).
  *
  * Cibles : js(IR) browser, wasmJs browser, `binaries.executable()`.
@@ -42,7 +42,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation(project(":koreos"))
+                implementation(project(":kadre"))
                 // wgpu4k publie des variantes web (js / wasmJs) résolues automatiquement
                 // selon la cible : voir gradle/libs.versions.toml (wgpu4k = 0.1.1).
                 implementation(libs.wgpu4k)
@@ -54,12 +54,12 @@ kotlin {
         }
         jsMain {
             dependencies {
-                implementation(project(":koreos-js"))
+                implementation(project(":kadre-js"))
             }
         }
         wasmJsMain {
             dependencies {
-                implementation(project(":koreos-wasm"))
+                implementation(project(":kadre-wasm"))
             }
         }
     }

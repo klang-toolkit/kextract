@@ -1,0 +1,13 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, iosX64, js, wasmJs]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <org.graphiks.kadre:kadre>
+final class org.graphiks.kadre/EventLoop { // org.graphiks.kadre/EventLoop|null[0]
+    constructor <init>() // org.graphiks.kadre/EventLoop.<init>|<init>(){}[0]
+
+    final fun runApp(org.graphiks.kadre.core/ApplicationHandler) // org.graphiks.kadre/EventLoop.runApp|runApp(org.graphiks.kadre.core.ApplicationHandler){}[0]
+}

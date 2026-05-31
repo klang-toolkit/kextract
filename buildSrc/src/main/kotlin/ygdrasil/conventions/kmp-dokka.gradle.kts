@@ -2,7 +2,7 @@
  * Convention plugin kmp-dokka — documentation KDoc via Dokka.
  *
  * Deux modes de rendu :
- *   - GFM (GitHub Flavored Markdown) → docs/koreos/api/${project.name}
+ *   - GFM (GitHub Flavored Markdown) → docs/kadre/api/${project.name}
  *     Utilisé par MkDocs pour le site de documentation.
  *   - HTML → build/dokka/html/${project.name}
  *     Utilisé par kmp-publish pour le artefact -javadoc.jar (Maven Central).
@@ -27,7 +27,7 @@ dependencies {
 
 tasks.named<DokkaTask>("dokkaGfm") {
     moduleName.set(project.name)
-    outputDirectory.set(rootProject.file("docs/koreos/api/${project.name}"))
+    outputDirectory.set(rootProject.file("docs/kadre/api/${project.name}"))
 
     dokkaSourceSets.configureEach {
         skipEmptyPackages.set(true)

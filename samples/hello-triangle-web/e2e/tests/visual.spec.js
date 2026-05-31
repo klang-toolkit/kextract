@@ -4,7 +4,7 @@
 // tolérance de 2 %. Le rendu WebGPU SwiftShader pouvant varier légèrement selon
 // l'environnement, ce test est **informatif** : il journalise le ratio de diff et
 // archive l'image de diff en artefact, mais n'échoue jamais le build. Voir
-// docs/koreos/visual-testing.md pour le workflow updateVisualBaselines.
+// docs/kadre/visual-testing.md pour le workflow updateVisualBaselines.
 const fs = require('fs');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
@@ -22,12 +22,12 @@ test('régression visuelle hello-triangle-web (informatif)', async ({ page }) =>
   page.on('console', (m) => logs.push(m.text()));
 
   await page.goto('/');
-  await expect(page.locator('#koreos-canvas')).toBeVisible();
+  await expect(page.locator('#kadre-canvas')).toBeVisible();
   // Attendre l'initialisation complète + quelques frames stables.
   await expect.poll(() => logs.some((l) => l.includes('Pipeline prêt')), { timeout: 60_000 }).toBe(true);
   await page.waitForTimeout(1_500);
 
-  const shot = await page.locator('#koreos-canvas').screenshot();
+  const shot = await page.locator('#kadre-canvas').screenshot();
   fs.mkdirSync(RESULTS, { recursive: true });
   fs.writeFileSync(ACTUAL, shot);
   const result = assertScreenshotMatches(shot, BASELINE, { tolerance: TOLERANCE, diffPath: DIFF });

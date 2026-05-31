@@ -14,15 +14,15 @@ on:
     branches: [master]
     paths:
       - 'samples/hello-triangle-web/**'
-      - 'koreos-js/**'
-      - 'koreos-web-common/**'
+      - 'kadre-js/**'
+      - 'kadre-web-common/**'
       - '.github/workflows/web-e2e.yml'
   pull_request:
     branches: [master]
     paths:
       - 'samples/hello-triangle-web/**'
-      - 'koreos-js/**'
-      - 'koreos-web-common/**'
+      - 'kadre-js/**'
+      - 'kadre-web-common/**'
       - '.github/workflows/web-e2e.yml'
   workflow_dispatch:
 
@@ -40,7 +40,7 @@ jobs:
         # retourne `null` à chaque fois). Cf. PR #131 pour l'historique des
         # 3 tentatives. À revisiter quand des runners Windows avec GPU
         # passthrough seront disponibles (ou via self-hosted).
-        # La couverture compile/tests Windows reste assurée par `Koreos CI`
+        # La couverture compile/tests Windows reste assurée par `Kadre CI`
         # (job `windows-build`).
         os: [macos-latest]
     runs-on: ${{ matrix.os }}

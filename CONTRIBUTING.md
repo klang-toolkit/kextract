@@ -1,4 +1,4 @@
-# Contribuer à Koreos
+# Contribuer à Kadre
 
 ## Build & tests
 
@@ -9,8 +9,8 @@
 
 ## Stabilité de l'API publique (ABI)
 
-Les modules publiés (`koreos-core`, `koreos-appkit`, `koreos-uikit`,
-`koreos-android`, `koreos`) sont protégés par la validation ABI intégrée au plugin
+Les modules publiés (`kadre-core`, `kadre-appkit`, `kadre-uikit`,
+`kadre-android`, `kadre`) sont protégés par la validation ABI intégrée au plugin
 Kotlin. Si une PR modifie l'API publique, `checkKotlinAbi` (exécutée par `check`)
 **échoue** tant que le dump de référence n'est pas mis à jour.
 
@@ -21,10 +21,10 @@ En cas de changement d'API **intentionnel** :
 git add **/api/                     # commiter les dumps dans la même PR
 ```
 
-Voir [docs/koreos/api-stability.md](docs/koreos/api-stability.md) pour le détail.
+Voir [docs/kadre/api-stability.md](docs/kadre/api-stability.md) pour le détail.
 
 ## Tests d'`ApplicationHandler` sans backend natif
 
-Le module `koreos-test` fournit `ScriptedEventLoop` et le DSL `scriptedTest { … }`
+Le module `kadre-test` fournit `ScriptedEventLoop` et le DSL `scriptedTest { … }`
 pour tester un handler de façon déterministe. Voir
-[docs/koreos/testing.md](docs/koreos/testing.md).
+[docs/kadre/testing.md](docs/kadre/testing.md).

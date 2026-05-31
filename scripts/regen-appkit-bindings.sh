@@ -6,7 +6,7 @@
 #   scripts/regen-appkit-bindings.sh /path/to/kextract/bin/kextract
 #
 # After running this script, apply the manual fixups documented in
-# koreos-appkit/src/jvmMain/kotlin/io/ygdrasil/koreos/appkit/bindings/AppKit_h.kt
+# kadre-appkit/src/jvmMain/kotlin/org/graphiks/kadre/appkit/bindings/AppKit_h.kt
 # (search for "Manual fixups" at the top of the file) or use the perl/sed lines
 # at the bottom of this script.
 #
@@ -21,7 +21,7 @@ KEXTRACT="${1:?Usage: $0 /path/to/kextract/bin/kextract}"
 
 SDK=$(xcrun --sdk macosx --show-sdk-path)
 APPKIT_H="$SDK/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h"
-OUT=$(cd "$(dirname "$0")/.." && pwd)/koreos-appkit/src/jvmMain/kotlin
+OUT=$(cd "$(dirname "$0")/.." && pwd)/kadre-appkit/src/jvmMain/kotlin
 
 echo "→ Regenerating AppKit bindings via kextract"
 echo "  SDK     = $SDK"
@@ -32,7 +32,7 @@ echo "  Output  = $OUT"
     -A "-F$SDK/System/Library/Frameworks" \
     -A "-isysroot" -A "$SDK" \
     -o "$OUT" \
-    -t io.ygdrasil.koreos.appkit.bindings \
+    -t org.graphiks.kadre.appkit.bindings \
     --include-objc-class NSApplication \
     --include-objc-class NSWindow \
     --include-objc-class NSView \
@@ -42,7 +42,7 @@ echo "  Output  = $OUT"
     --include-objc-protocol NSWindowDelegate \
     "$APPKIT_H"
 
-AKH="$OUT/io/ygdrasil/koreos/appkit/bindings/AppKit_h.kt"
+AKH="$OUT/org/graphiks/kadre/appkit/bindings/AppKit_h.kt"
 
 echo "→ Applying manual fixups"
 
@@ -65,4 +65,4 @@ perl -i -ne 'print unless /^typealias (Boolean|Byte) = Any\s*$/' "$AKH"
 perl -i -ne 'print unless /^typealias NSUInteger = Any\s*$/' "$AKH"
 
 echo "✓ Done. Regenerated bindings at $AKH"
-echo "  Don't forget to inspect the diff and run :koreos-appkit:jvmTest."
+echo "  Don't forget to inspect the diff and run :kadre-appkit:jvmTest."

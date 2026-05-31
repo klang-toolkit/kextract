@@ -52,7 +52,7 @@
 <body>
     <h1>Kadre — Pong Web (wgpu4k)</h1>
     <div class="controls">Contrôles : ↑ / ↓ pour la raquette droite — l'IA contrôle la gauche</div>
-    <canvas id="koreos-canvas" width="800" height="600" tabindex="0"></canvas>
+    <canvas id="kadre-canvas" width="800" height="600" tabindex="0"></canvas>
     <div id="log"></div>
     <script>
         // Redirige console.log vers la zone de log de la page.
@@ -67,7 +67,7 @@
         };
         // Focus le canvas dès le chargement pour capter le clavier
         window.addEventListener('load', () => {
-            const c = document.getElementById('koreos-canvas');
+            const c = document.getElementById('kadre-canvas');
             c.focus();
             // Re-focus si l'utilisateur clique dans le canvas (au cas où HMR ou
             // autre composant a volé le focus)

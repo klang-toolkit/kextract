@@ -1,8 +1,8 @@
 name: linux-x11-visual
 
 # Régression visuelle Linux X11 via readback GPU (Redmine #88).
-# Variante X11 de linux-visual : la capture réutilise l'EventLoop koreos forcé en X11
-# (KOREOS_LINUX_BACKEND=x11) pour créer une fenêtre X11 (koreos-x11), d'où la surface
+# Variante X11 de linux-visual : la capture réutilise l'EventLoop kadre forcé en X11
+# (KADRE_LINUX_BACKEND=x11) pour créer une fenêtre X11 (kadre-x11), d'où la surface
 # wgpu, puis rend offscreen + readback. NON BLOQUANT.
 #
 # Headless : serveur X virtuel Xvfb + Vulkan logiciel (Mesa lavapipe, auto-découvert).
@@ -74,7 +74,7 @@ jobs:
         id: capture
         continue-on-error: true
         env:
-          KOREOS_LINUX_BACKEND: x11
+          KADRE_LINUX_BACKEND: x11
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
         run: |

@@ -4,8 +4,8 @@
 [![Gradle](https://img.shields.io/badge/Gradle-9.5.0-blue?logo=gradle)](https://gradle.org)
 [![Java](https://img.shields.io/badge/Java-25-red?logo=openjdk)](https://openjdk.org)
 [![CI](https://github.com/ygdrasil-io/poc-koreos/actions/workflows/ci.yml/badge.svg)](https://github.com/ygdrasil-io/poc-koreos/actions/workflows/ci.yml)
-[![Maven Central](https://img.shields.io/maven-central/v/io.ygdrasil.koreos/koreos)](https://central.sonatype.com/artifact/io.ygdrasil.koreos/koreos)
-[![M2 POC: Validated](https://img.shields.io/badge/M2%20POC-Validated%20%E2%9C%85-brightgreen?style=for-the-badge)](docs/koreos/postmortem-m2.md)
+[![Maven Central](https://img.shields.io/maven-central/v/org.graphiks.kadre/kadre)](https://central.sonatype.com/artifact/org.graphiks.kadre/kadre)
+[![M2 POC: Validated](https://img.shields.io/badge/M2%20POC-Validated%20%E2%9C%85-brightgreen?style=for-the-badge)](docs/kadre/postmortem-m2.md)
 [![Projet: Incubating](https://img.shields.io/badge/Statut-Incubating-orange?style=for-the-badge)](https://github.com)
 
 ---
@@ -16,7 +16,7 @@
 
 Kadre **ne dépend pas** d'AWT/Swing, JNA ni Rococoa. Les bindings natifs utilisent exclusivement **Panama FFM** (JDK 25) sur macOS/JVM.
 
-**Version publiée** : `0.2.0` — macOS, iOS, Android. Disponible sur [Maven Central](https://central.sonatype.com/artifact/io.ygdrasil.koreos/koreos).
+**Version publiée** : `0.2.0` — macOS, iOS, Android. Disponible sur [Maven Central](https://central.sonatype.com/artifact/org.graphiks.kadre/kadre).
 
 ---
 
@@ -32,7 +32,7 @@ Ouvre une fenêtre macOS avec un triangle RGB rendu via wgpu4k/Metal. Redimensio
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.ygdrasil.koreos:koreos:0.2.0")
+    implementation("org.graphiks.kadre:kadre:0.2.0")
 }
 ```
 
@@ -44,11 +44,11 @@ dependencies {
 
 | Module | Rôle | Plateformes |
 |--------|------|-------------|
-| `koreos-core` | Interfaces pures KMP : `EventLoop`, `Window`, `ApplicationHandler`, `WindowEvent`, `DeviceEvent` | jvm, iosX64, iosArm64, iosSimulatorArm64, android |
-| `koreos-appkit` | Backend macOS via Panama FFM (NSWindow, NSView, CFRunLoop, CAMetalLayer) | jvm (macOS) |
-| `koreos-uikit` | Backend iOS via Kotlin/Native cinterop (UIWindow, UIView, CAMetalLayer) | iosX64, iosArm64, iosSimulatorArm64 |
-| `koreos-android` | Backend Android (SurfaceView, Choreographer, API 24+) | android |
-| `koreos` | Facade publique KMP — `expect`/`actual` reliant les backends | jvm, iosX64, iosArm64, iosSimulatorArm64, android |
+| `kadre-core` | Interfaces pures KMP : `EventLoop`, `Window`, `ApplicationHandler`, `WindowEvent`, `DeviceEvent` | jvm, iosX64, iosArm64, iosSimulatorArm64, android |
+| `kadre-appkit` | Backend macOS via Panama FFM (NSWindow, NSView, CFRunLoop, CAMetalLayer) | jvm (macOS) |
+| `kadre-uikit` | Backend iOS via Kotlin/Native cinterop (UIWindow, UIView, CAMetalLayer) | iosX64, iosArm64, iosSimulatorArm64 |
+| `kadre-android` | Backend Android (SurfaceView, Choreographer, API 24+) | android |
+| `kadre` | Facade publique KMP — `expect`/`actual` reliant les backends | jvm, iosX64, iosArm64, iosSimulatorArm64, android |
 
 ### Samples
 
@@ -94,11 +94,11 @@ Le pipeline GitHub Actions (`.github/workflows/ci.yml`) utilise une stratégie �
 
 ```bash
 # Tests rapides (JVM, ~3 min)
-./gradlew :koreos-core:jvmTest :koreos-appkit:jvmTest :koreos:jvmTest
+./gradlew :kadre-core:jvmTest :kadre-appkit:jvmTest :kadre:jvmTest
 
 # Tous les tests (JVM + iOS simulator, ~10 min)
-./gradlew :koreos-core:jvmTest :koreos-core:iosSimulatorArm64Test \
-          :koreos-appkit:jvmTest :koreos:jvmTest :koreos:iosSimulatorArm64Test
+./gradlew :kadre-core:jvmTest :kadre-core:iosSimulatorArm64Test \
+          :kadre-appkit:jvmTest :kadre:jvmTest :kadre:iosSimulatorArm64Test
 
 # Demos macOS
 ./gradlew :samples:hello-triangle:run
@@ -111,14 +111,14 @@ Le pipeline GitHub Actions (`.github/workflows/ci.yml`) utilise une stratégie �
 
 ### Tutoriels
 
-- [Intégrer Koreos dans une application Windows](docs/koreos/tutorials/windows-app.md) — fenêtre Win32, DPI PerMonitorV2, événements souris/clavier, packaging
-- [Intégrer Koreos dans une page web](docs/koreos/tutorials/web-embed.md) — canvas HTML, Kotlin/JS + Kotlin/Wasm, boucle requestAnimationFrame
+- [Intégrer Kadre dans une application Windows](docs/kadre/tutorials/windows-app.md) — fenêtre Win32, DPI PerMonitorV2, événements souris/clavier, packaging
+- [Intégrer Kadre dans une page web](docs/kadre/tutorials/web-embed.md) — canvas HTML, Kotlin/JS + Kotlin/Wasm, boucle requestAnimationFrame
 
 ### Références
 
-- [Specs](docs/koreos/specs.md) — contrats d'interface
-- [Plan de développement](docs/koreos/plan.md) — jalons M1→M3
-- [Post-mortem M2](docs/koreos/postmortem-m2.md) — bilan technique, apprentissages, metriques
-- [Release process](docs/koreos/release-process.md) — publication Maven Central
-- [Roadmap progress](docs/koreos/roadmap-progress.md) — avancement auto-généré (Redmine + git)
-- [Stabilité de l'API](docs/koreos/api-stability.md) · [Performance](docs/koreos/performance.md) · [Tests](docs/koreos/testing.md) · [Tests visuels](docs/koreos/visual-testing.md)
+- [Specs](docs/kadre/specs.md) — contrats d'interface
+- [Plan de développement](docs/kadre/plan.md) — jalons M1→M3
+- [Post-mortem M2](docs/kadre/postmortem-m2.md) — bilan technique, apprentissages, metriques
+- [Release process](docs/kadre/release-process.md) — publication Maven Central
+- [Roadmap progress](docs/kadre/roadmap-progress.md) — avancement auto-généré (Redmine + git)
+- [Stabilité de l'API](docs/kadre/api-stability.md) · [Performance](docs/kadre/performance.md) · [Tests](docs/kadre/testing.md) · [Tests visuels](docs/kadre/visual-testing.md)

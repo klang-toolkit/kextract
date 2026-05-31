@@ -1,7 +1,7 @@
 /**
  * Sample hello-triangle — intégration wgpu4k : Instance + Surface depuis CAMetalLayer (GRA-137).
  *
- * Consomme le [RawWindowHandle] de Koreos pour initialiser wgpu4k :
+ * Consomme le [RawWindowHandle] de Kadre pour initialiser wgpu4k :
  *   EventLoop → AppKitEventLoop → NSWindow + CAMetalLayer → WGPU Instance + Surface + Adapter + Device
  *
  * Périmètre M2 — pas encore de rendu : la fenêtre reste vide (clear par défaut).
@@ -19,7 +19,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("io.ygdrasil.koreos.samples.hellotriangle.MainKt")
+    mainClass.set("org.graphiks.kadre.samples.hellotriangle.MainKt")
 
     // macOS : NSApplication doit tourner sur le thread principal JVM.
     // -XstartOnFirstThread est un flag JVM macOS-only — la JVM Windows/Linux le rejette.
@@ -33,7 +33,7 @@ application {
 }
 
 dependencies {
-    implementation(project(":koreos"))
+    implementation(project(":kadre"))
     implementation(libs.wgpu4k)
     // Data classes descripteurs wgpu4k (VertexState, FragmentState, RenderPipelineDescriptor, etc.)
     // synchronisées avec la version de webgpu-ktypes embarquée dans wgpu4k:0.1.1
@@ -41,8 +41,8 @@ dependencies {
     // runBlocking — transitif via wgpu4k mais déclaré explicitement pour la clarté
     implementation(libs.kotlinx.coroutines.core)
     // Backends Linux : requis par le mode --capture (Redmine #88), qui réutilise
-    // l'EventLoop koreos pour obtenir une fenêtre Wayland/X11. La façade les charge
+    // l'EventLoop kadre pour obtenir une fenêtre Wayland/X11. La façade les charge
     // par réflexion → ils doivent être sur le classpath. Inertes sur macOS/Windows.
-    implementation(project(":koreos-wayland"))
-    implementation(project(":koreos-x11"))
+    implementation(project(":kadre-wayland"))
+    implementation(project(":kadre-x11"))
 }

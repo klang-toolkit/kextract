@@ -1,5 +1,5 @@
 /**
- * Convention plugin kmp-publish — publication Maven Central pour les modules KMP Koreos.
+ * Convention plugin kmp-publish — publication Maven Central pour les modules KMP Kadre.
  *
  * Configure :
  *   - maven-publish : publications KMP + POM complet (license MIT, dev info, SCM)
@@ -57,7 +57,7 @@ publishing {
         pom {
             name.set(project.name)
             description.set(
-                "Koreos — Kotlin Multiplatform windowing and event-loop library (${project.name})"
+                "Kadre — Kotlin Multiplatform windowing and event-loop library (${project.name})"
             )
             url.set("https://github.com/ygdrasil-io/poc-koreos")
 
