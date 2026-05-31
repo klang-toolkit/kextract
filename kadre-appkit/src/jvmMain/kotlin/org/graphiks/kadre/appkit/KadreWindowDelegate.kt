@@ -21,6 +21,7 @@ import org.graphiks.kadre.appkit.bindings.NSWindow
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
@@ -108,7 +109,30 @@ class KadreWindowDelegate(
      * aboutToWait) targets an already-destroyed window.
      */
     fun onWindowWillClose() {
+        handler.windowEvent(eventLoop, windowId, WindowEvent.Destroyed)
         windows.remove(windowId.value)
+    }
+
+    /** Kotlin callback for `windowDidMove:` — dispatches [WindowEvent.Moved]. */
+    fun onWindowDidMove() {
+        val nsWindow = NSWindow(nsWindowPtr)
+        val scale = nsWindow.backingScaleFactor()
+        // NSWindow.frame origin is in screen points (bottom-left). Reported in physical pixels;
+        // exact top-left conversion isn't needed for consumers that just react to the move.
+        val frame = sizedNSRect(nsWindow.frame())
+        val x = (frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 0) * scale).toInt()
+        val y = (frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 1) * scale).toInt()
+        handler.windowEvent(eventLoop, windowId, WindowEvent.Moved(PhysicalPosition(x, y)))
+    }
+
+    /** Kotlin callback for `windowDidBecomeKey:` — dispatches [WindowEvent.Focused] (gained). */
+    fun onWindowDidBecomeKey() {
+        handler.windowEvent(eventLoop, windowId, WindowEvent.Focused(gained = true))
+    }
+
+    /** Kotlin callback for `windowDidResignKey:` — dispatches [WindowEvent.Focused] (lost). */
+    fun onWindowDidResignKey() {
+        handler.windowEvent(eventLoop, windowId, WindowEvent.Focused(gained = false))
     }
 
     /**
@@ -240,6 +264,26 @@ class KadreWindowDelegate(
             val cls = ObjCSubclassing.allocateClass("NSObject", "KadreWindowDelegateNative")
             ObjCSubclassing.addProtocol(cls, "NSWindowDelegate")
 
+            // Registers a `void method:(id notification)` delegate method (ObjC encoding "v@:@").
+            fun addNotificationMethod(callbackName: String, selector: String) {
+                val handle = lookup.findStatic(
+                    Callbacks::class.java,
+                    callbackName,
+                    MethodType.methodType(
+                        Void.TYPE,
+                        MemorySegment::class.java,
+                        MemorySegment::class.java,
+                        MemorySegment::class.java,
+                    ),
+                )
+                val stub = linker.upcallStub(
+                    handle,
+                    FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+                    arena,
+                )
+                ObjCSubclassing.addMethod(cls, selector, stub, "v@:@")
+            }
+
             // BOOL windowShouldClose(id self, SEL _cmd, id sender)
             // Encoding: "c@:@" — BOOL is signed char (c) on macOS 64-bit ARM
             val windowShouldCloseHandle = lookup.findStatic(
@@ -351,6 +395,11 @@ class KadreWindowDelegate(
                 "v@:@",
             )
 
+            // GRA: Moved + Focused events.
+            addNotificationMethod("windowDidMove", "windowDidMove:")
+            addNotificationMethod("windowDidBecomeKey", "windowDidBecomeKey:")
+            addNotificationMethod("windowDidResignKey", "windowDidResignKey:")
+
             ObjCSubclassing.registerClass(cls)
             classRegistered = true
         }
@@ -382,6 +431,33 @@ class KadreWindowDelegate(
             @Suppress("UNUSED_PARAMETER") notification: MemorySegment,
         ) {
             delegateTable[self.address()]?.onWindowDidResize()
+        }
+
+        @JvmStatic
+        fun windowDidMove(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") notification: MemorySegment,
+        ) {
+            delegateTable[self.address()]?.onWindowDidMove()
+        }
+
+        @JvmStatic
+        fun windowDidBecomeKey(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") notification: MemorySegment,
+        ) {
+            delegateTable[self.address()]?.onWindowDidBecomeKey()
+        }
+
+        @JvmStatic
+        fun windowDidResignKey(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") notification: MemorySegment,
+        ) {
+            delegateTable[self.address()]?.onWindowDidResignKey()
         }
 
         @JvmStatic

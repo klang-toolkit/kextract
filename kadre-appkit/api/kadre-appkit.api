@@ -49,7 +49,10 @@ public final class org/graphiks/kadre/appkit/KadreWindowDelegate {
 	public static final field Companion Lorg/graphiks/kadre/appkit/KadreWindowDelegate$Companion;
 	public synthetic fun <init> (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;JLjava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/util/concurrent/ConcurrentHashMap;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getPtr ()Ljava/lang/foreign/MemorySegment;
+	public final fun onWindowDidBecomeKey ()V
 	public final fun onWindowDidChangeBackingProperties ()V
+	public final fun onWindowDidMove ()V
+	public final fun onWindowDidResignKey ()V
 	public final fun onWindowDidResize ()V
 	public final fun onWindowShouldClose ()B
 	public final fun onWindowWillClose ()V
@@ -57,7 +60,10 @@ public final class org/graphiks/kadre/appkit/KadreWindowDelegate {
 
 public final class org/graphiks/kadre/appkit/KadreWindowDelegate$Callbacks {
 	public static final field INSTANCE Lorg/graphiks/kadre/appkit/KadreWindowDelegate$Callbacks;
+	public static final fun windowDidBecomeKey (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
 	public static final fun windowDidChangeBackingProperties (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
+	public static final fun windowDidMove (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
+	public static final fun windowDidResignKey (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
 	public static final fun windowDidResize (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
 	public static final fun windowShouldClose (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)B
 	public static final fun windowWillClose (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V

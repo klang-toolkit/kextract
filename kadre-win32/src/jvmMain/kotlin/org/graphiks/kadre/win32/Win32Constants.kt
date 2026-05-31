@@ -22,6 +22,15 @@ internal const val WM_PAINT: Int = 0x000F
 /** WM_SIZE — the window size has changed. */
 internal const val WM_SIZE: Int = 0x0005
 
+/** WM_MOVE — the window position has changed. */
+internal const val WM_MOVE: Int = 0x0003
+
+/** WM_SETFOCUS — the window gained keyboard focus. */
+internal const val WM_SETFOCUS: Int = 0x0007
+
+/** WM_KILLFOCUS — the window lost keyboard focus. */
+internal const val WM_KILLFOCUS: Int = 0x0008
+
 /** WM_DPICHANGED — the window DPI has changed (moved to a different monitor). */
 internal const val WM_DPICHANGED: Int = 0x02E0
 

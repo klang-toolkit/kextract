@@ -158,6 +158,25 @@ object KadreWndProc {
                 0L
             }
 
+            // ── Move ──────────────────────────────────────────────────────────
+            WM_MOVE.toUInt() -> {
+                // lParam: LOWORD = x, HIWORD = y (client top-left, screen coords, signed)
+                val x = (lParam and 0xFFFF).toShort().toInt()
+                val y = ((lParam ushr 16) and 0xFFFF).toShort().toInt()
+                emit(hwnd, WindowEvent.Moved(PhysicalPosition(x, y)))
+                0L
+            }
+
+            // ── Focus ─────────────────────────────────────────────────────────
+            WM_SETFOCUS.toUInt() -> {
+                emit(hwnd, WindowEvent.Focused(gained = true))
+                0L
+            }
+            WM_KILLFOCUS.toUInt() -> {
+                emit(hwnd, WindowEvent.Focused(gained = false))
+                0L
+            }
+
             // ── Keyboard ──────────────────────────────────────────────────────
             WM_KEYDOWN.toUInt(),
             WM_SYSKEYDOWN.toUInt() -> {
