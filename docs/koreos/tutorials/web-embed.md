@@ -1,14 +1,14 @@
-# Tutoriel : intégrer Koreos dans une page web
+# Tutorial: integrate Koreos in a web page
 
-Ce tutoriel vous guide pas-à-pas pour afficher une surface Koreos dans une page HTML avec Kotlin/JS. Vous obtiendrez un canvas interactif qui répond aux événements pointeur et clavier grâce à la boucle d'événements `requestAnimationFrame`.
+This tutorial walks you through displaying a Koreos surface in an HTML page with Kotlin/JS step by step. You will end up with an interactive canvas that responds to pointer and keyboard events via the `requestAnimationFrame` event loop.
 
-**Prérequis** : Kotlin 2.3.21+, Gradle 9+, un navigateur moderne (Chrome 112+, Firefox 113+, Safari 17+).
+**Prerequisites**: Kotlin 2.3.21+, Gradle 9+, a modern browser (Chrome 112+, Firefox 113+, Safari 17+).
 
 ---
 
-## Étape 1 — Configurer `build.gradle.kts`
+## Step 1 — Configure `build.gradle.kts`
 
-Créez (ou adaptez) votre fichier `build.gradle.kts` avec la dépendance `koreos-js` et la cible Kotlin/JS configurée pour le navigateur :
+Create (or adapt) your `build.gradle.kts` with the `koreos-js` dependency and the Kotlin/JS target configured for the browser:
 
 ```kotlin
 plugins {
@@ -28,7 +28,7 @@ kotlin {
     sourceSets {
         jsMain {
             dependencies {
-                // Façade Koreos pour le navigateur — Kotlin/JS IR
+                // Koreos facade for the browser — Kotlin/JS IR
                 implementation("io.ygdrasil.koreos:koreos-js:0.1.1")
             }
         }
@@ -36,15 +36,15 @@ kotlin {
 }
 ```
 
-!!! note "Kotlin/JS IR obligatoire"
-    Koreos utilise `@JsExport` et les optimisations DCE du compilateur IR.
-    Le backend legacy Kotlin/JS n'est pas supporté.
+!!! note "Kotlin/JS IR required"
+    Koreos uses `@JsExport` and the IR compiler's DCE optimizations.
+    The legacy Kotlin/JS backend is not supported.
 
 ---
 
-## Étape 2 — Implémenter `ApplicationHandler`
+## Step 2 — Implement `ApplicationHandler`
 
-`ApplicationHandler` est l'interface centrale : Koreos l'appelle pour chaque événement du cycle de vie et de la fenêtre. Côté web, la « fenêtre » correspond à un élément `<canvas>` identifié par son id CSS.
+`ApplicationHandler` is the central interface: Koreos calls it for each lifecycle and window event. On the web, the "window" corresponds to a `<canvas>` element identified by its CSS id.
 
 ```kotlin
 package com.example.myapp
@@ -60,50 +60,50 @@ class MyWebHandler : ApplicationHandler {
 
     private var window: Window? = null
 
-    // Appelé au démarrage — la page est prête, le DOM est chargé
+    // Called at startup — the page is ready, the DOM is loaded
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
         window = eventLoop.createWindow(
             WindowAttributes(
-                // Le titre est utilisé comme id CSS du canvas cible
+                // The title is used as the CSS id of the target canvas
                 title = "my-canvas",
             )
         )
     }
 
-    // Appelé pour chaque événement de fenêtre (événements DOM traduits)
+    // Called for each window event (translated DOM events)
     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
         when (event) {
-            // Redessin : déclenché par requestAnimationFrame
+            // Redraw: triggered by requestAnimationFrame
             WebWindowEvent.RedrawRequested -> {
-                // Placez ici l'appel à votre renderer (wgpu4k, WebGL, WebGPU, etc.)
+                // Place your renderer call here (wgpu4k, WebGL, WebGPU, etc.)
             }
 
-            // Clôture de page / navigation hors de la page
+            // Page close / navigation away
             WebWindowEvent.CloseRequested -> {
                 eventLoop.exit()
             }
 
-            // Redimensionnement du canvas
+            // Canvas resize
             is WebWindowEvent.Resized ->
                 println("Resized → ${event.width}×${event.height}")
 
-            // Déplacement du pointeur (PointerEvent DOM unifié — souris, stylet, tactile)
+            // Pointer movement (unified DOM PointerEvent — mouse, stylus, touch)
             is WebWindowEvent.PointerMoved ->
                 println("PointerMoved (${event.x.toInt()}, ${event.y.toInt()})")
 
-            // Clic souris / appui tactile
+            // Mouse click / touch press
             is WebWindowEvent.MouseInput ->
                 println("MouseInput ${event.state} button=${event.button}")
 
-            // Défilement (molette ou pinch-to-zoom)
+            // Scroll (wheel or pinch-to-zoom)
             is WebWindowEvent.MouseWheel ->
                 println("Wheel Δx=${event.deltaX} Δy=${event.deltaY}")
 
-            // Entrées clavier
+            // Keyboard input
             is WebWindowEvent.KeyboardInput ->
                 println("Key ${event.state} key=${event.key} repeat=${event.isRepeat}")
 
-            // Focus / perte de focus
+            // Focus / focus lost
             is WebWindowEvent.Focused ->
                 println("Focused: ${event.gained}")
 
@@ -122,7 +122,7 @@ class MyWebHandler : ApplicationHandler {
 
 ---
 
-## Étape 3 — Point d'entrée `main()`
+## Step 3 — `main()` entry point
 
 ```kotlin
 package com.example.myapp
@@ -130,74 +130,73 @@ package com.example.myapp
 import io.ygdrasil.koreos.web.JsWebEventLoop
 
 fun main() {
-    // JsWebEventLoop est non-bloquant : il planifie des callbacks via
-    // requestAnimationFrame et rend le contrôle immédiatement au navigateur.
+    // JsWebEventLoop is non-blocking: it schedules callbacks via
+    // requestAnimationFrame and returns control to the browser immediately.
     JsWebEventLoop().runApp(MyWebHandler())
 }
 ```
 
-!!! warning "Boucle non-bloquante — différence clé avec JVM"
-    Contrairement à l'EventLoop JVM ou Win32, `JsWebEventLoop.runApp()` **retourne immédiatement**.
-    La boucle s'appuie sur `requestAnimationFrame` pour planifier les frames au rythme
-    du navigateur (typiquement 60 Hz). Aucun thread dédié n'est créé : tout s'exécute
-    dans le thread JavaScript principal.
+!!! warning "Non-blocking loop — key difference from JVM"
+    Unlike the JVM or Win32 EventLoop, `JsWebEventLoop.runApp()` **returns immediately**.
+    The loop relies on `requestAnimationFrame` to schedule frames at the browser's rate
+    (typically 60 Hz). No dedicated thread is created: everything runs on the main JavaScript thread.
 
 ---
 
-## Étape 4 — Page HTML hôte
+## Step 4 — Host HTML page
 
-Créez (ou adaptez) votre `index.html`. Le canvas doit exister dans le DOM **avant** le chargement du bundle JS :
+Create (or adapt) your `index.html`. The canvas must exist in the DOM **before** the JS bundle loads:
 
 ```html
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mon application Koreos Web</title>
+    <title>My Koreos Web application</title>
     <style>
-        /* Le canvas doit avoir des dimensions explicites en CSS */
+        /* The canvas must have explicit CSS dimensions */
         #my-canvas {
             display: block;
             width: 800px;
             height: 600px;
             border: 1px solid #ccc;
-            touch-action: none; /* Désactive le scroll tactile par défaut */
+            touch-action: none; /* Disables default touch scrolling */
         }
     </style>
 </head>
 <body>
-    <!-- L'id correspond au titre passé dans WindowAttributes -->
+    <!-- The id matches the title passed in WindowAttributes -->
     <canvas id="my-canvas"></canvas>
 
-    <!-- Bundle JS généré par Gradle — chargé en différé -->
+    <!-- JS bundle generated by Gradle — loaded deferred -->
     <script src="myapp.js" defer></script>
 </body>
 </html>
 ```
 
-Lancez ensuite le serveur de développement Gradle :
+Then start the Gradle development server:
 
 ```bash
 ./gradlew jsBrowserDevelopmentRun
 ```
 
-Ou pour produire un bundle de production :
+Or to produce a production bundle:
 
 ```bash
 ./gradlew jsBrowserProductionWebpack
 ```
 
-Les artefacts sont générés dans `build/distributions/`.
+Artifacts are generated in `build/distributions/`.
 
-!!! warning "Le canvas doit exister avant `runApp`"
-    Koreos résout le canvas par son id CSS au moment de l'appel `createWindow`.
-    Si le `<script>` est chargé **avant** le canvas dans le DOM, `createWindow`
-    ne trouvera pas l'élément et la surface ne sera pas attachée.
-    Utilisez `defer` ou placez le `<script>` après le `<canvas>`.
+!!! warning "The canvas must exist before `runApp`"
+    Koreos resolves the canvas by CSS id at the moment of the `createWindow` call.
+    If the `<script>` loads **before** the canvas in the DOM, `createWindow`
+    will not find the element and the surface will not be attached.
+    Use `defer` or place the `<script>` after the `<canvas>`.
 
-!!! tip "DPI haute densité — `devicePixelRatio`"
-    Sur les écrans Retina ou HiDPI, `window.devicePixelRatio` est supérieur à 1 (ex. 2.0).
-    Pour un rendu net, définissez les dimensions physiques du canvas en pixels :
+!!! tip "High density DPI — `devicePixelRatio`"
+    On Retina or HiDPI screens, `window.devicePixelRatio` is greater than 1 (e.g., 2.0).
+    For sharp rendering, set the canvas's physical dimensions in pixels:
 
     ```javascript
     const canvas = document.getElementById('my-canvas');
@@ -206,16 +205,16 @@ Les artefacts sont générés dans `build/distributions/`.
     canvas.height = canvas.offsetHeight * dpr;
     ```
 
-    Koreos exposera cette valeur via `Window.scaleFactor` dans une version future
-    (ticket #24). En attendant, lisez `window.devicePixelRatio` directement.
+    Koreos will expose this value via `Window.scaleFactor` in a future version
+    (ticket #24). In the meantime, read `window.devicePixelRatio` directly.
 
 ---
 
-## Étape 5 (option) — Variante Kotlin/Wasm
+## Step 5 (optional) — Kotlin/Wasm variant
 
-Pour une performance maximale du rendu, utilisez la cible `koreos-wasm` (Kotlin/Wasm) à la place de `koreos-js`. Kotlin/Wasm compile vers WebAssembly, ce qui offre des performances d'exécution proches du natif pour le code de rendu.
+For maximum rendering performance, use the `koreos-wasm` target (Kotlin/Wasm) instead of `koreos-js`. Kotlin/Wasm compiles to WebAssembly, which offers near-native execution performance for rendering code.
 
-### Dépendance
+### Dependency
 
 ```kotlin
 // build.gradle.kts
@@ -240,7 +239,7 @@ kotlin {
 }
 ```
 
-### Point d'entrée Wasm
+### Wasm entry point
 
 ```kotlin
 package com.example.myapp
@@ -248,37 +247,37 @@ package com.example.myapp
 import io.ygdrasil.koreos.web.WasmJsWebEventLoop
 
 fun main() {
-    // WasmJsWebEventLoop — même API que JsWebEventLoop, même comportement RAF
+    // WasmJsWebEventLoop — same API as JsWebEventLoop, same RAF behavior
     WasmJsWebEventLoop().runApp(MyWebHandler())
 }
 ```
 
-!!! note "Compatibilité navigateur"
-    Kotlin/Wasm requiert les extensions **WasmGC** et **JS imports/exports**, disponibles
-    dans Chrome 119+, Firefox 120+, et Safari 17.4+. Vérifiez la compatibilité cible
-    avant de migrer.
+!!! note "Browser compatibility"
+    Kotlin/Wasm requires the **WasmGC** and **JS imports/exports** extensions, available
+    in Chrome 119+, Firefox 120+, and Safari 17.4+. Check target compatibility
+    before migrating.
 
-!!! tip "Quand choisir Kotlin/Wasm ?"
-    | Critère | Kotlin/JS | Kotlin/Wasm |
-    |---------|-----------|-------------|
-    | Compatibilité navigateur | Large (tous les navigateurs modernes) | Restreinte (WasmGC requis) |
-    | Interop JavaScript | Native | Via `@JsExport` / `external` |
-    | Performance CPU | Bonne | Excellente |
-    | Taille du bundle | Standard | Plus petit (pas de stdlib JS) |
+!!! tip "When to choose Kotlin/Wasm?"
+    | Criterion | Kotlin/JS | Kotlin/Wasm |
+    |-----------|-----------|-------------|
+    | Browser compatibility | Wide (all modern browsers) | Restricted (WasmGC required) |
+    | JavaScript interop | Native | Via `@JsExport` / `external` |
+    | CPU performance | Good | Excellent |
+    | Bundle size | Standard | Smaller (no JS stdlib) |
 
-    Pour la majorité des cas d'usage, `koreos-js` suffit. Optez pour `koreos-wasm`
-    si votre renderer effectue des calculs intensifs côté Kotlin.
+    For most use cases, `koreos-js` is sufficient. Choose `koreos-wasm`
+    if your renderer performs intensive computation on the Kotlin side.
 
 ---
 
-## Récapitulatif des points clés
+## Key points summary
 
-| Point | Détail |
+| Point | Detail |
 |-------|--------|
-| Boucle d'événements | Non-bloquante — `requestAnimationFrame`, pas de thread dédié |
-| Canvas cible | Identifié par `WindowAttributes.title` comme id CSS |
-| DOM au démarrage | Le `<canvas>` doit exister avant le chargement du bundle JS |
-| Événements pointeur | `WebWindowEvent.PointerMoved` / `MouseInput` — basé sur `PointerEvent` DOM |
-| DPI haute densité | Lire `window.devicePixelRatio` et ajuster `canvas.width`/`canvas.height` |
-| Scroll tactile | Ajouter `touch-action: none` sur le canvas pour éviter les conflits |
-| Variante Wasm | `koreos-wasm` + `WasmJsWebEventLoop` — API identique, meilleure performance CPU |
+| Event loop | Non-blocking — `requestAnimationFrame`, no dedicated thread |
+| Target canvas | Identified by `WindowAttributes.title` as CSS id |
+| DOM at startup | The `<canvas>` must exist before the JS bundle loads |
+| Pointer events | `WebWindowEvent.PointerMoved` / `MouseInput` — based on DOM `PointerEvent` |
+| High density DPI | Read `window.devicePixelRatio` and adjust `canvas.width`/`canvas.height` |
+| Touch scroll | Add `touch-action: none` on the canvas to avoid conflicts |
+| Wasm variant | `koreos-wasm` + `WasmJsWebEventLoop` — identical API, better CPU performance |

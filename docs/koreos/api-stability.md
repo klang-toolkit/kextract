@@ -1,15 +1,12 @@
-# Stabilité de l'API publique (ABI)
+# Public API Stability (ABI)
 
-Koreos est publié sur Maven Central. Pour éviter de casser silencieusement l'API
-publique entre versions (changement de signature, ajout/retrait de variant `sealed`,
-etc.), les **5 modules publiés** sont protégés par la validation ABI intégrée au
-plugin Kotlin Gradle (Kotlin 2.2+) :
+Koreos is published on Maven Central. To prevent silently breaking the public API between versions (signature changes, sealed variant additions/removals, etc.), all **5 published modules** are protected by ABI validation built into the Kotlin Gradle plugin (Kotlin 2.2+):
 
 `koreos-core`, `koreos-appkit`, `koreos-uikit`, `koreos-android`, `koreos`.
 
-## Comment ça marche
+## How it works
 
-Chaque module publié active dans son `build.gradle.kts` :
+Each published module enables the following in its `build.gradle.kts`:
 
 ```kotlin
 kotlin {
@@ -18,36 +15,30 @@ kotlin {
 }
 ```
 
-Le dump de référence de l'API est commité dans `<module>/api/` :
+The reference API dump is committed under `<module>/api/`:
 
-- `<module>/api/<module>.klib.api` — ABI multiplateforme (klib, toutes cibles)
-- `<module>/api/jvm/<module>.api` — ABI JVM
-- `<module>/api/android/<module>.api` — ABI Android
+- `<module>/api/<module>.klib.api` — multiplatform ABI (klib, all targets)
+- `<module>/api/jvm/<module>.api` — JVM ABI
+- `<module>/api/android/<module>.api` — Android ABI
 
-La tâche `checkKotlinAbi` est câblée dans `check` : **le build échoue** si l'API
-publique courante diffère du dump commité. Contrairement à l'ancien plugin externe
-`binary-compatibility-validator` (qui utilise ASM et échouait sur le bytecode JDK 25),
-cette validation s'appuie sur le **compilateur Kotlin** — compatible JDK 25.
+The `checkKotlinAbi` task is wired into `check`: **the build fails** if the current public API differs from the committed dump. Unlike the old external `binary-compatibility-validator` plugin (which uses ASM and failed on JDK 25 bytecode), this validation relies on the **Kotlin compiler** — compatible with JDK 25.
 
-## Workflow lors d'un changement d'API
+## Workflow for API changes
 
-1. Modifier le code.
-2. Si la CI (ou `./gradlew checkKotlinAbi`) signale une différence d'ABI :
-   - **intentionnel** → régénérer le dump : `./gradlew updateKotlinAbi`
-     puis commiter les fichiers `api/` modifiés dans la même PR ;
-   - **non intentionnel** → corriger le code pour restaurer la compatibilité.
+1. Modify the code.
+2. If CI (or `./gradlew checkKotlinAbi`) reports an ABI difference:
+   - **Intentional** → regenerate the dump: `./gradlew updateKotlinAbi`,
+     then commit the modified `api/` files in the same PR;
+   - **Unintentional** → fix the code to restore compatibility.
 
 ```bash
-# Régénérer tous les dumps de référence
+# Regenerate all reference dumps
 ./gradlew updateKotlinAbi
 
-# Vérifier (comme la CI)
+# Verify (as CI does)
 ./gradlew checkKotlinAbi
 ```
 
-## Pour l'orchestrateur autonome
+## For the autonomous agent
 
-Si `checkKotlinAbi` échoue en CI, c'est qu'un changement d'API publique a été
-introduit. Vérifier qu'il est intentionnel (selon le ticket), puis lancer
-`./gradlew updateKotlinAbi` et commiter les `api/` modifiés avec un message
-`chore(api): update ABI baseline for #ID`.
+If `checkKotlinAbi` fails in CI, a public API change was introduced. Verify that it is intentional (per the ticket), then run `./gradlew updateKotlinAbi` and commit the modified `api/` files with a message `chore(api): update ABI baseline for #ID`.

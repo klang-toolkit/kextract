@@ -1,54 +1,48 @@
-# Performance & instrumentation
+# Performance & Instrumentation
 
-## Benchmarks JMH (`benchmarks/jmh-core`)
+## JMH Benchmarks (`benchmarks/jmh-core`)
 
-Suite [JMH](https://github.com/openjdk/jmh) mesurant les composants purs appelés à
-chaque frame. JVM-only, exécutée via :
+A [JMH](https://github.com/openjdk/jmh) suite measuring the pure components called on every frame. JVM-only, run via:
 
 ```bash
 ./gradlew :benchmarks:jmh-core:jmh
 ```
 
-Les résultats (JSON) sont écrits dans
-`benchmarks/jmh-core/build/results/jmh/results.json`.
+Results (JSON) are written to `benchmarks/jmh-core/build/results/jmh/results.json`.
 
-### Couverture
+### Coverage
 
-| Benchmark | Composant |
+| Benchmark | Component |
 |-----------|-----------|
-| `tickPlayerUp`, `tickIdle`, `tickBothMoving`, `tick64Frames` | `GameState.tick` (physique 2D) |
+| `tickPlayerUp`, `tickIdle`, `tickBothMoving`, `tick64Frames` | `GameState.tick` (2D physics) |
 | `aiSuggestUpdate`, `aiSuggestNoUpdate` | `PongAi.suggest` |
 | `renderDigit`, `renderNumberTwoDigits`, `renderNumberFiveDigits` | `BitmapFont` |
 | `inputOnKeyPress`, `inputOnKeyPressRelease` | `InputAdapter.onKey` |
 
-> Les mappers Win32/X11 sont `internal` (non accessibles depuis le module de
-> benchmark) ; ils sont couverts par leurs tests unitaires de module.
+> The Win32/X11 mappers are `internal` (not accessible from the benchmark module);
+> they are covered by their module's unit tests.
 
 ### CI
 
-Le job `bench-perf` (`.github/workflows/bench-perf.yml`) lance la suite sur push
-master et publie le JSON en artefact. La comparaison automatique à une baseline
-(seuil de régression) est un point ouvert — voir `benchmarks/baselines/README.md`.
+The `bench-perf` job (`.github/workflows/bench-perf.yml`) runs the suite on each push to master and publishes the JSON as an artifact. Automatic comparison against a baseline (regression threshold) is an open point — see `benchmarks/baselines/README.md`.
 
 ## FrameTimingTracer (runtime)
 
-`io.ygdrasil.koreos.core.FrameTimingTracer` mesure la durée
-`RedrawRequested → fin de présentation` de chaque frame et publie, ~1×/seconde,
-des statistiques `min/p50/p99/max` et le FPS approximatif.
+`io.ygdrasil.koreos.core.FrameTimingTracer` measures the
+`RedrawRequested → end of presentation` duration for each frame and publishes
+`min/p50/p99/max` statistics and approximate FPS roughly once per second.
 
 ```kotlin
-FrameTimingTracer.enabled = true            // désactivé par défaut → 0 overhead
-// dans la boucle de rendu :
+FrameTimingTracer.enabled = true            // disabled by default → 0 overhead
+// in the render loop:
 FrameTimingTracer.onRedrawStart()
-// … rendu de la frame …
+// … render the frame …
 FrameTimingTracer.onPresentEnd()
 ```
 
-- **0 % d'overhead quand désactivé** : toutes les méthodes retournent immédiatement
-  (aucune lecture d'horloge, aucune allocation) tant que `enabled == false`.
-- Horloge multiplateforme (`kotlin.time.TimeSource.Monotonic`).
-- `slowFrameThresholdMs` : journalise individuellement les frames dépassant le seuil.
-- `sink` : redirige les lignes de log (défaut `println`), surchargeable en test.
+- **0% overhead when disabled**: all methods return immediately (no clock reads, no allocations) as long as `enabled == false`.
+- Multiplatform clock (`kotlin.time.TimeSource.Monotonic`).
+- `slowFrameThresholdMs`: logs individual frames that exceed the threshold.
+- `sink`: redirects log lines (default `println`), overridable in tests.
 
-Sur JVM, on peut conditionner l'activation à `-Dkoreos.tracing=true` au démarrage du
-backend (lecture de la system property → `FrameTimingTracer.enabled = true`).
+On JVM, activation can be gated on `-Dkoreos.tracing=true` at backend startup (reading the system property → `FrameTimingTracer.enabled = true`).

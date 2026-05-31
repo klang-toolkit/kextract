@@ -1,178 +1,178 @@
 # Sprint Review — Koreos v0.1.0
 
-> **Date** : 2026-05-29  
-> **Sprint couvert** : M1 → M3 (jalons 1 à 3 du plan v0.1)  
-> **Version livrée** : `io.ygdrasil.koreos:0.1.0` (publié Maven Central)  
-> **Statut** : Livré ✓
+> **Date**: 2026-05-29  
+> **Sprint covered**: M1 → M3 (milestones 1 to 3 of the v0.1 plan)  
+> **Version delivered**: `io.ygdrasil.koreos:0.1.0` (published to Maven Central)  
+> **Status**: Delivered ✓
 
 ---
 
-## 1. Résumé exécutif
+## 1. Executive summary
 
-Koreos v0.1.0 est livré en une session intensive d'environ 24 heures effectives, couvrant les trois jalons initiaux du [plan v0.1](./plan.md). La librairie expose une API fenêtrage cross-platform Kotlin Multiplatform, inspirée de winit, sur 3 plateformes (macOS, iOS, Android), avec intégration validée wgpu4k (triangle RGB rendu à ~120 fps sur Apple M2).
-
----
-
-## 2. Métriques de sprint
-
-| Métrique | Valeur |
-|----------|--------|
-| Tickets Linear livrés | 28 (GRA-133 → GRA-160) |
-| Pull Requests mergées | ~29 PRs (branches feature → master) |
-| Plateformes supportées | 3 (macOS, iOS, Android) |
-| Artefacts publiés Maven Central | 5 modules (`koreos-core`, `koreos-appkit`, `koreos-uikit`, `koreos-android`, `koreos`) |
-| Version publiée | `0.1.0` |
-| FPS rendu (hello-triangle, Apple M2, Release) | ~120 fps (post-correctif PR #25) |
-| Dépendances natives (JNA/Rococoa) | 0 |
-| Temps de build CI (fast path) | ~3-4 min |
-| Lignes de code Kotlin ajoutées (net, M2 seul) | ~1 200 |
-| Durée totale de la session M3 | ~1 journée |
+Koreos v0.1.0 was delivered in an intensive session of approximately 24 effective hours, covering the three initial milestones of the [v0.1 plan](./plan.md). The library exposes a cross-platform Kotlin Multiplatform windowing API, inspired by winit, on 3 platforms (macOS, iOS, Android), with validated wgpu4k integration (RGB triangle rendered at ~120 fps on Apple M2).
 
 ---
 
-## 3. Livrables par jalon
+## 2. Sprint metrics
 
-### Jalon M1 — POC : vue Metal minimale
-
-**Objectif** : prouver que kextract + FFM permettent d'ouvrir une fenêtre native et d'exposer un `NSView` layer-backed.
-
-| Livrable | Statut |
-|---------|--------|
-| Modules Gradle créés (`koreos-core`, `koreos-appkit`, `koreos`) | ✓ Livré |
-| Fenêtre macOS via `samples/hello-metal` | ✓ Livré |
-| `contentView` layer-backed (`wantsLayer = true`) | ✓ Livré |
-| Fermeture propre (clic croix) | ✓ Livré |
-
-**Critère de "done" atteint** : `./gradlew :samples:hello-metal:run` ouvre une fenêtre vide ; `nsView.layer != null` ; fermeture sans crash.
+| Metric | Value |
+|--------|-------|
+| Linear tickets delivered | 28 (GRA-133 → GRA-160) |
+| Pull requests merged | ~29 PRs (feature branches → master) |
+| Platforms supported | 3 (macOS, iOS, Android) |
+| Artifacts published to Maven Central | 5 modules (`koreos-core`, `koreos-appkit`, `koreos-uikit`, `koreos-android`, `koreos`) |
+| Version published | `0.1.0` |
+| Render FPS (hello-triangle, Apple M2, Release) | ~120 fps (post-fix PR #25) |
+| Native dependencies (JNA/Rococoa) | 0 |
+| CI build time (fast path) | ~3–4 min |
+| Kotlin lines of code added (net, M2 only) | ~1,200 |
+| Total M3 session duration | ~1 day |
 
 ---
 
-### Jalon M2 — Démo wgpu4k (GRA-133 → GRA-140, PRs #18–#25)
+## 3. Deliverables per milestone
 
-**Objectif** : valider le contrat raw handle avec wgpu4k et démontrer un rendu basique.
+### Milestone M1 — POC: minimal Metal view
 
-| Ticket | Livrable | PRs |
-|--------|---------|-----|
+**Goal**: prove that kextract + FFM can open a native window and expose a layer-backed `NSView`.
+
+| Deliverable | Status |
+|------------|--------|
+| Gradle modules created (`koreos-core`, `koreos-appkit`, `koreos`) | ✓ Delivered |
+| macOS window via `samples/hello-metal` | ✓ Delivered |
+| `contentView` layer-backed (`wantsLayer = true`) | ✓ Delivered |
+| Clean close (click on window X) | ✓ Delivered |
+
+**Done criterion met**: `./gradlew :samples:hello-metal:run` opens an empty window; `nsView.layer != null`; closes without crash.
+
+---
+
+### Milestone M2 — wgpu4k demo (GRA-133 → GRA-140, PRs #18–#25)
+
+**Goal**: validate the raw handle contract with wgpu4k and demonstrate a basic render.
+
+| Ticket | Deliverable | PRs |
+|--------|------------|-----|
 | GRA-133 | `WindowEvent.ScaleFactorChanged` | #18 |
 | GRA-134 | `WindowEvent.RedrawRequested` + `CFRunLoopObserver` | #19 |
-| GRA-135 | `aboutToWait` callback après `RedrawRequested` | #20 |
-| GRA-136 | `ControlFlow` effectif + `EventLoopProxy.wakeUp` thread-safe | #20 |
-| GRA-137 | `hello-triangle` : wgpu4k Instance + Surface + Adapter + Device | #21 |
-| GRA-138 | `hello-triangle` : rendu triangle RGB | #22 |
-| GRA-139 | `hello-triangle` : resize swap chain | #23 |
-| GRA-140 | Post-mortem M2 + README Koreos validé | #24 |
+| GRA-135 | `aboutToWait` callback after `RedrawRequested` | #20 |
+| GRA-136 | Effective `ControlFlow` + thread-safe `EventLoopProxy.wakeUp` | #20 |
+| GRA-137 | `hello-triangle`: wgpu4k Instance + Surface + Adapter + Device | #21 |
+| GRA-138 | `hello-triangle`: RGB triangle render | #22 |
+| GRA-139 | `hello-triangle`: swap chain resize | #23 |
+| GRA-140 | M2 post-mortem + Koreos README | #24 |
 
-**Correctif post-review** (PR #25) : triangle RGB @ 120 fps — 3 correctifs Metal/wgpu-native 0.25+ (framebuffer format, présentation FIFO, wgpu-native 0.25.x API).
+**Post-review fix** (PR #25): RGB triangle @ 120 fps — 3 Metal/wgpu-native 0.25+ fixes (framebuffer format, FIFO presentation, wgpu-native 0.25.x API).
 
-**Critère de "done" atteint** : démo runnable Apple Silicon, 120 fps stables après correctif ; resize sans crash ; swap chain reconfiguré.
+**Done criterion met**: demo runnable on Apple Silicon, 120 fps stable after fix; resize without crash; swap chain reconfigured.
 
 ---
 
-### Jalon M3 — Lib cible (GRA-141 → GRA-160, PRs #26–#46)
+### Milestone M3 — Target lib (GRA-141 → GRA-160, PRs #26–#46)
 
-**Objectif** : lib KMP publiable, multi-plateforme, intégrable dans des projets tiers.
+**Goal**: publishable KMP library, multiplatform, integrable in third-party projects.
 
-#### Backend iOS — `koreos-uikit` (GRA-141 → GRA-146)
+#### iOS backend — `koreos-uikit` (GRA-141 → GRA-146)
 
-| Ticket | Livrable |
-|--------|---------|
-| GRA-141 | Setup module `koreos-uikit` (iosX64, iosArm64, iosSimulatorArm64) |
+| Ticket | Deliverable |
+|--------|------------|
+| GRA-141 | `koreos-uikit` module setup (iosX64, iosArm64, iosSimulatorArm64) |
 | GRA-142 | `KoreosAppDelegate` iOS lifecycle (AppDelegate-only) |
-| GRA-143 | `UiKitWindow` — `UIWindow` + `UIView` + `CAMetalLayer` plein écran |
+| GRA-143 | `UiKitWindow` — full-screen `UIWindow` + `UIView` + `CAMetalLayer` |
 | GRA-144 | Touch events `UIResponder` → `WindowEvent.Touch` |
-| GRA-145 | Lifecycle background/foreground + KDoc ordre callbacks |
-| GRA-146 | Actual `EventLoop` iOS → `koreos-uikit` + sample `hello-touch` |
+| GRA-145 | Background/foreground lifecycle + KDoc callback ordering |
+| GRA-146 | iOS `EventLoop` actual → `koreos-uikit` + `hello-touch` sample |
 
-#### Backend Android — `koreos-android` (GRA-147 → GRA-152)
+#### Android backend — `koreos-android` (GRA-147 → GRA-152)
 
-| Ticket | Livrable |
-|--------|---------|
-| GRA-147 | Setup module `koreos-android` (AGP, manifest, minSdk=24) |
-| GRA-148 | `KoreosActivity` + `AndroidWindow` SurfaceView plein écran |
-| GRA-149 | Lifecycle dispatch Activity + SurfaceHolder → `ApplicationHandler` |
+| Ticket | Deliverable |
+|--------|------------|
+| GRA-147 | `koreos-android` module setup (AGP, manifest, minSdk=24) |
+| GRA-148 | `KoreosActivity` + full-screen `AndroidWindow` SurfaceView |
+| GRA-149 | Activity + SurfaceHolder lifecycle dispatch → `ApplicationHandler` |
 | GRA-150 | `MotionEvent` → `WindowEvent.Touch` multi-touch dispatch |
 | GRA-151 | Choreographer frame timing + `RedrawRequested` dispatch |
-| GRA-152 | Actual `EventLoop` androidMain + sample `hello-touch-android` |
+| GRA-152 | `EventLoop` androidMain actual + `hello-touch-android` sample |
 
-#### Backend macOS étendu (GRA-153 → GRA-156)
+#### Extended macOS backend (GRA-153 → GRA-156)
 
-| Ticket | Livrable |
-|--------|---------|
-| GRA-153 | Multi-window support : `windowWillClose` cleanup + `exit()` ferme tout |
+| Ticket | Deliverable |
+|--------|------------|
+| GRA-153 | Multi-window support: `windowWillClose` cleanup + `exit()` closes all |
 | GRA-154 | Keyboard input `sendEvent:` → `WindowEvent.KeyboardInput` + `isRepeat` |
-| GRA-155 | Mouse input complet (clics, déplacement, scroll, enter/exit) |
-| GRA-156 | `DeviceEvent` dispatch (`PointerMotion`, `Button`, `Key`) avant `WindowEvent` |
+| GRA-155 | Full mouse input (clicks, movement, scroll, enter/exit) |
+| GRA-156 | `DeviceEvent` dispatch (`PointerMotion`, `Button`, `Key`) before `WindowEvent` |
 
 #### Infrastructure & publication (GRA-157 → GRA-160)
 
-| Ticket | Livrable |
-|--------|---------|
-| GRA-157 | Dokka KDoc coverage + intégration MkDocs API Reference |
-| GRA-158 | Sample `hello-window` cross-platform (JVM + iOS + Android) |
+| Ticket | Deliverable |
+|--------|------------|
+| GRA-157 | Dokka KDoc coverage + MkDocs API Reference integration |
+| GRA-158 | `hello-window` sample cross-platform (JVM + iOS + Android) |
 | GRA-159 | Maven Central publication (`kmp-publish`, signing, GPG) |
-| GRA-160 | CI multi-platform (macOS + iOS simulator + Android) |
+| GRA-160 | Multi-platform CI (macOS + iOS simulator + Android) |
 
-**Critère de "done" atteint** : artefact `io.ygdrasil.koreos:0.1.0` publié Maven Central ; CI verte sur 3 plateformes ; documentation API MkDocs déployée.
-
----
-
-## 4. Écarts identifiés (9 points de remédiation → v0.1.1)
-
-Ces écarts ont été identifiés en sortie de sprint review et sont planifiés pour correction dans [Sprint 0 — v0.1.1](./plan-v0.2.md#sprint-0-remediation-v011-2-semaines).
-
-| # | Domaine | Écart |
-|---|---------|-------|
-| 1 | MkDocs branding | `mkdocs.yml` : `site_name`, `site_description`, nav `koreos/api/` non rebranded Koreos |
-| 2 | Samples Android | `hello-window-android` et `hello-touch-android` dupliquent la logique instead of commonMain partagé |
-| 3 | Android EventLoop | `AndroidEventLoop.createWindow` lève `UnsupportedOperationException` au lieu de retourner une `AndroidWindow` fonctionnelle |
-| 4 | README résidus | README racine contient encore des références "Clean Architecture / DDD / Compose / Koin" du starter-pack |
-| 5 | Post-mortem M2 | Métrique FPS incorrecte (`~60 fps` → `~120 fps`) ; vidéo démo M2 non enregistrée |
-| 6 | Commentaire stub | `AppKitEventLoop.kt:35` contient un commentaire "stub" obsolète |
-| 7 | `KoreosApplication.eventLoop` | Variable statique mutable (`var`) à refactorer en instance scopée |
-| 8 | CI branches feature | `ios-build`/`android-build` ne tournent que sur push `master` ; à étendre aux branches PR |
-| 9 | Test E2E smoke | Pas de test "au moins une frame rendue" sur `hello-triangle` (régression possible, cf. PR #25) |
+**Done criterion met**: artifact `io.ygdrasil.koreos:0.1.0` published to Maven Central; CI green on 3 platforms; MkDocs API documentation deployed.
 
 ---
 
-## 5. Leçon principale — PR #25 (régression wgpu-native 0.25+)
+## 4. Identified gaps (9 remediation items → v0.1.1)
 
-**Problème** : après merge de GRA-138 (triangle RGB), le rendu était cassé à 0 fps suite à la mise à jour vers wgpu-native 0.25+.
+These gaps were identified at sprint review and are planned for correction in [Sprint 0 — v0.1.1](./plan-v0.2.md#sprint-0-remediation-v011-2-semaines).
 
-**Cause** : trois incompatibilités de breaking changes wgpu-native :
-1. Format framebuffer : `BGRA8Unorm` requis sur Metal à la place de `RGBA8Unorm`.
-2. Mode de présentation : `PresentMode.FIFO` remplace l'ancienne valeur par défaut.
-3. API wgpu-native 0.25.x : changements de signatures dans `createRenderPipeline`.
-
-**Résolution** (PR #25) : 3 correctifs ciblés, triangle stable à 120 fps (VSync Metal sur Apple M2).
-
-**Leçon** : les mises à jour de wgpu-native sont des breaking changes fréquents. Verrouiller la version (`wgpu-native = "0.25.x"`) dans le catalogue de versions et ajouter un test smoke anti-régression "au moins une frame rendue" avant chaque bump.
-
----
-
-## 6. Rétrospective
-
-### Ce qui a bien marché
-
-- **Panama FFM comme seule couche native** : zéro dépendance JNA/Rococoa, downcalls directs vers `objc_msgSend`, gestion mémoire via `Arena.ofAuto()`. Approche confirmée solide pour M3+.
-- **Architecture `ApplicationHandler`** : interface callback-driven (`canCreateSurfaces`, `aboutToWait`, `windowEvent`) extensible sans couplage aux détails AppKit/UIKit/Android.
-- **CFRunLoop comme scheduler** : `kCFRunLoopBeforeWaiting` + `CFRunLoopTimer` pour `ControlFlow.WaitUntil` — élégant, précis, sans thread supplémentaire.
-- **API wgpu4k stable et portable** : la séquence `Instance → Surface → Adapter → Device → Pipeline → render loop` est idiomatique WebGPU et reproductible sur d'autres plateformes.
-- **Velocity élevée** : 28 tickets, ~29 PRs, 3 plateformes, publication Maven Central — tout livré en ~24h effectives.
-
-### Points à améliorer
-
-- **Pas de test E2E smoke** : la régression PR #25 aurait pu être détectée automatiquement. Priorité v0.1.1.
-- **`requestRedraw()` dans `aboutToWait`** : fonctionnel mais non-idiomatique. Remplacer par `ControlFlow.Poll` en v0.2 (cf. post-mortem M2 §Décisions M3).
-- **Libération ressources wgpu** : ordre de destruction non garanti dans `releaseResources()`. Prévoir `AutoClosableContext` en v0.2.
-- **Absence de `Device.poll()`** : nécessaire pour les backends non-Metal (Linux, Windows). À anticiper pour la portabilité cross-platform.
-- **Vidéo démo M2 non enregistrée** : livrable manquant pour la communication externe. Planifié v0.1.1.
+| # | Area | Gap |
+|---|------|-----|
+| 1 | MkDocs branding | `mkdocs.yml`: `site_name`, `site_description`, nav `koreos/api/` not rebranded as Koreos |
+| 2 | Android samples | `hello-window-android` and `hello-touch-android` duplicate logic instead of sharing commonMain |
+| 3 | Android EventLoop | `AndroidEventLoop.createWindow` throws `UnsupportedOperationException` instead of returning a working `AndroidWindow` |
+| 4 | README leftovers | Root README still references "Clean Architecture / DDD / Compose / Koin" from the starter pack |
+| 5 | M2 post-mortem | Incorrect FPS metric (`~60 fps` → `~120 fps`); M2 demo video not recorded |
+| 6 | Stub comment | `AppKitEventLoop.kt:35` contains an obsolete "stub" comment |
+| 7 | `KoreosApplication.eventLoop` | Mutable static variable (`var`) to refactor into a scoped instance |
+| 8 | CI feature branches | `ios-build`/`android-build` only run on `master` push; extend to PR branches |
+| 9 | E2E smoke test | No "at least one frame rendered" test on `hello-triangle` (possible regression, cf. PR #25) |
 
 ---
 
-## 7. Références
+## 5. Key lesson — PR #25 (wgpu-native 0.25+ regression)
 
-- [Plan projet v0.1](./plan.md) — jalons M1-M3, risques, timeline
-- [Plan projet v0.2](./plan-v0.2.md) — roadmap extensions (6 plateformes, Pong)
-- [Post-mortem M2](./postmortem-m2.md) — analyse détaillée jalon M2
-- [Spécifications v0.1](./specs.md) — architecture, API, diagrammes
-- [Release v0.1.0](https://github.com/ygdrasil-io/poc-koreos/releases/tag/v0.1.0) — tag GitHub + artefacts Maven Central
+**Problem**: after merging GRA-138 (RGB triangle), rendering broke at 0 fps following the update to wgpu-native 0.25+.
+
+**Cause**: three breaking change incompatibilities in wgpu-native:
+1. Framebuffer format: `BGRA8Unorm` required on Metal instead of `RGBA8Unorm`.
+2. Presentation mode: `PresentMode.FIFO` replaces the old default.
+3. wgpu-native 0.25.x API: signature changes in `createRenderPipeline`.
+
+**Fix** (PR #25): 3 targeted patches, triangle stable at 120 fps (Metal VSync on Apple M2).
+
+**Lesson**: wgpu-native updates are frequent breaking changes. Pin the version (`wgpu-native = "0.25.x"`) in the version catalog and add an anti-regression smoke test ("at least one frame rendered") before each version bump.
+
+---
+
+## 6. Retrospective
+
+### What worked well
+
+- **Panama FFM as the sole native layer**: zero JNA/Rococoa dependency, direct downcalls to `objc_msgSend`, memory managed via `Arena.ofAuto()`. Approach confirmed solid for M3+.
+- **`ApplicationHandler` architecture**: callback-driven interface (`canCreateSurfaces`, `aboutToWait`, `windowEvent`) extensible without coupling to AppKit/UIKit/Android internals.
+- **CFRunLoop as scheduler**: `kCFRunLoopBeforeWaiting` + `CFRunLoopTimer` for `ControlFlow.WaitUntil` — elegant, precise, no extra thread.
+- **Stable and portable wgpu4k API**: the `Instance → Surface → Adapter → Device → Pipeline → render loop` sequence is idiomatic WebGPU and reproducible on other platforms.
+- **High velocity**: 28 tickets, ~29 PRs, 3 platforms, Maven Central publication — all delivered in ~24 effective hours.
+
+### Areas to improve
+
+- **No E2E smoke test**: the PR #25 regression could have been caught automatically. Priority for v0.1.1.
+- **`requestRedraw()` in `aboutToWait`**: functional but not idiomatic. Replace with `ControlFlow.Poll` in v0.2 (cf. M2 post-mortem §M3 decisions).
+- **wgpu resource release**: destruction order not guaranteed in `releaseResources()`. Plan `AutoClosableContext` for v0.2.
+- **No `Device.poll()`**: required for non-Metal backends (Linux, Windows). Anticipate for cross-platform portability.
+- **M2 demo video not recorded**: missing deliverable for external communication. Planned for v0.1.1.
+
+---
+
+## 7. References
+
+- [v0.1 project plan](./plan.md) — M1-M3 milestones, risks, timeline
+- [v0.2 project plan](./plan-v0.2.md) — extension roadmap (6 platforms, Pong)
+- [M2 post-mortem](./postmortem-m2.md) — detailed M2 milestone analysis
+- [v0.1 specifications](./specs.md) — architecture, API, diagrams
+- [v0.1.0 release](https://github.com/ygdrasil-io/poc-koreos/releases/tag/v0.1.0) — GitHub tag + Maven Central artifacts

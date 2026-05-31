@@ -1,237 +1,237 @@
-# Koreos — Plan projet
+# Koreos — Project Plan
 
-> Statut : **Draft pour relecture**
-> Auteur : équipe Koreos
-> Dernière mise à jour : 2026-05-27
+> Status: **Draft for review**
+> Author: Koreos team
+> Last updated: 2026-05-27
 
 ---
 
-## 1. Contexte
+## 1. Context
 
-**Koreos** est un projet visant à fournir un équivalent de [winit](https://github.com/rust-windowing/winit) (la bibliothèque Rust de référence pour le fenêtrage et la gestion d'événements cross-platform) **en Kotlin pur**.
+**Koreos** is a project to provide a [winit](https://github.com/rust-windowing/winit) equivalent (the reference Rust library for cross-platform windowing and event handling) **in pure Kotlin**.
 
-L'objectif final est de donner aux développeurs Kotlin un **contrôle bas-niveau** sur la fenêtre native et le compositeur du système hôte, **sans dépendance à AWT/Swing**, afin de permettre l'intégration de moteurs de rendu 3D natifs (Metal, Vulkan, WebGPU) via des handles natifs (`raw window handle`).
+The ultimate goal is to give Kotlin developers **low-level control** over the native window and the host system's compositor, **without AWT/Swing dependencies**, to enable integration of native 3D rendering engines (Metal, Vulkan, WebGPU) via native handles (`raw window handle`).
 
-La motivation principale est de débloquer des cas d'usage **3D / GPU-intensifs** sur l'écosystème Kotlin Multiplatform, qui sont aujourd'hui contraints par AWT (cycle d'événements lourd, intégration GPU friable, pas d'accès direct au compositeur).
+The primary motivation is to unlock **3D / GPU-intensive** use cases in the Kotlin Multiplatform ecosystem, which are today constrained by AWT (heavy event cycle, fragile GPU integration, no direct compositor access).
 
 ---
 
 ## 2. Vision
 
-Une lib KMP qui :
+A KMP lib that:
 
-- Expose une **API callback-driven** inspirée de winit (`ApplicationHandler`, `EventLoop`, `Window`).
-- Donne accès aux **handles natifs bas-niveau** (`NSView`, `UIView`, `android.view.Surface`) directement consommables par un renderer 3D.
-- Ne dépend **pas** d'AWT ni de Swing.
-- Respecte les conventions idiomatiques Kotlin (sealed interfaces, coroutines pour les opérations async, null-safety).
-- Reste **stable et publiable** sur Maven Central via les conventions du repo.
-
----
-
-## 3. Objectifs et non-objectifs
-
-### Objectifs
-
-| Catégorie | Objectif |
-|-----------|----------|
-| Plateformes (V1) | macOS Desktop, iOS, Android |
-| Plateformes (V2+) | Windows, Linux X11/Wayland |
-| Couche réseau | Aucune dépendance AWT/Swing/JavaFX |
-| Intégration 3D | Contrat `RawWindowHandle` compatible avec wgpu4k |
-| API | Inspirée de winit, idiomatique Kotlin |
-| Distribution | Artefact KMP publiable Maven Central |
-
-### Non-objectifs (V1)
-
-- Le **rendu 3D lui-même** — délégué à wgpu4k ou tout autre renderer consommant un raw handle.
-- Le support **Web (WebGPU/canvas)** — à statuer après V1.
-- Le support **Compose Multiplatform** — Koreos est plus bas-niveau, l'intégration Compose viendra ultérieurement si pertinent.
-- Multi-fenêtre dans le POC initial (M1/M2).
-- Accessibilité système (VoiceOver, TalkBack) — phase ultérieure.
-- IME, clipboard avancé, drag&drop — phase ultérieure.
+- Exposes a **callback-driven API** inspired by winit (`ApplicationHandler`, `EventLoop`, `Window`).
+- Gives access to **low-level native handles** (`NSView`, `UIView`, `android.view.Surface`) directly consumable by a 3D renderer.
+- Has **no dependency** on AWT or Swing.
+- Follows idiomatic Kotlin conventions (sealed interfaces, coroutines for async operations, null-safety).
+- Remains **stable and publishable** on Maven Central via the repo's existing conventions.
 
 ---
 
-## 4. Parties prenantes
+## 3. Goals and non-goals
 
-| Rôle | Responsabilité |
-|------|----------------|
-| PM / Tech Lead | Pilotage projet, validation des specs |
-| Équipe Koreos | Implémentation core + backends |
-| Équipe kextract | Finalisation du support subclassing Obj-C, bindings FFM AppKit |
-| Équipe wgpu4k | Consommation des raw handles côté renderer 3D |
-| Relecteurs | Validation du plan et des specs en PR |
+### Goals
+
+| Category | Goal |
+|----------|------|
+| Platforms (V1) | macOS Desktop, iOS, Android |
+| Platforms (V2+) | Windows, Linux X11/Wayland |
+| Network layer | No AWT/Swing/JavaFX dependency |
+| 3D integration | `RawWindowHandle` contract compatible with wgpu4k |
+| API | Inspired by winit, idiomatic Kotlin |
+| Distribution | Publishable KMP artifact on Maven Central |
+
+### Non-goals (V1)
+
+- The **3D rendering itself** — delegated to wgpu4k or any renderer consuming a raw handle.
+- **Web support (WebGPU/canvas)** — to be evaluated after V1.
+- **Compose Multiplatform support** — Koreos is lower-level; Compose integration may come later if relevant.
+- Multi-window in the initial POC (M1/M2).
+- System accessibility (VoiceOver, TalkBack) — later phase.
+- IME, advanced clipboard, drag & drop — later phase.
 
 ---
 
-## 5. Périmètre fonctionnel
+## 4. Stakeholders
 
-### Modules livrés (V1)
+| Role | Responsibility |
+|------|---------------|
+| PM / Tech Lead | Project management, spec validation |
+| Koreos team | Core + backend implementation |
+| kextract team | Finalizing Obj-C subclassing support, AppKit FFM bindings |
+| wgpu4k team | Consuming raw handles on the 3D renderer side |
+| Reviewers | Plan and spec validation in PR |
 
-| Module | Rôle | Cibles KMP |
-|--------|------|------------|
-| `koreos-core` | Interfaces, events, types DPI, raw handles | jvm, android, iosX64, iosArm64, iosSimulatorArm64 |
-| `koreos-appkit` | Backend macOS Desktop via kextract (FFM) | jvm |
-| `koreos-uikit` | Backend iOS via cinterop Kotlin/Native | iosX64, iosArm64, iosSimulatorArm64 |
-| `koreos-android` | Backend Android via Surface SDK | android |
-| `koreos` (facade) | API publique, sélection backend via `expect/actual` | toutes |
-| `samples/hello-metal` | Sample POC | jvm |
+---
 
-### Modules hors périmètre V1
+## 5. Functional scope
+
+### Delivered modules (V1)
+
+| Module | Role | KMP targets |
+|--------|------|-------------|
+| `koreos-core` | Interfaces, events, DPI types, raw handles | jvm, android, iosX64, iosArm64, iosSimulatorArm64 |
+| `koreos-appkit` | macOS Desktop backend via kextract (FFM) | jvm |
+| `koreos-uikit` | iOS backend via Kotlin/Native cinterop | iosX64, iosArm64, iosSimulatorArm64 |
+| `koreos-android` | Android backend via Surface SDK | android |
+| `koreos` (facade) | Public API, backend selection via `expect/actual` | all |
+| `samples/hello-metal` | POC sample | jvm |
+
+### Out-of-scope modules (V1)
 
 - `koreos-win32` — Win32 via FFM (V2)
 - `koreos-x11` — Xlib/xcb via FFM (V2)
 - `koreos-wayland` — wl_compositor via FFM (V2)
-- `koreos-web` — WebGPU/canvas (à statuer)
+- `koreos-web` — WebGPU/canvas (to be decided)
 
 ---
 
-## 6. Jalons et livrables
+## 6. Milestones and deliverables
 
-### Jalon M1 — POC : vue Metal minimale
+### Milestone M1 — POC: minimal Metal view
 
-**Objectif** : prouver que la stack de binding kextract + l'archi modulaire permettent d'ouvrir une fenêtre native et d'exposer un `NSView` prêt pour Metal.
+**Goal**: prove that the kextract binding stack + modular architecture can open a native window and expose an `NSView` ready for Metal.
 
-**Livrable** :
-- Modules Gradle créés (`koreos-core`, `koreos-appkit`, `koreos`)
-- Une fenêtre macOS s'ouvre via `samples/hello-metal`
-- Le `contentView` est layer-backed (`wantsLayer = true`)
-- L'application se ferme proprement (clic sur la croix de la fenêtre)
+**Deliverable**:
+- Gradle modules created (`koreos-core`, `koreos-appkit`, `koreos`)
+- A macOS window opens via `samples/hello-metal`
+- The `contentView` is layer-backed (`wantsLayer = true`)
+- The application closes cleanly (clicking the window X)
 
-**Hors scope M1** :
-- Aucun event loop avancé
-- Aucun input clavier/souris
-- Aucun resize géré
-- Pas d'autres backends (iOS, Android)
+**Out of scope for M1**:
+- No advanced event loop
+- No keyboard/mouse input
+- No resize handling
+- No other backends (iOS, Android)
 
-**Définition de "done"** :
-- `./gradlew :samples:hello-metal:run` ouvre une fenêtre vide.
-- `nsView.layer != null` (vérifié via log).
-- Fermeture sans crash.
-
----
-
-### Jalon M2 — Démo wgpu4k
-
-**Objectif** : valider le **contrat raw handle** avec un renderer 3D réel (wgpu4k) et démontrer un rendu basique.
-
-**Livrable** :
-- `wgpu4k` consomme le `RawWindowHandle.AppKit` exposé par Koreos.
-- Une scène simple (triangle ou cube tournant) est rendue dans la fenêtre.
-- Le redimensionnement déclenche la recréation du swap chain (event `WindowEvent.Resized`).
-- L'event loop gère `CloseRequested` et `RedrawRequested`.
-
-**Hors scope M2** :
-- Input keyboard/mouse (pas nécessaire pour la démo)
-- Backends iOS/Android (toujours macOS only)
-- Multi-fenêtre
-
-**Définition de "done"** :
-- Démo runnable sur Apple Silicon, 60fps stable.
-- Resize sans crash, swap chain reconfiguré correctement.
-- Vidéo de la démo enregistrée pour communication.
+**Done definition**:
+- `./gradlew :samples:hello-metal:run` opens an empty window.
+- `nsView.layer != null` (verified via log).
+- Closes without crash.
 
 ---
 
-### Jalon M3 — Lib cible
+### Milestone M2 — wgpu4k demo
 
-**Objectif** : librairie KMP publiable, multi-plateforme, intégrable dans des projets tiers.
+**Goal**: validate the **raw handle contract** with a real 3D renderer (wgpu4k) and demonstrate a basic render.
 
-**Livrable** :
-- Backends complets pour les 3 plateformes : macOS (`koreos-appkit`), iOS (`koreos-uikit`), Android (`koreos-android`).
-- API publique stable et documentée : `ApplicationHandler`, `EventLoop`, `Window`, événements complets.
-- Lifecycle complet : `resumed`, `suspended`, `destroySurfaces` (Android).
-- Multi-fenêtre supporté (au moins sur Desktop).
-- Input : clavier, souris (Desktop), touch (mobile), device events.
-- Samples : `hello-window`, `hello-triangle` runnables sur les 3 plateformes.
-- Documentation Dokka + MkDocs.
-- Publication Maven Central via les convention plugins existants (`kmp-library`, `kmp-publish`).
+**Deliverable**:
+- `wgpu4k` consumes the `RawWindowHandle.AppKit` exposed by Koreos.
+- A simple scene (rotating triangle or cube) is rendered in the window.
+- Resize triggers swap chain recreation (event `WindowEvent.Resized`).
+- The event loop handles `CloseRequested` and `RedrawRequested`.
 
-**Définition de "done"** :
-- Suite de tests passant en CI sur les 3 cibles.
-- Artefact publié Maven Central avec version `0.1.0`.
-- Documentation API accessible via le site MkDocs.
+**Out of scope for M2**:
+- Keyboard/mouse input (not needed for the demo)
+- iOS/Android backends (still macOS only)
+- Multi-window
 
----
-
-## 7. Critères de succès
-
-| Jalon | Critère mesurable |
-|-------|--------------------|
-| M1 | NSWindow ouverte avec contentView layer-backed visible. Fermeture propre. |
-| M2 | wgpu4k rend une scène basique à 60fps. Resize ne crash pas. |
-| M3 | Lib publiée Maven Central. Samples runnables sur 3 plateformes. CI verte. |
+**Done definition**:
+- Demo runnable on Apple Silicon, stable 60 fps.
+- Resize without crash, swap chain correctly reconfigured.
+- Demo video recorded for communication.
 
 ---
 
-## 8. Risques et mitigations
+### Milestone M3 — Target lib
 
-| Risque | Probabilité | Impact | Mitigation |
-|--------|-------------|--------|------------|
-| Subclassing Obj-C non finalisé dans kextract | Moyenne | Bloquant M3 (et partiellement M1) | Coordination étroite équipe kextract. Fallback : shim Obj-C compilé à part en C, embarqué dans l'artefact. |
-| Divergence cinterop (iOS) vs FFM (macOS) au niveau API | Forte | Friction de maintenance | Contrat strict `koreos-core` en commonMain qui force la convergence. Tests d'intégration partagés. |
-| wgpu4k pas prêt à consommer le handle pour M2 | Faible | Décalage planning de M2 | M1 reste démontrable seul. M2 peut basculer sur Metal direct si wgpu4k tarde. |
-| Lifecycle iOS complexe (background, scene restoration) | Moyenne | Reportable post-M3 | Couvrir uniquement `resumed`/`suspended` dans M3. Le reste en V1.x. |
-| Compatibilité JDK FFM (Panama API surface) | Faible | Refacto à JDK 26+ | FFM est stable depuis JDK 22, JDK 25 LTS est sûr. |
-| Apple changements AppKit (macOS 26+) | Faible | Bug surface | Tests CI sur macOS LTS uniquement. |
-| Multi-thread bugs (main thread enforcement) | Moyenne | Crash hard-to-debug | Asserts runtime sur `Thread.currentThread() == mainThread` à chaque entrée publique. |
+**Goal**: publishable KMP library, multiplatform, integrable in third-party projects.
 
----
+**Deliverable**:
+- Complete backends for 3 platforms: macOS (`koreos-appkit`), iOS (`koreos-uikit`), Android (`koreos-android`).
+- Stable and documented public API: `ApplicationHandler`, `EventLoop`, `Window`, complete events.
+- Full lifecycle: `resumed`, `suspended`, `destroySurfaces` (Android).
+- Multi-window supported (at least on Desktop).
+- Input: keyboard, mouse (Desktop), touch (mobile), device events.
+- Samples: `hello-window`, `hello-triangle` runnable on all 3 platforms.
+- Dokka + MkDocs documentation.
+- Maven Central publication via existing convention plugins (`kmp-library`, `kmp-publish`).
 
-## 9. Dépendances externes
-
-| Dépendance | Version cible | Statut |
-|------------|---------------|--------|
-| **kextract** | Finalisation subclassing Obj-C | En cours |
-| **wgpu4k** | Version consommant `RawWindowHandle` | À vérifier |
-| JDK | 25 (LTS) | Disponible |
-| Kotlin | 2.3.21 | Configuré dans le repo |
-| Gradle | 9.5.0 | Configuré dans le repo |
-| AGP | 9.0.0 | Configuré dans le repo |
+**Done definition**:
+- Test suite passing in CI on all 3 targets.
+- Artifact published to Maven Central with version `0.1.0`.
+- API documentation accessible via the MkDocs site.
 
 ---
 
-## 10. Timeline indicative
+## 7. Success criteria
 
-> Estimations à affiner avec le backlog Linear.
-
-| Jalon | Durée | Échéance cible |
-|-------|-------|----------------|
-| M1 — POC Metal view | ~2 semaines | T0 + 2sem |
-| M2 — Démo wgpu4k | ~2 semaines | T0 + 4sem |
-| M3 — Lib cible V1 | ~10 semaines | T0 + 14sem |
-
-Le T0 est conditionné à la finalisation du subclassing Obj-C dans kextract.
+| Milestone | Measurable criterion |
+|-----------|---------------------|
+| M1 | NSWindow opened with visible layer-backed contentView. Clean close. |
+| M2 | wgpu4k renders a basic scene at 60 fps. Resize does not crash. |
+| M3 | Lib published to Maven Central. Samples runnable on 3 platforms. CI green. |
 
 ---
 
-## 11. Décisions d'architecture déjà actées
+## 8. Risks and mitigations
 
-Décisions verrouillées lors des discussions préparatoires, formalisées dans les [specs](./specs.md) :
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| Obj-C subclassing not finalized in kextract | Medium | Blocking M3 (and partially M1) | Close coordination with kextract team. Fallback: Obj-C shim compiled separately in C, bundled in the artifact. |
+| Divergence between cinterop (iOS) and FFM (macOS) at the API level | High | Maintenance friction | Strict `koreos-core` contract in commonMain forcing convergence. Shared integration tests. |
+| wgpu4k not ready to consume the handle for M2 | Low | M2 schedule slip | M1 remains demonstrable alone. M2 can switch to direct Metal if wgpu4k is delayed. |
+| Complex iOS lifecycle (background, scene restoration) | Medium | Deferrable post-M3 | Cover only `resumed`/`suspended` in M3. The rest in V1.x. |
+| JDK FFM compatibility (Panama API surface) | Low | Refactor at JDK 26+ | FFM is stable since JDK 22, JDK 25 LTS is safe. |
+| Apple AppKit changes (macOS 26+) | Low | Bug surface | CI tests on macOS LTS only. |
+| Multi-thread bugs (main thread enforcement) | Medium | Hard-to-debug crashes | Runtime asserts on `Thread.currentThread() == mainThread` at every public entry point. |
 
-1. **iOS via Kotlin/Native + cinterop** (pas de kextract sur iOS, pas de JVM).
-2. **Android Strategy A** : `android.view.Surface` exposée brute, aucune lib JNI custom.
+---
+
+## 9. External dependencies
+
+| Dependency | Target version | Status |
+|------------|----------------|--------|
+| **kextract** | Obj-C subclassing finalization | In progress |
+| **wgpu4k** | Version consuming `RawWindowHandle` | To verify |
+| JDK | 25 (LTS) | Available |
+| Kotlin | 2.3.21 | Configured in repo |
+| Gradle | 9.5.0 | Configured in repo |
+| AGP | 9.0.0 | Configured in repo |
+
+---
+
+## 10. Indicative timeline
+
+> Estimates to refine with the Linear backlog.
+
+| Milestone | Duration | Target deadline |
+|-----------|----------|----------------|
+| M1 — Metal view POC | ~2 weeks | T0 + 2 weeks |
+| M2 — wgpu4k demo | ~2 weeks | T0 + 4 weeks |
+| M3 — Target lib V1 | ~10 weeks | T0 + 14 weeks |
+
+T0 is contingent on the finalization of Obj-C subclassing in kextract.
+
+---
+
+## 11. Locked architecture decisions
+
+Decisions locked during preparatory discussions, formalized in the [specs](./specs.md):
+
+1. **iOS via Kotlin/Native + cinterop** (no kextract on iOS, no JVM).
+2. **Android Strategy A**: raw `android.view.Surface` exposed, no custom JNI lib.
 3. **macOS via JVM 25 + kextract FFM**.
-4. **AppKit et UIKit séparés en modules distincts** (lifecycles fondamentalement différents).
-5. **Subclassing Obj-C** plutôt que method swizzling pour intercepter `NSApplication.sendEvent:`.
+4. **AppKit and UIKit in separate modules** (fundamentally different lifecycles).
+5. **Obj-C subclassing** rather than method swizzling to intercept `NSApplication.sendEvent:`.
 
 ---
 
-## 12. Annexes
+## 12. Appendices
 
-### Glossaire
+### Glossary
 
-| Terme | Définition |
-|-------|------------|
-| **winit** | Crate Rust de référence pour le fenêtrage cross-platform (https://github.com/rust-windowing/winit). |
-| **wgpu4k** | Port Kotlin de wgpu, renderer 3D bas-niveau cross-platform. |
-| **kextract** | Outil interne — équivalent jextract pour Kotlin avec support Obj-C, génère des bindings FFM (JVM 22+). |
-| **FFM** | Foreign Function & Memory API (JEP 454), interop natif JVM standardisé depuis Java 22. |
-| **cinterop** | Outil Kotlin/Native pour générer des bindings vers des bibliothèques C/Obj-C. |
-| **Raw Window Handle** | Contrat exposant les handles natifs de fenêtre (`NSView*`, `HWND`, etc.) à un renderer externe. |
-| **CAMetalLayer** | Layer Core Animation supportant Metal sur macOS/iOS. |
+| Term | Definition |
+|------|-----------|
+| **winit** | Reference Rust crate for cross-platform windowing (https://github.com/rust-windowing/winit). |
+| **wgpu4k** | Kotlin port of wgpu, a low-level cross-platform 3D renderer. |
+| **kextract** | Internal tool — jextract equivalent for Kotlin with Obj-C support, generates FFM bindings (JVM 22+). |
+| **FFM** | Foreign Function & Memory API (JEP 454), standard JVM native interop since Java 22. |
+| **cinterop** | Kotlin/Native tool for generating bindings to C/Obj-C libraries. |
+| **Raw Window Handle** | Contract exposing native window handles (`NSView*`, `HWND`, etc.) to an external renderer. |
+| **CAMetalLayer** | Core Animation layer supporting Metal on macOS/iOS. |
 
-### Documents associés
+### Associated documents
 
-- [Spécifications techniques](./specs.md)
-- [README projet](../../README.md)
+- [Technical specifications](./specs.md)
+- [Project README](../../README.md)

@@ -1,117 +1,115 @@
-# Tests de régression visuelle (screenshot diff)
+# Visual Regression Testing (screenshot diff)
 
-Redmine #88 — équivalent Roborazzi, cross-plateforme. Compare une capture d'écran
-d'un sample à une **baseline** committée, avec une tolérance en % de pixels
-différents. Complète le smoke E2E (#22, « au moins une frame présentée ») en
-détectant les régressions visuelles subtiles (couleur, position, antialiasing).
+Redmine #88 — Roborazzi equivalent, cross-platform. Compares a screenshot of a sample
+against a **committed baseline**, with a tolerance expressed as a percentage of
+differing pixels. Complements the E2E smoke test (#22, "at least one frame presented")
+by catching subtle visual regressions (color, position, antialiasing).
 
-## Stratégie de capture : readback GPU, pas capture d'écran
+## Capture strategy: GPU readback, not system screenshot
 
-La capture d'écran système (ScreenCaptureKit / `screencapture`, `CGWindowListCreateImage`,
-etc.) est **inadaptée** en CI : elle exige un display + la permission TCC « Screen
-Recording » (indisponibles sur les runners headless), et `CGWindowListCreateImage`
-est de surcroît **supprimée sur macOS 26**. Les outils d'instrumentation UI
-(Roborazzi/Paparazzi, XCUITest) snapshotent une **hiérarchie de vues**, pas une
-**surface GPU** — donc inutilisables pour un sample qui rend directement via wgpu.
+System screenshots (ScreenCaptureKit / `screencapture`, `CGWindowListCreateImage`, etc.)
+are **unsuitable in CI**: they require a display plus the TCC "Screen Recording"
+permission (unavailable on headless runners), and `CGWindowListCreateImage` is moreover
+**removed in macOS 26**. UI instrumentation tools (Roborazzi/Paparazzi, XCUITest)
+snapshot a **view hierarchy**, not a **GPU surface** — therefore useless for a sample
+that renders directly via wgpu.
 
-La méthode retenue est le **readback du framebuffer** via l'API graphique : le sample
-rend une frame dans une **texture offscreen**, la copie vers un buffer
-(`copyTextureToBuffer`), mappe et lit les octets, puis écrit un PNG. C'est
-**déterministe**, **sans fenêtre ni permission**, et **identique en CI et en local**.
-Comme wgpu4k est multiplateforme, ce chemin est commun à toutes les cibles ; seul
-l'encodage PNG diffère par plateforme.
+The chosen method is **GPU framebuffer readback** via the graphics API: the sample
+renders a frame into an **offscreen texture**, copies it to a buffer
+(`copyTextureToBuffer`), maps and reads the bytes, then writes a PNG. This is
+**deterministic**, **requires no window or permission**, and **identical in CI and locally**.
+Since wgpu4k is multiplatform, this path is shared across all targets; only the PNG
+encoding differs per platform.
 
-## État par plateforme
+## Status per platform
 
-| Plateforme | Capture | Automatisé en CI |
-|------------|---------|------------------|
-| **Web** (JS) | Playwright `page.screenshot()` | ✅ oui (informatif, non bloquant) |
-| **macOS** | **readback GPU** (`hello-triangle --capture`) | ✅ oui — job `macos-visual` (informatif, non bloquant) |
-| **iOS** | readback GPU (Kotlin/Native, wgpu4k Metal) | ⚠️ implémenté — **simulateur headless sans Metal** |
-| **Android** | readback GPU (wgpu4k Vulkan, émulateur) | ✅ oui — job `android-visual` (émulateur SwiftShader, non bloquant) |
-| Windows | readback GPU (même code wgpu, PNG via ImageIO) | 🟡 à brancher — runner Windows GPU |
-| Linux X11/Wayland | readback GPU (même code wgpu) | 🟡 à brancher |
+| Platform | Capture | Automated in CI |
+|----------|---------|-----------------|
+| **Web** (JS) | Playwright `page.screenshot()` | ✅ yes (informational, non-blocking) |
+| **macOS** | **GPU readback** (`hello-triangle --capture`) | ✅ yes — `macos-visual` job (informational, non-blocking) |
+| **iOS** | GPU readback (Kotlin/Native, wgpu4k Metal) | ⚠️ implemented — **headless simulator without Metal** |
+| **Android** | GPU readback (wgpu4k Vulkan, emulator) | ✅ yes — `android-visual` job (SwiftShader emulator, non-blocking) |
+| Windows | GPU readback (same wgpu code, PNG via ImageIO) | 🟡 to wire — Windows GPU runner |
+| Linux X11/Wayland | GPU readback (same wgpu code) | 🟡 to wire |
 
-> **Web** et **macOS** sont exécutés en CI. Les autres plateformes réutiliseront le
-> même readback GPU (code wgpu commun) ; seul un runner avec GPU/émulateur par cible
-> est nécessaire pour les activer.
+> **Web** and **macOS** run in CI. Other platforms reuse the same GPU readback
+> (shared wgpu code); only a platform-specific GPU/emulator runner is needed to enable them.
 
-## macOS — readback GPU (`hello-triangle --capture`)
+## macOS — GPU readback (`hello-triangle --capture`)
 
 ```bash
 ./gradlew :samples:hello-triangle:run --args="--capture out.png"
 ```
 
-Rend le triangle dans une texture offscreen `RGBA8Unorm` (aucune fenêtre ouverte —
-un `CAMetalLayer` offscreen est créé uniquement pour satisfaire `requestAdapter`,
-wgpu4k 0.1.1 ne supportant pas encore l'adapter sans surface), lit le framebuffer
-par readback et écrit le PNG (`ImageIO`). Le job CI `macos-visual` compare ce PNG à
-`tests/visual/baselines/macos/hello-triangle.png` via `tests/visual/diff-cli.js`
-(pixelmatch, tolérance 2 %), **non bloquant** : verdict dans le Job Summary + diff
-archivé.
+Renders the triangle into an offscreen `RGBA8Unorm` texture (no window is opened —
+an offscreen `CAMetalLayer` is created solely to satisfy `requestAdapter`, as wgpu4k 0.1.1
+does not yet support an adapterless surface), reads the framebuffer via readback, and
+writes the PNG (`ImageIO`). The `macos-visual` CI job compares this PNG against
+`tests/visual/baselines/macos/hello-triangle.png` using `tests/visual/diff-cli.js`
+(pixelmatch, 2% tolerance), **non-blocking**: verdict in the Job Summary + diff archived.
 
-### Mettre à jour la baseline macOS
+### Updating the macOS baseline
 
 ```bash
 ./gradlew :samples:hello-triangle:run --args="--capture tests/visual/baselines/macos/hello-triangle.png"
 git add tests/visual/baselines/macos/hello-triangle.png
 ```
 
-## Tranche Web (implémentée)
+## Web slice (implemented)
 
-Le test `samples/hello-triangle-web/e2e/tests/visual.spec.js` capture le canvas
-WebGPU et le compare à `e2e/baselines/hello-triangle-web.png` via
+The test `samples/hello-triangle-web/e2e/tests/visual.spec.js` captures the WebGPU
+canvas and compares it against `e2e/baselines/hello-triangle-web.png` via
 [pixelmatch](https://github.com/mapbox/pixelmatch) (helper
 `visual/assert-screenshot.js`, `assertScreenshotMatches(actualPng, baselinePath,
-{ tolerance })`, défaut **2 %**).
+{ tolerance })`, default **2%**).
 
-### Non bloquant
+### Non-blocking
 
-Le rendu WebGPU **SwiftShader** headless peut varier légèrement entre
-environnements ; le test est donc **informatif** : il journalise le ratio de diff et
-archive l'image de diff en artefact CI (`hello-triangle-web-visual-diff`), mais
-**n'échoue jamais le build**. Cela évite un gate flaky tout en rendant les
-régressions visibles en revue.
+WebGPU **SwiftShader** headless rendering may vary slightly between environments;
+the test is therefore **informational**: it logs the diff ratio and archives the diff
+image as a CI artifact (`hello-triangle-web-visual-diff`), but **never fails the build**.
+This avoids a flaky gate while keeping regressions visible in review.
 
-### Mettre à jour la baseline
+### Updating the baseline
 
-Quand un changement visuel est **légitime** (humain only — jamais auto) :
+When a visual change is **intentional** (human only — never automated):
 
 ```bash
 cd samples/hello-triangle-web/e2e
-npm run update-baselines          # supprime + régénère baselines/*.png
-git add baselines/*.png           # commiter la nouvelle baseline
+npm run update-baselines          # deletes and regenerates baselines/*.png
+git add baselines/*.png           # commit the new baseline
 ```
 
-## Ajouter un sample / une plateforme
+## Adding a sample / platform
 
-1. Réutiliser `assertScreenshotMatches(actualPng, baselinePath, { tolerance, diffPath })`.
-2. Fournir un provider de capture pour la plateforme (cf. tableau).
-3. Stocker la baseline sous `baselines/<plateforme>/<sample>.png` (git-lfs si > 5 Mo cumulés).
+1. Reuse `assertScreenshotMatches(actualPng, baselinePath, { tolerance, diffPath })`.
+2. Provide a capture provider for the platform (see the table above).
+3. Store the baseline under `baselines/<platform>/<sample>.png` (git-lfs if > 5 MB cumulative).
 
-## iOS — readback GPU (`samples/hello-triangle-ios`, best-effort)
+## iOS — GPU readback (`samples/hello-triangle-ios`, best-effort)
 
-Capture **Kotlin/Native** : `captureTriangle()` (iosMain) crée une `CAMetalLayer`
-offscreen, obtient une surface wgpu4k Metal, rend le triangle dans une texture, relit
-le framebuffer (`copyTextureToBuffer` + `mapAsync` + lecture via `CPointer`) et retourne
-les octets RGBA. Exécuté par `iosSimulatorArm64Test` (job CI `ios-visual`, non bloquant).
+**Kotlin/Native** capture: `captureTriangle()` (iosMain) creates an offscreen
+`CAMetalLayer`, obtains a wgpu4k Metal surface, renders the triangle into a texture,
+reads back the framebuffer (`copyTextureToBuffer` + `mapAsync` + read via `CPointer`),
+and returns the RGBA bytes. Run by `iosSimulatorArm64Test` (CI job `ios-visual`,
+non-blocking).
 
-**Limitation** : le **simulateur iOS headless** (CI et harnais de test K/N) n'expose
-**pas de device Metal** (`MTLCreateSystemDefaultDevice() == null`) — contrairement à
-Linux, il n'existe pas de Metal logiciel. Le test se saute alors proprement. Le rendu
-réel du triangle nécessite un **device iOS physique** (`iosArm64`) ou un simulateur avec
-Metal (Simulator.app GUI). Le job CI garantit néanmoins que le code de capture iOS
-**compile et link**.
+**Limitation**: the **headless iOS simulator** (CI and K/N test harness) exposes
+**no Metal device** (`MTLCreateSystemDefaultDevice() == null`) — unlike Linux, there
+is no software Metal implementation. The test skips gracefully in that case. Actually
+rendering the triangle requires a **physical iOS device** (`iosArm64`) or a
+Metal-capable simulator (Simulator.app GUI). The CI job still ensures that the iOS
+capture code **compiles and links**.
 
-## Android — readback GPU (`samples/hello-triangle-android-capture`)
+## Android — GPU readback (`samples/hello-triangle-android-capture`)
 
-Test instrumenté (`connectedDebugAndroidTest`) : `captureTriangle()` crée une `Surface`
-adossée à une `SurfaceTexture` (offscreen), obtient l'`ANativeWindow` via
+Instrumented test (`connectedDebugAndroidTest`): `captureTriangle()` creates a
+`Surface` backed by a `SurfaceTexture` (offscreen), obtains the `ANativeWindow` via
 `io.ygdrasil.nativeHelper.Helper.nativeWindowFromSurface` (android-native-helper),
-crée une surface wgpu4k Vulkan, rend le triangle dans une texture offscreen et relit le
-framebuffer (`copyTextureToBuffer` + `mapAsync` + `mapInto`). Le test vérifie la présence
-des régions R/G/B (triangle rendu).
+creates a wgpu4k Vulkan surface, renders the triangle into an offscreen texture, and
+reads back the framebuffer (`copyTextureToBuffer` + `mapAsync` + `mapInto`). The test
+verifies the presence of the R/G/B regions (rendered triangle).
 
-Job CI `android-visual` : émulateur API 34 (`reactivecircus/android-emulator-runner`)
-avec **Vulkan logiciel SwiftShader** (`-gpu swiftshader_indirect`), KVM activé. **Non
-bloquant**. Vérifié localement (émulateur API 36) : test vert, triangle rendu.
+CI job `android-visual`: API 34 emulator (`reactivecircus/android-emulator-runner`)
+with **software Vulkan SwiftShader** (`-gpu swiftshader_indirect`), KVM enabled.
+**Non-blocking**. Verified locally (API 36 emulator): test green, triangle rendered.

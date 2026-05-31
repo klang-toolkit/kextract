@@ -1,39 +1,39 @@
-# Koreos — Technical Specifications
+# Koreos — Spécifications techniques
 
-> Status: **Draft for review**
-> Reference document for the implementation of milestones M1, M2, M3 described in the [project plan](./plan.md).
-
----
-
-## 1. Overview
-
-Koreos is a Kotlin Multiplatform library that abstracts, for Apple Desktop, Apple Mobile, and Android:
-
-- **Native window creation** (NSWindow, UIWindow, Activity Surface).
-- The **event loop** of the host platform (CFRunLoop, iOS RunLoop, Activity lifecycle).
-- **Events**: keyboard/mouse/touch and low-level device events.
-- **Native handles** (`raw window handle`) consumable by an external 3D renderer (wgpu4k, or any GPU lib).
-
-**Direct inspiration**: [winit](https://github.com/rust-windowing/winit), with idiomatic Kotlin adaptation (sealed interfaces, `expect`/`actual`, null-safety, coroutines).
-
-**Out of scope**: rendering, GPU resources, fonts, high-level accessibility, layout, Compose.
+> Statut : **Draft pour relecture**
+> Document de référence pour l'implémentation des jalons M1, M2, M3 décrits dans le [plan projet](./plan.md).
 
 ---
 
-## 2. Modular architecture
+## 1. Vue d'ensemble
 
-### 2.1 Module diagram
+Koreos est une bibliothèque Kotlin Multiplatform qui abstrait, pour les plateformes Apple Desktop, Apple Mobile et Android :
+
+- La **création de fenêtres natives** (NSWindow, UIWindow, Activity Surface).
+- La **boucle d'événements** de la plateforme hôte (CFRunLoop, RunLoop iOS, Activity lifecycle).
+- Les **événements** clavier/souris/touch et device events bas-niveau.
+- Les **handles natifs** (`raw window handle`) consommables par un renderer 3D externe (wgpu4k, ou tout autre lib GPU).
+
+**Inspiration directe** : [winit](https://github.com/rust-windowing/winit), avec adaptation idiomatique Kotlin (sealed interfaces, `expect`/`actual`, null-safety, coroutines).
+
+**Hors scope** : rendu, ressources GPU, polices, accessibilité haut niveau, layout, Compose.
+
+---
+
+## 2. Architecture modulaire
+
+### 2.1 Diagramme des modules
 
 ```mermaid
 graph TD
     Sample[samples/hello-metal]
-    Facade[koreos<br/>KMP facade]
+    Facade[koreos<br/>facade KMP]
     Core[koreos-core<br/>commonMain]
     AppKit[koreos-appkit<br/>JVM 25 + FFM]
     UIKit[koreos-uikit<br/>K/N cinterop]
     Android[koreos-android<br/>Android SDK]
 
-    Kextract[kextract<br/>FFM Obj-C bindings]
+    Kextract[kextract<br/>bindings FFM Obj-C]
     Cinterop[platform.UIKit<br/>K/N built-in]
     AndroidSDK[android.view.Surface<br/>SurfaceView]
 
@@ -58,39 +58,39 @@ graph TD
     style Android fill:#f3e5f5
 ```
 
-### 2.2 Binding strategies
+### 2.2 Stratégies de binding
 
-| Module | KMP targets | Binding | Dedicated native lib? |
-|--------|-------------|---------|----------------------|
-| `koreos-core` | jvm, android, iosX64/Arm64/SimArm64 | — (pure Kotlin) | no |
-| `koreos-appkit` | jvm | FFM JVM 25 via **kextract** | no (runtime linkage AppKit) |
-| `koreos-uikit` | iosX64, iosArm64, iosSimulatorArm64 | **cinterop** Kotlin/Native (built-in Apple frameworks) | no |
-| `koreos-android` | android | None — Android SDK + raw `android.view.Surface` | no |
-| `koreos` (facade) | all | `expect`/`actual` | no |
+| Module | Cibles KMP | Binding | Lib native dédiée ? |
+|--------|------------|---------|--------------------|
+| `koreos-core` | jvm, android, iosX64/Arm64/SimArm64 | — (Kotlin pur) | non |
+| `koreos-appkit` | jvm | FFM JVM 25 via **kextract** | non (linkage runtime AppKit) |
+| `koreos-uikit` | iosX64, iosArm64, iosSimulatorArm64 | **cinterop** Kotlin/Native (frameworks Apple built-in) | non |
+| `koreos-android` | android | Aucune, Android SDK + `android.view.Surface` exposée brute | non |
+| `koreos` (facade) | toutes | `expect`/`actual` | non |
 
-**Consequence**: 3 binding toolchains coexist. The `koreos-core` contract forces them to converge on the same public API.
+**Conséquence** : 3 toolchains de binding coexistent. Le contrat `koreos-core` les force à converger vers la même API publique.
 
 ---
 
-## 3. Public API (`koreos-core`)
+## 3. API publique (`koreos-core`)
 
-### 3.1 Core interfaces
+### 3.1 Interfaces fondamentales
 
 ```kotlin
-// commonMain — pure interfaces, no native references
+// commonMain — interfaces pures, aucune référence native
 
 interface ApplicationHandler {
-    /** Called once when the compositor is ready to receive surfaces. Required. */
+    /** Appelé une fois quand le compositeur est prêt à recevoir des surfaces. Requis. */
     fun canCreateSurfaces(eventLoop: ActiveEventLoop)
 
-    /** Called for each window-scoped event. Required. */
+    /** Appelé pour chaque événement scopé à une fenêtre. Requis. */
     fun windowEvent(
         eventLoop: ActiveEventLoop,
         windowId: WindowId,
         event: WindowEvent,
     )
 
-    /** Low-level events (raw mouse delta, raw keys), not scoped to a window. */
+    /** Événements bas-niveau (raw mouse delta, raw keys), non scopés à une fenêtre. */
     fun deviceEvent(
         eventLoop: ActiveEventLoop,
         deviceId: DeviceId?,
@@ -100,11 +100,11 @@ interface ApplicationHandler {
     fun newEvents(eventLoop: ActiveEventLoop, cause: StartCause) {}
     fun aboutToWait(eventLoop: ActiveEventLoop) {}
 
-    /** Mobile only. */
+    /** Mobile uniquement. */
     fun resumed(eventLoop: ActiveEventLoop) {}
     fun suspended(eventLoop: ActiveEventLoop) {}
 
-    /** Android: the Surface was destroyed — release GPU surfaces before returning. */
+    /** Android : la Surface a été détruite, libérer les surfaces GPU avant retour. */
     fun destroySurfaces(eventLoop: ActiveEventLoop) {}
 }
 
@@ -130,7 +130,7 @@ interface Window {
     fun close()
 }
 
-/** Lightweight thread-safe handle for waking the loop from another thread. */
+/** Handle léger thread-safe pour réveiller la boucle depuis un autre thread. */
 interface EventLoopProxy {
     fun wakeUp()
 }
@@ -140,7 +140,7 @@ expect class EventLoop() {
 }
 ```
 
-### 3.2 Class diagram
+### 3.2 Diagramme de classes
 
 ```mermaid
 classDiagram
@@ -198,18 +198,18 @@ classDiagram
         +resizable Boolean
     }
 
-    EventLoop ..> ApplicationHandler : runs
-    ApplicationHandler ..> ActiveEventLoop : receives
-    ActiveEventLoop ..> Window : creates
-    ActiveEventLoop ..> EventLoopProxy : creates
-    ActiveEventLoop ..> WindowAttributes : consumes
+    EventLoop ..> ApplicationHandler : exécute
+    ApplicationHandler ..> ActiveEventLoop : reçoit
+    ActiveEventLoop ..> Window : crée
+    ActiveEventLoop ..> EventLoopProxy : crée
+    ActiveEventLoop ..> WindowAttributes : consomme
 ```
 
 ---
 
-## 4. Event model
+## 4. Modèle d'événements
 
-### 4.1 `WindowEvent` (window-scoped)
+### 4.1 `WindowEvent` (scopé fenêtre)
 
 ```kotlin
 sealed interface WindowEvent {
@@ -234,7 +234,7 @@ sealed interface WindowEvent {
 }
 ```
 
-### 4.2 `DeviceEvent` (raw, outside window)
+### 4.2 `DeviceEvent` (raw, hors fenêtre)
 
 ```kotlin
 sealed interface DeviceEvent {
@@ -244,7 +244,7 @@ sealed interface DeviceEvent {
 }
 ```
 
-### 4.3 DPI types
+### 4.3 Types DPI
 
 ```kotlin
 data class PhysicalSize<T : Number>(val width: T, val height: T)
@@ -253,13 +253,13 @@ data class PhysicalPosition<T : Number>(val x: T, val y: T)
 data class LogicalPosition<T : Number>(val x: T, val y: T)
 ```
 
-> Choice: no Rust-style `Pixel` trait for the POC. Logical ↔ physical conversions are explicit extensions with a `scaleFactor: Double`.
+> Choix : pas de trait `Pixel` à la Rust pour le POC. Les conversions logical ↔ physical sont des extensions explicites avec un `scaleFactor: Double`.
 
 ---
 
-## 5. Event loop
+## 5. Boucle d'événements
 
-### 5.1 Usage pattern
+### 5.1 Pattern d'utilisation
 
 ```kotlin
 class HelloApp : ApplicationHandler {
@@ -287,7 +287,7 @@ fun main() {
 }
 ```
 
-### 5.2 Sequence diagram — mouse event on macOS
+### 5.2 Diagramme de séquence — événement souris sur macOS
 
 ```mermaid
 sequenceDiagram
@@ -300,7 +300,7 @@ sequenceDiagram
 
     User->>EL: runApp(handler)
     EL->>NSApp: sharedApplication()
-    EL->>KApp: install subclass
+    EL->>KApp: installer subclass
     EL->>NSApp: setDelegate(KoreosAppDelegate)
     EL->>NSApp: run()
     activate NSApp
@@ -310,21 +310,21 @@ sequenceDiagram
     Handler->>EL: createWindow(attrs)
     EL-->>Handler: Window
 
-    Note over NSApp: native mouse event
+    Note over NSApp: événement souris natif
     NSApp->>KApp: sendEvent: (override)
     KApp->>Delegate: route NSEvent
     Delegate->>Handler: deviceEvent(PointerMotion)
     Delegate->>Handler: windowEvent(PointerMoved)
-    KApp->>NSApp: super.sendEvent: (native forward)
+    KApp->>NSApp: super.sendEvent: (forward natif)
 
-    Note over NSApp: CFRunLoop about to sleep
+    Note over NSApp: CFRunLoop va dormir
     NSApp->>Delegate: observer BeforeWaiting
     Delegate->>Handler: aboutToWait(eventLoop)
 
     deactivate NSApp
 ```
 
-### 5.3 Event lifecycle
+### 5.3 Lifecycle d'événements
 
 ```mermaid
 stateDiagram-v2
@@ -334,28 +334,28 @@ stateDiagram-v2
     Running --> Running : windowEvent / deviceEvent / aboutToWait
     Running --> Suspended : (mobile) suspended
     Suspended --> Running : resumed
-    Running --> Destroying : exit() called
+    Running --> Destroying : exit() appelé
     Destroying --> [*]
 
-    note right of Suspended : Mobile only<br/>(iOS background, Android pause)
-    note right of Running : Blocking main thread<br/>loop
+    note right of Suspended : Mobile uniquement<br/>(iOS background, Android pause)
+    note right of Running : Boucle main thread<br/>bloquante
 ```
 
 ---
 
-## 6. 3D integration — Raw handles
+## 6. Intégration 3D — Raw handles
 
-### 6.1 Contract
+### 6.1 Contrat
 
 ```kotlin
 sealed interface RawWindowHandle {
-    /** macOS — NSView and NSWindow pointers cast to Long. */
+    /** macOS — pointeurs NSView et NSWindow castés en Long. */
     data class AppKit(val nsView: Long, val nsWindow: Long) : RawWindowHandle
 
-    /** iOS — UIView and UIViewController pointers cast to Long. */
+    /** iOS — pointeurs UIView et UIViewController castés en Long. */
     data class UiKit(val uiView: Long, val uiViewController: Long?) : RawWindowHandle
 
-    /** Android — java android.view.Surface instance, boxed as Any for commonMain. */
+    /** Android — instance java de android.view.Surface, boxée en Any pour commonMain. */
     data class Android(val surface: Any) : RawWindowHandle
 }
 
@@ -366,16 +366,16 @@ sealed interface RawDisplayHandle {
 }
 ```
 
-> The choice of `Long` for pointers keeps the interface in commonMain. The backend casts to the native type at the point of use (`MemorySegment` on the FFM side, `COpaquePointer` on K/N).
+> Le choix `Long` pour les pointeurs permet de garder l'interface en commonMain. Le backend caste vers le type natif au point d'usage (`MemorySegment` côté FFM, `COpaquePointer` côté K/N).
 
-### 6.2 Metal preparation (macOS)
+### 6.2 Préparation Metal (macOS)
 
-On AppKit, the returned `contentView` must have:
+Sur AppKit, le `contentView` retourné doit avoir :
 
 - `wantsLayer = true`
-- `layer = CAMetalLayer()` (or override `makeBackingLayer()` returning `CAMetalLayer`)
+- `layer = CAMetalLayer()` (ou override de `makeBackingLayer()` retournant `CAMetalLayer`)
 
-On the wgpu4k / native Metal side, the renderer does:
+Côté wgpu4k / Metal natif, le renderer fera :
 
 ```objc
 NSView* contentView = (__bridge NSView*)((void*)nsView);
@@ -383,115 +383,115 @@ CAMetalLayer* layer = (CAMetalLayer*)[contentView layer];
 // configure pixelFormat, drawableSize, etc.
 ```
 
-### 6.3 Vulkan preparation (via MoltenVK on Apple)
+### 6.3 Préparation Vulkan (via MoltenVK sur Apple)
 
-The renderer creates a `VkSurfaceKHR` via the `VK_EXT_metal_surface` extension from the exposed `CAMetalLayer`.
+Le renderer crée une `VkSurfaceKHR` via l'extension `VK_EXT_metal_surface` à partir du `CAMetalLayer` exposé.
 
-### 6.4 Vulkan / OpenGL ES preparation (Android)
+### 6.4 Préparation Vulkan / OpenGL ES (Android)
 
-The renderer receives the raw `android.view.Surface` instance. It then calls on the native side:
+Le renderer reçoit l'instance `android.view.Surface` brute. Il appelle ensuite côté natif :
 
 ```c
 ANativeWindow* win = ANativeWindow_fromSurface(env, surface);
-// then VK_KHR_android_surface or EGL
+// puis VK_KHR_android_surface ou EGL
 ```
 
-**No native lib on the Koreos side** — this is intentional ([Strategy A](./plan.md#11-locked-architecture-decisions)).
+**Aucune lib native côté Koreos** — c'est intentionnel ([Strategy A](./plan.md#11-décisions-darchitecture-déjà-actées)).
 
 ---
 
 ## 7. Threading model
 
-| Rule | Application |
-|------|-------------|
-| `EventLoop()` must be constructed on the main thread | Runtime assertion `require(Thread.currentThread() == mainThread)` |
-| `runApp(handler)` blocks the main thread | Documented; typically called from `main()` |
-| All `ApplicationHandler` callbacks are guaranteed main-thread | The backend never dispatches off-main |
-| `EventLoopProxy.wakeUp()` is the only thread-safe API | Coalesced: multiple calls = a single wake-up |
-| Implementation: main dispatch | macOS/iOS: `dispatch_async(dispatch_get_main_queue())` + `CFRunLoopWakeUp`; Android: `Handler(Looper.getMainLooper()).post{}` |
+| Règle | Application |
+|-------|-------------|
+| `EventLoop()` doit être construit sur le main thread | Assertion runtime `require(Thread.currentThread() == mainThread)` |
+| `runApp(handler)` bloque le main thread | Documenté ; appel typiquement depuis `main()` |
+| Toutes les callbacks `ApplicationHandler` sont garanties main-thread | Le backend ne dispatche jamais hors main |
+| `EventLoopProxy.wakeUp()` est la seule API thread-safe | Coalescée : appels multiples = un seul réveil |
+| Implémentation : main dispatch | macOS/iOS : `dispatch_async(dispatch_get_main_queue())` + `CFRunLoopWakeUp` ; Android : `Handler(Looper.getMainLooper()).post{}` |
 
 ---
 
-## 8. Platform-specific considerations
+## 8. Considérations spécifiques par plateforme
 
 ### 8.1 AppKit (macOS Desktop)
 
-- `NSApplicationActivationPolicyRegular` for Dock visibility.
-- `NSWindowStyleMask` configured via `WindowAttributes` (titled, closable, resizable, miniaturizable).
-- contentView with `wantsLayer = true` by default (for Metal).
-- Event interception:
-  - **Subclass** `KoreosApplication : NSApplication` overriding `sendEvent:`.
-  - Subclass `KoreosAppDelegate : NSObject<NSApplicationDelegate>` for `applicationDidFinishLaunching:` etc.
-  - Subclass `KoreosWindowDelegate : NSObject<NSWindowDelegate>` for `windowDidResize:`, `windowShouldClose:`, etc.
-- CFRunLoopObserver for `BeforeWaiting` → `aboutToWait` callback.
-- Everything goes through **kextract**: finalization of subclassing support is the critical path.
+- `NSApplicationActivationPolicyRegular` pour visibilité dans le Dock.
+- `NSWindowStyleMask` configuré via `WindowAttributes` (titled, closable, resizable, miniaturizable).
+- contentView avec `wantsLayer = true` par défaut (pour Metal).
+- Interception des events :
+  - **Subclass** `KoreosApplication : NSApplication` qui override `sendEvent:`.
+  - Subclass `KoreosAppDelegate : NSObject<NSApplicationDelegate>` pour `applicationDidFinishLaunching:` etc.
+  - Subclass `KoreosWindowDelegate : NSObject<NSWindowDelegate>` pour `windowDidResize:`, `windowShouldClose:`, etc.
+- CFRunLoopObserver pour `BeforeWaiting` → callback `aboutToWait`.
+- Tout passe par **kextract** : la finalisation du support subclassing est le chemin critique.
 
 ### 8.2 UIKit (iOS)
 
-- Entry point: `UIApplicationMain` with an Obj-C `AppDelegate` declared via `@ExportObjCClass` (K/N).
-- `UISceneConfiguration` (iOS 13+) for the multi-scene architecture.
-- `UIWindow` created by the system, root `UIViewController` hosting a layer-backed `UIView`.
-- Apple lifecycle:
+- Entry point : `UIApplicationMain` avec un `AppDelegate` Obj-C déclaré via `@ExportObjCClass` (K/N).
+- `UISceneConfiguration` (iOS 13+) pour l'architecture multi-scène.
+- `UIWindow` créée par le système, `UIViewController` racine hébergeant un `UIView` layer-backed.
+- Lifecycle Apple :
   - `applicationDidBecomeActive` → `resumed`
   - `applicationWillResignActive` → `suspended`
-  - `applicationDidEnterBackground` → optional `destroySurfaces` (depending on GPU strategy)
+  - `applicationDidEnterBackground` → optionnel `destroySurfaces` (selon stratégie GPU)
 - Bindings via **cinterop** (`platform.UIKit`, `platform.QuartzCore`, `platform.Foundation`).
-- Touch events: `UITouch` → `WindowEvent.Touch`.
+- Touch events : `UITouch` → `WindowEvent.Touch`.
 
 ### 8.3 Android
 
-- Entry point: `KoreosActivity : AppCompatActivity` hosting a full-screen `SurfaceView`.
-- `SurfaceHolder.Callback`:
+- Entry point : `KoreosActivity : AppCompatActivity` héberge un `SurfaceView` plein écran.
+- `SurfaceHolder.Callback` :
   - `surfaceCreated(holder)` → `canCreateSurfaces`
   - `surfaceChanged(holder, format, width, height)` → `WindowEvent.Resized`
   - `surfaceDestroyed(holder)` → `destroySurfaces`
-- Activity lifecycle:
+- Activity lifecycle :
   - `onResume` → `resumed`
   - `onPause` → `suspended`
-- Frame cadence: `Choreographer.postFrameCallback{}` for vsync.
-- Surface exposed raw via `RawWindowHandle.Android(surface)` ([Strategy A](./plan.md#11-locked-architecture-decisions)).
-- Touch events: `MotionEvent` → `WindowEvent.Touch`.
-- Minimum API: Android 24 (Nougat).
+- Cadence frame : `Choreographer.postFrameCallback{}` pour vsync.
+- Surface exposée brute via `RawWindowHandle.Android(surface)` ([Strategy A](./plan.md#11-décisions-darchitecture-déjà-actées)).
+- Touch events : `MotionEvent` → `WindowEvent.Touch`.
+- API minimum : Android 24 (Nougat).
 
 ---
 
-## 9. Known POC limitations
+## 9. Limitations connues du POC
 
-- **M1 and M2**: macOS Desktop only.
-- No **multi-window** before M3.
-- No **clipboard**, **drag & drop**, **IME** in V1.
-- No explicit **high refresh rate** (120/144 Hz) support before V2.
-- macOS pre-13 (Ventura) not supported.
-- iOS pre-15 not supported.
-- Android API < 24 not supported.
+- **M1 et M2** : macOS Desktop uniquement.
+- Pas de **multi-fenêtre** avant M3.
+- Pas de **clipboard**, **drag&drop**, **IME** dans V1.
+- Pas de **haute fréquence** (120/144Hz) supportée explicitement avant V2.
+- macOS pré-13 (Ventura) non supporté.
+- iOS pré-15 non supporté.
+- Android API < 24 non supporté.
 
 ---
 
-## 10. Appendices
+## 10. Annexes
 
-### 10.1 winit → Koreos mapping
+### 10.1 Mapping winit → Koreos
 
 | winit (Rust) | Koreos (Kotlin) |
-|--------------|-----------------|
+|--------------|------------------|
 | `trait ApplicationHandler` | `interface ApplicationHandler` |
 | `trait ActiveEventLoop` | `interface ActiveEventLoop` |
 | `enum WindowEvent` | `sealed interface WindowEvent` |
 | `enum DeviceEvent` | `sealed interface DeviceEvent` |
-| `Result<Box<dyn Window>>` | `Window` (exceptions surfaced in POC) |
-| `MainThreadBound<T>` | runtime check on main thread |
-| `EventLoopProxy::send_event(T)` | `EventLoopProxy.wakeUp()` — no payload, coalesced |
+| `Result<Box<dyn Window>>` | `Window` (exceptions remontées en POC) |
+| `MainThreadBound<T>` | check runtime sur main thread |
+| `EventLoopProxy::send_event(T)` | `EventLoopProxy.wakeUp()` — pas de payload, coalescé |
 | `raw-window-handle` crate | `RawWindowHandle` sealed interface |
 | `cfg(macos_platform)` | `expect`/`actual` jvmMain |
-| `Retained<NSWindow>` | Kotlin reference (ARC managed by kextract / K/N) |
+| `Retained<NSWindow>` | référence Kotlin (ARC géré par kextract / K/N) |
 
-### 10.2 External references
+### 10.2 Références externes
 
-- [winit](https://github.com/rust-windowing/winit) — architecture reference
-- [raw-window-handle](https://github.com/rust-windowing/raw-window-handle) — handle contract
-- [wgpu4k](https://github.com/wgpu4k/wgpu4k) — target renderer
-- [JEP 454 — Foreign Function & Memory API](https://openjdk.org/jeps/454) — FFM JVM interop
+- [winit](https://github.com/rust-windowing/winit) — référence d'architecture
+- [raw-window-handle](https://github.com/rust-windowing/raw-window-handle) — contrat des handles
+- [wgpu4k](https://github.com/wgpu4k/wgpu4k) — renderer cible
+- [JEP 454 — Foreign Function & Memory API](https://openjdk.org/jeps/454) — interop FFM JVM
 - [Kotlin/Native cinterop](https://kotlinlang.org/docs/native-c-interop.html)
 
-### 10.3 Associated documents
+### 10.3 Documents associés
 
-- [Project plan](./plan.md)
+- [Plan projet](./plan.md)

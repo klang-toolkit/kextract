@@ -1,14 +1,14 @@
-# Post-mortem M2 — Démo wgpu4k sur AppKit/macOS
+# Post-mortem M2 — wgpu4k Demo on AppKit/macOS
 
-**Date de clôture** : 2026-05-28  
-**Tickets** : GRA-133 → GRA-140  
-**Statut** : ✅ Validé
+**Closing date**: 2026-05-28  
+**Tickets**: GRA-133 → GRA-140  
+**Status**: ✅ Validated
 
 ---
 
-## Résumé
+## Summary
 
-Le jalon M2 valide l'intégration bout-en-bout de la stack graphique Koreos sur macOS :
+Milestone M2 validates the end-to-end integration of the Koreos graphics stack on macOS:
 
 ```
 EventLoop (AppKit/CFRunLoop)
@@ -17,140 +17,140 @@ NSWindow + CAMetalLayer (Panama FFM)
   ↓ rawWindowHandle
 wgpu4k Instance → Surface → Adapter → Device
   ↓ createRenderPipeline
-WGSL shader → triangle RGB @ ~120 fps
+WGSL shader → RGB triangle @ ~120 fps
   ↓ WindowEvent.Resized
 surface.configure(newWidth, newHeight)
 ```
 
-**Résultat** : un triangle RGB tourne à ~120 fps dans une fenêtre Koreos redimensionnable, sans JNA ni Rococoa — uniquement Panama FFM (JDK 25).
+**Result**: an RGB triangle runs at ~120 fps in a resizable Koreos window, with no JNA or Rococoa — Panama FFM only (JDK 25).
 
-> **Correction post-review (PR #25)** : le rendu initial tournait à ~60 fps (puis 0 fps après mise à jour wgpu-native 0.25+). Trois correctifs Metal ont été appliqués via PR #25 (wgpu-native 0.25+ — format framebuffer BGRA8Unorm, mode de présentation FIFO, signatures API 0.25.x). Résultat final : ~120 fps en ProMotion sur Apple M2 Max.
-
----
-
-## Tickets livrés
-
-| Ticket | Titre | Estimate | Réel |
-|--------|-------|----------|------|
-| GRA-133 | WindowEvent.ScaleFactorChanged | 1pt | ~1h |
-| GRA-134 | WindowEvent.RedrawRequested + CFRunLoopObserver | 3pt | ~2h |
-| GRA-135 | aboutToWait callback après RedrawRequested | 2pt | ~1.5h |
-| GRA-136 | ControlFlow effectif + EventLoopProxy.wakeUp thread-safe | 5pt | ~4h |
-| GRA-137 | samples/hello-triangle: wgpu4k Instance+Surface+Adapter+Device | 3pt | ~3h |
-| GRA-138 | samples/hello-triangle: rendu triangle RGB | 5pt | ~4h |
-| GRA-139 | samples/hello-triangle: resize swap chain | 2pt | ~1h |
-| GRA-140 | Post-mortem + README | 1pt | ~1h |
-
-**Total** : 22 points estimés, livrés en une session (~18h).
+> **Post-review fix (PR #25)**: the initial render ran at ~60 fps (then 0 fps after the wgpu-native 0.25+ update). Three Metal fixes were applied via PR #25 (wgpu-native 0.25+ — BGRA8Unorm framebuffer format, FIFO presentation mode, 0.25.x API signatures). Final result: ~120 fps in ProMotion on Apple M2 Max.
 
 ---
 
-## Ce qui a bien marché
+## Delivered tickets
 
-### 1. Panama FFM comme seule couche native
+| Ticket | Title | Estimate | Actual |
+|--------|-------|----------|--------|
+| GRA-133 | WindowEvent.ScaleFactorChanged | 1 pt | ~1 h |
+| GRA-134 | WindowEvent.RedrawRequested + CFRunLoopObserver | 3 pt | ~2 h |
+| GRA-135 | aboutToWait callback after RedrawRequested | 2 pt | ~1.5 h |
+| GRA-136 | Effective ControlFlow + thread-safe EventLoopProxy.wakeUp | 5 pt | ~4 h |
+| GRA-137 | samples/hello-triangle: wgpu4k Instance+Surface+Adapter+Device | 3 pt | ~3 h |
+| GRA-138 | samples/hello-triangle: RGB triangle render | 5 pt | ~4 h |
+| GRA-139 | samples/hello-triangle: swap chain resize | 2 pt | ~1 h |
+| GRA-140 | Post-mortem + README | 1 pt | ~1 h |
 
-Le choix de Panama FFM (`java.lang.foreign`) à la place de JNA/Rococoa s'est avéré judicieux :
-- **Zero dépendances natives** : tout tient dans la JVM standard (JDK 25)
-- **Performance** : downcalls directs vers `objc_msgSend`, `CFRunLoopWakeUp`, `sel_registerName` sans indirection
-- **Maintenabilité** : les signatures sont vérifiées à la compilation via `FunctionDescriptor`
-- **Pas de leak** : `Arena.ofAuto()` gère la durée de vie des segments natifs automatiquement
-
-### 2. Architecture EventLoop → ApplicationHandler
-
-L'interface `ApplicationHandler` avec ses callbacks (`canCreateSurfaces`, `aboutToWait`, `windowEvent`) offre un point d'extension propre. Le sample hello-triangle n'a besoin de rien connaître des détails AppKit.
-
-### 3. CFRunLoop comme base du scheduling
-
-Utiliser `kCFRunLoopBeforeWaiting` + `CFRunLoopTimer` pour implémenter `ControlFlow.WaitUntil` est élégant : le système AppKit gère lui-même la précision du timer, sans thread supplémentaire.
-
-### 4. wgpu4k API stable et bien structurée
-
-L'API wgpu4k 0.1.1 suit fidèlement la spec WebGPU. La séquence `Instance → Surface → Adapter → Device → Pipeline → render loop` est idiomatique et portable.
+**Total**: 22 estimated points, delivered in one session (~18 h).
 
 ---
 
-## Surprises techniques
+## What worked well
 
-### 1. `webgpu-ktypes-descriptors` manquant dans `wgpu4k:0.1.1`
+### 1. Panama FFM as the sole native layer
 
-**Symptôme** : `Unresolved reference 'VertexState'`, `'RenderPipelineDescriptor'`, etc.  
-**Cause** : `wgpu4k:0.1.1` ne dépend que de `webgpu-ktypes:0.0.7` (interfaces uniquement). Les data classes concrètes (`VertexState`, `FragmentState`, `Color`, `RenderPassDescriptor`, etc.) vivent dans le module séparé `webgpu-ktypes-descriptors`.  
-**Résolution** : ajout explicite de `io.ygdrasil:webgpu-ktypes-descriptors:0.0.7` dans `samples/hello-triangle/build.gradle.kts`.  
-**Leçon** : toujours vérifier le POM d'une dépendance avant de supposer que les types sont disponibles transitivement.
+The choice of Panama FFM (`java.lang.foreign`) over JNA/Rococoa proved sound:
+- **Zero native dependencies**: everything runs in the standard JVM (JDK 25)
+- **Performance**: direct downcalls to `objc_msgSend`, `CFRunLoopWakeUp`, `sel_registerName` with no indirection
+- **Maintainability**: signatures verified at compile time via `FunctionDescriptor`
+- **No leaks**: `Arena.ofAuto()` manages native segment lifetimes automatically
 
-### 2. `configureWithMetalLayer` vs appel FFM direct
+### 2. EventLoop → ApplicationHandler architecture
 
-**Symptôme** : `WGPU.getSurfaceFromMetalLayer` attend un `NativeAddress` (= `JvmNativeAddress`) wrappant un `MemorySegment`.  
-**Cause** : l'API wgpu4k expose `ffi.JvmNativeAddress`, pas un `Long` brut.  
-**Résolution** : `JvmNativeAddress(MemorySegment.ofAddress(metalLayerAddr))`.  
-**Leçon** : le modèle de types de ffi/Panama nécessite d'encapsuler les adresses avant de les passer aux bibliothèques.
+The `ApplicationHandler` interface with its callbacks (`canCreateSurfaces`, `aboutToWait`, `windowEvent`) provides a clean extension point. The hello-triangle sample needs no knowledge of AppKit internals.
 
-### 3. Enums PascalCase dans webgpu-ktypes
+### 3. CFRunLoop as the scheduling foundation
 
-**Symptôme** : `bgra8unorm`, `opaque`, `renderAttachment` → erreurs de compilation.  
-**Cause** : contrairement aux noms WebGPU spec (camelCase minuscule), les enums Kotlin utilisent PascalCase.  
-**Résolution** : `GPUTextureFormat.BGRA8Unorm`, `CompositeAlphaMode.Opaque`, `GPUTextureUsage.RenderAttachment`.
+Using `kCFRunLoopBeforeWaiting` + `CFRunLoopTimer` to implement `ControlFlow.WaitUntil` is elegant: AppKit manages the timer precision, with no extra thread required.
 
-### 4. Dépendance `kotlinx-coroutines-core` non transitive
+### 4. Stable and well-structured wgpu4k API
 
-**Symptôme** : `Unresolved reference 'runBlocking'` malgré wgpu4k qui utilise des coroutines.  
-**Cause** : `kotlinx-coroutines-core` est en scope `runtime` dans le POM de wgpu4k, pas `compile`.  
-**Résolution** : déclaration explicite dans `dependencies { implementation(libs.kotlinx.coroutines.core) }`.
-
-### 5. Runner GitHub Actions lent (~10 min pour un build de 4 min)
-
-**Symptôme** : deux runs déclenchés par push, le second avec un runner qui peine.  
-**Cause** : free tier GitHub Actions, files d'attente variables.  
-**Impact** : aucun sur la qualité — le premier run était toujours entièrement vert.
+The wgpu4k 0.1.1 API faithfully follows the WebGPU spec. The `Instance → Surface → Adapter → Device → Pipeline → render loop` sequence is idiomatic and portable.
 
 ---
 
-## Décisions à revoir pour M3
+## Technical surprises
 
-### 1. `requestRedraw()` dans `aboutToWait` → à remplacer par `ControlFlow.Poll`
+### 1. `webgpu-ktypes-descriptors` missing from `wgpu4k:0.1.1`
 
-Actuellement, `aboutToWait` appelle `window.requestRedraw()` pour déclencher un redraw continu. C'est fonctionnel mais pas idiomatique : il vaudrait mieux que l'application passe `ControlFlow.Poll` pour signifier "je veux tourner en continu" et laisser la boucle gérer la cadence.
+**Symptom**: `Unresolved reference 'VertexState'`, `'RenderPipelineDescriptor'`, etc.  
+**Cause**: `wgpu4k:0.1.1` only depends on `webgpu-ktypes:0.0.7` (interfaces only). The concrete data classes (`VertexState`, `FragmentState`, `Color`, `RenderPassDescriptor`, etc.) live in the separate module `webgpu-ktypes-descriptors`.  
+**Fix**: explicit addition of `io.ygdrasil:webgpu-ktypes-descriptors:0.0.7` in `samples/hello-triangle/build.gradle.kts`.  
+**Lesson**: always check a dependency's POM before assuming types are available transitively.
 
-### 2. Libération des ressources wgpu côté `Device`
+### 2. `configureWithMetalLayer` vs direct FFM call
 
-La libération (`device.close()`, `surface.close()`, `wgpu.close()`) dans `releaseResources()` fonctionne mais ne garantit pas l'ordre de destruction. Pour M3, envisager un `AutoClosableContext` comme dans les samples wgpu4k-scenes.
+**Symptom**: `WGPU.getSurfaceFromMetalLayer` expects a `NativeAddress` (= `JvmNativeAddress`) wrapping a `MemorySegment`.  
+**Cause**: the wgpu4k API exposes `ffi.JvmNativeAddress`, not a raw `Long`.  
+**Fix**: `JvmNativeAddress(MemorySegment.ofAddress(metalLayerAddr))`.  
+**Lesson**: the FFM/Panama type model requires wrapping addresses before passing them to libraries.
 
-### 3. Pas de `Device.poll()` entre les frames
+### 3. PascalCase enums in webgpu-ktypes
 
-wgpu native nécessite un appel périodique à `Device.poll()` (ou équivalent) pour processer les callbacks GPU asynchrones. Sur Metal, cela n'est pas bloquant, mais sur d'autres backends ce sera nécessaire. À anticiper pour la portabilité.
+**Symptom**: `bgra8unorm`, `opaque`, `renderAttachment` → compilation errors.  
+**Cause**: unlike WebGPU spec names (lowercase camelCase), Kotlin enums use PascalCase.  
+**Fix**: `GPUTextureFormat.BGRA8Unorm`, `CompositeAlphaMode.Opaque`, `GPUTextureUsage.RenderAttachment`.
 
-### 4. Découplage `hello-triangle` / `koreos-appkit`
+### 4. Non-transitive `kotlinx-coroutines-core` dependency
 
-Le sample appelle directement `getMetalLayerFromNsView()` via Panama FFM plutôt que de passer par `koreos-appkit`. C'est intentionnel pour maintenir le sample indépendant, mais une API `RawWindowHandle → NativeAddress` dans `koreos-appkit` simplifierait les futurs samples.
+**Symptom**: `Unresolved reference 'runBlocking'` despite wgpu4k using coroutines.  
+**Cause**: `kotlinx-coroutines-core` is scoped `runtime` in wgpu4k's POM, not `compile`.  
+**Fix**: explicit declaration in `dependencies { implementation(libs.kotlinx.coroutines.core) }`.
 
----
+### 5. Slow GitHub Actions runner (~10 min for a 4-min build)
 
-## Métriques de fin M2
-
-| Métrique | Valeur |
-|----------|--------|
-| FPS moyen (Apple M2 Max, Release) | ~120 fps (ProMotion, post-correctif PR #25) |
-| Tickets livrés | 8 |
-| PRs mergées | 7 (#18 → #25) |
-| Fichiers Kotlin créés | 7 |
-| Lignes de code ajoutées (net) | ~1 200 |
-| Dépendances natives (JNA/Rococoa) | 0 |
-| Temps de build CI (fast) | ~3-4 min |
-| Durée de la session M2 | ~1 journée |
-
----
-
-## Vidéo de démo
-
-> **À enregistrer manuellement** : lancer `./gradlew :samples:hello-triangle:run` sur macOS Apple Silicon,  
-> enregistrer ~30s avec QuickTime (ouverture fenêtre → triangle RGB → resize → fermeture),  
-> uploader sur la release GitHub ou en attachment Linear GRA-140.
+**Symptom**: two runs triggered per push, the second on a struggling runner.  
+**Cause**: GitHub Actions free tier, variable queue times.  
+**Impact**: none on quality — the first run was always fully green.
 
 ---
 
-## Prochaines étapes (M3)
+## Decisions to revisit for M3
 
-- Clavier / souris : `KeyboardInput`, `MouseInput` → interaction avec le triangle
-- Multi-fenêtres : gestion de plusieurs `WindowId` dans le même `ApplicationHandler`
-- Portabilité : Linux (X11/Wayland), Windows (DXGI)
-- Abstraction `Renderer` : séparer la logique de rendu de l'ApplicationHandler
+### 1. `requestRedraw()` in `aboutToWait` → replace with `ControlFlow.Poll`
+
+Currently, `aboutToWait` calls `window.requestRedraw()` to trigger continuous redraws. This works but is not idiomatic: the application should instead set `ControlFlow.Poll` to signal "I want to run continuously" and let the loop manage the cadence.
+
+### 2. wgpu resource release on the `Device` side
+
+Resource release (`device.close()`, `surface.close()`, `wgpu.close()`) in `releaseResources()` works but does not guarantee destruction order. For M3, consider an `AutoClosableContext` as used in the wgpu4k-scenes samples.
+
+### 3. No `Device.poll()` between frames
+
+wgpu native requires periodic calls to `Device.poll()` (or equivalent) to process async GPU callbacks. On Metal this is not blocking, but on other backends it will be necessary. Anticipate this for cross-platform portability.
+
+### 4. `hello-triangle` / `koreos-appkit` decoupling
+
+The sample calls `getMetalLayerFromNsView()` directly via Panama FFM instead of going through `koreos-appkit`. This is intentional to keep the sample self-contained, but a `RawWindowHandle → NativeAddress` API in `koreos-appkit` would simplify future samples.
+
+---
+
+## M2 end metrics
+
+| Metric | Value |
+|--------|-------|
+| Average FPS (Apple M2 Max, Release) | ~120 fps (ProMotion, post-fix PR #25) |
+| Tickets delivered | 8 |
+| PRs merged | 7 (#18 → #25) |
+| Kotlin files created | 7 |
+| Lines of Kotlin added (net) | ~1,200 |
+| Native dependencies (JNA/Rococoa) | 0 |
+| CI build time (fast) | ~3–4 min |
+| M2 session duration | ~1 day |
+
+---
+
+## Demo video
+
+> **To record manually**: run `./gradlew :samples:hello-triangle:run` on macOS Apple Silicon,  
+> record ~30s with QuickTime (window open → RGB triangle → resize → close),  
+> upload to the GitHub release or as a Linear GRA-140 attachment.
+
+---
+
+## Next steps (M3)
+
+- Keyboard / mouse: `KeyboardInput`, `MouseInput` → interact with the triangle
+- Multi-window: manage multiple `WindowId` in the same `ApplicationHandler`
+- Portability: Linux (X11/Wayland), Windows (DXGI)
+- `Renderer` abstraction: separate rendering logic from the ApplicationHandler

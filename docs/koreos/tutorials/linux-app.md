@@ -1,14 +1,14 @@
-# Tutoriel : intégrer Koreos dans une application Linux
+# Tutorial: integrate Koreos in a Linux application
 
-Ce tutoriel vous guide pas-à-pas pour créer une fenêtre native Linux avec Koreos sur JVM 25. Vous obtiendrez une fenêtre opérationnelle sur X11 ou Wayland qui répond aux événements souris et clavier et se ferme proprement.
+This tutorial walks you through creating a native Linux window with Koreos on JVM 25 step by step. You will end up with a working window on X11 or Wayland that responds to mouse and keyboard events and closes cleanly.
 
-**Prérequis** : JDK 25, Gradle 9+, Linux (Debian/Ubuntu 22.04+ recommandé, ou toute distribution avec Wayland/X11).
+**Prerequisites**: JDK 25, Gradle 9+, Linux (Debian/Ubuntu 22.04+ recommended, or any distribution with Wayland/X11).
 
 ---
 
-## Prérequis système — bibliothèques natives
+## System prerequisites — native libraries
 
-Koreos utilise Vulkan pour le rendu bas-niveau et les protocoles X11/Wayland pour le gestionnaire de fenêtres. Installez les en-têtes de développement avant de compiler :
+Koreos uses Vulkan for low-level rendering and X11/Wayland protocols for window management. Install the development headers before building:
 
 ```bash
 # Debian / Ubuntu / Linux Mint
@@ -37,24 +37,24 @@ sudo pacman -S \
     libxkbcommon
 ```
 
-!!! note "Pilote Vulkan"
-    Les paquets ci-dessus installent les en-têtes et le *loader* Vulkan, mais pas le pilote ICD spécifique à votre GPU.
-    Installez également le pilote correspondant à votre matériel :
+!!! note "Vulkan driver"
+    The packages above install the Vulkan headers and *loader*, but not the GPU-specific ICD driver.
+    Also install the driver matching your hardware:
 
-    | GPU | Paquet (Debian/Ubuntu) |
+    | GPU | Package (Debian/Ubuntu) |
     |-----|------------------------|
     | Intel | `mesa-vulkan-drivers` |
     | AMD | `mesa-vulkan-drivers` |
-    | NVIDIA propriétaire | `nvidia-driver` (inclut le pilote Vulkan) |
+    | NVIDIA proprietary | `nvidia-driver` (includes Vulkan driver) |
     | NVIDIA open | `libnvidia-gl-<version>` |
 
-    Vérifiez la disponibilité Vulkan avec `vulkaninfo --summary` (paquet `vulkan-tools`).
+    Verify Vulkan availability with `vulkaninfo --summary` (package `vulkan-tools`).
 
 ---
 
-## Étape 1 — Configurer `build.gradle.kts`
+## Step 1 — Configure `build.gradle.kts`
 
-Créez (ou adaptez) votre fichier `build.gradle.kts` avec la dépendance Koreos et un `JavaExec` task configuré pour Panama FFM :
+Create (or adapt) your `build.gradle.kts` with the Koreos dependency and a `JavaExec` task configured for Panama FFM:
 
 ```kotlin
 plugins {
@@ -62,21 +62,21 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(25)      // JVM 25 obligatoire — Panama FFM (JEP 454)
+    jvmToolchain(25)      // JVM 25 required — Panama FFM (JEP 454)
 
     jvm()
 
     sourceSets {
         jvmMain {
             dependencies {
-                // Façade publique Koreos — routage automatique Linux/Windows/macOS
+                // Koreos public facade — automatic Linux/Windows/macOS routing
                 implementation("io.ygdrasil.koreos:koreos:0.1.1")
             }
         }
     }
 }
 
-// Tâche d'exécution JVM
+// JVM run task
 tasks.register<JavaExec>("run") {
     group = "application"
     dependsOn("jvmJar")
@@ -86,21 +86,21 @@ tasks.register<JavaExec>("run") {
         configurations.getByName("jvmRuntimeClasspath"),
     )
     jvmArgs(
-        // Ouvre l'accès aux API natives non nommées (Panama FFM)
+        // Opens access to unnamed native APIs (Panama FFM)
         "--enable-native-access=ALL-UNNAMED",
     )
 }
 ```
 
-!!! warning "JVM 25 obligatoire"
-    Koreos utilise la Foreign Function & Memory API (Panama, JEP 454), finalisée dans JDK 25.
-    Toute version inférieure lève `java.lang.reflect.InaccessibleObjectException` au démarrage.
+!!! warning "JVM 25 required"
+    Koreos uses the Foreign Function & Memory API (Panama, JEP 454), finalized in JDK 25.
+    Any lower version throws `java.lang.reflect.InaccessibleObjectException` at startup.
 
 ---
 
-## Étape 2 — Implémenter `ApplicationHandler`
+## Step 2 — Implement `ApplicationHandler`
 
-`ApplicationHandler` est l'interface centrale : Koreos l'appelle pour chaque événement du cycle de vie et de la fenêtre. L'implémentation est identique entre X11 et Wayland — la détection du backend est transparente.
+`ApplicationHandler` is the central interface: Koreos calls it for each lifecycle and window event. The implementation is identical for X11 and Wayland — backend detection is transparent.
 
 ```kotlin
 package com.example.myapp
@@ -116,49 +116,49 @@ class MyAppHandler : ApplicationHandler {
 
     private var window: Window? = null
 
-    // Appelé quand la surface peut être créée — la connexion X11/Wayland est établie
+    // Called when the surface can be created — the X11/Wayland connection is established
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
         window = eventLoop.createWindow(
             WindowAttributes(
-                title = "Mon application Linux — Koreos",
+                title = "My Linux application — Koreos",
                 resizable = true,
             )
         )
     }
 
-    // Appelé pour chaque événement de fenêtre
+    // Called for each window event
     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
         when (event) {
-            // Dessin : déclenché lors de l'exposition de la fenêtre (Expose / frame callback)
+            // Draw: triggered on window exposure (Expose / frame callback)
             WindowEvent.RedrawRequested -> {
-                // Placez ici l'appel à votre renderer (wgpu4k, Vulkan, OpenGL, etc.)
+                // Place your renderer call here (wgpu4k, Vulkan, OpenGL, etc.)
             }
 
-            // Fermeture : l'utilisateur a cliqué sur la croix ou envoyé WM_DELETE_WINDOW
+            // Close: user clicked the X or sent WM_DELETE_WINDOW
             WindowEvent.CloseRequested -> {
-                eventLoop.exit()   // Termine proprement la boucle d'événements
+                eventLoop.exit()   // Terminates the event loop cleanly
             }
 
-            // Redimensionnement
+            // Resize
             is WindowEvent.Resized ->
                 println("Resized → ${event.size.width}×${event.size.height}")
 
-            // Changement de DPI (déplacement vers un écran HiDPI, ou modification de l'échelle)
+            // DPI change (moved to HiDPI screen, or scale changed)
             is WindowEvent.ScaleFactorChanged ->
                 println("Scale factor → ${event.factor}")
 
-            // Entrées souris
+            // Mouse input
             is WindowEvent.MouseInput ->
                 println("MouseInput ${event.state} button=${event.button}")
 
             is WindowEvent.PointerMoved ->
                 println("PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
 
-            // Entrées clavier (via libxkbcommon sur X11 et Wayland)
+            // Keyboard input (via libxkbcommon on X11 and Wayland)
             is WindowEvent.KeyboardInput ->
                 println("Key ${event.state} key=${event.key} repeat=${event.isRepeat}")
 
-            // Fenêtre détruite : libérer les ressources GPU ici
+            // Window destroyed: release GPU resources here
             WindowEvent.Destroyed -> window = null
 
             else -> Unit
@@ -169,7 +169,7 @@ class MyAppHandler : ApplicationHandler {
     override fun suspended(eventLoop: ActiveEventLoop) = Unit
 
     override fun destroySurfaces(eventLoop: ActiveEventLoop) {
-        // Libérer les ressources GPU avant la destruction des surfaces
+        // Release GPU resources before surface destruction
         window = null
     }
 }
@@ -177,7 +177,7 @@ class MyAppHandler : ApplicationHandler {
 
 ---
 
-## Étape 3 — Point d'entrée `main()`
+## Step 3 — `main()` entry point
 
 ```kotlin
 package com.example.myapp
@@ -185,22 +185,22 @@ package com.example.myapp
 import io.ygdrasil.koreos.EventLoop
 
 fun main() {
-    // EventLoop détecte l'OS à l'exécution et charge le backend Linux (X11 ou Wayland)
+    // EventLoop detects the OS at runtime and loads the Linux backend (X11 or Wayland)
     EventLoop().runApp(MyAppHandler())
 }
 ```
 
-La classe `EventLoop` de la façade Koreos détecte automatiquement le système d'exploitation via `System.getProperty("os.name")` et délègue au backend Linux par réflexion. À l'intérieur du backend Linux, Koreos choisit ensuite entre X11 et Wayland selon les variables d'environnement présentes (voir la section [Choix X11 vs Wayland](#choix-x11-vs-wayland) ci-dessous). Aucun import plateforme-spécifique n'est nécessaire dans votre code.
+The Koreos facade `EventLoop` class automatically detects the operating system via `System.getProperty("os.name")` and delegates to the Linux backend by reflection. Inside the Linux backend, Koreos then chooses between X11 and Wayland based on the environment variables present (see [X11 vs Wayland choice](#x11-vs-wayland-choice) below). No platform-specific import is needed in your code.
 
 ---
 
-## Étape 4 — Lancer l'application
+## Step 4 — Run the application
 
 ```bash
 ./gradlew run
 ```
 
-Vous pouvez aussi lancer depuis la ligne de commande avec le JAR assemblé :
+You can also run from the command line with the assembled JAR:
 
 ```bash
 java --enable-native-access=ALL-UNNAMED \
@@ -208,116 +208,115 @@ java --enable-native-access=ALL-UNNAMED \
      com.example.myapp.MainKt
 ```
 
-!!! note "Séparateur de classpath Linux"
-    Sur Linux (et macOS), le séparateur de classpath est `:` et non `;` comme sous Windows.
-    Utilisez `build/libs/myapp.jar:build/libs/*` (deux-points) dans la commande `java`.
+!!! note "Linux classpath separator"
+    On Linux (and macOS), the classpath separator is `:`, not `;` as on Windows.
+    Use `build/libs/myapp.jar:build/libs/*` (colon) in the `java` command.
 
 ---
 
-## Choix X11 vs Wayland
+## X11 vs Wayland choice
 
-Koreos inspecte les variables d'environnement dans cet ordre de priorité au démarrage du backend Linux :
+Koreos inspects environment variables in this priority order at Linux backend startup:
 
-| Priorité | Condition | Backend sélectionné |
-|----------|-----------|---------------------|
-| 1 | `KOREOS_LINUX_BACKEND=wayland` | Wayland (forcé) |
-| 2 | `KOREOS_LINUX_BACKEND=x11` | X11 (forcé) |
-| 3 | `WAYLAND_DISPLAY` définie et non vide | Wayland (auto-détection) |
-| 4 | `DISPLAY` définie et non vide | X11 (auto-détection) |
-| 5 | Aucune variable trouvée | Erreur au démarrage |
+| Priority | Condition | Backend selected |
+|----------|-----------|-----------------|
+| 1 | `KOREOS_LINUX_BACKEND=wayland` | Wayland (forced) |
+| 2 | `KOREOS_LINUX_BACKEND=x11` | X11 (forced) |
+| 3 | `WAYLAND_DISPLAY` set and non-empty | Wayland (auto-detection) |
+| 4 | `DISPLAY` set and non-empty | X11 (auto-detection) |
+| 5 | No variable found | Error at startup |
 
-### Auto-détection (comportement par défaut)
+### Auto-detection (default behavior)
 
-Dans un environnement de bureau Wayland moderne (GNOME 45+, KDE Plasma 6, Sway), `WAYLAND_DISPLAY` est définie par le compositeur. Koreos sélectionne alors Wayland automatiquement. Dans une session X11 pure ou dans un terminal XWayland, seule `DISPLAY` est présente, et Koreos bascule sur X11.
+In a modern Wayland desktop environment (GNOME 45+, KDE Plasma 6, Sway), `WAYLAND_DISPLAY` is set by the compositor. Koreos selects Wayland automatically. In a pure X11 session or an XWayland terminal, only `DISPLAY` is present, and Koreos switches to X11.
 
-### Forcer un backend spécifique
+### Forcing a specific backend
 
 ```bash
-# Forcer Wayland (utile pour tester la compatibilité Wayland dans une session mixte)
+# Force Wayland (useful for testing Wayland compatibility in a mixed session)
 KOREOS_LINUX_BACKEND=wayland ./gradlew run
 
-# Forcer X11 (utile sous Wayland via XWayland, pour la compatibilité legacy)
+# Force X11 (useful under Wayland via XWayland, for legacy compatibility)
 KOREOS_LINUX_BACKEND=x11 ./gradlew run
 ```
 
-!!! warning "XWayland n'est pas Wayland natif"
-    Si vous forcez `KOREOS_LINUX_BACKEND=x11` dans une session Wayland, Koreos utilise
-    XWayland comme pont. Les fonctionnalités Wayland natives (decorations serveur,
-    fractional scaling) ne sont alors pas disponibles. Préférez le backend Wayland natif
-    dès que possible pour une meilleure intégration desktop.
+!!! warning "XWayland is not native Wayland"
+    If you force `KOREOS_LINUX_BACKEND=x11` in a Wayland session, Koreos uses
+    XWayland as a bridge. Native Wayland features (server decorations,
+    fractional scaling) are then unavailable. Prefer the native Wayland backend
+    whenever possible for better desktop integration.
 
 ---
 
-## Particularités Linux à connaître
+## Linux-specific details
 
-### DPI et mise à l'échelle
+### DPI and scaling
 
-Le support DPI varie selon le backend :
+DPI support varies by backend:
 
-**Wayland — fractional scaling :**
-Wayland expose le facteur d'échelle de l'écran via le protocole `wl_output` (entier depuis Wayland 1.x) et `wp_fractional_scale_v1` pour les valeurs fractionnaires (ex. `1.25×`, `1.5×`). Koreos traduit ces valeurs en `WindowEvent.ScaleFactorChanged(factor)`.
+**Wayland — fractional scaling:**
+Wayland exposes the screen scale factor via the `wl_output` protocol (integer since Wayland 1.x) and `wp_fractional_scale_v1` for fractional values (e.g., `1.25×`, `1.5×`). Koreos translates these to `WindowEvent.ScaleFactorChanged(factor)`.
 
-**X11 — heuristique Xft.dpi :**
-X11 n'a pas de mécanisme DPI standardisé. Koreos lit la ressource X `Xft.dpi` via `XGetDefault(display, "Xft", "dpi")`. Cette ressource est définie par GNOME, KDE et la plupart des gestionnaires de fenêtres. Si elle est absente, Koreos se rabat sur le DPI physique calculé depuis `DisplayWidth` / `DisplayWidthMM`, ou sur une valeur par défaut de 96 DPI.
+**X11 — Xft.dpi heuristic:**
+X11 has no standardized DPI mechanism. Koreos reads the `Xft.dpi` X resource via `XGetDefault(display, "Xft", "dpi")`. This resource is set by GNOME, KDE, and most window managers. If absent, Koreos falls back to the physical DPI computed from `DisplayWidth` / `DisplayWidthMM`, or a default of 96 DPI.
 
 ```bash
-# Vérifier la valeur Xft.dpi courante
+# Check the current Xft.dpi value
 xrdb -query | grep dpi
-# Ou :
+# Or:
 xdpyinfo | grep resolution
 ```
 
-!!! tip "Rendu net sur écran HiDPI sous X11"
-    Si votre application semble floue sur un écran 4K en session X11, vérifiez que
-    `Xft.dpi` est bien configuré dans `~/.Xresources` :
+!!! tip "Sharp rendering on HiDPI screens under X11"
+    If your application looks blurry on a 4K screen in an X11 session, check that
+    `Xft.dpi` is set in `~/.Xresources`:
 
     ```
     Xft.dpi: 192
     ```
 
-    Puis rechargez avec `xrdb -merge ~/.Xresources` et relancez l'application.
+    Then reload with `xrdb -merge ~/.Xresources` and restart the application.
 
-### Décorations de fenêtre (Wayland)
+### Window decorations (Wayland)
 
-Sous Wayland, les décorations (barre de titre, boutons fermer/réduire/agrandir) peuvent être gérées par le compositeur (*server-side decorations*, SSD) ou par l'application (*client-side decorations*, CSD). Le protocole `xdg-decoration-unstable-v1` permet de négocier le mode.
+Under Wayland, decorations (title bar, close/minimize/maximize buttons) can be managed by the compositor (*server-side decorations*, SSD) or by the application (*client-side decorations*, CSD). The `xdg-decoration-unstable-v1` protocol allows negotiating the mode.
 
-Koreos demande les *server-side decorations* en priorité. Si le compositeur ne supporte pas `xdg-decoration` (ex. Sway sans `xwayland`), Koreos repasse automatiquement en mode CSD avec des décorations dessinées côté client.
+Koreos requests server-side decorations first. If the compositor does not support `xdg-decoration` (e.g., Sway without `xwayland`), Koreos falls back automatically to CSD mode with client-drawn decorations.
 
 ```bash
-# Vérifier si votre compositeur supporte xdg-decoration
+# Check if your compositor supports xdg-decoration
 wayland-info | grep xdg_decoration
-# Ou avec weston-info :
+# Or with weston-info:
 weston-info | grep xdg_decoration
 ```
 
-!!! note "Pas de barre de titre sous Sway ?"
-    Sway (et i3-like sous Wayland) gère les fenêtres en mode tiling et supprime
-    les décorations par défaut. C'est un comportement attendu du gestionnaire de fenêtres,
-    non un bug Koreos. Utilisez les raccourcis Sway (`$mod+Shift+q`, etc.) pour contrôler
-    la fenêtre.
+!!! note "No title bar under Sway?"
+    Sway (and i3-like Wayland compositors) manage windows in tiling mode and remove
+    decorations by default. This is expected window manager behavior, not a Koreos bug.
+    Use Sway shortcuts (`$mod+Shift+q`, etc.) to control the window.
 
-### Fermeture propre
+### Clean close
 
-Toujours appeler `eventLoop.exit()` dans le handler `CloseRequested` pour garantir une fermeture nette :
+Always call `eventLoop.exit()` in the `CloseRequested` handler to ensure a clean shutdown:
 
 ```kotlin
 WindowEvent.CloseRequested -> {
-    // Libérez vos ressources GPU ici si nécessaire avant de quitter
+    // Release your GPU resources here if needed before exiting
     eventLoop.exit()
 }
 ```
 
-Sans cet appel, la fenêtre se ferme visuellement mais le processus JVM reste suspendu en attente d'événements. Sous Wayland, cela peut laisser le socket `wl_display` ouvert et bloquer le compositeur.
+Without this call, the window closes visually but the JVM process stays suspended waiting for events. Under Wayland, this can leave the `wl_display` socket open and block the compositor.
 
 ---
 
-## CI Linux — tests automatisés sans affichage
+## Linux CI — automated tests without a display
 
-Les environnements CI (GitHub Actions, GitLab CI) n'ont pas de serveur graphique. Deux approches permettent de lancer les tests Koreos en mode *headless* :
+CI environments (GitHub Actions, GitLab CI) have no graphics server. Two approaches allow running Koreos tests in *headless* mode:
 
-### Approche 1 — Xvfb (X11 virtuel)
+### Approach 1 — Xvfb (virtual X11)
 
-`Xvfb` (*X Virtual Framebuffer*) émule un serveur X11 en mémoire sans affichage physique. C'est la solution la plus simple et la plus compatible.
+`Xvfb` (*X Virtual Framebuffer*) emulates an X11 server in memory without a physical display. This is the simplest and most compatible solution.
 
 ```yaml
 # .github/workflows/ci.yml
@@ -342,18 +341,18 @@ jobs:
 
       - name: Run tests with Xvfb
         run: |
-          # Démarre Xvfb sur le display :99, 24-bit color
+          # Start Xvfb on display :99, 24-bit color
           Xvfb :99 -screen 0 1280x720x24 &
           export DISPLAY=:99
-          # Force le backend X11 (Xvfb ne supporte pas Wayland)
+          # Force X11 backend (Xvfb does not support Wayland)
           export KOREOS_LINUX_BACKEND=x11
           ./gradlew :koreos-core:jvmTest :koreos:jvmTest
 ```
 
-!!! tip "Attendre que Xvfb soit prêt"
-    Sur des CI à faible CPU, Xvfb peut mettre quelques instants à démarrer.
-    Utilisez `xdpyinfo -display :99 > /dev/null 2>&1` en boucle pour attendre
-    qu'il soit opérationnel avant de lancer les tests :
+!!! tip "Wait for Xvfb to be ready"
+    On low-CPU CI runners, Xvfb may take a moment to start.
+    Use `xdpyinfo -display :99 > /dev/null 2>&1` in a loop to wait
+    until it is ready before running tests:
 
     ```bash
     Xvfb :99 -screen 0 1280x720x24 &
@@ -361,9 +360,9 @@ jobs:
     export DISPLAY=:99
     ```
 
-### Approche 2 — Weston headless (Wayland virtuel)
+### Approach 2 — Weston headless (virtual Wayland)
 
-`weston` est le compositeur de référence Wayland. Son backend `headless` crée un compositeur sans affichage physique, ce qui permet de tester le backend Wayland natif de Koreos en CI.
+`weston` is the reference Wayland compositor. Its `headless` backend creates a compositor without a physical display, allowing Koreos's native Wayland backend to be tested in CI.
 
 ```yaml
 # .github/workflows/ci.yml
@@ -388,47 +387,47 @@ jobs:
 
       - name: Run tests with Weston headless
         run: |
-          # Démarre Weston en mode headless sur un socket Wayland dédié
+          # Start Weston in headless mode on a dedicated Wayland socket
           weston --backend=headless-backend.so \
                  --socket=weston-test \
                  --width=1280 --height=720 &
           export WAYLAND_DISPLAY=weston-test
           export KOREOS_LINUX_BACKEND=wayland
-          # Attendre que Weston soit prêt
+          # Wait for Weston to be ready
           until [ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; do sleep 0.1; done
           ./gradlew :koreos-core:jvmTest :koreos:jvmTest
 ```
 
 !!! note "XDG_RUNTIME_DIR"
-    Wayland stocke ses sockets dans `$XDG_RUNTIME_DIR` (typiquement `/run/user/<uid>`).
-    Sur les runners GitHub Actions, ce répertoire est défini automatiquement.
-    Si ce n'est pas le cas, exportez-le manuellement : `export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)`.
+    Wayland stores its sockets in `$XDG_RUNTIME_DIR` (typically `/run/user/<uid>`).
+    On GitHub Actions runners, this directory is set automatically.
+    If not, export it manually: `export XDG_RUNTIME_DIR=/tmp/runtime-$(id -u)`.
 
-### Recommandation CI
+### CI recommendation
 
-| Critère | Xvfb (X11) | Weston headless (Wayland) |
-|---------|------------|---------------------------|
-| Simplicité de configuration | Excellente | Moyenne |
-| Tests du backend Wayland natif | Non | Oui |
-| Support sur runners cloud | Universel | Bonne (Ubuntu 22.04+) |
-| Overhead CPU/mémoire | Minimal | Léger |
+| Criterion | Xvfb (X11) | Weston headless (Wayland) |
+|-----------|------------|---------------------------|
+| Setup simplicity | Excellent | Moderate |
+| Tests native Wayland backend | No | Yes |
+| Support on cloud runners | Universal | Good (Ubuntu 22.04+) |
+| CPU/memory overhead | Minimal | Light |
 
-Pour la majorité des projets, **Xvfb** est le choix le plus pragmatique. Ajoutez **Weston headless** en job séparé si vous souhaitez valider spécifiquement le backend Wayland.
+For most projects, **Xvfb** is the most pragmatic choice. Add **Weston headless** as a separate job if you specifically want to validate the Wayland backend.
 
 ---
 
-## Récapitulatif des points clés
+## Key points summary
 
-| Point | Détail |
+| Point | Detail |
 |-------|--------|
-| JVM minimum | **25** — Panama FFM (JEP 454) |
-| Flag JVM requis | `--enable-native-access=ALL-UNNAMED` |
-| Séparateur classpath | `:` sur Linux (et non `;`) |
-| Backend auto-détecté | Wayland si `WAYLAND_DISPLAY` définie, sinon X11 |
-| Forcer un backend | `KOREOS_LINUX_BACKEND=wayland` ou `=x11` |
-| DPI Wayland | Via `wl_output` / `wp_fractional_scale_v1` → `ScaleFactorChanged` |
-| DPI X11 | Heuristique `Xft.dpi` → ressource X ou DPI physique calculé |
-| Décorations Wayland | SSD demandées en priorité, CSD en fallback |
-| Fermeture propre | `eventLoop.exit()` dans `CloseRequested` — ferme le socket Wayland |
-| CI headless X11 | `Xvfb :99 -screen 0 1280x720x24` + `DISPLAY=:99` |
-| CI headless Wayland | `weston --backend=headless-backend.so` + `WAYLAND_DISPLAY=weston-test` |
+| Minimum JVM | **25** — Panama FFM (JEP 454) |
+| Required JVM flag | `--enable-native-access=ALL-UNNAMED` |
+| Classpath separator | `:` on Linux (not `;`) |
+| Auto-detected backend | Wayland if `WAYLAND_DISPLAY` is set, otherwise X11 |
+| Force a backend | `KOREOS_LINUX_BACKEND=wayland` or `=x11` |
+| Wayland DPI | Via `wl_output` / `wp_fractional_scale_v1` → `ScaleFactorChanged` |
+| X11 DPI | `Xft.dpi` heuristic → X resource or computed physical DPI |
+| Wayland decorations | SSD requested first, CSD as fallback |
+| Clean close | `eventLoop.exit()` in `CloseRequested` — closes the Wayland socket |
+| Headless CI X11 | `Xvfb :99 -screen 0 1280x720x24` + `DISPLAY=:99` |
+| Headless CI Wayland | `weston --backend=headless-backend.so` + `WAYLAND_DISPLAY=weston-test` |

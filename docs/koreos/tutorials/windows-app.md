@@ -1,14 +1,14 @@
-# Tutoriel : intégrer Koreos dans une application Windows
+# Tutorial: integrate Koreos in a Windows application
 
-Ce tutoriel vous guide pas-à-pas pour créer une fenêtre native Windows avec Koreos sur JVM 25. Vous obtiendrez une fenêtre opérationnelle qui répond aux événements souris et clavier et se ferme proprement.
+This tutorial walks you through creating a native Windows window with Koreos on JVM 25 step by step. You will end up with a working window on Win32 that responds to mouse and keyboard events and closes cleanly.
 
-**Prérequis** : JDK 25, Gradle 9+, Windows 10 21H1 ou supérieur.
+**Prerequisites**: JDK 25, Gradle 9+, Windows 10 21H1 or later.
 
 ---
 
-## Étape 1 — Configurer `build.gradle.kts`
+## Step 1 — Configure `build.gradle.kts`
 
-Créez (ou adaptez) votre fichier `build.gradle.kts` avec la dépendance Koreos et un `JavaExec` task configuré pour Panama FFM :
+Create (or adapt) your `build.gradle.kts` with the Koreos dependency and a `JavaExec` task configured for Panama FFM:
 
 ```kotlin
 plugins {
@@ -16,21 +16,21 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(25)      // JVM 25 obligatoire — Panama FFM (JEP 454)
+    jvmToolchain(25)      // JVM 25 required — Panama FFM (JEP 454)
 
     jvm()
 
     sourceSets {
         jvmMain {
             dependencies {
-                // Façade publique Koreos — routage automatique macOS/Windows
+                // Koreos public facade — automatic macOS/Windows routing
                 implementation("io.ygdrasil.koreos:koreos:0.1.1")
             }
         }
     }
 }
 
-// Tâche d'exécution JVM
+// JVM run task
 tasks.register<JavaExec>("run") {
     group = "application"
     dependsOn("jvmJar")
@@ -40,21 +40,21 @@ tasks.register<JavaExec>("run") {
         configurations.getByName("jvmRuntimeClasspath"),
     )
     jvmArgs(
-        // Ouvre l'accès aux API natives non nommées (Panama FFM)
+        // Opens access to unnamed native APIs (Panama FFM)
         "--enable-native-access=ALL-UNNAMED",
     )
 }
 ```
 
-!!! warning "JVM 25 obligatoire"
-    Koreos utilise la Foreign Function & Memory API (Panama, JEP 454), finalisée dans JDK 25.
-    Toute version inférieure lève `java.lang.reflect.InaccessibleObjectException` au démarrage.
+!!! warning "JVM 25 required"
+    Koreos uses the Foreign Function & Memory API (Panama, JEP 454), finalized in JDK 25.
+    Any lower version throws `java.lang.reflect.InaccessibleObjectException` at startup.
 
 ---
 
-## Étape 2 — Implémenter `ApplicationHandler`
+## Step 2 — Implement `ApplicationHandler`
 
-`ApplicationHandler` est l'interface centrale : Koreos l'appelle pour chaque événement du cycle de vie et de la fenêtre.
+`ApplicationHandler` is the central interface: Koreos calls it for each lifecycle and window event.
 
 ```kotlin
 package com.example.myapp
@@ -70,49 +70,49 @@ class MyAppHandler : ApplicationHandler {
 
     private var window: Window? = null
 
-    // Appelé quand la surface peut être créée (équivalent WM_CREATE)
+    // Called when the surface can be created (equivalent to WM_CREATE)
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
         window = eventLoop.createWindow(
             WindowAttributes(
-                title = "Mon application Windows — Koreos",
+                title = "My Windows application — Koreos",
                 resizable = true,
             )
         )
     }
 
-    // Appelé pour chaque événement de fenêtre
+    // Called for each window event
     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
         when (event) {
-            // Dessin : déclenché par WM_PAINT / InvalidateRect
+            // Draw: triggered by WM_PAINT / InvalidateRect
             WindowEvent.RedrawRequested -> {
-                // Placez ici l'appel à votre renderer (wgpu4k, Direct3D, etc.)
+                // Place your renderer call here (wgpu4k, Direct3D, etc.)
             }
 
-            // Fermeture : l'utilisateur a cliqué sur la croix (WM_CLOSE)
+            // Close: user clicked the X button (WM_CLOSE)
             WindowEvent.CloseRequested -> {
                 eventLoop.exit()   // PostQuitMessage(0) → WM_QUIT
             }
 
-            // Redimensionnement (WM_SIZE)
+            // Resize (WM_SIZE)
             is WindowEvent.Resized ->
                 println("Resized → ${event.size.width}×${event.size.height}")
 
-            // Changement de DPI (WM_DPICHANGED) — voir Étape 4
+            // DPI change (WM_DPICHANGED) — see Step 4
             is WindowEvent.ScaleFactorChanged ->
                 println("DPI scale factor → ${event.factor}")
 
-            // Entrées souris
+            // Mouse input
             is WindowEvent.MouseInput ->
                 println("MouseInput ${event.state} button=${event.button}")
 
             is WindowEvent.PointerMoved ->
                 println("PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
 
-            // Entrées clavier
+            // Keyboard input
             is WindowEvent.KeyboardInput ->
                 println("Key ${event.state} key=${event.key} repeat=${event.isRepeat}")
 
-            // Fenêtre détruite : libérer les ressources GPU ici
+            // Window destroyed: release GPU resources here
             WindowEvent.Destroyed -> window = null
 
             else -> Unit
@@ -123,7 +123,7 @@ class MyAppHandler : ApplicationHandler {
     override fun suspended(eventLoop: ActiveEventLoop) = Unit
 
     override fun destroySurfaces(eventLoop: ActiveEventLoop) {
-        // Libérer les ressources GPU avant la destruction des surfaces
+        // Release GPU resources before surface destruction
         window = null
     }
 }
@@ -131,7 +131,7 @@ class MyAppHandler : ApplicationHandler {
 
 ---
 
-## Étape 3 — Point d'entrée `main()`
+## Step 3 — `main()` entry point
 
 ```kotlin
 package com.example.myapp
@@ -139,22 +139,22 @@ package com.example.myapp
 import io.ygdrasil.koreos.EventLoop
 
 fun main() {
-    // EventLoop détecte l'OS à l'exécution et charge le backend Win32
+    // EventLoop detects the OS at runtime and loads the Win32 backend
     EventLoop().runApp(MyAppHandler())
 }
 ```
 
-La classe `EventLoop` de la façade Koreos détecte automatiquement le système d'exploitation via `System.getProperty("os.name")` et délègue au backend Win32 (`io.ygdrasil.koreos.win32.Win32EventLoopKt.runApp`) par réflexion. Aucun import plateforme-spécifique n'est nécessaire dans votre code.
+The Koreos facade `EventLoop` class automatically detects the operating system via `System.getProperty("os.name")` and delegates to the Win32 backend (`io.ygdrasil.koreos.win32.Win32EventLoopKt.runApp`) by reflection. No platform-specific import is needed in your code.
 
 ---
 
-## Étape 4 — Lancer l'application
+## Step 4 — Run the application
 
 ```bash
 ./gradlew run
 ```
 
-Vous pouvez aussi lancer depuis la ligne de commande avec le JAR assemblé :
+You can also run from the command line with the assembled JAR:
 
 ```bash
 java --enable-native-access=ALL-UNNAMED \
@@ -162,25 +162,24 @@ java --enable-native-access=ALL-UNNAMED \
      com.example.myapp.MainKt
 ```
 
-!!! note "DPI haute résolution — PerMonitorV2"
-    Koreos configure automatiquement `SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)`
-    au démarrage du backend Win32. Vous n'avez rien à faire dans le manifeste de l'application.
+!!! note "High resolution DPI — PerMonitorV2"
+    Koreos automatically configures `SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)`
+    at Win32 backend startup. No application manifest changes are needed.
 
-    Quand la fenêtre est déplacée vers un écran de résolution différente, Windows envoie `WM_DPICHANGED`.
-    Koreos le traduit en `WindowEvent.ScaleFactorChanged(factor)` où `factor` est le nouveau ratio
-    (ex. `1.5` pour un affichage à 144 DPI). Relancez votre renderer avec la nouvelle taille physique
-    à ce moment.
+    When the window is moved to a screen with a different resolution, Windows sends `WM_DPICHANGED`.
+    Koreos translates this to `WindowEvent.ScaleFactorChanged(factor)` where `factor` is the new ratio
+    (e.g., `1.5` for a 144 DPI display). Restart your renderer with the new physical size at that point.
 
 ---
 
-## Étape 5 (optionnel) — Packager avec `jpackage`
+## Step 5 (optional) — Package with `jpackage`
 
-Pour distribuer un installateur Windows autonome (`.msi` ou `.exe`), utilisez `jpackage` (inclus dans JDK 14+) :
+To distribute a standalone Windows installer (`.msi` or `.exe`), use `jpackage` (included in JDK 14+):
 
 ```bash
 jpackage \
   --type msi \
-  --name "MonAppKoreos" \
+  --name "MyKoreosApp" \
   --app-version "1.0.0" \
   --input build/libs \
   --main-jar myapp.jar \
@@ -190,19 +189,19 @@ jpackage \
   --win-shortcut
 ```
 
-!!! tip "Icône et métadonnées"
-    Ajoutez `--icon myapp.ico` (format `.ico` requis sur Windows) et `--win-menu` pour créer
-    une entrée dans le menu Démarrer.
+!!! tip "Icon and metadata"
+    Add `--icon myapp.ico` (`.ico` format required on Windows) and `--win-menu` to create
+    a Start menu entry.
 
 ---
 
-## Récapitulatif des points clés
+## Key points summary
 
-| Point | Détail |
+| Point | Detail |
 |-------|--------|
-| JVM minimum | **25** — Panama FFM (JEP 454) |
-| Flag JVM requis | `--enable-native-access=ALL-UNNAMED` |
-| DPI awareness | Automatique — `PerMonitorV2` (pas de manifeste requis) |
-| Événement DPI | `WindowEvent.ScaleFactorChanged(factor)` déclenché sur `WM_DPICHANGED` |
-| Fermeture propre | `eventLoop.exit()` dans `CloseRequested` → `PostQuitMessage(0)` |
-| Packaging | `jpackage` avec `--java-options "--enable-native-access=ALL-UNNAMED"` |
+| Minimum JVM | **25** — Panama FFM (JEP 454) |
+| Required JVM flag | `--enable-native-access=ALL-UNNAMED` |
+| DPI awareness | Automatic — `PerMonitorV2` (no manifest required) |
+| DPI event | `WindowEvent.ScaleFactorChanged(factor)` triggered on `WM_DPICHANGED` |
+| Clean close | `eventLoop.exit()` in `CloseRequested` → `PostQuitMessage(0)` |
+| Packaging | `jpackage` with `--java-options "--enable-native-access=ALL-UNNAMED"` |

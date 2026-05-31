@@ -1,30 +1,30 @@
-# Koreos — Spécifications techniques v0.2
+# Koreos — Technical Specifications v0.2
 
-> Statut : **Draft v2 — révision review PR #49 intégrée**
-> Document de référence pour l'implémentation des Sprints 0 → 5 décrits dans [plan-v0.2](./plan-v0.2.md).
-> Document précédent : [specs v0.1](./specs.md) — référence pour macOS, iOS, Android (déjà livré).
+> Status: **Draft v2 — review PR #49 integrated**
+> Reference document for Sprint 0 → 5 implementation described in [plan-v0.2](./plan-v0.2.md).
+> Previous document: [specs v0.1](./specs.md) — reference for macOS, iOS, Android (already delivered).
 
-Ce document **complète** specs v0.1 — il ne remplace pas. Les sections inchangées (§3 API publique, §4 modèle d'événements, §5 boucle d'événements, §7 threading model) sont valides telles quelles. Seules les nouveautés v0.2 sont décrites ci-après.
+This document **complements** specs v0.1 — it does not replace it. Unchanged sections (§3 public API, §4 event model, §5 event loop, §7 threading model) remain valid as-is. Only v0.2 additions are described here.
 
-**Corrections review v2 (PR #49)** :
-- §2.1 — `RawWindowHandle.Web` accepte `canvasElement` direct (Shadow DOM, SPA frameworks)
-- §3.1.3 — Mode `Wait` sur Web : RAF unique au lieu de boucle continue
-- §3.2.2 — Win32 : `PeekMessageW` en `Poll`, `GetMessageW` en `Wait`
-- §3.2.7 — Win32 : `Arena.ofShared` pour WndProc upcall stub (durée = processus)
-- §3.3.2 — X11 : `XPending` + `XNextEvent` en `Poll`, `select` en `WaitUntil`
-- §3.4.2 — Wayland : `wl_display_prepare_read` + `poll` non-bloquant + `eventfd` pour wakeUp
-- §3.5 — Détection Linux : chargement paresseux des symboles FFM + try/catch `Throwable`
+**v2 review fixes (PR #49)**:
+- §2.1 — `RawWindowHandle.Web` accepts `canvasElement` directly (Shadow DOM, SPA frameworks)
+- §3.1.3 — `Wait` mode on Web: single RAF instead of continuous loop
+- §3.2.2 — Win32: `PeekMessageW` in `Poll`, `GetMessageW` in `Wait`
+- §3.2.7 — Win32: `Arena.ofShared` for WndProc upcall stub (process lifetime)
+- §3.3.2 — X11: `XPending` + `XNextEvent` in `Poll`, `select` in `WaitUntil`
+- §3.4.2 — Wayland: `wl_display_prepare_read` + non-blocking `poll` + `eventfd` for wakeUp
+- §3.5 — Linux detection: lazy FFM symbol loading + `try/catch Throwable`
 
 ---
 
-## 1. Architecture v0.2 — mise à jour modulaire
+## 1. v0.2 architecture — modular update
 
-### 1.1 Diagramme des modules étendu
+### 1.1 Extended module diagram
 
 ```mermaid
 graph TD
     Sample[samples/pong<br/>commonMain]
-    Facade[koreos<br/>facade KMP]
+    Facade[koreos<br/>KMP facade]
     Core[koreos-core<br/>commonMain]
 
     AppKit[koreos-appkit<br/>JVM 25 + FFM]
@@ -72,45 +72,44 @@ graph TD
     style Wayland fill:#e0ffe0
 ```
 
-### 1.2 Stratégies de binding v0.2
+### 1.2 v0.2 binding strategies
 
-| Module | Cibles KMP | Binding | Lib native ? |
-|--------|------------|---------|--------------|
-| `koreos-web-common` | jsMain, wasmJsMain | — (Kotlin pur) | non |
-| `koreos-js` | jsMain (browser) | JS DOM via `kotlin-wrappers-browser` ou similaire | non |
-| `koreos-wasm` | wasmJsMain (browser) | JS interop Wasm vers DOM | non |
-| `koreos-win32` | jvm (Windows-specific) | kextract FFM Win32 (User32, Gdi32, Kernel32) | non |
-| `koreos-x11` | jvm (Linux-specific) | kextract FFM Xlib + XInput2 | non |
-| `koreos-wayland` | jvm (Linux-specific) | kextract FFM libwayland-client + xdg_shell | non |
-| `koreos` (facade) | toutes (6 plateformes) | expect/actual | non |
+| Module | KMP targets | Binding | Native lib? |
+|--------|------------|---------|------------|
+| `koreos-web-common` | jsMain, wasmJsMain | — (pure Kotlin) | no |
+| `koreos-js` | jsMain (browser) | JS DOM via `kotlin-wrappers-browser` or similar | no |
+| `koreos-wasm` | wasmJsMain (browser) | Wasm JS interop to DOM | no |
+| `koreos-win32` | jvm (Windows-specific) | kextract FFM Win32 (User32, Gdi32, Kernel32) | no |
+| `koreos-x11` | jvm (Linux-specific) | kextract FFM Xlib + XInput2 | no |
+| `koreos-wayland` | jvm (Linux-specific) | kextract FFM libwayland-client + xdg_shell | no |
+| `koreos` (facade) | all (6 platforms) | expect/actual | no |
 
-**Découplage Linux** : `koreos-x11` et `koreos-wayland` sont deux **modules séparés**, comme `koreos-appkit` et `koreos-uikit`. La facade contient une **logique de sélection runtime** dans le sourceSet `linuxMain` qui choisit le backend au démarrage.
+**Linux decoupling**: `koreos-x11` and `koreos-wayland` are two **separate modules**, like `koreos-appkit` and `koreos-uikit`. The facade contains a **runtime selection logic** in the `linuxMain` source set that picks the backend at startup.
 
 ---
 
-## 2. API publique — ajouts v0.2
+## 2. Public API — v0.2 additions
 
-### 2.1 Nouveaux variants `RawWindowHandle`
+### 2.1 New `RawWindowHandle` variants
 
 ```kotlin
 sealed interface RawWindowHandle {
-    // Existants v0.1
+    // Existing v0.1
     data class AppKit(val nsView: Long, val nsWindow: Long, val nsLayer: Long) : RawWindowHandle
     data class UiKit(val uiView: Long, val uiViewController: Long?) : RawWindowHandle
     data class Android(val surface: Any) : RawWindowHandle
 
-    // Nouveaux v0.2
+    // New v0.2
     /**
-     * Web : référence vers le canvas HTML auquel attacher la wgpu.Surface.
+     * Web: reference to the HTML canvas to attach the wgpu.Surface to.
      *
-     * Deux modes mutuellement exclusifs :
-     * - `canvasElementId` : id à résoudre via `document.getElementById` (cas simple, page statique).
-     * - `canvasElement` : référence directe (HTMLCanvasElement côté JS, équivalent côté Wasm).
-     *   Indispensable pour les frameworks SPA (Compose HTML, React/Vue/Angular)
-     *   et les canvas dans un Shadow DOM (invisibles à `getElementById`).
+     * Two mutually exclusive modes:
+     * - `canvasElementId`: id to resolve via `document.getElementById` (simple case, static page).
+     * - `canvasElement`: direct reference (HTMLCanvasElement on the JS side, equivalent on Wasm).
+     *   Required for SPA frameworks (Compose HTML, React/Vue/Angular)
+     *   and canvases in a Shadow DOM (invisible to `getElementById`).
      *
-     * Au moins l'un des deux doit être non-null. Si les deux sont fournis, `canvasElement`
-     * a priorité.
+     * At least one must be non-null. If both are provided, `canvasElement` takes priority.
      */
     data class Web(
         val canvasElementId: String? = null,
@@ -123,27 +122,27 @@ sealed interface RawWindowHandle {
         }
     }
 
-    /** Windows : HWND + HINSTANCE en Long. */
+    /** Windows: HWND + HINSTANCE as Long. */
     data class Win32(val hwnd: Long, val hinstance: Long) : RawWindowHandle
 
-    /** Linux X11 : Window handle (XID) + Display pointer. */
+    /** Linux X11: Window handle (XID) + Display pointer. */
     data class Xlib(val window: Long, val display: Long) : RawWindowHandle
 
-    /** Linux Wayland : wl_surface + wl_display pointers. */
+    /** Linux Wayland: wl_surface + wl_display pointers. */
     data class Wayland(val surface: Long, val display: Long) : RawWindowHandle
 }
 ```
 
-### 2.2 Nouveaux variants `RawDisplayHandle`
+### 2.2 New `RawDisplayHandle` variants
 
 ```kotlin
 sealed interface RawDisplayHandle {
-    // Existants
+    // Existing
     object AppKit : RawDisplayHandle
     object UiKit : RawDisplayHandle
     object Android : RawDisplayHandle
 
-    // Nouveaux
+    // New
     object Web : RawDisplayHandle
     data class Win32(val hinstance: Long) : RawDisplayHandle
     data class Xlib(val display: Long) : RawDisplayHandle
@@ -151,31 +150,31 @@ sealed interface RawDisplayHandle {
 }
 ```
 
-### 2.3 Rétro-compatibilité
+### 2.3 Backward compatibility
 
-- **Aucune** signature d'interface existante n'est modifiée.
-- Seules des sealed interface **variants** sont ajoutés (extension safe pour les consommateurs qui font `when` exhaustif → ils devront recompiler mais leur code restera valide après ajout des branches manquantes).
-- Le tag `v0.1.x` reste compatible source avec `v0.2.x` sauf pour les consommateurs qui font un `when` exhaustif sur `RawWindowHandle` (cas attendu : renderer wgpu4k).
+- **No** existing interface signature is modified.
+- Only sealed interface **variants** are added (safe extension for consumers doing exhaustive `when` → they will need to recompile but their code remains valid after adding the missing branches).
+- Tag `v0.1.x` remains source-compatible with `v0.2.x` except for consumers doing an exhaustive `when` on `RawWindowHandle` (expected case: wgpu4k renderer).
 
 ---
 
-## 3. Considérations spécifiques par nouvelle plateforme
+## 3. Platform-specific considerations for new platforms
 
 ### 3.1 Web (koreos-js + koreos-wasm + koreos-web-common)
 
-#### 3.1.1 Architecture commune
+#### 3.1.1 Shared architecture
 
-`koreos-web-common` héberge :
-- Mapping `DOMEvent → WindowEvent` (PointerEvent, KeyboardEvent, etc.)
-- Lifecycle DOM (`visibilitychange`, `pagehide`/`pageshow`)
-- Gestion du `<canvas>` HTML (resize via ResizeObserver, devicePixelRatio)
-- Interface `WebDomBridge` abstraite (actual JS / actual Wasm)
+`koreos-web-common` hosts:
+- `DOMEvent → WindowEvent` mapping (PointerEvent, KeyboardEvent, etc.)
+- DOM lifecycle (`visibilitychange`, `pagehide`/`pageshow`)
+- `<canvas>` HTML management (resize via ResizeObserver, devicePixelRatio)
+- Abstract `WebDomBridge` interface (actual JS / actual Wasm)
 
-`koreos-js` et `koreos-wasm` n'implémentent que la **bridge** DOM (interop JS spécifique).
+`koreos-js` and `koreos-wasm` only implement the DOM **bridge** (JS-specific interop).
 
-#### 3.1.2 Boucle d'événements Web
+#### 3.1.2 Web event loop
 
-Il n'y a pas de "main thread" sur Web — le JS runtime est mono-thread par défaut. La boucle d'événements est :
+There is no "main thread" on Web — the JS runtime is single-threaded by default. The event loop is:
 
 ```mermaid
 sequenceDiagram
@@ -188,7 +187,7 @@ sequenceDiagram
     EL->>DOM: addEventListener('pointerdown', ...)
     EL->>DOM: addEventListener('resize', ...)
     EL->>DOM: addEventListener('visibilitychange', ...)
-    EL->>Handler: canCreateSurfaces() (immédiat)
+    EL->>Handler: canCreateSurfaces() (immediate)
     Handler->>EL: createWindow(attrs) → WebWindow
 
     Note over DOM: User clicks canvas
@@ -203,53 +202,53 @@ sequenceDiagram
     EL->>Handler: windowEvent(RedrawRequested)
 ```
 
-**`runApp()` ne bloque pas sur Web** : il enregistre les listeners DOM + démarre le `requestAnimationFrame` loop, puis retourne. La page reste vivante via le `requestAnimationFrame` loop.
+**`runApp()` does not block on Web**: it registers DOM listeners + starts the `requestAnimationFrame` loop, then returns. The page stays alive via the `requestAnimationFrame` loop.
 
-**Implication** : sur Web, `runApp` n'a pas la même sémantique que sur Desktop. Documenter explicitement.
+**Implication**: on Web, `runApp` does not have the same semantics as on Desktop. Document explicitly.
 
-#### 3.1.3 ControlFlow sur Web
+#### 3.1.3 ControlFlow on Web
 
-- `Wait` : **aucune** boucle `requestAnimationFrame` continue. Les events DOM (input, resize, visibilitychange) réveillent la boucle. Quand `requestRedraw()` est appelé depuis un handler en mode Wait, **un seul `requestAnimationFrame(tick)` est planifié** pour produire la frame, puis l'app retourne au repos. Préserve CPU et batterie (critique mobile/laptop).
-- `Poll` : `requestAnimationFrame` continu, ré-enchaîné à chaque tick (60Hz cap navigateur, 120Hz sur écrans ProMotion).
-- `WaitUntil(deadline)` : `setTimeout(deadline - now)` qui déclenche un unique `requestAnimationFrame` à expiration.
+- `Wait`: **no** continuous `requestAnimationFrame` loop. DOM events (input, resize, visibilitychange) wake the loop. When `requestRedraw()` is called from a handler in Wait mode, **a single `requestAnimationFrame(tick)` is scheduled** to produce the frame, then the app returns to rest. Preserves CPU and battery (critical on mobile/laptop).
+- `Poll`: continuous `requestAnimationFrame`, re-chained on each tick (60 Hz browser cap, 120 Hz on ProMotion screens).
+- `WaitUntil(deadline)`: `setTimeout(deadline - now)` that triggers a single `requestAnimationFrame` on expiry.
 
-**Coalescing** : un flag `rafScheduled` empêche d'enregistrer plusieurs RAF concurrents pour un même tick. Appels multiples à `requestRedraw()` entre deux frames → un seul RAF.
+**Coalescing**: a `rafScheduled` flag prevents registering multiple concurrent RAFs for the same tick. Multiple calls to `requestRedraw()` between two frames → a single RAF.
 
-`EventLoopProxy.wakeUp()` côté Web : poste un event custom dans la queue via `queueMicrotask` (ou `setTimeout(0)` fallback). Coalescing identique via flag.
+`EventLoopProxy.wakeUp()` on Web: posts a custom event in the queue via `queueMicrotask` (or `setTimeout(0)` fallback). Same coalescing via flag.
 
-#### 3.1.4 Mapping events Web
+#### 3.1.4 Web event mapping
 
 | DOM event | Koreos event |
-|-----------|--------------|
-| `pointerdown`/`pointerup` | `WindowEvent.MouseInput` (mouse) OU `WindowEvent.Touch` (touch) selon `pointerType` |
+|-----------|-------------|
+| `pointerdown`/`pointerup` | `WindowEvent.MouseInput` (mouse) OR `WindowEvent.Touch` (touch) depending on `pointerType` |
 | `pointermove` | `WindowEvent.PointerMoved` |
 | `keydown`/`keyup` | `WindowEvent.KeyboardInput` (mapping `code` → `Key` enum) |
 | `wheel` | `WindowEvent.MouseWheel` |
-| `resize` (window) | `WindowEvent.Resized` (via ResizeObserver sur canvas) |
+| `resize` (window) | `WindowEvent.Resized` (via ResizeObserver on canvas) |
 | `visibilitychange` | `suspended` (hidden) / `resumed` (visible) |
 | `pagehide` | `suspended` |
 
 #### 3.1.5 DPI (devicePixelRatio)
 
-- `Window.scaleFactor()` → `window.devicePixelRatio` (typiquement 1.0, 2.0, 3.0)
-- `Window.innerSize()` retourne **physical pixels** = `canvas.clientWidth × devicePixelRatio`
-- Canvas attribut `width`/`height` doit être ajusté en physical pour éviter le blur
-- Changement de zoom navigateur → `WindowEvent.ScaleFactorChanged`
+- `Window.scaleFactor()` → `window.devicePixelRatio` (typically 1.0, 2.0, 3.0)
+- `Window.innerSize()` returns **physical pixels** = `canvas.clientWidth × devicePixelRatio`
+- Canvas `width`/`height` attribute must be set in physical pixels to avoid blur
+- Browser zoom change → `WindowEvent.ScaleFactorChanged`
 
 #### 3.1.6 Sample `samples/hello-triangle-web`
 
-- Page HTML statique avec `<canvas id="koreos-canvas">`
-- Bundle Kotlin/JS ou Kotlin/Wasm chargé via `<script>`
-- wgpu4k attache sa Surface au canvas via le `RawWindowHandle.Web("koreos-canvas")`
-- Build : Gradle task `:samples:hello-triangle-web:browserDistribution` produit un dossier statique servable
-- CI : upload du dossier sur GitHub Pages pour démos live
+- Static HTML page with `<canvas id="koreos-canvas">`
+- Kotlin/JS or Kotlin/Wasm bundle loaded via `<script>`
+- wgpu4k attaches its Surface to the canvas via `RawWindowHandle.Web("koreos-canvas")`
+- Build: Gradle task `:samples:hello-triangle-web:browserDistribution` produces a servable static folder
+- CI: folder uploaded to GitHub Pages for live demos
 
-#### 3.1.7 Limitations Web
+#### 3.1.7 Web limitations
 
-- Pas de multi-fenêtre (un canvas par page, multi-tabs = multi-instances de la lib)
-- Pas de `setTitle()` direct (option : `document.title`)
-- Pas de raw input mouse (la souverainté curseur appartient au navigateur)
-- IME : si nécessaire post-v0.2, via `<input>` hidden overlay
+- No multi-window (one canvas per page, multi-tabs = multiple lib instances)
+- No direct `setTitle()` (option: `document.title`)
+- No raw mouse input (cursor sovereignty belongs to the browser)
+- IME: if needed post-v0.2, via a hidden `<input>` overlay
 
 ---
 
@@ -257,11 +256,11 @@ sequenceDiagram
 
 #### 3.2.1 Stack
 
-- kextract FFM JVM 25 sur `user32.dll`, `gdi32.dll`, `kernel32.dll`, `dwmapi.dll`
-- Pattern Win32 standard : `RegisterClassExW` + `CreateWindowExW` + WndProc + message pump (`GetMessage`/`TranslateMessage`/`DispatchMessage`)
-- Subclassing : pas applicable Win32 ; on instancie une `WNDCLASSEXW` custom avec notre WndProc
+- kextract FFM JVM 25 on `user32.dll`, `gdi32.dll`, `kernel32.dll`, `dwmapi.dll`
+- Standard Win32 pattern: `RegisterClassExW` + `CreateWindowExW` + WndProc + message pump (`GetMessage`/`TranslateMessage`/`DispatchMessage`)
+- Subclassing: not applicable on Win32; we instantiate a custom `WNDCLASSEXW` with our WndProc
 
-#### 3.2.2 Boucle d'événements
+#### 3.2.2 Event loop
 
 ```mermaid
 sequenceDiagram
@@ -272,7 +271,7 @@ sequenceDiagram
 
     User->>EL: EventLoop().runApp(handler)
     EL->>EL: assertMainThread
-    EL->>EL: RegisterClassExW (avec KoreosWndProc)
+    EL->>EL: RegisterClassExW (with KoreosWndProc)
     EL->>Handler: canCreateSurfaces
     Handler->>EL: createWindow(attrs)
     EL->>EL: CreateWindowExW → HWND
@@ -289,22 +288,22 @@ sequenceDiagram
         EL->>WndProc: WM_PAINT / WM_SIZE / WM_KEYDOWN / WM_MOUSEMOVE / ...
         WndProc->>Handler: windowEvent(...)
         EL->>Handler: aboutToWait
-        Note over EL: en Poll : tick suivant immédiat<br/>en Wait : rebloque sur GetMessageW
+        Note over EL: in Poll: immediate next tick<br/>in Wait: reblocks on GetMessageW
     end
 ```
 
-**⚠️ Critique** — Le choix `GetMessageW` vs `PeekMessageW` est **commuté à chaque tick** selon le `ControlFlow` en vigueur :
+**⚠️ Critical** — The `GetMessageW` vs `PeekMessageW` choice is **switched on each tick** according to the current `ControlFlow`:
 
-- **`ControlFlow.Wait`** : `GetMessageW(msg, ...)` — bloquant. Le thread dort jusqu'à un message Windows ou un `PostMessage(hwnd, WM_USER_WAKEUP, 0, 0)` envoyé par `EventLoopProxy.wakeUp`.
-- **`ControlFlow.Poll`** : `PeekMessageW(msg, ..., PM_REMOVE)` — non-bloquant. Si pas de message, le tick suivant démarre immédiatement (game loop continu). Indispensable pour Pong et tout sample avec animation continue, sinon le rendu fige dès l'arrêt des inputs utilisateur.
-- **`ControlFlow.WaitUntil(deadline)`** : `MsgWaitForMultipleObjectsEx(deadline - now)` qui combine attente bloquante avec timeout.
+- **`ControlFlow.Wait`**: `GetMessageW(msg, ...)` — blocking. The thread sleeps until a Windows message or a `PostMessage(hwnd, WM_USER_WAKEUP, 0, 0)` sent by `EventLoopProxy.wakeUp`.
+- **`ControlFlow.Poll`**: `PeekMessageW(msg, ..., PM_REMOVE)` — non-blocking. If no message, the next tick starts immediately (continuous game loop). Essential for Pong and any sample with continuous animation, otherwise rendering freezes as soon as user input stops.
+- **`ControlFlow.WaitUntil(deadline)`**: `MsgWaitForMultipleObjectsEx(deadline - now)` combining blocking wait with timeout.
 
-`EventLoopProxy.wakeUp()` Win32 : `PostThreadMessageW(threadId, WM_USER_WAKEUP, 0, 0)` thread-safe sur le thread du message pump. Coalescing via flag atomique côté Kotlin.
+`EventLoopProxy.wakeUp()` Win32: `PostThreadMessageW(threadId, WM_USER_WAKEUP, 0, 0)` thread-safe on the message pump thread. Coalescing via Kotlin atomic flag.
 
-#### 3.2.3 Mapping messages
+#### 3.2.3 Message mapping
 
-| Message Win32 | Koreos event |
-|---------------|--------------|
+| Win32 message | Koreos event |
+|---------------|-------------|
 | `WM_PAINT` | `WindowEvent.RedrawRequested` |
 | `WM_SIZE` | `WindowEvent.Resized(PhysicalSize)` |
 | `WM_DPICHANGED` | `WindowEvent.ScaleFactorChanged` |
@@ -312,16 +311,16 @@ sequenceDiagram
 | `WM_LBUTTONDOWN`/`WM_LBUTTONUP` | `WindowEvent.MouseInput(Left)` |
 | `WM_MOUSEMOVE` | `WindowEvent.PointerMoved` |
 | `WM_MOUSEWHEEL` | `WindowEvent.MouseWheel` |
-| `WM_DESTROY` | `WindowEvent.Destroyed` puis `eventLoop.exit()` candidat |
+| `WM_DESTROY` | `WindowEvent.Destroyed` then `eventLoop.exit()` candidate |
 | `WM_CLOSE` | `WindowEvent.CloseRequested` |
 | `WM_SETFOCUS`/`WM_KILLFOCUS` | `WindowEvent.Focused` |
-| `WM_INPUT` (raw input) | `DeviceEvent.*` (post-v0.2 optionnel) |
+| `WM_INPUT` (raw input) | `DeviceEvent.*` (optional post-v0.2) |
 
 #### 3.2.4 DPI awareness
 
-- Manifest application : `dpiAwareness = PerMonitorV2` (via `SetProcessDpiAwarenessContext` au démarrage)
+- Application manifest: `dpiAwareness = PerMonitorV2` (via `SetProcessDpiAwarenessContext` at startup)
 - `Window.scaleFactor()` → `GetDpiForWindow(hwnd) / 96.0`
-- `WM_DPICHANGED` reconfigure layer + dispatch ScaleFactorChanged
+- `WM_DPICHANGED` reconfigures layer + dispatches ScaleFactorChanged
 
 #### 3.2.5 RawWindowHandle
 
@@ -334,27 +333,27 @@ fun rawWindowHandle(): RawWindowHandle = RawWindowHandle.Win32(
 
 #### 3.2.6 EventLoopProxy.wakeUp Windows
 
-- Thread-safe : `PostThreadMessageW(threadId, WM_USER_WAKEUP, 0, 0)` depuis tout thread (cf. §3.2.2 — préféré à `PostMessage` car ne nécessite pas un HWND vivant)
-- Le message custom est interpreté dans WndProc comme un no-op qui réveille la queue
-- Coalescing : flag atomique côté Kotlin, on ignore les wakeups si une wakeup est déjà en queue
+- Thread-safe: `PostThreadMessageW(threadId, WM_USER_WAKEUP, 0, 0)` from any thread (cf. §3.2.2 — preferred over `PostMessage` as it doesn't require a live HWND)
+- The custom message is interpreted in WndProc as a no-op that wakes the queue
+- Coalescing: Kotlin atomic flag, duplicate wakeups ignored if one is already queued
 
-#### 3.2.7 ⚠️ Durée de vie de l'Arena FFM pour WndProc
+#### 3.2.7 ⚠️ FFM Arena lifetime for WndProc
 
-**Critique sécurité runtime** — En FFM, le `WndProc` Kotlin exposé comme pointeur de fonction natif est un *upcall stub* lié à une `Arena`. **Si l'Arena est fermée avant que Windows ait fini de distribuer ses messages**, le prochain appel `WndProc` déclenche un `SIGSEGV` immédiat.
+**Critical runtime safety** — In FFM, the Kotlin `WndProc` exposed as a native function pointer is an *upcall stub* bound to an `Arena`. **If the Arena is closed before Windows finishes dispatching its messages**, the next `WndProc` call triggers an immediate `SIGSEGV`.
 
-Règles de durée de vie à respecter strictement :
+Lifetime rules to follow strictly:
 
-| Ressource | Arena dédiée | Cycle de vie |
+| Resource | Dedicated Arena | Lifecycle |
 |---|---|---|
-| `KoreosWndProc` (fonction Kotlin → pointeur natif) | `Arena.ofShared()` (lifetime = processus) | Allouée une seule fois au premier `RegisterClassExW`. **Jamais fermée**. |
-| HWND propre à une fenêtre | `Arena.ofConfined()` (lifetime = fenêtre) | Allouée à `CreateWindowExW`, fermée seulement après que `WM_NCDESTROY` ait été traité (dernier message d'une fenêtre selon doc Microsoft). |
-| Allocations temporaires (struct paramètres, strings UTF-16) | `Arena.ofConfined()` locale à la méthode | Fermée à la fin de la méthode (try-with-resources Kotlin via `use`). |
+| `KoreosWndProc` (Kotlin function → native pointer) | `Arena.ofShared()` (lifetime = process) | Allocated once at the first `RegisterClassExW`. **Never closed**. |
+| HWND for a specific window | `Arena.ofConfined()` (lifetime = window) | Allocated at `CreateWindowExW`, closed only after `WM_NCDESTROY` has been processed (last message from a window per Microsoft docs). |
+| Temporary allocations (parameter structs, UTF-16 strings) | Local `Arena.ofConfined()` per method | Closed at method end (Kotlin try-with-resources via `use`). |
 
-Pattern d'implémentation :
+Implementation pattern:
 
 ```kotlin
 internal object Win32WndProcArena {
-    // Arena partagée, jamais fermée — durée du processus
+    // Shared arena, never closed — process lifetime
     val arena: Arena = Arena.ofShared()
 
     val wndProcStub: MemorySegment by lazy {
@@ -369,7 +368,7 @@ internal object Win32WndProcArena {
 }
 ```
 
-**Ne jamais** mettre l'Arena WndProc dans une fenêtre ou un EventLoop scopé : si l'utilisateur ferme toutes ses fenêtres puis en rouvre une, l'ancien stub doit rester valide pour gérer les messages de fermeture en cours de queue.
+**Never** put the WndProc Arena in a window or EventLoop scope: if the user closes all windows and opens a new one, the old stub must remain valid to handle the in-flight closing messages.
 
 ---
 
@@ -377,16 +376,16 @@ internal object Win32WndProcArena {
 
 #### 3.3.1 Stack
 
-- kextract FFM Xlib + XInput2 (pour multi-touch et raw input si présent)
-- Pattern : `XOpenDisplay` + `XCreateWindow` + `XSelectInput` + `XNextEvent` loop
+- kextract FFM Xlib + XInput2 (for multi-touch and raw input if present)
+- Pattern: `XOpenDisplay` + `XCreateWindow` + `XSelectInput` + `XNextEvent` loop
 
-#### 3.3.2 Boucle d'événements
+#### 3.3.2 Event loop
 
-`XNextEvent` est bloquant. Le mode doit être commuté selon `ControlFlow` pour éviter de figer le rendu en mode `Poll` (cas Pong).
+`XNextEvent` is blocking. The mode must be switched based on `ControlFlow` to avoid freezing the render in `Poll` mode (Pong case).
 
-- **`ControlFlow.Wait`** : appel direct `XNextEvent(display, &event)` — bloque jusqu'à un event natif ou un wakeup `XSendEvent(_KOREOS_WAKEUP)`.
-- **`ControlFlow.Poll`** : avant d'appeler `XNextEvent`, vérifier `XPending(display) > 0`. Si zéro événement en attente, ne pas bloquer et passer directement à `aboutToWait` puis au tick suivant. Combiné avec `XFlush(display)` pour s'assurer que les requêtes sortantes sont envoyées.
-- **`ControlFlow.WaitUntil(deadline)`** : utiliser `select`/`poll` sur le file descriptor X11 (`ConnectionNumber(display)`) avec un timeout égal à `deadline - now`. Quand `select` retourne, traiter les events disponibles via la boucle Poll-style.
+- **`ControlFlow.Wait`**: direct `XNextEvent(display, &event)` call — blocks until a native event or a `XSendEvent(_KOREOS_WAKEUP)` wakeup.
+- **`ControlFlow.Poll`**: before calling `XNextEvent`, check `XPending(display) > 0`. If zero events pending, do not block and proceed directly to `aboutToWait` then the next tick. Combined with `XFlush(display)` to ensure outgoing requests are sent.
+- **`ControlFlow.WaitUntil(deadline)`**: use `select`/`poll` on the X11 file descriptor (`ConnectionNumber(display)`) with a timeout equal to `deadline - now`. When `select` returns, process available events via the Poll-style loop.
 
 ```kotlin
 // pseudo-code
@@ -407,15 +406,15 @@ fun pumpEvents(controlFlow: ControlFlow) {
 }
 ```
 
-`EventLoopProxy.wakeUp` thread-safe : `XSendEvent(display, window, false, NoEventMask, &koreosWakeupEvent)` + `XFlush(display)`. Coalescing via flag atomique.
+Thread-safe `EventLoopProxy.wakeUp`: `XSendEvent(display, window, false, NoEventMask, &koreosWakeupEvent)` + `XFlush(display)`. Coalescing via atomic flag.
 
-#### 3.3.3 Mapping events
+#### 3.3.3 Event mapping
 
 | X11 event | Koreos event |
-|-----------|--------------|
+|-----------|-------------|
 | `Expose` | `WindowEvent.RedrawRequested` |
-| `ConfigureNotify` | `WindowEvent.Resized` + `Moved` selon delta |
-| `KeyPress`/`KeyRelease` | `WindowEvent.KeyboardInput` (via XLookupString pour le mapping) |
+| `ConfigureNotify` | `WindowEvent.Resized` + `Moved` depending on delta |
+| `KeyPress`/`KeyRelease` | `WindowEvent.KeyboardInput` (via XLookupString for mapping) |
 | `ButtonPress`/`ButtonRelease` | `WindowEvent.MouseInput` |
 | `MotionNotify` | `WindowEvent.PointerMoved` |
 | `EnterNotify`/`LeaveNotify` | `WindowEvent.PointerEntered`/`PointerLeft` |
@@ -434,9 +433,9 @@ fun rawWindowHandle(): RawWindowHandle = RawWindowHandle.Xlib(
 
 #### 3.3.5 DPI
 
-X11 ne gère pas le DPI scaling au niveau protocole. Lecture du DPI :
-- `Xft.dpi` resource via `XGetDefault` → fallback heuristique 96
-- Sample n'expose qu'un seul `scaleFactor` global (pas de per-monitor)
+X11 does not handle DPI scaling at the protocol level. DPI reading:
+- `Xft.dpi` resource via `XGetDefault` → heuristic fallback of 96
+- Sample exposes only a single global `scaleFactor` (not per-monitor)
 
 ---
 
@@ -445,27 +444,27 @@ X11 ne gère pas le DPI scaling au niveau protocole. Lecture du DPI :
 #### 3.4.1 Stack
 
 - kextract FFM `libwayland-client`
-- Protocoles : `wl_display`, `wl_registry`, `wl_compositor`, `wl_surface`, `xdg_shell` (xdg_wm_base + xdg_surface + xdg_toplevel), `xdg_decoration_unstable_v1`
-- Bindings xdg via wayland-scanner (.xml → C → kextract → Kotlin)
+- Protocols: `wl_display`, `wl_registry`, `wl_compositor`, `wl_surface`, `xdg_shell` (xdg_wm_base + xdg_surface + xdg_toplevel), `xdg_decoration_unstable_v1`
+- xdg bindings via wayland-scanner (.xml → C → kextract → Kotlin)
 
-#### 3.4.2 Boucle d'événements
+#### 3.4.2 Event loop
 
-Wayland est event-driven asynchrone. La séquence canonique pour supporter `Wait` ET `Poll` sans figer :
+Wayland is asynchronous event-driven. The canonical sequence to support both `Wait` and `Poll` without freezing:
 
-1. `wl_display_prepare_read(display)` — annonce l'intention de lire (thread-safe, sans bloquer).
-2. `wl_display_flush(display)` — envoie les requêtes Kotlin en attente.
-3. **`poll`** (Linux syscall) sur `wl_display_get_fd(display)` avec un timeout dépendant du `ControlFlow` :
-   - `ControlFlow.Wait` → timeout `-1` (bloquant infini)
-   - `ControlFlow.Poll` → timeout `0` (non-bloquant)
-   - `ControlFlow.WaitUntil(deadline)` → timeout `deadline - now` en ms
-4. Si `poll` indique des données → `wl_display_read_events(display)` (consomme du fd) puis `wl_display_dispatch_pending(display)` (déclenche les listeners Wayland qui dispatcheront vers notre `ApplicationHandler`).
-5. Si `poll` n'a rien (cas Poll sans events) → `wl_display_cancel_read(display)` pour libérer la déclaration.
+1. `wl_display_prepare_read(display)` — announces intent to read (thread-safe, non-blocking).
+2. `wl_display_flush(display)` — sends pending Kotlin requests.
+3. **`poll`** (Linux syscall) on `wl_display_get_fd(display)` with a timeout depending on `ControlFlow`:
+   - `ControlFlow.Wait` → timeout `-1` (infinite blocking)
+   - `ControlFlow.Poll` → timeout `0` (non-blocking)
+   - `ControlFlow.WaitUntil(deadline)` → timeout `deadline - now` in ms
+4. If `poll` indicates data → `wl_display_read_events(display)` (consumes from fd) then `wl_display_dispatch_pending(display)` (triggers Wayland listeners which dispatch to our `ApplicationHandler`).
+5. If `poll` has nothing (Poll mode without events) → `wl_display_cancel_read(display)` to release the declaration.
 
 ```kotlin
 // pseudo-code
 fun pumpEvents(controlFlow: ControlFlow) {
     while (wl_display_prepare_read(display) != 0) {
-        wl_display_dispatch_pending(display)  // queue déjà non vide, consommer
+        wl_display_dispatch_pending(display)  // queue already non-empty, consume
     }
     wl_display_flush(display)
 
@@ -485,12 +484,12 @@ fun pumpEvents(controlFlow: ControlFlow) {
 }
 ```
 
-`EventLoopProxy.wakeUp` Wayland : écrire 1 octet sur un `eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)` ajouté au `poll` ci-dessus comme deuxième fd. Coalescing par sémantique eventfd (compteur 64-bit, drainé d'un seul `read` côté boucle).
+`EventLoopProxy.wakeUp` Wayland: write 1 byte to an `eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)` added to the `poll` above as a second fd. Coalescing via eventfd semantics (64-bit counter, drained by a single `read` on the loop side).
 
-#### 3.4.3 Mapping events
+#### 3.4.3 Event mapping
 
 | Wayland event | Koreos event |
-|---------------|--------------|
+|---------------|-------------|
 | `xdg_surface.configure` | `WindowEvent.Resized` + ack configure |
 | `xdg_toplevel.close` | `WindowEvent.CloseRequested` |
 | `wl_pointer.motion` | `WindowEvent.PointerMoved` |
@@ -510,30 +509,30 @@ fun rawWindowHandle(): RawWindowHandle = RawWindowHandle.Wayland(
 )
 ```
 
-#### 3.4.5 Décorations
+#### 3.4.5 Decorations
 
-- `xdg_decoration_unstable_v1` pour demander des server-side decorations
-- Si non supporté → client-side decorations minimales (titre bar simple) ou fallback "no decorations" + raccourci clavier pour close
+- `xdg_decoration_unstable_v1` to request server-side decorations
+- If not supported → minimal client-side decorations (simple title bar) or fallback "no decorations" + keyboard shortcut for close
 
 ---
 
-### 3.5 Détection automatique X11 vs Wayland
+### 3.5 Automatic X11 vs Wayland detection
 
-#### 3.5.1 ⚠️ Chargement paresseux des symboles natifs
+#### 3.5.1 ⚠️ Lazy loading of native symbols
 
-**Critique** — La référence directe aux classes `X11EventLoop` et `WaylandEventLoop` dans le code de détection ne doit **pas** déclencher la résolution FFM des bibliothèques natives (`libwayland-client.so`, `libX11.so`). Sur un système Linux Wayland pur (sans XWayland), `libX11.so` peut être absente — un `SymbolLookup.libraryLookup("X11")` dans un `companion object` ou `init` lèverait alors `UnsatisfiedLinkError`/`LinkageError` au simple chargement de classe, **avant même la branche de détection**, et crasherait l'app.
+**Critical** — Directly referencing `X11EventLoop` and `WaylandEventLoop` classes in the detection code must **not** trigger FFM resolution of the native libraries (`libwayland-client.so`, `libX11.so`). On a pure Wayland Linux system (without XWayland), `libX11.so` may be absent — a `SymbolLookup.libraryLookup("X11")` in a `companion object` or `init` would then throw `UnsatisfiedLinkError`/`LinkageError` on mere class loading, **before the detection branch**, crashing the app.
 
-Règles d'implémentation :
+Implementation rules:
 
-1. **Aucune résolution FFM dans `companion object`, `init`, ou propriété de classe non-`lazy`** sur `X11EventLoop` et `WaylandEventLoop`.
-2. Tous les symboles natifs sont chargés via `lazy { ... }` ou à l'intérieur de méthodes appelées **après** la décision de backend.
-3. La phase de "test de disponibilité" se fait via une méthode `tryProbe()` isolée qui charge la lib dans un try/catch large.
-4. Le try/catch attrape `Throwable` (pas juste `Exception`) pour intercepter `LinkageError`, `UnsatisfiedLinkError`, `ExceptionInInitializerError`, `NoClassDefFoundError`.
+1. **No FFM resolution in `companion object`, `init`, or non-`lazy` class properties** in `X11EventLoop` and `WaylandEventLoop`.
+2. All native symbols are loaded via `lazy { ... }` or inside methods called **after** the backend decision.
+3. The "availability test" phase uses an isolated `tryProbe()` method that loads the lib inside a broad try/catch.
+4. The try/catch catches `Throwable` (not just `Exception`) to intercept `LinkageError`, `UnsatisfiedLinkError`, `ExceptionInInitializerError`, `NoClassDefFoundError`.
 
-#### 3.5.2 Pattern de détection
+#### 3.5.2 Detection pattern
 
 ```kotlin
-// koreos/jvmMain (cible linux)
+// koreos/jvmMain (linux target)
 actual class EventLoop {
     actual fun runApp(handler: ApplicationHandler) {
         val backend = detectBackend()
@@ -542,7 +541,7 @@ actual class EventLoop {
 }
 
 private fun detectBackend(): EventLoop {
-    // 1. Override explicite via env var → priorité absolue
+    // 1. Explicit override via env var → absolute priority
     when (System.getenv("KOREOS_LINUX_BACKEND")?.lowercase()) {
         "wayland" -> return WaylandEventLoop.createOrThrow()
         "x11" -> return X11EventLoop.createOrThrow()
@@ -550,7 +549,7 @@ private fun detectBackend(): EventLoop {
         else -> error("Invalid KOREOS_LINUX_BACKEND value (use 'wayland' or 'x11')")
     }
 
-    // 2. Auto-détection via XDG_SESSION_TYPE (hint Wayland/X11 par le compositor)
+    // 2. Auto-detection via XDG_SESSION_TYPE (Wayland/X11 hint from the compositor)
     val xdgSessionType = System.getenv("XDG_SESSION_TYPE")?.lowercase()
     if (xdgSessionType == "wayland") {
         tryCreate { WaylandEventLoop.createOrThrow() }?.let { return it }
@@ -559,33 +558,33 @@ private fun detectBackend(): EventLoop {
         tryCreate { X11EventLoop.createOrThrow() }?.let { return it }
     }
 
-    // 3. Probe runtime : tenter Wayland (moderne) puis X11 (legacy)
+    // 3. Runtime probe: try Wayland (modern) then X11 (legacy)
     tryCreate { WaylandEventLoop.createOrThrow() }?.let { return it }
     tryCreate { X11EventLoop.createOrThrow() }?.let { return it }
 
     error("""
-        Aucun backend Linux disponible (ni Wayland ni X11).
-        Vérifie que libwayland-client.so OU libX11.so est installé.
+        No Linux backend available (neither Wayland nor X11).
+        Check that libwayland-client.so OR libX11.so is installed.
         Override possible via KOREOS_LINUX_BACKEND=wayland|x11.
     """.trimIndent())
 }
 
-/** Try/catch très large : LinkageError, UnsatisfiedLinkError, ExceptionInInitializerError, etc. */
+/** Broad try/catch: LinkageError, UnsatisfiedLinkError, ExceptionInInitializerError, etc. */
 private inline fun tryCreate(block: () -> EventLoop): EventLoop? = try {
     block()
 } catch (t: Throwable) {
-    // Log debug si KOREOS_DEBUG=1
+    // Debug log if KOREOS_DEBUG=1
     if (System.getenv("KOREOS_DEBUG") == "1") {
         System.err.println("Backend probe failed: ${t::class.simpleName}: ${t.message}")
     }
     null
 }
 
-/** Côté X11EventLoop / WaylandEventLoop : factory qui ne crée l'Arena FFM qu'à l'appel. */
+/** On X11EventLoop / WaylandEventLoop: factory that only creates the FFM Arena on call. */
 internal object WaylandEventLoop {
     fun createOrThrow(): EventLoop {
-        // C'est ICI que la résolution FFM des symboles a lieu, pas avant.
-        // wl_display_connect renvoie NULL si pas de serveur Wayland → on throw.
+        // FFM symbol resolution happens HERE, not before.
+        // wl_display_connect returns NULL if no Wayland server → we throw.
         val display = WaylandSymbols.wl_display_connect(null)
             ?: throw IllegalStateException("wl_display_connect returned NULL")
         return WaylandEventLoopImpl(display)
@@ -593,39 +592,39 @@ internal object WaylandEventLoop {
 }
 ```
 
-#### 3.5.3 Critère "Wayland disponible"
+#### 3.5.3 "Wayland available" criterion
 
-`WaylandEventLoop.createOrThrow()` retourne sans erreur uniquement si :
-- `libwayland-client.so.0` est chargeable.
-- `wl_display_connect(NULL)` retourne un display non-null (= variable `WAYLAND_DISPLAY` valide ET socket fonctionnel).
+`WaylandEventLoop.createOrThrow()` returns without error only if:
+- `libwayland-client.so.0` is loadable.
+- `wl_display_connect(NULL)` returns a non-null display (= valid `WAYLAND_DISPLAY` AND working socket).
 
-Sinon → fallback X11 ou erreur finale.
+Otherwise → X11 fallback or final error.
 
 ---
 
-## 4. Architecture du sample Pong (Sprint 5)
+## 4. Pong sample architecture (Sprint 5)
 
 ### 4.1 Structure
 
 ```
 samples/pong/
-├── build.gradle.kts (KMP avec 6 targets)
+├── build.gradle.kts (KMP with 6 targets)
 ├── src/
 │   ├── commonMain/kotlin/.../
-│   │   ├── PongGame.kt           # ApplicationHandler principal
-│   │   ├── GameState.kt          # Data classes : Paddle, Ball, Score
-│   │   ├── PongAi.kt             # IA simple
-│   │   ├── PongRenderer.kt       # Rendu wgpu4k (quads + texte)
-│   │   ├── InputAdapter.kt       # Mapping WindowEvent → action paddle (clavier / touch)
-│   │   └── BitmapFont.kt         # Petit bitmap font hardcodé pour le score
-│   ├── jvmMain/   (entry point Desktop : macOS, Windows, Linux)
-│   ├── iosMain/   (entry point UIApplicationMain)
-│   ├── androidMain/  (entry point Activity)
-│   ├── jsMain/    (entry point JS : window load)
-│   └── wasmJsMain/  (entry point Wasm)
+│   │   ├── PongGame.kt           # Main ApplicationHandler
+│   │   ├── GameState.kt          # Data classes: Paddle, Ball, Score
+│   │   ├── PongAi.kt             # Simple AI
+│   │   ├── PongRenderer.kt       # wgpu4k rendering (quads + text)
+│   │   ├── InputAdapter.kt       # WindowEvent → paddle action mapping (keyboard / touch)
+│   │   └── BitmapFont.kt         # Small hardcoded bitmap font for the score
+│   ├── jvmMain/   (Desktop entry point: macOS, Windows, Linux)
+│   ├── iosMain/   (UIApplicationMain entry point)
+│   ├── androidMain/  (Activity entry point)
+│   ├── jsMain/    (JS entry point: window load)
+│   └── wasmJsMain/  (Wasm entry point)
 ```
 
-### 4.2 PongGame en commonMain
+### 4.2 PongGame in commonMain
 
 ```kotlin
 class PongGame : ApplicationHandler {
@@ -655,7 +654,7 @@ class PongGame : ApplicationHandler {
 
     override fun aboutToWait(eventLoop: ActiveEventLoop) {
         val now = currentTimeNanos()
-        val dt = (now - lastFrameTime).coerceIn(0, 50_000_000) / 1e9  // sec, capé 50ms
+        val dt = (now - lastFrameTime).coerceIn(0, 50_000_000) / 1e9  // sec, capped at 50ms
         lastFrameTime = now
         state = state.tick(dt, inputAdapter.playerInput, ai.suggest(state, dt))
         window?.requestRedraw()
@@ -667,7 +666,7 @@ class PongGame : ApplicationHandler {
 }
 ```
 
-### 4.3 IA simple
+### 4.3 Simple AI
 
 ```kotlin
 class PongAi(private val reactionLagMs: Long) {
@@ -690,7 +689,7 @@ class PongAi(private val reactionLagMs: Long) {
 }
 ```
 
-### 4.4 Mapping input cross-platform
+### 4.4 Cross-platform input mapping
 
 ```kotlin
 class InputAdapter {
@@ -706,7 +705,7 @@ class InputAdapter {
     }
 
     fun onTouch(event: WindowEvent.Touch, screenSize: PhysicalSize<Int>) {
-        // Zone droite de l'écran : touch en haut = up, en bas = down
+        // Right zone of screen: touch in upper half = up, lower half = down
         val rightZone = event.location.x > screenSize.width / 2.0
         if (!rightZone) return
         playerInput = when (event.phase) {
@@ -720,63 +719,63 @@ class InputAdapter {
 }
 ```
 
-### 4.5 Rendu wgpu4k
+### 4.5 wgpu4k rendering
 
-- Pipeline 2D simple : 1 vertex shader (transform position), 1 fragment shader (couleur uniforme)
-- 5 draw calls par frame :
-  - 2 quads pour les raquettes (couleur blanche)
-  - 1 quad pour la balle (couleur blanche)
-  - N quads pour les chiffres du score (bitmap font, blocs blancs)
-  - 1 quad pour la ligne pointillée du milieu (option)
-- Clear color noir
-- Présentation à `surface.present()`
+- Simple 2D pipeline: 1 vertex shader (transform position), 1 fragment shader (uniform color)
+- 5 draw calls per frame:
+  - 2 quads for paddles (white)
+  - 1 quad for the ball (white)
+  - N quads for score digits (bitmap font, white blocks)
+  - 1 quad for the center dotted line (optional)
+- Black clear color
+- Presentation via `surface.present()`
 
 ### 4.6 Frame timing
 
-- `ControlFlow.Poll` → `aboutToWait` à chaque tick
-- `dt` calculé en commonMain via `currentTimeNanos()` (expect/actual : `System.nanoTime` JVM, `performance.now()` Web, `mach_absolute_time` Apple, `clock_gettime` Linux/Android)
-- Capé à 50ms pour éviter les sauts énormes au resume
+- `ControlFlow.Poll` → `aboutToWait` on each tick
+- `dt` computed in commonMain via `currentTimeNanos()` (expect/actual: `System.nanoTime` JVM, `performance.now()` Web, `mach_absolute_time` Apple, `clock_gettime` Linux/Android)
+- Capped at 50ms to avoid large jumps on resume
 
-### 4.7 Considérations par plateforme
+### 4.7 Per-platform considerations
 
-| Plateforme | Spécifique |
-|------------|-----------|
-| Desktop (macOS/Windows/Linux) | Flèches ↑↓. Window 800×600. |
-| Mobile (iOS/Android) | Touch zone droite. Window plein écran. |
-| Web | Flèches ↑↓ (clavier) **+** touch zone droite (tactile). Canvas plein conteneur. |
+| Platform | Specifics |
+|----------|----------|
+| Desktop (macOS/Windows/Linux) | Arrow keys ↑↓. Window 800×600. |
+| Mobile (iOS/Android) | Right-zone touch. Full-screen window. |
+| Web | Arrow keys ↑↓ (keyboard) **+** right-zone touch (touch screens). Canvas fills container. |
 
 ---
 
-## 5. Stratégie CI v0.2
+## 5. v0.2 CI strategy
 
-### 5.1 Jobs ajoutés
+### 5.1 Added jobs
 
-| Job | Runner | Tâches |
-|-----|--------|--------|
+| Job | Runner | Tasks |
+|-----|--------|-------|
 | `web-build` | `ubuntu-latest` + Node | `:koreos-js:build`, `:koreos-wasm:build`, `:samples:hello-triangle-web:browserProductionWebpack` |
 | `windows-build` | `windows-latest` | `:koreos-win32:build`, `:samples:hello-triangle:run` (smoke test) |
 | `linux-x11-build` | `ubuntu-latest` + Xvfb | `:koreos-x11:build`, `:samples:hello-triangle:build` |
-| `linux-wayland-build` | `ubuntu-latest` + weston headless | `:koreos-wayland:build`, sample smoke |
+| `linux-wayland-build` | `ubuntu-latest` + headless weston | `:koreos-wayland:build`, sample smoke |
 
-### 5.2 Workflow conditionnel
+### 5.2 Conditional workflow
 
-- **Fast-Track JVM** (branches secondaires) : `:koreos-core:jvmTest` uniquement, < 10s.
-- **Deep-Testing** (PR vers master) : tous les jobs ci-dessus.
-- **Release** (tag `v*`) : Deep-Testing + Maven Central publish.
+- **Fast-Track JVM** (secondary branches): `:koreos-core:jvmTest` only, < 10s.
+- **Deep-Testing** (PR to master): all jobs above.
+- **Release** (tag `v*`): Deep-Testing + Maven Central publish.
 
 ---
 
-## 6. Roadmap d'implémentation v0.2 (résumé)
+## 6. v0.2 implementation roadmap (summary)
 
 ```mermaid
 gantt
-    title Koreos v0.2 — Roadmap par sprint
+    title Koreos v0.2 — Roadmap by sprint
     dateFormat YYYY-MM-DD
-    section Rémédiation
+    section Remediation
     v0.1.1 :s0, 2026-05-29, 14d
     section Web
     koreos-js MVP :s1, after s0, 14d
-    koreos-wasm + samples web :s2, after s1, 14d
+    koreos-wasm + web samples :s2, after s1, 14d
     section Windows
     koreos-win32 :s3, after s2, 14d
     section Linux
@@ -787,23 +786,23 @@ gantt
 
 ---
 
-## 7. Limitations connues v0.2
+## 7. Known v0.2 limitations
 
-- Pas de multi-fenêtre Web (un canvas par instance lib)
-- Pas de multi-touch X11 sans XInput2 — à activer si présent
-- Wayland nécessite `xdg_shell` v3+ (compositors >=2020)
-- Pas de gamepad input (post-v0.2)
-- Pas d'IME / composition (post-v0.2)
-- Pong : pas d'audio, pas de réseau, IA basique
+- No multi-window on Web (one canvas per lib instance)
+- No X11 multi-touch without XInput2 — to enable if present
+- Wayland requires `xdg_shell` v3+ (compositors >=2020)
+- No gamepad input (post-v0.2)
+- No IME / composition (post-v0.2)
+- Pong: no audio, no network, basic AI
 
 ---
 
-## 8. Annexes
+## 8. Appendices
 
-### Mapping winit → Koreos v0.2
+### winit → Koreos v0.2 mapping
 
 | winit (Rust) | Koreos v0.2 |
-|--------------|------------------|
+|--------------|-------------|
 | `RawWindowHandle::Web` | `RawWindowHandle.Web(canvasElementId: String)` |
 | `RawWindowHandle::Win32` | `RawWindowHandle.Win32(hwnd, hinstance)` |
 | `RawWindowHandle::Xlib` | `RawWindowHandle.Xlib(window, display)` |
@@ -813,7 +812,7 @@ gantt
 | `winit-x11` crate | `koreos-x11` |
 | `winit-wayland` crate | `koreos-wayland` |
 
-### Références externes additionnelles
+### Additional external references
 
 - [WebGPU spec](https://www.w3.org/TR/webgpu/)
 - [Kotlin/Wasm browser interop](https://kotlinlang.org/docs/wasm-overview.html)
@@ -823,8 +822,8 @@ gantt
 - [xdg-shell unstable](https://wayland.app/protocols/xdg-shell)
 - [libxkbcommon (Linux keymap)](https://xkbcommon.org/)
 
-### Documents associés
+### Associated documents
 
-- [Plan projet v0.2](./plan-v0.2.md)
-- [Plan v0.1 (livré)](./plan.md)
-- [Specs v0.1 (livrées)](./specs.md)
+- [v0.2 project plan](./plan-v0.2.md)
+- [v0.1 plan (delivered)](./plan.md)
+- [v0.1 specs (delivered)](./specs.md)
