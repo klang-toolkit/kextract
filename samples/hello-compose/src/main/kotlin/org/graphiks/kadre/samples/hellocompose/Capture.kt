@@ -42,7 +42,7 @@ fun captureDemoUiToPng(path: String, width: Int = 800, height: Int = 600) {
 
         val png = surface.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)
             ?: error("PNG encoding failed")
-        File(path).writeBytes(png.bytes)
+        File(path).apply { parentFile?.mkdirs() }.writeBytes(png.bytes)
         println("[hello-compose] Offscreen capture written: $path (${width}×$height)")
     } finally {
         scene.close()

@@ -360,6 +360,26 @@ internal val getModuleHandleW: MethodHandle? by lazy {
     )
 }
 
+// ── LoadCursorW ───────────────────────────────────────────────────────────────
+
+/**
+ * HCURSOR LoadCursorW(HINSTANCE hInstance, LPCWSTR lpCursorName);
+ *
+ * With hInstance = NULL and a predefined cursor id (e.g. IDC_ARROW via MAKEINTRESOURCE),
+ * loads a system cursor. Used to give the window class a real cursor so the client area
+ * shows the arrow instead of keeping the sizing cursor from the window border.
+ */
+internal val loadCursorW: MethodHandle? by lazy {
+    user32.downcall(
+        "LoadCursorW",
+        FunctionDescriptor.of(
+            ValueLayout.ADDRESS,    // HCURSOR
+            ValueLayout.ADDRESS,    // HINSTANCE (NULL for system cursors)
+            ValueLayout.ADDRESS,    // LPCWSTR  (MAKEINTRESOURCE id)
+        )
+    )
+}
+
 // ── SetProcessDpiAwarenessContext ─────────────────────────────────────────────
 
 /**
@@ -510,6 +530,9 @@ internal const val SW_SHOW: Int = 5
 
 /** SW_HIDE */
 internal const val SW_HIDE: Int = 0
+
+/** IDC_ARROW — standard arrow cursor id (passed to LoadCursorW via MAKEINTRESOURCE). */
+internal const val IDC_ARROW: Long = 32512L
 
 /** CS_HREDRAW | CS_VREDRAW */
 internal const val CS_HREDRAW_VREDRAW: Int = 0x0003

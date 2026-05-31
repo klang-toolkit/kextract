@@ -1,0 +1,124 @@
+name: linux-compose-visual
+
+# Linux validation of the hello-compose sample (Compose Multiplatform in a Kadre window).
+#
+# Modelled on linux-visual.yml (headless Weston compositor + Mesa software rendering).
+# Three checks, increasing in coverage:
+#   1. --keytest        : Compose keyboard path (raster, no display)
+#   2. --capture        : Compose UI rasterizes (raster, no display)
+#   3. --window-capture : the REAL windowed GL path (EGL/Wayland → Skiko makeGL) under Weston
+#
+# The windowed GL step is non-blocking while the cross-platform path stabilises.
+
+on:
+  push:
+    branches: [master, 'claude/**']
+    paths:
+      - 'samples/hello-compose/**'
+      - '.github/workflows/linux-compose-visual.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'samples/hello-compose/**'
+      - '.github/workflows/linux-compose-visual.yml'
+  workflow_dispatch:
+
+jobs:
+  linux-compose-visual:
+    name: linux-compose-visual
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+          cache: 'gradle'
+
+      - name: Install Weston + Wayland EGL + software OpenGL (Mesa)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            weston \
+            libwayland-client0 libwayland-egl1 libxkbcommon0 \
+            libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libglx-mesa0 \
+            mesa-utils
+
+      - name: Start headless Weston
+        run: |
+          export XDG_RUNTIME_DIR=/tmp/wl-runtime
+          mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+          weston \
+            --backend=headless-backend.so \
+            --renderer=pixman \
+            --width=800 --height=600 \
+            --socket=wayland-ci \
+            --idle-time=0 \
+            --log=/tmp/weston.log \
+            > /tmp/weston.stdout 2>&1 &
+          for i in $(seq 1 60); do
+            [ -S "$XDG_RUNTIME_DIR/wayland-ci" ] && break
+            sleep 0.5
+          done
+          if [ -S "$XDG_RUNTIME_DIR/wayland-ci" ]; then
+            echo "✅ Wayland socket present"
+            echo "WAYLAND_DISPLAY=wayland-ci" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Wayland socket missing — windowed capture will be skipped"
+            cat /tmp/weston.log /tmp/weston.stdout 2>/dev/null || true
+          fi
+          echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 1 + 2 in a single JVM (one Gradle invocation): keyboard self-test + raster capture.
+      # No display / no GPU — these MUST pass.
+      - name: Headless checks (--ci-headless)
+        run: |
+          ./gradlew :samples:hello-compose:run \
+            --args="--ci-headless samples/hello-compose/build/visual" \
+            --no-daemon --stacktrace
+
+      # 3: the real windowed GL path via EGL/Wayland + Skiko makeGL, under software Mesa GL.
+      - name: Windowed GL capture (--window-capture)
+        id: windowcap
+        if: always()
+        continue-on-error: true
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+          KADRE_LINUX_BACKEND: wayland
+        run: |
+          if [ -z "$WAYLAND_DISPLAY" ] || [ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]; then
+            echo "::warning::no Wayland compositor — windowed GL capture skipped"
+            exit 0
+          fi
+          # Hard cap: the app has its own 30s watchdog, this is a belt-and-braces backstop so a
+          # stuck native call can never hang the job. SIGKILL 30s after SIGTERM if needed.
+          timeout -k 30 180 ./gradlew :samples:hello-compose:run \
+            --args="--window-capture samples/hello-compose/build/visual/hello-compose.window.png" \
+            --no-daemon --stacktrace || echo "::warning::window-capture timed out or failed (non-blocking)"
+
+      - name: Dump crash report (hs_err) if any
+        if: always()
+        run: |
+          f=$(ls -t samples/hello-compose/hs_err_pid*.log 2>/dev/null | head -1)
+          if [ -n "$f" ]; then
+            echo "===== $f (excerpt) ====="
+            sed -n '1,50p' "$f"
+          else
+            echo "No hs_err found."
+          fi
+
+      - name: Upload captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hello-compose-linux
+          path: samples/hello-compose/build/visual/*.png
+          if-no-files-found: ignore

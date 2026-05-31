@@ -64,7 +64,7 @@ fun DemoUi() {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text("Jetpack Compose in a Kadre window 🪟", style = MaterialTheme.typography.headlineSmall)
-                Text("Rendered via Skiko → Metal (CAMetalLayer)", style = MaterialTheme.typography.bodyMedium)
+                Text("Rendered via Skiko (Metal on macOS, OpenGL on Windows/Linux)", style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = { clicks++ }) {
                     Text("Clicked $clicks times")
                 }
@@ -79,13 +79,18 @@ fun DemoUi() {
     }
 }
 
-class HelloComposeApp : ApplicationHandler {
+/**
+ * @param windowCapturePath when set, the app renders a few frames into the real Kadre window
+ *   (Metal/GL), snapshots the rendered surface to this PNG path, and exits. Used by CI to
+ *   exercise the windowed platform present path headlessly.
+ */
+class HelloComposeApp(private val windowCapturePath: String? = null) : ApplicationHandler {
 
     private var window: Window? = null
-    private var renderer: ComposeMetalRenderer? = null
+    private var renderer: ComposeWindowRenderer? = null
 
     // Keyboard forwarding builds real AWT KeyEvents (required for text input — see
-    // ComposeMetalRenderer.sendKey). The source Component is created lazily and guarded:
+    // ComposeSceneHost.sendKey). The source Component is created lazily and guarded:
     // if AWT init misbehaves under -XstartOnFirstThread, keyboard is disabled, not fatal.
     private var keyboardDisabled = false
     private val keyEventSource: Component? by lazy {
@@ -97,7 +102,7 @@ class HelloComposeApp : ApplicationHandler {
 
         val win = eventLoop.createWindow(
             WindowAttributes(
-                title = "Hello Compose — Kadre + Skiko/Metal",
+                title = "Hello Compose — Kadre + Skiko",
                 size = PhysicalSize(width = 800, height = 600),
                 visible = true,
                 resizable = true,
@@ -105,20 +110,35 @@ class HelloComposeApp : ApplicationHandler {
         )
         window = win
 
-        val handle = win.rawWindowHandle
-        if (handle !is RawWindowHandle.AppKit || handle.nsLayer == 0L) {
-            println("[hello-compose] Unsupported platform (CAMetalLayer required): $handle")
+        val handle = win.rawWindowHandle as? RawWindowHandle ?: run {
+            println("[hello-compose] Unexpected window handle: ${win.rawWindowHandle}")
             eventLoop.exit()
             return
         }
 
-        val r = ComposeMetalRenderer(handle.nsLayer, win.scaleFactor)
+        val r = ComposeWindowRenderer.create(handle, win.scaleFactor).getOrElse {
+            println("[hello-compose] Cannot create renderer: ${it.message}")
+            eventLoop.exit()
+            return
+        }
         val inner = win.innerSize
         r.resize(inner.width, inner.height, win.scaleFactor)
         r.setContent { DemoUi() }
         renderer = r
 
-        println("[hello-compose] Ready — ${inner.width}×${inner.height} @ ${win.scaleFactor}x")
+        println("[hello-compose] Ready — ${inner.width}×${inner.height} @ ${win.scaleFactor}x (${r::class.simpleName})")
+
+        // Headless windowed capture: render a few frames synchronously (so composition + first
+        // paint settle) through the real platform present path, snapshot, and exit immediately —
+        // without depending on the event loop's redraw cadence (which may never fire headlessly).
+        if (windowCapturePath != null) {
+            repeat(4) { r.renderFrame() }
+            val ok = r.captureFrameToPng(windowCapturePath)
+            println("[hello-compose] window-capture ${if (ok) "written" else "FAILED"}: $windowCapturePath")
+            r.dispose()
+            renderer = null
+            eventLoop.exit()
+        }
     }
 
     override fun aboutToWait(eventLoop: ActiveEventLoop) {
@@ -181,7 +201,7 @@ class HelloComposeApp : ApplicationHandler {
      * - KEY_TYPED (on press, for printable keys) drives character insertion in text fields,
      *   which Compose only performs for genuine AWT typed events.
      */
-    private fun forwardKey(event: WindowEvent.KeyboardInput, renderer: ComposeMetalRenderer?) {
+    private fun forwardKey(event: WindowEvent.KeyboardInput, renderer: ComposeWindowRenderer?) {
         if (keyboardDisabled || renderer == null) return
         val source = keyEventSource ?: run { keyboardDisabled = true; return }
 
@@ -258,10 +278,19 @@ private fun typedChar(key: KadreKey, shift: Boolean): Char? = when {
  */
 fun main(args: Array<String>) {
     if (args.contains("--keytest")) {
-        val typed = keyboardSelfTest("hi")
-        println("[hello-compose] keytest — text field received: '$typed' (expected 'hi')")
-        if (typed != "hi") error("keytest FAILED: '$typed' != 'hi'")
-        println("[hello-compose] keytest OK")
+        runKeytest()
+        return
+    }
+
+    // Combined headless checks in a single JVM (keytest + raster capture) — lets CI do both
+    // with one Gradle invocation instead of two. Windowed GL capture stays a separate process
+    // so a native GL crash can't fail the headless checks.
+    val ciHeadlessIndex = args.indexOf("--ci-headless")
+    if (ciHeadlessIndex >= 0) {
+        val dir = args.getOrNull(ciHeadlessIndex + 1)
+            ?: error("--ci-headless requires an output dir: --ci-headless <dir>")
+        runKeytest()
+        captureDemoUiToPng("$dir/hello-compose.raster.png")
         return
     }
 
@@ -273,7 +302,35 @@ fun main(args: Array<String>) {
         return
     }
 
+    // Windowed capture: open the real Kadre window, render via the platform present path
+    // (Metal/WGL/GLX/EGL), snapshot to PNG and exit. Used to exercise the GL path in CI.
+    val windowCaptureIndex = args.indexOf("--window-capture")
+    val windowCapturePath = if (windowCaptureIndex >= 0) {
+        args.getOrNull(windowCaptureIndex + 1)
+            ?: error("--window-capture requires a file path: --window-capture <path>")
+    } else {
+        null
+    }
+
+    // Capture mode must never hang CI: if the synchronous capture path is blocked (e.g. a native
+    // swapBuffers waiting on a frame callback), a watchdog force-exits the JVM.
+    if (windowCapturePath != null) {
+        Thread {
+            Thread.sleep(30_000)
+            System.err.println("[hello-compose] window-capture watchdog: not done after 30s — forcing exit")
+            Runtime.getRuntime().halt(3)
+        }.apply { isDaemon = true }.start()
+    }
+
     println("[hello-compose] Starting — Compose Multiplatform in a Kadre window")
-    EventLoop().runApp(HelloComposeApp())
+    EventLoop().runApp(HelloComposeApp(windowCapturePath))
     println("[hello-compose] Done")
+}
+
+/** Runs the headless keyboard self-test, failing the process if it doesn't type "hi". */
+private fun runKeytest() {
+    val typed = keyboardSelfTest("hi")
+    println("[hello-compose] keytest — text field received: '$typed' (expected 'hi')")
+    if (typed != "hi") error("keytest FAILED: '$typed' != 'hi'")
+    println("[hello-compose] keytest OK")
 }

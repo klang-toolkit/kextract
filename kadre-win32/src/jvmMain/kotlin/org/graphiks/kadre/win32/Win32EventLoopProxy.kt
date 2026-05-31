@@ -91,7 +91,8 @@ internal class Win32EventLoopProxy(
      * No-op on macOS/Linux (PostThreadMessageW is null).
      */
     override fun wakeUp() {
-        postThreadMessageW?.invokeExact(messageThreadId, WM_NULL, 0L, 0L)
+        // PostThreadMessageW returns BOOL (int) — must be captured for invokeExact's exact type.
+        postThreadMessageW?.let { it.invokeExact(messageThreadId, WM_NULL, 0L, 0L) as Int }
     }
 
     companion object {
@@ -104,7 +105,7 @@ internal class Win32EventLoopProxy(
          */
         fun create(): Win32EventLoopProxy {
             val threadId = try {
-                getCurrentThreadId?.invokeExact() as? Int ?: 0
+                getCurrentThreadId?.let { it.invokeExact() as Int } ?: 0
             } catch (_: Throwable) { 0 }
             return Win32EventLoopProxy(threadId)
         }

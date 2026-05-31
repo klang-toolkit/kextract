@@ -52,16 +52,22 @@ application {
 dependencies {
     implementation(project(":kadre"))
 
+    // Kadre platform backends. The :kadre facade selects one by reflection at runtime
+    // (AppKit on macOS, Win32 on Windows, X11/Wayland on Linux), so all desktop backends
+    // must be on the classpath for the sample to open a window on each OS. Inert elsewhere.
+    implementation(project(":kadre-win32"))
+    implementation(project(":kadre-x11"))
+    implementation(project(":kadre-wayland"))
+
     // Compose Multiplatform (desktop / JVM).
     implementation(compose.runtime)
     implementation(compose.foundation)
     implementation(compose.material3)
     implementation(compose.ui)
 
-    // Skiko native runtime (libskiko macos-arm64 + org.jetbrains.skia.* bindings).
-    // compose.ui pulls skiko-awt, but the OS-specific native binary must be added
-    // explicitly so DirectContext.makeMetal has native code at runtime.
-    implementation(libs.skiko.awt.runtime.macos.arm64)
+    // Brings the Skiko native runtime for the *current* OS/arch (macos, windows or linux),
+    // so DirectContext.makeMetal (macOS) / makeGL (Windows/Linux) have native code at runtime.
+    implementation(compose.desktop.currentOs)
 
     implementation(libs.kotlinx.coroutines.core)
 }

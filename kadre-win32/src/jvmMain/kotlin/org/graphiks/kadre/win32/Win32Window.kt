@@ -102,7 +102,9 @@ class Win32Window private constructor(
      */
     override val scaleFactor: Double
         get() = try {
-            val dpi = getDpiForWindow?.invokeExact(hwnd) as? Int ?: 0
+            // GetDpiForWindow returns UINT; capture as Int (an `as? Int` would make invokeExact
+            // expect an Object return and throw WrongMethodTypeException, silently forcing 1.0).
+            val dpi = getDpiForWindow?.let { it.invokeExact(hwnd) as Int } ?: 0
             if (dpi > 0) dpi.toDouble() / 96.0 else 1.0
         } catch (_: Throwable) {
             1.0
@@ -186,7 +188,12 @@ class Win32Window private constructor(
                 wndClass.cbWndExtra = 0
                 wndClass.hInstance = hInstance
                 wndClass.hIcon = MemorySegment.NULL
-                wndClass.hCursor = MemorySegment.NULL
+                // Give the class the standard arrow cursor (IDC_ARROW). Without it, Windows never
+                // resets the cursor over the client area, leaving the resize cursor "stuck" from
+                // the window border. MAKEINTRESOURCE(IDC_ARROW=32512) is encoded as a small address.
+                wndClass.hCursor = loadCursorW
+                    ?.let { it.invokeExact(MemorySegment.NULL, MemorySegment.ofAddress(IDC_ARROW)) as MemorySegment }
+                    ?: MemorySegment.NULL
                 wndClass.hbrBackground = MemorySegment.NULL
                 wndClass.lpszMenuName = MemorySegment.NULL
                 wndClass.lpszClassName = classNamePtr
@@ -271,10 +278,14 @@ class Win32Window private constructor(
 
             val window = Win32Window(hwnd, hInstance, attrs)
 
-            // Initial display
+            // Initial display.
+            // ShowWindow/UpdateWindow return BOOL (int) — invokeExact requires the exact
+            // return type, so the result must be captured (as Int) or it throws
+            // WrongMethodTypeException ("…)int but found …)void").
             if (attrs.visible) {
-                showWindow?.invokeExact(hwnd, SW_SHOW)
-                updateWindow?.invokeExact(hwnd)
+                @Suppress("UNUSED_EXPRESSION")
+                showWindow?.let { it.invokeExact(hwnd, SW_SHOW) as Int }
+                updateWindow?.let { it.invokeExact(hwnd) as Int }
             }
 
             return window
