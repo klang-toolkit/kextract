@@ -1,6 +1,6 @@
 name: web-e2e
 
-# Test E2E smoke Web (Redmine #22 + #88) : « au moins une frame présentée »
+# Test E2E smoke Web : « au moins une frame présentée »
 # + diff visuel sur hello-triangle-web. Build le bundle JS de production, le
 # sert, puis lance **Chrome stable** sur macOS (Metal) et Windows (D3D12).
 #
@@ -85,7 +85,7 @@ jobs:
         working-directory: samples/hello-triangle-web/e2e
         run: npx playwright test
 
-      # Résumé visuel directement sur la page du run (Redmine #88).
+      # Résumé visuel directement sur la page du run.
       - name: Publier le résumé visuel
         if: always()
         run: |

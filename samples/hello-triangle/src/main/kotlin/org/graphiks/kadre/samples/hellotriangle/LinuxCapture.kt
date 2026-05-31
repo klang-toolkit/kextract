@@ -1,5 +1,5 @@
 /**
- * Capture offscreen GPU sur Linux (Redmine #88).
+ * Capture offscreen GPU sur Linux.
  *
  * Contrairement à macOS/Windows où l'on fabrique la surface « à la main » (CAMetalLayer /
  * HWND cachés), créer une `wl_surface` Wayland (ou une fenêtre X11) à la main en FFM est

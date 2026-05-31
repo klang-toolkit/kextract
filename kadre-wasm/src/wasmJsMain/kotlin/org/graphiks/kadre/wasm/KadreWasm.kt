@@ -31,5 +31,5 @@ object KadreWasm {
      *
      * Correspond à la version du projet définie dans `gradle.properties`.
      */
-    val version: String = "0.1.1"
+    val version: String = "1.0.0"
 }

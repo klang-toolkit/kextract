@@ -12,7 +12,7 @@
  *     Sinon            → wl_display_cancel_read
  *  5. Si eventfdFd prêt → read(eventfd) pour vider le compteur
  *
- * Redmine #66 — WaylandEventLoop.
+ * WaylandEventLoop.
  */
 package org.graphiks.kadre.wayland
 
@@ -167,7 +167,7 @@ private fun runAppInternal(handler: ApplicationHandler) {
     }
 
     // ── 4. Découverte des globaux Wayland (compositor) ────────────────────────
-    // get_registry + listener(global) + roundtrip + bind(wl_compositor) (Redmine #88).
+    // get_registry + listener(global) + roundtrip + bind(wl_compositor).
     // xdg_wm_base reste à négocier (non requis pour créer une wl_surface / surface wgpu).
     val compositorPtr = discoverCompositor(displayPtr)
     val xdgWmBasePtr = 0L

@@ -3,7 +3,7 @@ package org.graphiks.kadre.samples.pong
 /**
  * IA simple pour Pong : suit la balle avec un délai de réaction configurable.
  *
- * Redmine #75 — Sprint 5.
+ * Sprint 5.
  */
 class PongAi(private val reactionLagMs: Long = 80L) {
 

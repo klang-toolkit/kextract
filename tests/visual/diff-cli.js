@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// CLI de diff d'images cross-plateforme (Redmine #88).
+// CLI de diff d'images cross-plateforme.
 //
 // Compare deux PNG (capture courante vs baseline) avec une tolérance en % de pixels
 // différents. Conçu pour être appelé par n'importe quel job CI de plateforme, quelle

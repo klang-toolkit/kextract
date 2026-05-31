@@ -1,4 +1,4 @@
-// Smoke E2E Web (Redmine #22) : « au moins une frame présentée » sur hello-triangle-web.
+// Smoke E2E Web : « au moins une frame présentée » sur hello-triangle-web.
 //
 // Charge le sample dans Chromium headless (WebGPU SwiftShader), attend que la stack
 // wgpu4k Web ait initialisé le pipeline (log « Pipeline prêt »), vérifie l'absence

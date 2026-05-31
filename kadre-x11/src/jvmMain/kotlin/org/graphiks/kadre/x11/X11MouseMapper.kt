@@ -37,7 +37,7 @@
  * - 6 : molette vers la gauche (scroll left)
  * - 7 : molette vers la droite (scroll right)
  *
- * Redmine #62 : X11MouseMapper.
+ * X11MouseMapper.
  */
 package org.graphiks.kadre.x11
 

@@ -1,6 +1,6 @@
 name: linux-visual
 
-# Régression visuelle Linux via readback GPU (Redmine #88).
+# Régression visuelle Linux via readback GPU.
 # La capture réutilise l'EventLoop kadre pour obtenir une fenêtre Wayland, d'où la
 # surface wgpu, puis rend offscreen + readback. NON BLOQUANT.
 #

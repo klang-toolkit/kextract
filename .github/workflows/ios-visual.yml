@@ -1,6 +1,6 @@
 name: ios-visual
 
-# Capture GPU offscreen iOS (Redmine #88) — best-effort, NON BLOQUANT.
+# Capture GPU offscreen iOS — best-effort, NON BLOQUANT.
 # Lance le test Kotlin/Native sur le simulateur iOS. Le simulateur headless n'expose
 # pas de device Metal (MTLCreateSystemDefaultDevice == null) → le test se saute alors
 # proprement. Le rendu réel du triangle nécessite un device iOS (ou un simulateur avec

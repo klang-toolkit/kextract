@@ -6,8 +6,8 @@
  *  2. XDG_SESSION_TYPE / WAYLAND_DISPLAY — indice session courante.
  *  3. Tentative de chargement réflexif des classes de backend disponibles.
  *
- * Redmine #68 : détection X11/Wayland Linux.
- * Redmine #69 : extension de la façade kadre.
+ * détection X11/Wayland Linux.
+ * extension de la façade kadre.
  */
 package org.graphiks.kadre
 

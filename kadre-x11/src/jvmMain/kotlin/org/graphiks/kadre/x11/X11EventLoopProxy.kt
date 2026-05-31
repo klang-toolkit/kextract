@@ -9,7 +9,7 @@
  *   pour débloquer XNextEvent.
  * - Un flag AtomicBoolean évite les envois multiples redondants.
  *
- * Redmine #60 : X11EventLoopProxy — wakeUp thread-safe.
+ * X11EventLoopProxy — wakeUp thread-safe.
  */
 package org.graphiks.kadre.x11
 

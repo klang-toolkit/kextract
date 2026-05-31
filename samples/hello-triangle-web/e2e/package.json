@@ -2,7 +2,7 @@
   "name": "hello-triangle-web-e2e",
   "version": "1.0.0",
   "private": true,
-  "description": "Test E2E smoke Playwright pour samples/hello-triangle-web (Redmine #22)",
+  "description": "Test E2E smoke Playwright pour samples/hello-triangle-web",
   "scripts": {
     "test": "playwright test",
     "update-baselines": "rm -f baselines/*.png && playwright test tests/visual.spec.js"

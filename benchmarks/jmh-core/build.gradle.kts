@@ -1,5 +1,5 @@
 /**
- * Module benchmarks/jmh-core — suite JMH sur les composants purs de Kadre (Redmine #90).
+ * Module benchmarks/jmh-core — suite JMH sur les composants purs de Kadre.
  *
  * JVM-only. Mesure les composants commonMain critiques : tick physique du jeu,
  * rendu BitmapFont, IA, adaptateur d'entrée. Lancer : `./gradlew :benchmarks:jmh-core:jmh`.

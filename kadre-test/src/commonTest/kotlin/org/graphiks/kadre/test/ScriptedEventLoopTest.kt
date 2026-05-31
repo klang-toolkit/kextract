@@ -1,5 +1,5 @@
 /**
- * Tests d'exemple pour [ScriptedEventLoop] (Redmine #89).
+ * Tests d'exemple pour [ScriptedEventLoop].
  *
  * Couvre : ordre du cycle de vie, key press/release, séquence pointeur, cascade de
  * resize, flux de sortie. Ces tests valident à la fois le framework et servent de

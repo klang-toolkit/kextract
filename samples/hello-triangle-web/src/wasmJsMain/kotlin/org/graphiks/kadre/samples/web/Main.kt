@@ -1,5 +1,5 @@
 /**
- * Sample hello-triangle-web — point d'entrée wasmJs (Redmine #27).
+ * Sample hello-triangle-web — point d'entrée wasmJs.
  *
  * Crée un canvas navigateur via l'API Kadre, branche wgpu4k Web dessus
  * (CanvasSurface depuis le `<canvas>`), puis rend un triangle RGB à chaque frame.
@@ -323,6 +323,6 @@ class HelloTriangleWebApp : ApplicationHandler {
  * Point d'entrée du sample hello-triangle-web (wasmJs).
  */
 fun main() {
-    println("[hello-triangle-web] Démarrage — Kadre + wgpu4k Web triangle RGB (Redmine #27)")
+    println("[hello-triangle-web] Démarrage — Kadre + wgpu4k Web triangle RGB")
     EventLoop().runApp(HelloTriangleWebApp())
 }

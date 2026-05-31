@@ -1,6 +1,6 @@
 # Visual Regression Testing (screenshot diff)
 
-Redmine #88 — Roborazzi equivalent, cross-platform. Compares a screenshot of a sample
+A Roborazzi equivalent, cross-platform. Compares a screenshot of a sample
 against a **committed baseline**, with a tolerance expressed as a percentage of
 differing pixels. Complements the E2E smoke test (#22, "at least one frame presented")
 by catching subtle visual regressions (color, position, antialiasing).

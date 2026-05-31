@@ -30,7 +30,7 @@ dependencyResolutionManagement {
         // FAIL_ON_PROJECT_REPOS rejette (échec de `kotlinNodeJsSetup`). On les déclare
         // donc ici, côté settings, pour rester hermétique tout en permettant les builds
         // webpack de production (jsBrowserDistribution / wasmJsBrowserDistribution).
-        // Voir Redmine #91 ; débloque #20 (GitHub Pages) et #22 (E2E web).
+        // Voir ; débloque #20 (GitHub Pages) et #22 (E2E web).
         ivy("https://nodejs.org/dist") {
             name = "Node.js Distributions"
             patternLayout { artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]") }

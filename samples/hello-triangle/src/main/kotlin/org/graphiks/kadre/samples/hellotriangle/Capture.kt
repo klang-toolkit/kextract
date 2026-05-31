@@ -1,5 +1,5 @@
 /**
- * Mode capture offscreen GPU pour le sample hello-triangle (Redmine #88).
+ * Mode capture offscreen GPU pour le sample hello-triangle.
  *
  * Rend le triangle RGB dans une texture offscreen (sans fenêtre visible), relit le
  * framebuffer via un buffer de readback, et écrit le résultat dans un fichier PNG, puis

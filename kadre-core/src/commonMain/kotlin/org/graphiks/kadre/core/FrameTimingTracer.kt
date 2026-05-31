@@ -1,5 +1,5 @@
 /**
- * FrameTimingTracer — instrumentation runtime du temps de frame (Redmine #90).
+ * FrameTimingTracer — instrumentation runtime du temps de frame.
  *
  * Mesure la durée `RedrawRequested → fin de présentation` de chaque frame et publie,
  * une fois par seconde, des statistiques min/p50/p99/max. Désactivé par défaut :

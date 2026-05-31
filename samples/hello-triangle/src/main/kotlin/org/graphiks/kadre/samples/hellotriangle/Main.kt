@@ -516,7 +516,7 @@ class HelloTriangleApp : ApplicationHandler {
  * `-XstartOnFirstThread` dans [build.gradle.kts]).
  */
 fun main(args: Array<String>) {
-    // Mode capture offscreen GPU (Redmine #88) : `--capture <path>` rend le triangle dans
+    // Mode capture offscreen GPU : `--capture <path>` rend le triangle dans
     // une texture, relit le framebuffer, écrit un PNG, puis quitte — sans ouvrir de fenêtre.
     val captureIndex = args.indexOf("--capture")
     if (captureIndex >= 0) {

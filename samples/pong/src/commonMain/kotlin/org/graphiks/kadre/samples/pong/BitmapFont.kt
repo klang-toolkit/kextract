@@ -7,7 +7,7 @@ data class Quad(val x: Double, val y: Double, val w: Double, val h: Double)
  * Police bitmap hardcodée 5×7 pixels pour les chiffres 0–9.
  * Chaque rangée est encodée sur 5 bits (MSB = colonne gauche).
  *
- * Redmine #77.
+ * .
  */
 object BitmapFont {
 

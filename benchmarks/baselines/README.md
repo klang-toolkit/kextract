@@ -8,7 +8,7 @@ détecter les régressions de performance entre versions.
 1. Lancer la suite : `./gradlew :benchmarks:jmh-core:jmh`
 2. Résultats : `benchmarks/jmh-core/build/results/jmh/results.json`
 3. Pour figer une baseline : copier ce fichier ici sous un nom versionné
-   (ex. `jmh-core-v0.2.0.json`) et le commiter.
+   (ex. `jmh-core-v1.0.0.json`) et le commiter.
 
 ## Comparaison automatique (point ouvert #90)
 

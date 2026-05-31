@@ -1,4 +1,4 @@
-// Helper de diff visuel (Redmine #88) — équivalent Roborazzi pour le Web.
+// Helper de diff visuel — équivalent Roborazzi pour le Web.
 //
 // Compare une capture PNG à une baseline avec une tolérance en % de pixels différents.
 // Si la baseline est absente, elle est créée (premier run). Le diff est écrit sur

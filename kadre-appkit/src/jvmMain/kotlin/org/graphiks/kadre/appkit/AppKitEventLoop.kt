@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Verrou global garantissant qu'une seule boucle d'événements AppKit est active
- * à la fois dans le processus. Redmine #41 — DoD #3.
+ * à la fois dans le processus. DoD #3.
  *
  * Utilisation de [java.util.concurrent.atomic.AtomicBoolean] pour la thread-safety :
  * [runApp] fait un CAS atomique false→true au démarrage et lève
@@ -135,7 +135,7 @@ fun runApp(handler: ApplicationHandler) {
 
     try {
         // 2. Câble la boucle sur l'instance — récupérée via sharedApp (NSApp as? KadreApplication)
-        //    dans sendEvent:. Aucune variable statique mutable dédiée (Redmine #41).
+        //    dans sendEvent:. Aucune variable statique mutable dédiée.
         app.eventLoop = eventLoop
 
         // 3. Politique d'activation : application régulière (icône dans le Dock)

@@ -1,5 +1,5 @@
 /**
- * Tests pour PongGame — Redmine #79.
+ * Tests pour PongGame.
  *
  * Vérifie le comportement du gestionnaire d'application sans GPU :
  *   - [aboutToWait] avance l'état du jeu

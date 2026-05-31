@@ -1,7 +1,7 @@
 name: pong-e2e
 
 # Test E2E scénarisé Pong (Web) — entrées clavier scriptées + assertions
-# multi-frame + vidéo. Suivi du smoke `web-e2e` (Redmine #22) sur hello-triangle ;
+# multi-frame + vidéo. Suivi du smoke `web-e2e` sur hello-triangle ;
 # ici on prouve qu'une démo interactive complète tourne bout-en-bout :
 #   1. Boot wgpu4k Web
 #   2. Animation continue (balle + IA en mouvement sans input)

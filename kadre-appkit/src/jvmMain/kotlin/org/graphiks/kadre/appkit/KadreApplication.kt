@@ -19,7 +19,7 @@
  * `NSApp.run()` s'exécute sur le thread principal et ne retourne qu'à la fermeture.
  *
  * GRA-154 : ajout du support clavier via sendEvent: NSEvent interception.
- * Redmine #41 : refactor eventLoop static → instance scopée.
+ * refactor eventLoop static → instance scopée.
  */
 package org.graphiks.kadre.appkit
 
@@ -146,7 +146,7 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
      *
      * La boucle d'événements est récupérée via [Companion.sharedApp] (équivalent
      * de `NSApp as? KadreApplication`) — aucune variable statique mutable dédiée
-     * à la boucle (Redmine #41).
+     * à la boucle.
      *
      * @throws IllegalStateException si [Companion.sharedApp] est null (initialize()
      * non appelé) ou si [eventLoop] est null (runApp() n'a pas câblé la boucle).

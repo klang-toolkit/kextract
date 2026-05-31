@@ -8,7 +8,7 @@
  * Les imports kotlinx.browser et org.w3c.dom.* sont réservés à jsMain.
  * Les interops JS Wasm sont réservées à wasmJsMain.
  *
- * Redmine #31 : setup initial du module.
+ * setup initial du module.
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 

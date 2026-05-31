@@ -1,5 +1,5 @@
 /**
- * Tests pour [FrameTimingTracer] (Redmine #90).
+ * Tests pour [FrameTimingTracer].
  *
  * Vérifie : 0 overhead / aucun log quand désactivé, accumulation + flush des stats
  * quand activé, et journalisation des frames lentes au-delà du seuil.

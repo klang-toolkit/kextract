@@ -1,5 +1,5 @@
 /**
- * Capture GPU offscreen Android (Redmine #88) — wgpu4k Vulkan.
+ * Capture GPU offscreen Android — wgpu4k Vulkan.
  *
  * Crée une Surface adossée à une SurfaceTexture (offscreen), obtient l'ANativeWindow via
  * le helper natif (android-native-helper), crée une surface wgpu, rend le triangle dans

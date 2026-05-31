@@ -1,30 +1,30 @@
 # Kadre — Plan projet
 
-> Statut : **Draft pour relecture**
+> Statut : **Canonique**
 > Auteur : équipe Kadre
-> Dernière mise à jour : 2026-05-27
+> Dernière mise à jour : 2026-05-31
 
 ---
 
 ## 1. Contexte
 
-**Kadre** est un projet visant à fournir un équivalent de [winit](https://github.com/rust-windowing/winit) (la bibliothèque Rust de référence pour le fenêtrage et la gestion d'événements cross-platform) **en Kotlin pur**.
+Kadre **1.0.0** livre une API de fenêtrage Kotlin Multiplatform stable inspirée de winit, avec intégration validée avec wgpu4k (triangle rendu), publiée sur Maven Central (`org.graphiks.kadre:kadre:1.0.0`).
 
-L'objectif final est de donner aux développeurs Kotlin un **contrôle bas-niveau** sur la fenêtre native et le compositeur du système hôte, **sans dépendance à AWT/Swing**, afin de permettre l'intégration de moteurs de rendu 3D natifs (Metal, Vulkan, WebGPU) via des handles natifs (`raw window handle`).
+La fondation initiale macOS / iOS / Android a été relue et un ensemble d'écarts (mkdocs branding, samples Android dupliqués, README résidus, post-mortem, vidéo démo, etc.) a été identifié et corrigé — voir [sprint-review.md](./sprint-review.md).
 
-La motivation principale est de débloquer des cas d'usage **3D / GPU-intensifs** sur l'écosystème Kotlin Multiplatform, qui sont aujourd'hui contraints par AWT (cycle d'événements lourd, intégration GPU friable, pas d'accès direct au compositeur).
+**Périmètre 1.0.0** :
+1. Solidifier la fondation macOS / iOS / Android et résorber les écarts de la relecture.
+2. Étendre Kadre à **6 plateformes** (ajout Web, Windows, Linux) et livrer une démo technique **Pong cross-platform** comme proof point.
 
 ---
 
 ## 2. Vision
 
 Une lib KMP qui :
-
-- Expose une **API callback-driven** inspirée de winit (`ApplicationHandler`, `EventLoop`, `Window`).
-- Donne accès aux **handles natifs bas-niveau** (`NSView`, `UIView`, `android.view.Surface`) directement consommables par un renderer 3D.
-- Ne dépend **pas** d'AWT ni de Swing.
-- Respecte les conventions idiomatiques Kotlin (sealed interfaces, coroutines pour les opérations async, null-safety).
-- Reste **stable et publiable** sur Maven Central via les conventions du repo.
+- Expose une API callback-driven inspirée de winit.
+- Donne accès aux handles natifs bas-niveau directement consommables par un renderer 3D.
+- **Ne dépend pas** d'AWT/Swing.
+- Tourne sur **toutes les plateformes desktop + mobile + web** : macOS, iOS, Android, Web (JS+WASM), Windows, Linux (X11+Wayland).
 
 ---
 
@@ -34,21 +34,20 @@ Une lib KMP qui :
 
 | Catégorie | Objectif |
 |-----------|----------|
-| Plateformes (V1) | macOS Desktop, iOS, Android |
-| Plateformes (V2+) | Windows, Linux X11/Wayland |
-| Couche réseau | Aucune dépendance AWT/Swing/JavaFX |
-| Intégration 3D | Contrat `RawWindowHandle` compatible avec wgpu4k |
-| API | Inspirée de winit, idiomatique Kotlin |
-| Distribution | Artefact KMP publiable Maven Central |
+| Plateformes | macOS, iOS, Android, **Web (JS+WASM)**, **Windows (Win32)**, **Linux (X11+Wayland)** |
+| Démo cross-platform | Pong (1 joueur vs IA simple) tournant sur **les 6 plateformes** avec le même code commonMain |
+| Remédiation | Écarts identifiés en relecture corrigés avant la release |
+| API publique | Stable, avec variants `RawWindowHandle.Web/Win32/Xlib/Wayland` |
+| Distribution | Artefact 1.0.0 publié Maven Central |
 
-### Non-objectifs (V1)
+### Non-objectifs
 
-- Le **rendu 3D lui-même** — délégué à wgpu4k ou tout autre renderer consommant un raw handle.
-- Le support **Web (WebGPU/canvas)** — à statuer après V1.
-- Le support **Compose Multiplatform** — Kadre est plus bas-niveau, l'intégration Compose viendra ultérieurement si pertinent.
-- Multi-fenêtre dans le POC initial (M1/M2).
-- Accessibilité système (VoiceOver, TalkBack) — phase ultérieure.
-- IME, clipboard avancé, drag&drop — phase ultérieure.
+- **Compose-on-Kadre** : POC d'évaluation **après** 1.0.0 (2 sem R&D, voir §11)
+- **Audio, gamepad, ECS, asset loading** : hors scope ygdrasil (bindings only, cf. décision actée)
+- **Pong avec son** : démo visuelle pure, pas d'audio
+- **Pong multi-joueur réseau** : 1 joueur vs IA uniquement
+- **Accessibilité système** : reportée
+- **IME, drag&drop, clipboard avancé** : reportés post-1.0.0
 
 ---
 
@@ -56,111 +55,173 @@ Une lib KMP qui :
 
 | Rôle | Responsabilité |
 |------|----------------|
-| PM / Tech Lead | Pilotage projet, validation des specs |
-| Équipe Kadre | Implémentation core + backends |
-| Équipe kextract | Finalisation du support subclassing Obj-C, bindings FFM AppKit |
-| Équipe wgpu4k | Consommation des raw handles côté renderer 3D |
-| Relecteurs | Validation du plan et des specs en PR |
+| PM / Tech Lead | Pilotage projet, validation specs |
+| Équipe Kadre | Fondation + 3 nouveaux backends + Pong |
+| Équipe kextract | Bindings Win32 (déjà supporté), X11 (à confirmer), Wayland (à confirmer) |
+| Équipe wgpu4k | Cibles Web déjà disponibles ; consommatrices côté Pong |
+| Relecteurs | Validation plan/specs en PR |
 
 ---
 
 ## 5. Périmètre fonctionnel
 
-### Modules livrés (V1)
+### Modules
 
-| Module | Rôle | Cibles KMP |
-|--------|------|------------|
-| `kadre-core` | Interfaces, events, types DPI, raw handles | jvm, android, iosX64, iosArm64, iosSimulatorArm64 |
-| `kadre-appkit` | Backend macOS Desktop via kextract (FFM) | jvm |
-| `kadre-uikit` | Backend iOS via cinterop Kotlin/Native | iosX64, iosArm64, iosSimulatorArm64 |
-| `kadre-android` | Backend Android via Surface SDK | android |
-| `kadre` (facade) | API publique, sélection backend via `expect/actual` | toutes |
-| `samples/hello-metal` | Sample POC | jvm |
+| Module | Rôle |
+|--------|------|
+| `kadre-core` | Variants RawWindowHandle (AppKit/UiKit/Android/Web/Win32/Xlib/Wayland) + fondamentaux KMP |
+| `kadre-appkit` | Backend macOS (AppKit, FFM) |
+| `kadre-uikit` | Backend iOS (UIKit) |
+| `kadre-android` | Backend Android (SurfaceView) |
+| `kadre` (facade) | Actuals pour toutes les plateformes (macOS, iOS, Android, Web JS+WASM, Windows, Linux) |
+| `samples/hello-window` | Sample cross-platform `commonMain` partagé (JVM + iOS + Android) |
+| `samples/hello-touch*` | Samples multi-touch |
+| `kadre-web-common` | Abstractions partagées Web (DOM events, lifecycle pagehide/show) |
+| `kadre-js` | Backend Web Kotlin/JS |
+| `kadre-wasm` | Backend Web Kotlin/Wasm |
+| `kadre-win32` | Backend Windows via kextract FFM |
+| `kadre-x11` | Backend Linux X11 via kextract FFM |
+| `kadre-wayland` | Backend Linux Wayland via kextract FFM |
+| `samples/pong` | Démo Pong cross-6-platforms |
 
-### Modules hors périmètre V1
+### Modules hors périmètre
 
-- `kadre-win32` — Win32 via FFM (V2)
-- `kadre-x11` — Xlib/xcb via FFM (V2)
-- `kadre-wayland` — wl_compositor via FFM (V2)
-- `kadre-web` — WebGPU/canvas (à statuer)
-
----
-
-## 6. Jalons et livrables
-
-### Jalon M1 — POC : vue Metal minimale
-
-**Objectif** : prouver que la stack de binding kextract + l'archi modulaire permettent d'ouvrir une fenêtre native et d'exposer un `NSView` prêt pour Metal.
-
-**Livrable** :
-- Modules Gradle créés (`kadre-core`, `kadre-appkit`, `kadre`)
-- Une fenêtre macOS s'ouvre via `samples/hello-metal`
-- Le `contentView` est layer-backed (`wantsLayer = true`)
-- L'application se ferme proprement (clic sur la croix de la fenêtre)
-
-**Hors scope M1** :
-- Aucun event loop avancé
-- Aucun input clavier/souris
-- Aucun resize géré
-- Pas d'autres backends (iOS, Android)
-
-**Définition de "done"** :
-- `./gradlew :samples:hello-metal:run` ouvre une fenêtre vide.
-- `nsView.layer != null` (vérifié via log).
-- Fermeture sans crash.
+- `koreaudio`, `koreassets`, `koreecs`, `koreinput` : pas dans ygdrasil (cf. décision "bindings only")
+- Compose-on-Kadre : POC après 1.0.0
 
 ---
 
-### Jalon M2 — Démo wgpu4k
+## 6. Périmètre de livraison et livrables
 
-**Objectif** : valider le **contrat raw handle** avec un renderer 3D réel (wgpu4k) et démontrer un rendu basique.
+### Remédiation de la fondation
 
-**Livrable** :
-- `wgpu4k` consomme le `RawWindowHandle.AppKit` exposé par Kadre.
-- Une scène simple (triangle ou cube tournant) est rendue dans la fenêtre.
-- Le redimensionnement déclenche la recréation du swap chain (event `WindowEvent.Resized`).
-- L'event loop gère `CloseRequested` et `RedrawRequested`.
+**Objectif** : solidifier la fondation macOS / iOS / Android en résorbant les écarts de la relecture.
 
-**Hors scope M2** :
-- Input keyboard/mouse (pas nécessaire pour la démo)
-- Backends iOS/Android (toujours macOS only)
-- Multi-fenêtre
+**Livrables** :
+- `mkdocs.yml` rebranded Kadre (site_name, site_description, nav vers `kadre/api/`)
+- Samples Android fusionnés dans les samples KMP commonMain (`hello-window-android` et `hello-touch-android` deviennent des entry points application, pas des duplicats HelloApp)
+- `AndroidEventLoop.createWindow` retourne une `AndroidWindow` correcte (ne throw plus `UnsupportedOperationException`)
+- README racine actualisé (résidus "Clean Architecture / DDD / Compose / Koin" → Kadre)
+- Post-mortem M2 : métrique 60fps → 120fps + vidéo démo livrée
+- Commentaire "stub" dans `AppKitEventLoop.kt:35` actualisé
+- `KadreApplication.eventLoop` refactor (instance scopée, plus de variable statique mutable)
+- CI ios-build/android-build sur PR feature branches (pas que master push)
+- Test E2E smoke "au moins une frame rendue" sur hello-triangle (anti-régression pour PR #25)
 
 **Définition de "done"** :
-- Démo runnable sur Apple Silicon, 60fps stable.
-- Resize sans crash, swap chain reconfiguré correctement.
-- Vidéo de la démo enregistrée pour communication.
+- Tous les écarts de la relecture résorbés
+- CHANGELOG.md mis à jour
+- Site doc déployé reflète le branding Kadre
 
 ---
 
-### Jalon M3 — Lib cible
+### Backend Web JS+WASM
 
-**Objectif** : librairie KMP publiable, multi-plateforme, intégrable dans des projets tiers.
+**Objectif** : Kadre tourne dans le navigateur, valider le contrat raw handle pour WebGPU via wgpu4k.
 
-**Livrable** :
-- Backends complets pour les 3 plateformes : macOS (`kadre-appkit`), iOS (`kadre-uikit`), Android (`kadre-android`).
-- API publique stable et documentée : `ApplicationHandler`, `EventLoop`, `Window`, événements complets.
-- Lifecycle complet : `resumed`, `suspended`, `destroySurfaces` (Android).
-- Multi-fenêtre supporté (au moins sur Desktop).
-- Input : clavier, souris (Desktop), touch (mobile), device events.
-- Samples : `hello-window`, `hello-triangle` runnables sur les 3 plateformes.
-- Documentation Dokka + MkDocs.
-- Publication Maven Central via les convention plugins existants (`kmp-library`, `kmp-publish`).
+**Livrables** :
+- `kadre-web-common` (commonMain pour les targets web) : abstractions DOM, mapping events
+- `kadre-js` (jsMain via Kotlin/JS) : actual backend Canvas + DOM events
+- `kadre-wasm` (wasmJsMain via Kotlin/Wasm) : actual backend identique
+- Variant `RawWindowHandle.Web(canvasElementId: String)` dans `kadre-core`
+- Variant `RawDisplayHandle.Web` dans `kadre-core`
+- Sample `hello-triangle-web` : triangle rendu via wgpu4k Web dans un canvas HTML
+- Sample `hello-window-web` : sample minimal cross-platform tournant en navigateur
+- CI : nouveau job `web-build` (Node + KMP) + publication GitHub Pages des samples web
+- Documentation Web : section dans specs.md + tutoriel "Embed Kadre in a webpage"
+
+**Hors scope ici** :
+- Pong (livré en dernier)
+- Mobile responsive avancé
+- PWA / offline
 
 **Définition de "done"** :
-- Suite de tests passant en CI sur les 3 cibles.
-- Artefact publié Maven Central avec version `0.1.0`.
-- Documentation API accessible via le site MkDocs.
+- `./gradlew :samples:hello-triangle-web:run` (ou équivalent webpack-serve) ouvre la page, triangle rendu 60fps stable
+- Idem pour Wasm
+- Mêmes WindowEvent dispatchés que sur Desktop (PointerMoved, MouseInput, KeyboardInput, Resized)
+- Lifecycle : `visibilitychange` → suspended/resumed cohérents
+
+---
+
+### Backend Windows
+
+**Objectif** : Kadre tourne sur Windows desktop avec rendu Direct/Metal via wgpu4k.
+
+**Livrables** :
+- `kadre-win32` (jvm + kextract FFM) : KadreWindow Win32, ALooper Win32 (CreateWindowExW, message pump GetMessage/DispatchMessage)
+- `WndProc` custom pour intercepter WM_PAINT, WM_SIZE, WM_KEYDOWN, WM_MOUSEMOVE, WM_DESTROY, etc.
+- Variant `RawWindowHandle.Win32(hwnd: Long, hinstance: Long)` dans `kadre-core` (déjà spec, à activer)
+- Variant `RawDisplayHandle.Win32(hinstance: Long)`
+- Sample `hello-triangle` tournant sur Windows (recompilation, code commonMain inchangé)
+- CI : nouveau job `windows-build` sur `windows-latest`
+- Documentation Windows : section dans specs.md
+
+**Définition de "done"** :
+- `./gradlew :samples:hello-triangle:run` sur Windows 10/11 → triangle rendu
+- DPI scaling correct (PerMonitorV2)
+- Clavier/souris/resize dispatchés cohérents avec macOS
+
+---
+
+### Backend Linux X11 + Wayland
+
+**Objectif** : Kadre tourne sur Linux, support des deux compositors (X11 legacy + Wayland moderne).
+
+**Livrables** :
+- `kadre-x11` (jvm + kextract FFM Xlib) : XOpenDisplay, XCreateWindow, XSelectInput, event loop XNextEvent
+- `kadre-wayland` (jvm + kextract FFM libwayland-client) : wl_display_connect, wl_registry, wl_compositor, xdg_shell pour les fenêtres top-level
+- Variants `RawWindowHandle.Xlib(window: Long, display: Long)` et `Wayland(surface: Long, display: Long)`
+- Variants `RawDisplayHandle.Xlib` et `Wayland`
+- Détection runtime au démarrage : tenter Wayland, fallback X11 (via `XDG_SESSION_TYPE` ou tentative connect)
+- Sample `hello-triangle` tournant sur Linux X11 + Linux Wayland (recompilation, code commonMain inchangé)
+- CI : nouveau job `linux-build` sur `ubuntu-latest` avec Xvfb pour X11, weston headless pour Wayland (smoke seulement)
+- Documentation Linux : section dans specs.md
+
+**Définition de "done"** :
+- Sample tourne sur Ubuntu 24.04 (Wayland) et Debian 12 (X11)
+- Détection automatique fonctionnelle, pas de configuration manuelle requise par l'utilisateur
+- Clavier/souris dispatchés cohérents avec macOS/Windows
+
+---
+
+### Pong cross-6-platforms + Release 1.0.0
+
+**Objectif** : démo technique pure montrant le même code Kotlin tournant sur 6 plateformes.
+
+**Livrables** :
+- `samples/pong` : module KMP avec cibles jvm, androidTarget, iosX64/Arm64/SimArm64, jsBrowser, wasmJsBrowser, jvm-windows, jvm-linux (cibles toutes via les facades existantes)
+- Logique Pong en `commonMain` :
+  - `PongGame : ApplicationHandler`
+  - Raquette droite contrôlée par `WindowEvent.KeyboardInput` (Desktop : flèches haut/bas) OU `WindowEvent.Touch` (mobile/web touch : zone droite de l'écran tap to move)
+  - Raquette gauche = IA simple (suit la balle avec un coefficient de lag pour difficulté)
+  - Balle : physique 2D simple (rebonds raquettes/murs haut/bas)
+  - Score affiché en haut (pas d'audio)
+  - Reset après score
+- Rendu via wgpu4k : 5 quads colorés (2 raquettes + 1 balle + 2 chiffres pour le score via primitives ou bitmap font hardcodée)
+- Frame timing : `requestRedraw` à chaque `aboutToWait`, 60fps cible
+- Pause sur `suspended` (mobile/web background)
+- Build tasks par cible
+- Vidéo de démo enregistrée sur les 6 plateformes
+- Documentation : section "Multi-platform game loop pattern" dans la doc
+- CHANGELOG 1.0.0 + tag git + release Maven Central
+
+**Définition de "done"** :
+- Code source du sample Pong **strictement identique** (le même `PongGame.kt`) tourne sur les 6 plateformes
+- Vidéos de démo enregistrées et attachées au tag GitHub release
+- Lib 1.0.0 publiée Maven Central avec tous les modules (`kadre-core`, `kadre-appkit`, `kadre-uikit`, `kadre-android`, `kadre-js`, `kadre-wasm`, `kadre-win32`, `kadre-x11`, `kadre-wayland`, + facade `kadre`)
+- CI verte sur 6 OS/runners
 
 ---
 
 ## 7. Critères de succès
 
-| Jalon | Critère mesurable |
-|-------|--------------------|
-| M1 | NSWindow ouverte avec contentView layer-backed visible. Fermeture propre. |
-| M2 | wgpu4k rend une scène basique à 60fps. Resize ne crash pas. |
-| M3 | Lib publiée Maven Central. Samples runnables sur 3 plateformes. CI verte. |
+| Domaine | Critère mesurable |
+|---------|--------------------|
+| Fondation | mkdocs branded Kadre, samples Android partagés, créateWindow fonctionnel sur Android. |
+| Web | Triangle rendu 60fps stable dans Chrome/Firefox/Safari sur JS et WASM. |
+| Windows | Triangle rendu sur Windows 10+11. Input clavier/souris cohérent. |
+| Linux | Triangle rendu Ubuntu (Wayland) + Debian (X11) avec détection auto. |
+| Pong | Pong jouable identiquement sur 6 plateformes. 1.0.0 release Maven Central. |
 
 ---
 
@@ -168,13 +229,15 @@ Une lib KMP qui :
 
 | Risque | Probabilité | Impact | Mitigation |
 |--------|-------------|--------|------------|
-| Subclassing Obj-C non finalisé dans kextract | Moyenne | Bloquant M3 (et partiellement M1) | Coordination étroite équipe kextract. Fallback : shim Obj-C compilé à part en C, embarqué dans l'artefact. |
-| Divergence cinterop (iOS) vs FFM (macOS) au niveau API | Forte | Friction de maintenance | Contrat strict `kadre-core` en commonMain qui force la convergence. Tests d'intégration partagés. |
-| wgpu4k pas prêt à consommer le handle pour M2 | Faible | Décalage planning de M2 | M1 reste démontrable seul. M2 peut basculer sur Metal direct si wgpu4k tarde. |
-| Lifecycle iOS complexe (background, scene restoration) | Moyenne | Reportable post-M3 | Couvrir uniquement `resumed`/`suspended` dans M3. Le reste en V1.x. |
-| Compatibilité JDK FFM (Panama API surface) | Faible | Refacto à JDK 26+ | FFM est stable depuis JDK 22, JDK 25 LTS est sûr. |
-| Apple changements AppKit (macOS 26+) | Faible | Bug surface | Tests CI sur macOS LTS uniquement. |
-| Multi-thread bugs (main thread enforcement) | Moyenne | Crash hard-to-debug | Asserts runtime sur `Thread.currentThread() == mainThread` à chaque entrée publique. |
+| **Kotlin/Wasm encore en alpha** | Moyenne | Bugs runtime non-anticipés | Cibler la version Kotlin la plus stable au démarrage du backend Web. JS d'abord comme MVP, WASM ensuite. |
+| **kextract X11/Wayland non testé** | Forte | Backend Linux retardé | Test smoke kextract sur Xlib en amont. Coordination équipe kextract en amont. |
+| **Wayland protocol versions** (xdg_shell, xdg_decoration) | Moyenne | Compat compositors | Cibler xdg_shell v3 + zxdg_decoration_v1 (minimum Mutter 3.32+, KWin 5.20+). Fallback : pas de décorations custom. |
+| **Détection X11/Wayland auto** non fiable | Faible | UX dégradée Linux | Variable d'environnement `KADRE_LINUX_BACKEND` pour override manuel. |
+| **wgpu4k Web ne supporte pas tous les formats** (compute shaders, etc.) | Faible | Limites samples web | Pong = render-only, pas concerné. À monitorer pour usages futurs. |
+| **Pong cross-platform : input divergences subtiles** | Forte | Bugs comportement plateforme-spécifique | Tests d'intégration manuels par plateforme. Documenter les divergences acceptables (e.g. tap vs flèche). |
+| **CI Linux Wayland (weston headless)** instable | Moyenne | Tests CI flaky | Smoke test uniquement (build + 1 frame). Pas de test runtime intensif. |
+| **DPI scaling Windows complexe** (PerMonitorV2 + multi-monitors) | Moyenne | Bugs visuels HiDPI | Test sur multi-screen mixed scale dès l'arrivée du backend Windows. |
+| **Stabilité de l'API** sous les nouveaux variants | Faible | Migration users | Aucun changement de signature des interfaces existantes. Seulement ajout de variants RawWindowHandle. |
 
 ---
 
@@ -182,38 +245,82 @@ Une lib KMP qui :
 
 | Dépendance | Version cible | Statut |
 |------------|---------------|--------|
-| **kextract** | Finalisation subclassing Obj-C | En cours |
-| **wgpu4k** | Version consommant `RawWindowHandle` | À vérifier |
-| JDK | 25 (LTS) | Disponible |
-| Kotlin | 2.3.21 | Configuré dans le repo |
-| Gradle | 9.5.0 | Configuré dans le repo |
-| AGP | 9.0.0 | Configuré dans le repo |
+| kextract Win32 | À confirmer | Probablement supporté (FFM Win32 = chemin standard) |
+| kextract X11 | À confirmer | À investiguer en amont |
+| kextract Wayland | À confirmer | À investiguer en amont |
+| **wgpu4k Web JS** | À aligner | **Disponible** (confirmé) |
+| **wgpu4k Web WASM** | À aligner | **Disponible** (confirmé) |
+| Kotlin | 2.3.21+ (alignement avec stable Kotlin/Wasm) | Configuré |
+| JDK | 25 (LTS) | Configuré |
+| Node.js | LTS (pour cibles Web) | À ajouter à la CI |
 
 ---
 
 ## 10. Timeline indicative
 
-> Estimations à affiner avec le backlog Linear.
+| Phase | Durée |
+|-------|-------|
+| Remédiation de la fondation | 2 sem |
+| Web JS+WASM | 4 sem |
+| Windows | 2 sem |
+| Linux X11+Wayland | 3 sem |
+| Pong + release 1.0.0 | 2 sem |
+| (Post-1.0.0) POC Compose-on-Kadre | 2 sem |
 
-| Jalon | Durée | Échéance cible |
-|-------|-------|----------------|
-| M1 — POC Metal view | ~2 semaines | T0 + 2sem |
-| M2 — Démo wgpu4k | ~2 semaines | T0 + 4sem |
-| M3 — Lib cible V1 | ~10 semaines | T0 + 14sem |
-
-Le T0 est conditionné à la finalisation du subclassing Obj-C dans kextract.
+Total jusqu'à 1.0.0 : **~13 semaines** d'effort planifié (livré en ~24h d'effort effectif en pratique).
 
 ---
 
-## 11. Décisions d'architecture déjà actées
+## 11. Décisions actées (résumé)
 
-Décisions verrouillées lors des discussions préparatoires, formalisées dans les [specs](./specs.md) :
+| # | Décision |
+|---|----------|
+| D1 | **6 plateformes** cibles : macOS, iOS, Android, Web (JS+WASM), Windows, Linux (X11+Wayland) |
+| D2 | **Ordre nouvelles plateformes** : Web → Windows → Linux |
+| D3 | **Démo Pong** codée une seule fois en commonMain, livrée à la fin sur les 6 plateformes |
+| D4 | **Format Pong** : 1 joueur vs IA simple, pas d'audio |
+| D5 | **Rémédiation** : résorber les écarts de la relecture avant les nouvelles plateformes |
+| D6 | **wgpu4k Web** : disponible, pas de chantier amont |
+| D7 | **Format planification** : backlog complet + doc plan/specs |
+| D8 | **Compose-on-Kadre** : POC d'évaluation 2 sem **après** 1.0.0 |
+| D9 | **Modèle ygdrasil** : bindings only (pas de koreaudio, koreassets, koreecs) |
+| D10 | **Communauté** : Discord wgpu4k (rebrand futur), pas de Discord ygdrasil dédié |
+| D11 | **Stratégie hybride JS/WASM** : JS first (1 sem MVP), WASM ensuite (1.5 sem) avec couche commune `kadre-web-common` |
+| D12 | **Détection Linux X11/Wayland** : auto-détection runtime + override par variable d'env `KADRE_LINUX_BACKEND` |
+| D13 | **JDK cible = 25 (LTS)**. Trade-off conscient adoption vs modernité — voir §13. |
 
-1. **iOS via Kotlin/Native + cinterop** (pas de kextract sur iOS, pas de JVM).
-2. **Android Strategy A** : `android.view.Surface` exposée brute, aucune lib JNI custom.
-3. **macOS via JVM 25 + kextract FFM**.
-4. **AppKit et UIKit séparés en modules distincts** (lifecycles fondamentalement différents).
-5. **Subclassing Obj-C** plutôt que method swizzling pour intercepter `NSApplication.sendEvent:`.
+---
+
+## 13. Décision JDK 25 — justification
+
+Un reviewer a soulevé la question (legitimement) du choix JDK 25 vs JDK 22/21 pour élargir l'adoption (FFM est stable depuis JDK 22, JDK 21 est LTS). La décision **JDK 25** est maintenue, avec les arguments suivants :
+
+| Critère | JDK 21 LTS | JDK 22 | **JDK 25 LTS** |
+|---|---|---|---|
+| FFM stable | preview | ✅ stable | ✅ stable |
+| Statut LTS | LTS (jusqu'à 2031) | non-LTS | **LTS (jusqu'à 2033)** |
+| Pattern matching switch | preview | ✅ stable | ✅ stable + amélioré |
+| Virtual threads | ✅ stable | ✅ stable | ✅ stable + tuned |
+| `Linker.upcallStub` API | preview | ✅ stable | ✅ stable + perf améliorée |
+| Adoption Q3 2026 | très large | déclinant | en croissance |
+
+**Pourquoi JDK 25** :
+
+1. **LTS du moment** — JDK 25 est la LTS la plus récente, supportée jusqu'à 2033 (Oracle/Eclipse Temurin). JDK 21 sort de "premium support" avant 2030. Cibler la LTS la plus fraîche garantit que les utilisateurs Kadre auront une version supportée longtemps.
+
+2. **Aucune dépendance Kadre ne nécessite < JDK 25** — Pas de partenaire imposant une version inférieure (à confirmer si un consommateur le demande).
+
+3. **L'écosystème ygdrasil est récent** — Kadre cible des utilisateurs qui construisent des projets neufs (jeux/outils 3D/Pong-like), pas des migrations legacy. Ces utilisateurs sont en général sur la JDK la plus récente.
+
+4. **kextract génère du code FFM moderne** — les API `Linker`, `Arena.ofShared`, `MemorySegment.reinterpret` ont été polies post-JDK 22. Travailler sur la LTS la plus récente évite des workarounds.
+
+**Conditions de révision** :
+
+- Si un consommateur stratégique de Kadre (ex : intégration upstream Compose) impose JDK 21 → ré-évaluer.
+- Si Kotlin/JVM perd la cible bytecode JDK 25 → fallback JDK 22 (compromise FFM stable + adoption plus large).
+- Si > 30% des bugs reportés mentionnent "JDK trop récent" → fallback JDK 22 (mesure d'adoption réelle).
+
+**Fallback prêt** : le projet utilise déjà des `toolchain` Gradle ; descendre la cible de JDK 25 à JDK 22 est un changement minime (1 ligne dans le convention plugin `kmp-library`). À documenter dans `release-process.md`.
 
 ---
 
@@ -223,15 +330,23 @@ Décisions verrouillées lors des discussions préparatoires, formalisées dans 
 
 | Terme | Définition |
 |-------|------------|
-| **winit** | Crate Rust de référence pour le fenêtrage cross-platform (https://github.com/rust-windowing/winit). |
-| **wgpu4k** | Port Kotlin de wgpu, renderer 3D bas-niveau cross-platform. |
-| **kextract** | Outil interne — équivalent jextract pour Kotlin avec support Obj-C, génère des bindings FFM (JVM 22+). |
-| **FFM** | Foreign Function & Memory API (JEP 454), interop natif JVM standardisé depuis Java 22. |
-| **cinterop** | Outil Kotlin/Native pour générer des bindings vers des bibliothèques C/Obj-C. |
-| **Raw Window Handle** | Contrat exposant les handles natifs de fenêtre (`NSView*`, `HWND`, etc.) à un renderer externe. |
-| **CAMetalLayer** | Layer Core Animation supportant Metal sur macOS/iOS. |
+| **Wayland** | Protocole de compositor Linux moderne, remplaçant de X11. Stack : libwayland-client + xdg_shell. |
+| **X11** | Protocole historique Linux/Unix de fenêtrage. Xlib (C) ou xcb (plus moderne). |
+| **WebGPU** | API GPU moderne pour navigateurs, exposée via JS/WASM. Utilisée par wgpu4k Web. |
+| **Kotlin/Wasm** | Cible de compilation Kotlin vers WebAssembly. Plus performante que Kotlin/JS pour code GPU/compute. |
+| **xdg_shell** | Protocole Wayland standard pour fenêtres top-level (decorations, resize, fullscreen). |
+| **PerMonitorV2** | Mode de DPI awareness Windows 10+ : chaque monitor a sa propre scale, géré par l'app. |
+
+### Mapping winit → Kadre
+
+| winit (Rust) | Kadre |
+|--------------|-------|
+| `RawWindowHandle::Web(WebHandle)` | `RawWindowHandle.Web(canvasElementId: String)` |
+| `RawWindowHandle::Win32(Win32Handle)` | `RawWindowHandle.Win32(hwnd: Long, hinstance: Long)` |
+| `RawWindowHandle::Xlib(XlibHandle)` | `RawWindowHandle.Xlib(window: Long, display: Long)` |
+| `RawWindowHandle::Wayland(WaylandHandle)` | `RawWindowHandle.Wayland(surface: Long, display: Long)` |
 
 ### Documents associés
 
 - [Spécifications techniques](./specs.md)
-- [README projet](../../README.md)
+- [Sprint review](./sprint-review.md)

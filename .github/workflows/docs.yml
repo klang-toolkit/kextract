@@ -12,7 +12,7 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - '.github/workflows/docs.yml'
-      # Redmine #20 : redéployer les démos web quand les samples ou la stack web changent.
+      # redéployer les démos web quand les samples ou la stack web changent.
       - 'samples/hello-window-web/**'
       - 'samples/hello-triangle-web/**'
       - 'kadre-js/**'
@@ -53,7 +53,7 @@ jobs:
       - name: Build site (MkDocs)
         run: mkdocs build
 
-      # ── Démos web live (Redmine #20) ──────────────────────────────────────
+      # ── Démos web live ──────────────────────────────────────
       # Build des samples web en production (variante JS) et copie sous _site/demos/
       # pour qu'ils soient servis sur le même site Pages que la doc, sans conflit
       # de concurrency group. La toolchain Node/webpack est activée par #91.

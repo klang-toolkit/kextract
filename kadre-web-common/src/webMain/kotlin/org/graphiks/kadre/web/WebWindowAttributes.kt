@@ -45,7 +45,7 @@
  *                              size, visible, resizable) — la majorité sont no-op
  *                              côté Web mais conservés pour cohérence multi-plateforme.
  *
- * @since 0.2.0
+ * @since 1.0.0
  */
 package org.graphiks.kadre.web
 

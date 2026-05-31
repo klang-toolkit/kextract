@@ -8,7 +8,7 @@
  *  - La logique KADRE_LINUX_BACKEND est testée indirectement via la détection
  *    par canLoad (seul chemin garantissable sans modifier le process env).
  *
- * Redmine #68 : détection X11/Wayland.
+ * détection X11/Wayland.
  */
 package org.graphiks.kadre
 

@@ -10,7 +10,7 @@ import org.graphiks.kadre.core.WindowEvent
  * Adaptateur d'entrée cross-platform pour Pong.
  * Mappe clavier (desktop/web) et touch (mobile/web) vers PaddleInput.
  *
- * Redmine #76.
+ * .
  */
 class InputAdapter {
 

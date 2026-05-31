@@ -1,6 +1,6 @@
 # Tests de régression visuelle (screenshot diff)
 
-Redmine #88 — équivalent Roborazzi, cross-plateforme. Compare une capture d'écran
+Un équivalent Roborazzi, cross-plateforme. Compare une capture d'écran
 d'un sample à une **baseline** committée, avec une tolérance en % de pixels
 différents. Complète le smoke E2E (#22, « au moins une frame présentée ») en
 détectant les régressions visuelles subtiles (couleur, position, antialiasing).

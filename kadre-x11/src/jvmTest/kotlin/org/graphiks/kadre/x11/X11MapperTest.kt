@@ -6,7 +6,7 @@
  * - Les événements souris sont testés via des MemorySegments alloués en Java.
  * - Les événements ConfigureNotify/Expose sont testés avec des segments synthétiques.
  *
- * Redmine #61, #62, #63.
+ * , #62, #63.
  */
 package org.graphiks.kadre.x11
 

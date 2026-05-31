@@ -40,7 +40,7 @@ dependencies {
     implementation(libs.webgpu.ktypes.descriptors)
     // runBlocking — transitif via wgpu4k mais déclaré explicitement pour la clarté
     implementation(libs.kotlinx.coroutines.core)
-    // Backends Linux : requis par le mode --capture (Redmine #88), qui réutilise
+    // Backends Linux : requis par le mode --capture, qui réutilise
     // l'EventLoop kadre pour obtenir une fenêtre Wayland/X11. La façade les charge
     // par réflexion → ils doivent être sur le classpath. Inertes sur macOS/Windows.
     implementation(project(":kadre-wayland"))

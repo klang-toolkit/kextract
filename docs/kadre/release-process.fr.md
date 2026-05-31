@@ -50,15 +50,15 @@ Pour CI GitHub Actions, ajouter les secrets correspondants dans les
 ### Étape 1 — Préparer la version
 
 ```bash
-# 1a. Changer version=0.1.0-SNAPSHOT → version=0.1.0 dans gradle.properties
-sed -i '' 's/^version=.*/version=0.1.0/' gradle.properties
+# 1a. Changer version=1.0.0-SNAPSHOT → version=1.0.0 dans gradle.properties
+sed -i '' 's/^version=.*/version=1.0.0/' gradle.properties
 
 # 1b. Vérifier le CHANGELOG / les notes de release
 
 # 1c. Créer un commit de release
 git add gradle.properties
-git commit -m "chore: bump version to 0.1.0"
-git tag v0.1.0
+git commit -m "chore: bump version to 1.0.0"
+git tag v1.0.0
 ```
 
 ### Étape 2 — Vérification locale
@@ -76,12 +76,12 @@ git tag v0.1.0
           :kadre-uikit:publishToMavenLocal
 
 # Vérifier les artefacts dans ~/.m2
-ls ~/.m2/repository/org/graphiks/kadre/kadre-core/0.1.0/
-# Attendu : kadre-core-0.1.0.jar
-#           kadre-core-0.1.0-sources.jar
-#           kadre-core-0.1.0-javadoc.jar
-#           kadre-core-0.1.0.pom          (signé : .asc)
-#           kadre-core-0.1.0.module       (signé : .asc)
+ls ~/.m2/repository/org/graphiks/kadre/kadre-core/1.0.0/
+# Attendu : kadre-core-1.0.0.jar
+#           kadre-core-1.0.0-sources.jar
+#           kadre-core-1.0.0-javadoc.jar
+#           kadre-core-1.0.0.pom          (signé : .asc)
+#           kadre-core-1.0.0.module       (signé : .asc)
 ```
 
 ### Étape 3 — Publication Maven Central
@@ -113,9 +113,9 @@ ls ~/.m2/repository/org/graphiks/kadre/kadre-core/0.1.0/
 
 ```bash
 # Remettre en SNAPSHOT pour le prochain cycle
-sed -i '' 's/^version=.*/version=0.2.0-SNAPSHOT/' gradle.properties
+sed -i '' 's/^version=.*/version=1.0.1-SNAPSHOT/' gradle.properties
 git add gradle.properties
-git commit -m "chore: bump version to 0.2.0-SNAPSHOT"
+git commit -m "chore: bump version to 1.0.1-SNAPSHOT"
 git push origin master --tags
 ```
 

@@ -1,6 +1,6 @@
 name: windows-visual
 
-# Régression visuelle Windows via readback GPU (Redmine #88).
+# Régression visuelle Windows via readback GPU.
 # hello-triangle rend une frame offscreen (fenêtre Win32 cachée → surface → texture
 # offscreen), écrit un PNG par readback wgpu, comparé à une baseline committée.
 # NON BLOQUANT (rendu GPU non déterministe / dispo GPU runner incertaine).

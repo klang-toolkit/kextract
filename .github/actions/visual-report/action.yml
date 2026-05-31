@@ -2,7 +2,7 @@ name: visual-report
 description: >-
   Publie un rapport de régression visuelle dans l'UI GitHub CI : héberge les captures
   (baseline/courante/diff) sur une branche orpheline et les rend inline dans le Job Summary
-  et un commentaire de PR via des URLs raw.githubusercontent.com (Redmine #88).
+  et un commentaire de PR via des URLs raw.githubusercontent.com.
 
 inputs:
   report:

@@ -1,4 +1,4 @@
-// Test de régression visuelle Web (Redmine #88) — NON BLOQUANT.
+// Test de régression visuelle Web — NON BLOQUANT.
 //
 // Capture le canvas de hello-triangle-web et le compare à une baseline avec une
 // tolérance de 2 %. Le rendu WebGPU SwiftShader pouvant varier légèrement selon

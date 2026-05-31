@@ -7,7 +7,7 @@
  *
  * Ce fichier PEUT utiliser kotlinx.browser et org.w3c.dom.* car il est dans jsMain.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 package org.graphiks.kadre.web
 

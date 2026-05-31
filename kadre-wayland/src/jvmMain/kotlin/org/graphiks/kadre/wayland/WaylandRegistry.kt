@@ -1,5 +1,5 @@
 /**
- * Découverte des globaux Wayland (Redmine #88).
+ * Découverte des globaux Wayland.
  *
  * `WaylandEventLoop` laissait `compositorPtr = 0` (stub #66) : aucune `wl_surface` ne
  * pouvait donc être créée. Ce fichier implémente la négociation manquante via FFM :

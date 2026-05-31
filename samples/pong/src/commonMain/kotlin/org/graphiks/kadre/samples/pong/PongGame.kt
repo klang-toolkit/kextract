@@ -4,7 +4,7 @@
  * Orchestre la boucle de jeu, les entrées, l'IA et le rendu.
  * Délègue le rendu à [PongRendererInterface], implémentée en jvmMain via wgpu4k.
  *
- * Redmine #79.
+ * .
  */
 package org.graphiks.kadre.samples.pong
 

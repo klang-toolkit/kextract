@@ -24,7 +24,7 @@ kotlin {
         jvmMain {
             dependencies {
                 // Kadre public facade — automatic macOS/Windows routing
-                implementation("org.graphiks.kadre:kadre:0.1.1")
+                implementation("org.graphiks.kadre:kadre:1.0.0")
             }
         }
     }

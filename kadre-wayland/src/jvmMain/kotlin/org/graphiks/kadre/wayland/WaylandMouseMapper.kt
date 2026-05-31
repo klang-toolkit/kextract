@@ -23,7 +23,7 @@
  *  - WL_POINTER_AXIS_VERTICAL_SCROLL   = 0
  *  - WL_POINTER_AXIS_HORIZONTAL_SCROLL = 1
  *
- * Redmine #67 : WaylandMouseMapper — wl_pointer events → WindowEvent.
+ * WaylandMouseMapper — wl_pointer events → WindowEvent.
  */
 package org.graphiks.kadre.wayland
 

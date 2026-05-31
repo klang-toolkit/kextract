@@ -99,7 +99,7 @@ internal fun upcallStub(
     arena: java.lang.foreign.Arena,
 ): MemorySegment = linker.upcallStub(handle, descriptor, arena)
 
-// ── Découverte des globaux (Redmine #88) : registry / bind via wl_proxy_marshal_flags ──
+// ── Découverte des globaux : registry / bind via wl_proxy_marshal_flags ──
 //
 // wl_display_get_registry et wl_registry_bind sont des `static inline` du header (PAS
 // des symboles exportés) : on doit donc passer par wl_proxy_marshal_flags. Les structures

@@ -56,23 +56,20 @@ markdown_extensions:
 nav:
   - Home: kadre/index.md
   - Blog:
-      - kadre/blog/v0.2.0-release.md
+      - kadre/blog/v1.0.0-release.md
   - Tutorials:
       - kadre/tutorials/windows-app.md
       - kadre/tutorials/linux-app.md
       - kadre/tutorials/web-embed.md
   - Plan: kadre/plan.md
-  - Plan v0.2: kadre/plan-v0.2.md
-  - Sprint Review v0.1: kadre/sprint-review-v0.1.md
+  - Sprint Review: kadre/sprint-review.md
   - Post-mortem M2: kadre/postmortem-m2.md
   - Specs: kadre/specs.md
-  - Specs v0.2: kadre/specs-v0.2.md
   - API Stability: kadre/api-stability.md
   - Performance: kadre/performance.md
   - Release Process: kadre/release-process.md
   - Testing: kadre/testing.md
   - Visual Testing: kadre/visual-testing.md
-  - Roadmap Progress: kadre/roadmap-progress.md
   - API Reference: kadre/api/index.md
 
 plugins:
@@ -96,15 +93,12 @@ plugins:
             Blog: Blog
             Tutorials: Tutoriels
             Plan: Plan
-            Plan v0.2: Plan v0.2
-            Sprint Review v0.1: Sprint Review v0.1
+            Sprint Review: Sprint Review
             Post-mortem M2: Post-mortem M2
             Specs: Spécifications
-            Specs v0.2: Spécifications v0.2
             API Stability: Stabilité API
             Performance: Performance
             Release Process: Processus de release
             Testing: Tests
             Visual Testing: Tests visuels
-            Roadmap Progress: Avancement roadmap
             API Reference: Référence API

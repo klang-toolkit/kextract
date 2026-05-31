@@ -6,7 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * Capture GPU offscreen iOS (Redmine #88) — best-effort.
+ * Capture GPU offscreen iOS — best-effort.
  *
  * Le simulateur iOS headless (CI / harnais de test K/N) n'expose PAS de device Metal
  * (MTLCreateSystemDefaultDevice == null) : le test se saute alors proprement. Sur un

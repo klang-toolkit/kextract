@@ -12,7 +12,7 @@
  * Toutes les déclarations sont 100 % commonMain (aucune dépendance native).
  * Le dispatch vers les backends reste hors scope de ce fichier.
  *
- * @since 0.1.0
+ * @since 1.0.0
  * @see WindowEvent
  * @see DeviceEvent
  */

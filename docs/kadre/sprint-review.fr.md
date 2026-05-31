@@ -1,15 +1,14 @@
-# Sprint Review — Kadre v0.1.0
+# Sprint Review — Kadre
 
 > **Date** : 2026-05-29  
-> **Sprint couvert** : M1 → M3 (jalons 1 à 3 du plan v0.1)  
-> **Version livrée** : `org.graphiks.kadre:0.1.0` (publié Maven Central)  
+> **Périmètre couvert** : fondation macOS, rendu GPU, et les backends iOS / Android / macOS étendu  
 > **Statut** : Livré ✓
 
 ---
 
 ## 1. Résumé exécutif
 
-Kadre v0.1.0 est livré en une session intensive d'environ 24 heures effectives, couvrant les trois jalons initiaux du [plan v0.1](./plan.md). La librairie expose une API fenêtrage cross-platform Kotlin Multiplatform, inspirée de winit, sur 3 plateformes (macOS, iOS, Android), avec intégration validée wgpu4k (triangle RGB rendu à ~120 fps sur Apple M2).
+La fondation macOS, iOS et Android de Kadre a été livrée en une session intensive d'environ 24 heures effectives, suivant le [plan projet](./plan.md). La librairie expose une API fenêtrage cross-platform Kotlin Multiplatform, inspirée de winit, sur ces 3 plateformes, avec intégration validée wgpu4k (triangle RGB rendu à ~120 fps sur Apple M2).
 
 ---
 
@@ -21,7 +20,6 @@ Kadre v0.1.0 est livré en une session intensive d'environ 24 heures effectives,
 | Pull Requests mergées | ~29 PRs (branches feature → master) |
 | Plateformes supportées | 3 (macOS, iOS, Android) |
 | Artefacts publiés Maven Central | 5 modules (`kadre-core`, `kadre-appkit`, `kadre-uikit`, `kadre-android`, `kadre`) |
-| Version publiée | `0.1.0` |
 | FPS rendu (hello-triangle, Apple M2, Release) | ~120 fps (post-correctif PR #25) |
 | Dépendances natives (JNA/Rococoa) | 0 |
 | Temps de build CI (fast path) | ~3-4 min |
@@ -112,13 +110,13 @@ Kadre v0.1.0 est livré en une session intensive d'environ 24 heures effectives,
 | GRA-159 | Maven Central publication (`kmp-publish`, signing, GPG) |
 | GRA-160 | CI multi-platform (macOS + iOS simulator + Android) |
 
-**Critère de "done" atteint** : artefact `org.graphiks.kadre:0.1.0` publié Maven Central ; CI verte sur 3 plateformes ; documentation API MkDocs déployée.
+**Critère de "done" atteint** : artefact `org.graphiks.kadre:kadre` publié Maven Central ; CI verte sur 3 plateformes ; documentation API MkDocs déployée.
 
 ---
 
-## 4. Écarts identifiés (9 points de remédiation → v0.1.1)
+## 4. Écarts identifiés (9 points de remédiation)
 
-Ces écarts ont été identifiés en sortie de sprint review et sont planifiés pour correction dans [Sprint 0 — v0.1.1](./plan-v0.2.md#sprint-0-remediation-v011-2-semaines).
+Ces écarts ont été identifiés en sortie de sprint review et corrigés avant la release 1.0.0.
 
 | # | Domaine | Écart |
 |---|---------|-------|
@@ -161,18 +159,17 @@ Ces écarts ont été identifiés en sortie de sprint review et sont planifiés 
 
 ### Points à améliorer
 
-- **Pas de test E2E smoke** : la régression PR #25 aurait pu être détectée automatiquement. Priorité v0.1.1.
-- **`requestRedraw()` dans `aboutToWait`** : fonctionnel mais non-idiomatique. Remplacer par `ControlFlow.Poll` en v0.2 (cf. post-mortem M2 §Décisions M3).
-- **Libération ressources wgpu** : ordre de destruction non garanti dans `releaseResources()`. Prévoir `AutoClosableContext` en v0.2.
-- **Absence de `Device.poll()`** : nécessaire pour les backends non-Metal (Linux, Windows). À anticiper pour la portabilité cross-platform.
-- **Vidéo démo M2 non enregistrée** : livrable manquant pour la communication externe. Planifié v0.1.1.
+- **Pas de test E2E smoke** : la régression PR #25 aurait pu être détectée automatiquement. Corrigé avant release.
+- **`requestRedraw()` dans `aboutToWait`** : fonctionnel mais non-idiomatique. Remplacé par `ControlFlow.Poll` (cf. post-mortem M2 §Décisions M3).
+- **Libération ressources wgpu** : ordre de destruction non garanti dans `releaseResources()`. `AutoClosableContext` prévu.
+- **Absence de `Device.poll()`** : nécessaire pour les backends non-Metal (Linux, Windows). Anticipé pour la portabilité cross-platform.
+- **Vidéo démo M2 non enregistrée** : livrable manquant pour la communication externe.
 
 ---
 
 ## 7. Références
 
-- [Plan projet v0.1](./plan.md) — jalons M1-M3, risques, timeline
-- [Plan projet v0.2](./plan-v0.2.md) — roadmap extensions (6 plateformes, Pong)
+- [Plan projet](./plan.md) — vision, périmètre (6 plateformes, Pong), risques
 - [Post-mortem M2](./postmortem-m2.md) — analyse détaillée jalon M2
-- [Spécifications v0.1](./specs.md) — architecture, API, diagrammes
-- [Release v0.1.0](https://github.com/ygdrasil-io/poc-koreos/releases/tag/v0.1.0) — tag GitHub + artefacts Maven Central
+- [Spécifications techniques](./specs.md) — architecture, API, diagrammes
+- [Release 1.0.0](https://github.com/ygdrasil-io/poc-koreos/releases/tag/v1.0.0) — tag GitHub + artefacts Maven Central

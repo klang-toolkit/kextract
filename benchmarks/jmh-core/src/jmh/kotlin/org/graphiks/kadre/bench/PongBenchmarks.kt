@@ -1,5 +1,5 @@
 /**
- * Benchmarks JMH sur les composants purs de Pong et du moteur (Redmine #90).
+ * Benchmarks JMH sur les composants purs de Pong et du moteur.
  *
  * Mesure le temps moyen par opération (nanosecondes) des chemins chauds appelés
  * à chaque frame : tick physique, IA, rendu de texte bitmap, adaptateur d'entrée.

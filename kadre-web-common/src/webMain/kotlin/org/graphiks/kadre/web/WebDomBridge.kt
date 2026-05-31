@@ -14,7 +14,7 @@
  * quand kadre-core exposera des cibles JS/wasmJs (ticket #32).
  * En attendant, [WindowEvent] est défini localement dans ce module.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 package org.graphiks.kadre.web
 

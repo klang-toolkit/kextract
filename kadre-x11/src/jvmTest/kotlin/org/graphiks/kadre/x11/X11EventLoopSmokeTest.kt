@@ -6,7 +6,7 @@
  * - runApp active/désactive le flag x11Running (handler qui quitte immédiatement).
  * - X11EventLoopProxy.wakeUp() est safe sur non-Linux (no-op).
  *
- * Redmine #60 : X11EventLoop smoke tests.
+ * X11EventLoop smoke tests.
  */
 package org.graphiks.kadre.x11
 

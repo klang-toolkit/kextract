@@ -2,7 +2,7 @@
  * Module samples/pong — squelette KMP 6 cibles.
  *
  * Cibles : jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js(IR), wasmJs.
- * Redmine #73 : setup module (skeleton uniquement, pas d'implémentation).
+ * setup module (skeleton uniquement, pas d'implémentation).
  *
  * Tickets liés :
  *   #74 : GameState — commonMain

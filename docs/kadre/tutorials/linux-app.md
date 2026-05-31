@@ -70,7 +70,7 @@ kotlin {
         jvmMain {
             dependencies {
                 // Kadre public facade — automatic Linux/Windows/macOS routing
-                implementation("org.graphiks.kadre:kadre:0.1.1")
+                implementation("org.graphiks.kadre:kadre:1.0.0")
             }
         }
     }

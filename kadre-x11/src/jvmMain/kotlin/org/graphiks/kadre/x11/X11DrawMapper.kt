@@ -34,7 +34,7 @@
  * La fonction [readXftDpi] utilise XResourceManagerString pour lire la base
  * de données de ressources X11 et en extraire "Xft.dpi: <valeur>".
  *
- * Redmine #63 : X11DrawMapper.
+ * X11DrawMapper.
  */
 package org.graphiks.kadre.x11
 

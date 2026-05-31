@@ -7,7 +7,7 @@
  *
  * Ce fichier PEUT utiliser les interops JS Wasm car il est dans wasmJsMain.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 package org.graphiks.kadre.web
 

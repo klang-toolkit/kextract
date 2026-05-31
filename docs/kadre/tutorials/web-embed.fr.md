@@ -29,7 +29,7 @@ kotlin {
         jsMain {
             dependencies {
                 // Façade Kadre pour le navigateur — Kotlin/JS IR
-                implementation("org.graphiks.kadre:kadre-js:0.1.1")
+                implementation("org.graphiks.kadre:kadre-js:1.0.0")
             }
         }
     }
@@ -233,7 +233,7 @@ kotlin {
     sourceSets {
         wasmJsMain {
             dependencies {
-                implementation("org.graphiks.kadre:kadre-wasm:0.1.1")
+                implementation("org.graphiks.kadre:kadre-wasm:1.0.0")
             }
         }
     }

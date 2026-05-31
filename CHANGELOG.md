@@ -7,6 +7,35 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [1.0.0] — 2026-05-31
+
+First stable release of **Kadre** — the Kotlin Multiplatform windowing and event-loop library, formerly developed under the Koreos name. The project is now published as `org.graphiks.kadre` (package `org.graphiks.kadre`).
+
+### Highlights
+
+- **Rebrand** Koreos → **Kadre**, group ID and package unified under `org.graphiks.kadre`.
+- **6 platforms** from a single `commonMain` API: macOS (AppKit), iOS (UIKit), Android (SurfaceView), Windows (Win32), Linux (X11 + Wayland), Web (JS + Wasm).
+- Native bindings via **Panama FFM (JDK 25)** only — no JNI, JNA, or Rococoa.
+- **Cross-platform Pong demo** (`samples/pong`): a single `PongGame.kt` running on all 6 platforms via wgpu4k.
+- Live browser demos and full modular publication to **Maven Central**.
+
+### Artifacts
+
+Group ID: `org.graphiks.kadre`
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("org.graphiks.kadre:kadre:1.0.0")
+}
+```
+
+Published modules: `kadre-core`, `kadre`, `kadre-appkit`, `kadre-uikit`, `kadre-android`, `kadre-win32`, `kadre-web-common`, `kadre-js`, `kadre-wasm`, `kadre-x11`, `kadre-wayland`.
+
+[1.0.0]: https://github.com/ygdrasil-io/poc-koreos/releases/tag/v1.0.0
+
+---
+
 ## [0.2.0] — 2026-05-30
 
 Sprint 3–5 — backend Win32, Web (JS + Wasm), Linux (X11 + Wayland) et sample Pong cross-platform.

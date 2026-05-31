@@ -2,7 +2,7 @@
   "name": "kadre-visual-diff",
   "version": "1.0.0",
   "private": true,
-  "description": "CLI de diff d'images cross-plateforme pour les tests visuels Kadre (Redmine #88)",
+  "description": "CLI de diff d'images cross-plateforme pour les tests visuels Kadre",
   "devDependencies": {
     "pixelmatch": "^6.0.0",
     "pngjs": "^7.0.0"

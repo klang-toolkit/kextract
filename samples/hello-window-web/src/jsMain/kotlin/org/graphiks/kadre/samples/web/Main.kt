@@ -4,7 +4,7 @@
  * Ouvre un canvas navigateur via l'API Kadre et journalise tous les événements
  * DOM reçus (souris, clavier, redimensionnement, fermeture).
  *
- * Redmine #26 : sample web minimal JS.
+ * sample web minimal JS.
  */
 package org.graphiks.kadre.samples.web
 

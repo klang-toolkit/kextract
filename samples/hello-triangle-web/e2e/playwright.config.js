@@ -1,4 +1,4 @@
-// Configuration Playwright pour le smoke E2E de hello-triangle-web (Redmine #22).
+// Configuration Playwright pour le smoke E2E de hello-triangle-web.
 //
 // Sert le bundle de production JS (produit par `jsBrowserDistribution`, toolchain
 // activée par #91) via http-server, puis lance **Chrome stable** sur macOS avec

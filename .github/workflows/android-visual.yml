@@ -1,6 +1,6 @@
 name: android-visual
 
-# Capture GPU offscreen Android (Redmine #88) — test instrumenté sur émulateur.
+# Capture GPU offscreen Android — test instrumenté sur émulateur.
 # hello-triangle-android-capture rend le triangle wgpu4k Vulkan dans une texture
 # offscreen (Surface adossée à une SurfaceTexture → ANativeWindow via android-native-helper),
 # relit le framebuffer et vérifie le triangle RGB. L'émulateur fournit un Vulkan logiciel

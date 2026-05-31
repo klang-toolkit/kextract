@@ -349,7 +349,7 @@ jobs:
   # Note : kadre-x11:jvmTest détecte automatiquement l'absence de display et
   # saute les tests nécessitant un serveur X — xvfb-run -a fournit un display
   # virtuel stable pour les tests qui en ont besoin.
-  # hello-triangle (wgpu native) est exclu pour v0.2.
+  # hello-triangle (wgpu native) est exclu pour l'instant.
   linux-x11-build:
     name: linux-x11-build
     runs-on: ubuntu-latest

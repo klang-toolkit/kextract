@@ -8,7 +8,7 @@
  * même si wakeUp() est appelé depuis plusieurs threads simultanément.
  * La boucle principale vide le compteur avec read() et remet le flag à false.
  *
- * Redmine #66 — WaylandEventLoop.
+ * WaylandEventLoop.
  */
 package org.graphiks.kadre.wayland
 

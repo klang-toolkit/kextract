@@ -5,8 +5,8 @@
  * orchestre la boucle `requestAnimationFrame` et le dispatch des événements DOM
  * via interop JS Wasm.
  *
- * Redmine #28 : façade kadre — cibles jsMain + wasmJsMain.
- * Redmine #22/#24 : câblage de la façade vers le WebEventLoop réel.
+ * façade kadre — cibles jsMain + wasmJsMain.
+ * #24 : câblage de la façade vers le WebEventLoop réel.
  */
 package org.graphiks.kadre
 

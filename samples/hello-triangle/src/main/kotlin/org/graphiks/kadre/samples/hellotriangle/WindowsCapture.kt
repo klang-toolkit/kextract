@@ -1,5 +1,5 @@
 /**
- * Capture offscreen GPU sur Windows (Redmine #88).
+ * Capture offscreen GPU sur Windows.
  *
  * Comme sur macOS, `WGPU.requestAdapter` exige une surface non-nulle. Sur Windows, la
  * surface se crée depuis un `HWND`. On crée donc une **fenêtre Win32 cachée** (classe

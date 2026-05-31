@@ -12,7 +12,7 @@
  *  5. XStoreName              — définit le titre
  *  6. XMapWindow              — rend la fenêtre visible (si attrs.visible = true)
  *
- * Redmine #59 : X11Window — implémentation complète de l'interface Window.
+ * X11Window — implémentation complète de l'interface Window.
  */
 package org.graphiks.kadre.x11
 
@@ -91,13 +91,13 @@ class X11Window private constructor(
     /**
      * Facteur d'échelle DPI de cette fenêtre.
      *
-     * Retourne 1.0 (heuristique DPI post-v0.2).
+     * Retourne 1.0 (heuristique DPI prévue ultérieurement).
      */
     override val scaleFactor: Double = 1.0
 
     override fun requestRedraw() {
         // Aucune action directe nécessaire : la boucle d'événements relève les Expose.
-        // Éventuellement, on pourrait envoyer un XSendEvent Expose — reporté post-v0.2.
+        // Éventuellement, on pourrait envoyer un XSendEvent Expose — reporté ultérieurement.
     }
 
     override fun setTitle(title: String) {
@@ -119,7 +119,7 @@ class X11Window private constructor(
             handle.invokeExact(display, xWindowId) as Int
             xFlush?.invokeExact(display) as? Int
         }
-        // XUnmapWindow n'est pas encore dans les bindings — reporté post-v0.2.
+        // XUnmapWindow n'est pas encore dans les bindings — reporté ultérieurement.
     }
 
     override fun close() {
@@ -166,7 +166,7 @@ class X11Window private constructor(
             // ── 1. Fenêtre racine via XRootWindow(display, screen) ────────────
             // Équivalent de DefaultRootWindow(display). Le vrai XID racine est requis
             // comme parent de XCreateSimpleWindow : une valeur conventionnelle en dur
-            // provoque BadWindow (X_CreateWindow) sur les serveurs X réels (Redmine #88).
+            // provoque BadWindow (X_CreateWindow) sur les serveurs X réels.
             val rootHandle = xRootWindow ?: return null
             val rootWindow: Long = rootHandle.invokeExact(displaySeg, screen) as Long
             if (rootWindow == 0L) return null

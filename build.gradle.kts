@@ -2,7 +2,7 @@ plugins {
     // Les plugins communs et leurs versions sont gérés et importés par buildSrc
 }
 
-// ── Toolchain Kotlin/JS Node + Yarn (Redmine #91) ──────────────────────────────
+// ── Toolchain Kotlin/JS Node + Yarn ──────────────────────────────
 //
 // Par défaut, le plugin KGP ajoute au niveau *projet* les repos ivy de distribution
 // Node.js et Yarn (nodejs.org / github yarnpkg). Avec

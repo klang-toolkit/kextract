@@ -16,7 +16,7 @@
 
 Kadre **ne dépend pas** d'AWT/Swing, JNA ni Rococoa. Les bindings natifs utilisent exclusivement **Panama FFM** (JDK 25) sur macOS/JVM.
 
-**Version publiée** : `0.2.0` — macOS, iOS, Android. Disponible sur [Maven Central](https://central.sonatype.com/artifact/org.graphiks.kadre/kadre).
+**Version publiée** : `1.0.0` — macOS, iOS, Android, Windows, Linux, Web. Disponible sur [Maven Central](https://central.sonatype.com/artifact/org.graphiks.kadre/kadre).
 
 ---
 
@@ -32,7 +32,7 @@ Ouvre une fenêtre macOS avec un triangle RGB rendu via wgpu4k/Metal. Redimensio
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("org.graphiks.kadre:kadre:0.2.0")
+    implementation("org.graphiks.kadre:kadre:1.0.0")
 }
 ```
 
@@ -117,8 +117,7 @@ Le pipeline GitHub Actions (`.github/workflows/ci.yml`) utilise une stratégie �
 ### Références
 
 - [Specs](docs/kadre/specs.md) — contrats d'interface
-- [Plan de développement](docs/kadre/plan.md) — jalons M1→M3
+- [Plan de développement](docs/kadre/plan.md) — vision, périmètre, risques
 - [Post-mortem M2](docs/kadre/postmortem-m2.md) — bilan technique, apprentissages, metriques
 - [Release process](docs/kadre/release-process.md) — publication Maven Central
-- [Roadmap progress](docs/kadre/roadmap-progress.md) — avancement auto-généré (Redmine + git)
 - [Stabilité de l'API](docs/kadre/api-stability.md) · [Performance](docs/kadre/performance.md) · [Tests](docs/kadre/testing.md) · [Tests visuels](docs/kadre/visual-testing.md)

@@ -1,5 +1,5 @@
 /**
- * Sample hello-triangle-android-capture — capture GPU offscreen Android (Redmine #88).
+ * Sample hello-triangle-android-capture — capture GPU offscreen Android.
  *
  * Rend le triangle wgpu4k (Vulkan) dans une texture offscreen via une Surface
  * (SurfaceTexture), relit le framebuffer et vérifie le triangle. Exécuté comme test

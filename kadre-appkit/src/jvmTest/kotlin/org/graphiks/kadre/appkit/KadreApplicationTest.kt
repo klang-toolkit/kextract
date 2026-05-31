@@ -33,7 +33,7 @@ class KadreApplicationTest {
     }
 
     /**
-     * Redmine #41 : eventLoop doit être une propriété d'instance (non statique).
+     * eventLoop doit être une propriété d'instance (non statique).
      *
      * Vérifie que :
      * - `KadreApplication` possède un champ `eventLoop` non-statique (backing field JVM).
@@ -69,7 +69,7 @@ class KadreApplicationTest {
     }
 
     /**
-     * Redmine #41 : sharedApp est initialement null avant tout appel à initialize().
+     * sharedApp est initialement null avant tout appel à initialize().
      *
      * Garantit qu'il n'y a pas d'initialisation eagerly et que le pattern
      * "NSApp as? KadreApplication" ne retourne null que si initialize() n'a pas
@@ -125,7 +125,7 @@ class KadreApplicationTest {
     }
 
     /**
-     * Redmine #41 — DoD #3 : un second appel à [runApp] doit lever [IllegalStateException].
+     * DoD #3 : un second appel à [runApp] doit lever [IllegalStateException].
      *
      * Stratégie :
      * 1. On force [appKitRunning] à true via réflexion sur la classe Kotlin générée

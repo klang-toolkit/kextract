@@ -13,7 +13,7 @@
  * normalisées [0..1] et une couleur RGB. Deux triangles (6 sommets) sont
  * générés en dur dans le vertex shader à partir du vertex_index.
  *
- * Redmine #78.
+ * .
  */
 package org.graphiks.kadre.samples.pong
 

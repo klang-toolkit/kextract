@@ -19,7 +19,7 @@
  * @param attrs   Attributs de création de la fenêtre (titre utilisé comme id CSS).
  * @param bridge  Pont DOM utilisé pour attacher / détacher le canvas.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 package org.graphiks.kadre.web
 

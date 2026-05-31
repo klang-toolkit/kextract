@@ -14,9 +14,9 @@
  * plusieurs backends se trouvent sur le classpath (build multi-OS).
  *
  * GRA-129 : façade KMP — actual jvmMain.
- * Redmine #8  : façade EventLoop Windows.
- * Redmine #68 : détection backend Linux X11/Wayland.
- * Redmine #69 : extension façade kadre Linux.
+ * façade EventLoop Windows.
+ * détection backend Linux X11/Wayland.
+ * extension façade kadre Linux.
  */
 package org.graphiks.kadre
 

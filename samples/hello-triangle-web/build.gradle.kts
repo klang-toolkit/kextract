@@ -1,5 +1,5 @@
 /**
- * Sample hello-triangle-web — rendu d'un triangle RGB via wgpu4k Web (Redmine #27).
+ * Sample hello-triangle-web — rendu d'un triangle RGB via wgpu4k Web.
  *
  * Démontre l'intégration wgpu4k côté navigateur :
  *   canvas DOM → [RawWindowHandle.Web] → CanvasSurface → Adapter → Device → Pipeline → render loop.

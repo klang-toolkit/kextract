@@ -12,23 +12,25 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 
 ## Blog
 
-- [Kadre v0.2.0 — 6 platforms, cross-platform Pong, live demo](./blog/v0.2.0-release.md) — recap of the 5 sprints: Win32, Web (JS+Wasm), Linux (X11+Wayland), Pong
+- [Kadre v1.0.0 — 6 platforms, cross-platform Pong, live demo](./blog/v1.0.0-release.md) — the 1.0.0 release: macOS, iOS, Android, Win32, Web (JS+Wasm), Linux (X11+Wayland), Pong
 
 ## Documents
 
-- [Project plan](./plan.md) — vision, milestones, risks, timeline
-- [Sprint Review v0.1](./sprint-review-v0.1.md) — metrics, deliverables, gaps, v0.1.0 retro
+- [Project plan](./plan.md) — vision, scope, risks
+- [Sprint Review](./sprint-review.md) — metrics, deliverables, retrospective
 - [Technical specifications](./specs.md) — architecture, API, diagrams
-- [Roadmap progress](./roadmap-progress.md) — auto-generated progress (Redmine + git, Redmine #87)
 
-## Milestones
+## Platforms
 
-| Milestone | Deliverable |
-|-----------|------------|
-| **M1 — POC** | macOS NSWindow with layer-backed contentView ready for Metal |
-| **M2 — wgpu4k demo** | Simple 3D scene rendered via wgpu4k consuming the raw handle |
-| **M3 — Target lib** | Publishable KMP lib, complete AppKit + UIKit + Android backends |
+| Platform | Backend |
+|----------|---------|
+| **macOS** | NSWindow with layer-backed contentView ready for Metal |
+| **iOS** | UIKit (UIWindow + UIView + CAMetalLayer) |
+| **Android** | SurfaceView + Choreographer |
+| **Windows** | Win32 (RegisterClassExW + CreateWindowExW) |
+| **Linux** | X11 + Wayland, auto-detected |
+| **Web** | HTML canvas (Kotlin/JS + Kotlin/Wasm) |
 
 ## Status
 
-**Draft for review** — see the spec validation PR.
+**Released** — `org.graphiks.kadre:kadre:1.0.0` on Maven Central.

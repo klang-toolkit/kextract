@@ -13,7 +13,7 @@
  * n'est pas prêt — ce qui est compatible avec le tick PongGame (les premières
  * frames sont silencieusement perdues le temps de l'init).
  *
- * Redmine #78 (extension web — JVM initialement).
+ * (extension web — JVM initialement).
  */
 package org.graphiks.kadre.samples.pong
 

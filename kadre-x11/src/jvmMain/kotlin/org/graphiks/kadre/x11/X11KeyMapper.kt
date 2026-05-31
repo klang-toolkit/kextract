@@ -32,7 +32,7 @@
  * (0x61 = 'a', …, 0x7A = 'z'). Les lettres majuscules : 0x41–0x5A.
  * Les chiffres : 0x30–0x39. Les touches spéciales commencent à 0xFF00.
  *
- * Redmine #61 : X11KeyMapper.
+ * X11KeyMapper.
  */
 package org.graphiks.kadre.x11
 

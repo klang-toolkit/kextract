@@ -6,7 +6,7 @@
  *
  * Cibles : js(IR) browser, wasmJs browser.
  *
- * Redmine #26 : setup module samples/hello-window-web.
+ * setup module samples/hello-window-web.
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 

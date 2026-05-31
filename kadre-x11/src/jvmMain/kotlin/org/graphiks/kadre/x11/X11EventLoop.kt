@@ -13,7 +13,7 @@
  * Pattern Lazy FFM (tryCreate) : tous les MethodHandle sont null sur macOS/Windows,
  * ce qui permet au build de passer sur toutes les plateformes.
  *
- * Redmine #60 : X11EventLoop — boucle d'événements X11 avec commutation ControlFlow.
+ * X11EventLoop — boucle d'événements X11 avec commutation ControlFlow.
  */
 package org.graphiks.kadre.x11
 

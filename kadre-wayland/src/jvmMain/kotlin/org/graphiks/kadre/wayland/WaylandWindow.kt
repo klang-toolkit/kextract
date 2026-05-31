@@ -12,7 +12,7 @@
  * structures wl_interface (non disponibles via FFM pur) ; ils sont implémentés
  * en stub et délégués à WaylandEventLoop (ticket #66).
  *
- * Redmine #65 : WaylandWindow — implémentation de l'interface Window.
+ * WaylandWindow — implémentation de l'interface Window.
  */
 package org.graphiks.kadre.wayland
 
@@ -85,7 +85,7 @@ class WaylandWindow private constructor(
     /**
      * Facteur d'échelle DPI de cette fenêtre.
      *
-     * Retourne 1.0 par défaut ; mis à jour via les événements wl_output.scale (post-v0.2).
+     * Retourne 1.0 par défaut ; mis à jour via les événements wl_output.scale (prévu ultérieurement).
      */
     override val scaleFactor: Double = 1.0
 
@@ -142,7 +142,7 @@ class WaylandWindow private constructor(
      */
     override fun setVisible(visible: Boolean) {
         if (visible) requestRedraw()
-        // setInvisible nécessite wl_surface.attach(NULL) + commit — reporté post-v0.2
+        // setInvisible nécessite wl_surface.attach(NULL) + commit — reporté à plus tard
     }
 
     /**

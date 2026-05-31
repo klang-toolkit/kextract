@@ -28,7 +28,7 @@
  * val retour  = physique.toLogical(scaleFactor = 2.0)  // LogicalSize(800.0, 600.0)
  * ```
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 package org.graphiks.kadre.core
 

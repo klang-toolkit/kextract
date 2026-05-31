@@ -1,5 +1,5 @@
 /**
- * Sample hello-triangle-ios — capture GPU offscreen iOS (Redmine #88).
+ * Sample hello-triangle-ios — capture GPU offscreen iOS.
  *
  * Kotlin/Native iOS : rend le triangle wgpu4k Metal dans une texture offscreen
  * (CAMetalLayer), relit le framebuffer et l'encode en PNG via CoreGraphics. Exécuté

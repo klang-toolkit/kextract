@@ -5,9 +5,9 @@
  * Ces keycodes correspondent aux codes evdev définis dans :
  *   https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
  *
- * Cette implémentation v0.2 utilise une table statique pour la conversion, sans
+ * Cette implémentation utilise une table statique pour la conversion, sans
  * dépendance à libxkbcommon (la gestion de disposition clavier complète est
- * planifiée post-v0.2).
+ *planifiée ultérieurement.
  *
  * ## États de touche Wayland
  *  - WL_KEYBOARD_KEY_STATE_RELEASED = 0
@@ -15,7 +15,7 @@
  * La répétition (key repeat) est transmise avec state = 2 (valeur non normalisée
  * dans le protocole wl_keyboard, gérée par le compositor ou le client).
  *
- * Redmine #67 : WaylandKeyMapper — Linux evdev keycodes → Key.
+ * WaylandKeyMapper — Linux evdev keycodes → Key.
  */
 package org.graphiks.kadre.wayland
 

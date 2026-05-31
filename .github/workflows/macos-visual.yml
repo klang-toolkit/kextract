@@ -1,6 +1,6 @@
 name: macos-visual
 
-# Régression visuelle macOS via readback GPU (Redmine #88).
+# Régression visuelle macOS via readback GPU.
 # hello-triangle rend une frame offscreen (sans fenêtre), écrit un PNG par readback
 # wgpu, puis on le compare à une baseline committée. NON BLOQUANT : le rendu GPU
 # n'est pas déterministe au pixel près entre machines → on archive le diff et on

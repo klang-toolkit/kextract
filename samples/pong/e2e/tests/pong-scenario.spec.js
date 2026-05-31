@@ -1,4 +1,4 @@
-// Test E2E scénarisé Pong (Web) — Redmine #95 / suivi #88.
+// Test E2E scénarisé Pong (Web)suivi #88.
 //
 // VALEUR AJOUTÉE vs `hello-triangle-web` :
 //   - Scripte une séquence d'inputs clavier (ArrowDown / ArrowUp / release)

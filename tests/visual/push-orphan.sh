@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pousse les captures de staging sur la branche orpheline d'hébergement (Redmine #88).
+# Pousse les captures de staging sur la branche orpheline d'hébergement.
 #
 # Les 4 jobs de plateforme tournent en parallèle et poussent tous sur la même branche
 # `ci-visual-reports`. Chaque job n'écrit QUE sous <run_id>/<platform>/ (chemins disjoints),

@@ -14,7 +14,7 @@
  * Le délai est calculé en millisecondes depuis `Date.now()`. Si l'instant est déjà
  * passé, le délai est de 0 (exécution dès que possible).
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 package org.graphiks.kadre.web
 

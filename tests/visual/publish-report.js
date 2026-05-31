@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Publie un rapport de régression visuelle dans l'UI GitHub CI (Redmine #88).
+// Publie un rapport de régression visuelle dans l'UI GitHub CI.
 //
 // Pourquoi : GitHub assainit les `data:` URI dans les Job Summaries et les commentaires
 // → les captures encodées en base64 ne s'affichent JAMAIS inline. Seules de vraies URLs

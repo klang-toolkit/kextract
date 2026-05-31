@@ -1,5 +1,5 @@
 /**
- * Capture GPU offscreen iOS (Redmine #88) — Kotlin/Native + wgpu4k Metal.
+ * Capture GPU offscreen iOS — Kotlin/Native + wgpu4k Metal.
  *
  * Rend le triangle RGB dans une texture offscreen (un CAMetalLayer offscreen sert
  * uniquement à satisfaire requestAdapter, comme sur macOS), relit le framebuffer via

@@ -1,5 +1,5 @@
 /**
- * ScriptedEventLoop — boucle d'événements déterministe pour les tests (Redmine #89).
+ * ScriptedEventLoop — boucle d'événements déterministe pour les tests.
  *
  * Permet de piloter un [ApplicationHandler] avec une séquence d'événements scriptée,
  * sans dépendre d'un backend natif (AppKit, Win32, X11…). Retourne la trace ordonnée

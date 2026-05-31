@@ -1,5 +1,5 @@
 /**
- * Module kadre-test — utilitaires de test pour Kadre (Redmine #89).
+ * Module kadre-test — utilitaires de test pour Kadre.
  *
  * Fournit [ScriptedEventLoop] et le DSL `scriptedTest { ... }` permettant de
  * piloter un [org.graphiks.kadre.core.ApplicationHandler] avec une séquence

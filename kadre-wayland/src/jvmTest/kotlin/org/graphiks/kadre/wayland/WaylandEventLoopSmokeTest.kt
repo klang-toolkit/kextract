@@ -5,7 +5,7 @@
  * ils vérifient uniquement les invariants statiques et le comportement
  * null-safe des bindings.
  *
- * Redmine #66 — WaylandEventLoop.
+ * WaylandEventLoop.
  */
 package org.graphiks.kadre.wayland
 
