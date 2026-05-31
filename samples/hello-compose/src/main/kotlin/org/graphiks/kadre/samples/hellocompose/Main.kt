@@ -116,14 +116,30 @@ private fun runComposeApp() = kadreApplication {
         }
     }
 
+    // DEMO/APP CHOICE (not a framework concern): cap the frame rate to ~20 fps. Kadre renders on
+    // the UI thread, and this demo's heavy continuous Compose frames would otherwise saturate the
+    // main thread and make a window move/resize lag behind the cursor at the start of the gesture.
+    // Capping leaves the thread free for the OS. Pure app-side pacing — a lighter/faster app may
+    // render uncapped.
+    var lastRenderNanos = 0L
+    val frameIntervalNanos = 50_000_000L // ~20 fps
+
     // Window events as a Flow. collect suspends until the loop exits.
     win.events.collect { event ->
-        if (event is WindowEvent.CloseRequested) {
-            println("[hello-compose] CloseRequested — closing")
-            renderer.dispose()
-            exit()
-        } else {
-            renderer.applyWindowEvent(event, win.window, keys)
+        when {
+            event is WindowEvent.CloseRequested -> {
+                println("[hello-compose] CloseRequested — closing")
+                renderer.dispose()
+                exit()
+            }
+            event is WindowEvent.RedrawRequested -> {
+                val now = System.nanoTime()
+                if (now - lastRenderNanos >= frameIntervalNanos) {
+                    lastRenderNanos = now
+                    renderer.applyWindowEvent(event, win.window, keys)
+                }
+            }
+            else -> renderer.applyWindowEvent(event, win.window, keys)
         }
     }
 }
