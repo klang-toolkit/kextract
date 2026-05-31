@@ -125,13 +125,25 @@ class KadreWindowDelegate(
      * treated as pointer-or-sret depending on the platform) then reinterpret(32) to
      * access the four CGFloats {x, y, width, height}.
      */
+    /**
+     * Returns an NSRect [MemorySegment] guaranteed to be 32 bytes long so its four CGFloats
+     * can be read.
+     *
+     * `contentLayoutRect()` goes through [ObjCRuntime.msgSendStret], which on struct returns
+     * yields a **heap**-backed segment already sized to 32 bytes — calling `reinterpret` on it
+     * throws `UnsupportedOperationException: Not a native segment`. Only a native segment with
+     * an unknown (zero) size needs reinterpreting.
+     */
+    private fun sizedNSRect(rect: MemorySegment): MemorySegment =
+        if (rect.byteSize() >= 32L) rect else rect.reinterpret(32)
+
     fun onWindowDidResize() {
         val nsWindow = NSWindow(nsWindowPtr)
         val scale = nsWindow.backingScaleFactor()
 
         // contentLayoutRect → NSRect (MemorySegment) → {x, y, width, height}
         // reinterpret(32) = 4 × 8 bytes to read the doubles
-        val rect = nsWindow.contentLayoutRect().reinterpret(32)
+        val rect = sizedNSRect(nsWindow.contentLayoutRect())
         val w = rect.getAtIndex(ValueLayout.JAVA_DOUBLE, 2)
         val h = rect.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
 
@@ -200,7 +212,7 @@ class KadreWindowDelegate(
         handler.windowEvent(eventLoop, windowId, WindowEvent.ScaleFactorChanged(newScale))
 
         // 3. Dispatch a subsequent Resized: the drawableSize in pixels changes with the scale
-        val rect = nsWindow.contentLayoutRect().reinterpret(32)
+        val rect = sizedNSRect(nsWindow.contentLayoutRect())
         val w = rect.getAtIndex(ValueLayout.JAVA_DOUBLE, 2)
         val h = rect.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
         val physW = (w * newScale).toInt()

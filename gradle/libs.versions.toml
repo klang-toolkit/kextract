@@ -7,7 +7,11 @@ kotlin = "2.3.21"
 # Download: https://github.com/klang-toolkit/kextract/releases/tag/v0.0.2
 kextract = "0.0.2"
 agp = "9.0.0"
-compose-multiplatform = "1.7.3"
+compose-multiplatform = "1.9.3"
+# skiko — moteur Skia bas niveau (org.jetbrains.skia.*) embarqué par Compose MP 1.9.3.
+# Le sample hello-compose l'utilise directement pour rendre une ComposeScene dans
+# le CAMetalLayer de Kadre (DirectContext.makeMetal / BackendRenderTarget.makeMetal).
+skiko = "0.9.22.2"
 dokka = "2.2.0"
 
 # wgpu4k — WebGPU binding for Kotlin Multiplatform
@@ -49,6 +53,10 @@ webgpu-ktypes-descriptors = { module = "io.ygdrasil:webgpu-ktypes-descriptors", 
 
 # AndroidX
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity-compose" }
+
+# Skiko — runtime natif macOS arm64 (libskiko + bindings org.jetbrains.skia.*).
+# Nécessaire en plus de compose.ui pour disposer du binaire natif Skia côté JVM desktop.
+skiko-awt-runtime-macos-arm64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-macos-arm64", version.ref = "skiko" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
