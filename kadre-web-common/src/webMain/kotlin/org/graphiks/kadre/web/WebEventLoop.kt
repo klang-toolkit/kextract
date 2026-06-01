@@ -35,7 +35,11 @@ import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
+import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.PhysicalPosition
+import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
@@ -154,9 +158,31 @@ open class WebEventLoop : ActiveEventLoop {
         override fun wakeUp() = scheduleWakeUp()
     }
 
+    // ── R2: monitor enumeration ───────────────────────────────────────────────
+
+    /**
+     * Returns a synthetic monitor representing the browser window.
+     *
+     * Uses the current canvas size and device pixel ratio from the first window.
+     * The Fullscreen API cannot expose physical monitor properties.
+     */
+    override fun availableMonitors(): List<MonitorHandle> {
+        val win = windows.firstOrNull()
+        val scale = win?._scaleFactor ?: 1.0
+        val size = win?._physicalSize ?: PhysicalSize(1920, 1080)
+        return listOf(syntheticWebMonitor(scale, size))
+    }
+
+    /**
+     * Returns the single synthetic web monitor.
+     */
+    override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+
     // -------------------------------------------------------------------------
     // Public entry point
     // -------------------------------------------------------------------------
+
+
 
     /**
      * Starts the event loop and notifies the handler.
@@ -275,3 +301,14 @@ open class WebEventLoop : ActiveEventLoop {
         override fun detach() {}
     }
 }
+
+/** Creates a synthetic [MonitorHandle] representing the browser window. */
+internal fun syntheticWebMonitor(scale: Double, size: PhysicalSize<Int>): MonitorHandle =
+    object : MonitorHandle {
+        override val id: Long = 0L
+        override val name: String? = null
+        override val position: PhysicalPosition<Int> = PhysicalPosition(0, 0)
+        override val scaleFactor: Double = scale
+        override val currentVideoMode: VideoMode = VideoMode(size, null, null)
+        override val videoModes: List<VideoMode> = listOf(currentVideoMode)
+    }

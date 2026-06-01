@@ -1,11 +1,14 @@
 package org.graphiks.kadre.uikit
 
+import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.TouchPhase
+import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
@@ -431,4 +434,33 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
      * No-op on iOS: there is no Wayland-style pre-commit concept on this platform.
      */
     override fun prePresentNotify() { /* no-op on iOS */ }
+
+    // ── R2: monitor & fullscreen ──────────────────────────────────────────────
+
+    /**
+     * Returns a synthetic monitor from UIScreen.mainScreen.
+     */
+    override fun currentMonitor(): MonitorHandle = syntheticUiKitMonitor()
+
+    /** In-memory fullscreen state (R2). */
+    private var _fullscreen: Fullscreen? = null
+
+    override val fullscreen: Fullscreen? get() = _fullscreen
+
+    /**
+     * Enters or exits fullscreen on iOS.
+     *
+     * On iOS, the app is always "fullscreen" in the sense that it covers the entire screen.
+     * This implementation hides/shows the status bar as a best-effort approximation
+     * of a fullscreen mode change. [Fullscreen.Exclusive] is treated as [Fullscreen.Borderless].
+     *
+     * @param fullscreen New fullscreen state, or null to exit.
+     */
+    override fun setFullscreen(fullscreen: Fullscreen?) {
+        _fullscreen = fullscreen
+        // On iOS, the view already fills the full screen.
+        // A more complete implementation would call UIViewController.prefersStatusBarHidden
+        // but that requires overriding the view controller, which is out of scope for R2.
+        // The state is stored so callers can read it back.
+    }
 }

@@ -25,10 +25,12 @@ import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.EventLoopProxy
+import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.Modifiers
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -157,6 +159,12 @@ class ScriptedWindow(
     override val outerPosition: PhysicalPosition<Int> get() = _outerPosition
     override fun setOuterPosition(position: PhysicalPosition<Int>) { _outerPosition = position }
     override fun prePresentNotify() { /* no-op in scripted test */ }
+
+    // R2 stubs (in-memory)
+    override fun currentMonitor(): MonitorHandle? = null
+    private var _fullscreen: Fullscreen? = null
+    override val fullscreen: Fullscreen? get() = _fullscreen
+    override fun setFullscreen(fullscreen: Fullscreen?) { _fullscreen = fullscreen }
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +201,10 @@ class ScriptedEventLoop(
     override fun createProxy(): EventLoopProxy = object : EventLoopProxy {
         override fun wakeUp() { /* no-op : exécution mono-thread déterministe */ }
     }
+
+    // R2 stubs
+    override fun availableMonitors(): List<MonitorHandle> = emptyList()
+    override fun primaryMonitor(): MonitorHandle? = null
 
     // ── Exécution ───────────────────────────────────────────────────────────
 

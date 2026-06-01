@@ -24,6 +24,8 @@
  */
 package org.graphiks.kadre.web
 
+import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -101,10 +103,12 @@ class WebWindow(
     // -------------------------------------------------------------------------
 
     /** Current physical size of the canvas in pixels. Default 0×0 until first Resized event. */
-    private var _physicalSize: PhysicalSize<Int> = PhysicalSize(0, 0)
+    internal var _physicalSize: PhysicalSize<Int> = PhysicalSize(0, 0)
+        private set
 
     /** Current device pixel ratio. Default 1.0 until first ScaleFactorChanged event. */
-    private var _scaleFactor: Double = 1.0
+    internal var _scaleFactor: Double = 1.0
+        private set
 
     /**
      * Updates the stored physical size.
@@ -272,4 +276,43 @@ class WebWindow(
      * No-op on Web: there is no Wayland-style pre-commit concept in the browser.
      */
     override fun prePresentNotify() { /* no-op on Web */ }
+
+    // ── R2: monitor & fullscreen ──────────────────────────────────────────────
+
+    /**
+     * Returns a synthetic monitor representing the browser window.
+     */
+    override fun currentMonitor(): MonitorHandle = syntheticWebMonitor(_scaleFactor, _physicalSize)
+
+    /** In-memory fullscreen state (R2). */
+    private var _fullscreen: Fullscreen? = null
+
+    override val fullscreen: Fullscreen? get() = _fullscreen
+
+    /**
+     * Requests fullscreen via the browser Fullscreen API (delegate to bridge).
+     *
+     * **Exclusive fullscreen is not supported in browsers** — the Web Fullscreen API only
+     * supports a borderless mode. [Fullscreen.Exclusive] is silently treated as
+     * [Fullscreen.Borderless].
+     *
+     * The actual fullscreen transition is asynchronous (the browser may ask for user
+     * permission); [fullscreen] is updated eagerly to reflect the requested state.
+     *
+     * @param fullscreen New fullscreen state, or null to exit fullscreen.
+     */
+    override fun setFullscreen(fullscreen: Fullscreen?) {
+        when (fullscreen) {
+            null -> {
+                bridge.exitFullscreen()
+                _fullscreen = null
+            }
+            is Fullscreen.Borderless,
+            is Fullscreen.Exclusive -> {
+                // Exclusive is not supported on the Web — fall back to borderless silently.
+                bridge.requestFullscreen(canvasElementId)
+                _fullscreen = fullscreen
+            }
+        }
+    }
 }

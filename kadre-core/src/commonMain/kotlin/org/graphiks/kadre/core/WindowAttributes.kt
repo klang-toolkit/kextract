@@ -18,6 +18,7 @@ package org.graphiks.kadre.core
  * @property maximized Whether the window should start maximized.
  * @property decorations Whether the window should have platform decorations (title bar, borders).
  * @property active Whether the window should be active (focused) at creation time.
+ * @property fullscreen Initial fullscreen state, or null to create a windowed window.
  */
 data class WindowAttributes(
     val title: String = "Kadre",
@@ -30,4 +31,5 @@ data class WindowAttributes(
     val maximized: Boolean = false,
     val decorations: Boolean = true,
     val active: Boolean = true,
+    val fullscreen: Fullscreen? = null,
 )

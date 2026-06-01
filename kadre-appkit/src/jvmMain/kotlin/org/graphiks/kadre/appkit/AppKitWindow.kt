@@ -16,6 +16,8 @@ import org.graphiks.kadre.appkit.bindings.NSWindowStyleMask
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -42,6 +44,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     private val metalLayerPtr: MemorySegment
 
     override val id: WindowId
+
+    /** In-memory fullscreen state (R2). */
+    @Volatile
+    private var _fullscreen: Fullscreen? = attrs.fullscreen
 
     /**
      * NSWindowDelegate installed on this window.
@@ -146,6 +152,11 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         // 8. Display if requested
         if (attrs.visible) {
             nsWindow.makeKeyAndOrderFront(MemorySegment.NULL)
+        }
+
+        // 8b. Apply initial fullscreen from attrs (toggleFullScreen is called; _fullscreen already set above)
+        if (attrs.fullscreen != null) {
+            nsWindow.toggleFullScreen(MemorySegment.NULL)
         }
 
         // 9. Install NSTrackingArea for mouseEntered/mouseExited/mouseMoved events
@@ -396,6 +407,57 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
      * `wl_surface.pre_commit` on macOS.
      */
     override fun prePresentNotify() { /* no-op on AppKit */ }
+
+    // ── R2: monitor & fullscreen ──────────────────────────────────────────────
+
+    /**
+     * Returns the monitor that currently contains the majority of this window
+     * by reading NSWindow.screen.
+     */
+    override fun currentMonitor(): MonitorHandle? {
+        return try {
+            val screenPtr = NSWindow(nsWindowPtr).screen()
+            if (screenPtr == MemorySegment.NULL || screenPtr.address() == 0L) null
+            else {
+                val mainScreenPtr = ObjCRuntime.msgSend(
+                    ValueLayout.ADDRESS,
+                    ObjCRuntime.getClass("NSScreen"),
+                    ObjCRuntime.sel("mainScreen"),
+                ) as MemorySegment
+                AppKitMonitorHandle(screenPtr, screenPtr.address() == mainScreenPtr.address())
+            }
+        } catch (_: Throwable) { null }
+    }
+
+    override val fullscreen: Fullscreen?
+        get() = _fullscreen
+
+    /**
+     * Enters or exits fullscreen mode on AppKit.
+     *
+     * - [Fullscreen.Borderless] / [Fullscreen.Exclusive]: calls NSWindow.toggleFullScreen
+     *   to enter AppKit's native fullscreen (which covers the menu bar and dock).
+     *   Both modes map to the same native call since AppKit manages the video mode
+     *   automatically when the window is in fullscreen.
+     * - null: calls toggleFullScreen again if the window is currently fullscreen.
+     *
+     * Note: the actual fullscreen transition is asynchronous (AppKit animates it);
+     * [fullscreen] is updated eagerly.
+     */
+    override fun setFullscreen(fullscreen: Fullscreen?) {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val currentlyFullscreen = NSWindowStyleMask.NSWindowStyleMaskFullScreen in nsWindow.styleMask()
+            if (fullscreen != null && !currentlyFullscreen) {
+                nsWindow.toggleFullScreen(MemorySegment.NULL)
+                _fullscreen = fullscreen
+            } else if (fullscreen == null && currentlyFullscreen) {
+                nsWindow.toggleFullScreen(MemorySegment.NULL)
+                _fullscreen = null
+            }
+            // If state already matches, no-op.
+        } catch (_: Throwable) {}
+    }
 
     /**
      * Installs a [KadreWindowDelegate] on this window.

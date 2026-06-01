@@ -11,6 +11,8 @@ package org.graphiks.kadre.samples.pong
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
+import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -80,6 +82,11 @@ class FakeWindow : Window {
     override val outerPosition: PhysicalPosition<Int> get() = PhysicalPosition(0, 0)
     override fun setOuterPosition(position: PhysicalPosition<Int>) {}
     override fun prePresentNotify() {}
+    // R2 stubs
+    override fun currentMonitor(): MonitorHandle? = null
+    private var _fullscreen: Fullscreen? = null
+    override val fullscreen: Fullscreen? get() = _fullscreen
+    override fun setFullscreen(fullscreen: Fullscreen?) { _fullscreen = fullscreen }
 }
 
 /** Fake EventLoop — records the calls. */
@@ -109,6 +116,10 @@ class FakeEventLoop : ActiveEventLoop {
     override fun createProxy(): EventLoopProxy {
         error("not needed in tests")
     }
+
+    // R2 stubs
+    override fun availableMonitors(): List<MonitorHandle> = emptyList()
+    override fun primaryMonitor(): MonitorHandle? = null
 }
 
 // ---------------------------------------------------------------------------

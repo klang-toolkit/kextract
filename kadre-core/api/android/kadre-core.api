@@ -1,9 +1,11 @@
 public abstract interface class org/graphiks/kadre/core/ActiveEventLoop {
+	public abstract fun availableMonitors ()Ljava/util/List;
 	public abstract fun createProxy ()Lorg/graphiks/kadre/core/EventLoopProxy;
 	public abstract fun createWindow (Lorg/graphiks/kadre/core/WindowAttributes;)Lorg/graphiks/kadre/core/Window;
 	public abstract fun exit ()V
 	public abstract fun getControlFlow ()Lorg/graphiks/kadre/core/ControlFlow;
 	public abstract fun isExiting ()Z
+	public abstract fun primaryMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public abstract fun setControlFlow (Lorg/graphiks/kadre/core/ControlFlow;)V
 }
 
@@ -133,6 +135,35 @@ public final class org/graphiks/kadre/core/FrameTimingTracer {
 	public final fun setEnabled (Z)V
 	public final fun setSink (Lkotlin/jvm/functions/Function1;)V
 	public final fun setSlowFrameThresholdMs (D)V
+}
+
+public abstract interface class org/graphiks/kadre/core/Fullscreen {
+}
+
+public final class org/graphiks/kadre/core/Fullscreen$Borderless : org/graphiks/kadre/core/Fullscreen {
+	public fun <init> ()V
+	public fun <init> (Lorg/graphiks/kadre/core/MonitorHandle;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/MonitorHandle;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/MonitorHandle;
+	public final fun copy (Lorg/graphiks/kadre/core/MonitorHandle;)Lorg/graphiks/kadre/core/Fullscreen$Borderless;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/Fullscreen$Borderless;Lorg/graphiks/kadre/core/MonitorHandle;ILjava/lang/Object;)Lorg/graphiks/kadre/core/Fullscreen$Borderless;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/Fullscreen$Exclusive : org/graphiks/kadre/core/Fullscreen {
+	public fun <init> (Lorg/graphiks/kadre/core/MonitorHandle;Lorg/graphiks/kadre/core/VideoMode;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/MonitorHandle;
+	public final fun component2 ()Lorg/graphiks/kadre/core/VideoMode;
+	public final fun copy (Lorg/graphiks/kadre/core/MonitorHandle;Lorg/graphiks/kadre/core/VideoMode;)Lorg/graphiks/kadre/core/Fullscreen$Exclusive;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/Fullscreen$Exclusive;Lorg/graphiks/kadre/core/MonitorHandle;Lorg/graphiks/kadre/core/VideoMode;ILjava/lang/Object;)Lorg/graphiks/kadre/core/Fullscreen$Exclusive;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
+	public final fun getVideoMode ()Lorg/graphiks/kadre/core/VideoMode;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/Key : java/lang/Enum {
@@ -268,6 +299,15 @@ public final class org/graphiks/kadre/core/Modifiers$Companion {
 	public final fun getMETA-yizPXk8 ()I
 	public final fun getNONE-yizPXk8 ()I
 	public final fun getSHIFT-yizPXk8 ()I
+}
+
+public abstract interface class org/graphiks/kadre/core/MonitorHandle {
+	public abstract fun getCurrentVideoMode ()Lorg/graphiks/kadre/core/VideoMode;
+	public abstract fun getId ()J
+	public abstract fun getName ()Ljava/lang/String;
+	public abstract fun getPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public abstract fun getScaleFactor ()D
+	public abstract fun getVideoModes ()Ljava/util/List;
 }
 
 public abstract interface class org/graphiks/kadre/core/MouseButton {
@@ -539,8 +579,25 @@ public final class org/graphiks/kadre/core/TouchPhase : java/lang/Enum {
 	public static fun values ()[Lorg/graphiks/kadre/core/TouchPhase;
 }
 
+public final class org/graphiks/kadre/core/VideoMode {
+	public fun <init> (Lorg/graphiks/kadre/core/PhysicalSize;Ljava/lang/Integer;Ljava/lang/Integer;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/PhysicalSize;
+	public final fun component2 ()Ljava/lang/Integer;
+	public final fun component3 ()Ljava/lang/Integer;
+	public final fun copy (Lorg/graphiks/kadre/core/PhysicalSize;Ljava/lang/Integer;Ljava/lang/Integer;)Lorg/graphiks/kadre/core/VideoMode;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/VideoMode;Lorg/graphiks/kadre/core/PhysicalSize;Ljava/lang/Integer;Ljava/lang/Integer;ILjava/lang/Object;)Lorg/graphiks/kadre/core/VideoMode;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBitDepth ()Ljava/lang/Integer;
+	public final fun getRefreshRateMilliHz ()Ljava/lang/Integer;
+	public final fun getSize ()Lorg/graphiks/kadre/core/PhysicalSize;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun close ()V
+	public abstract fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
+	public abstract fun getFullscreen ()Lorg/graphiks/kadre/core/Fullscreen;
 	public abstract fun getId-1uDr44Y ()J
 	public abstract fun getInnerSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public abstract fun getOuterPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
@@ -557,6 +614,7 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun prePresentNotify ()V
 	public abstract fun requestRedraw ()V
 	public abstract fun setDecorations (Z)V
+	public abstract fun setFullscreen (Lorg/graphiks/kadre/core/Fullscreen;)V
 	public abstract fun setMaxSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V
 	public abstract fun setMaximized (Z)V
 	public abstract fun setMinSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V
@@ -569,10 +627,11 @@ public abstract interface class org/graphiks/kadre/core/Window {
 
 public final class org/graphiks/kadre/core/WindowAttributes {
 	public fun <init> ()V
-	public fun <init> (Ljava/lang/String;Lorg/graphiks/kadre/core/PhysicalSize;ZZLorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalPosition;ZZZ)V
-	public synthetic fun <init> (Ljava/lang/String;Lorg/graphiks/kadre/core/PhysicalSize;ZZLorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalPosition;ZZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lorg/graphiks/kadre/core/PhysicalSize;ZZLorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalPosition;ZZZLorg/graphiks/kadre/core/Fullscreen;)V
+	public synthetic fun <init> (Ljava/lang/String;Lorg/graphiks/kadre/core/PhysicalSize;ZZLorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalPosition;ZZZLorg/graphiks/kadre/core/Fullscreen;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component10 ()Z
+	public final fun component11 ()Lorg/graphiks/kadre/core/Fullscreen;
 	public final fun component2 ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public final fun component3 ()Z
 	public final fun component4 ()Z
@@ -581,11 +640,12 @@ public final class org/graphiks/kadre/core/WindowAttributes {
 	public final fun component7 ()Lorg/graphiks/kadre/core/PhysicalPosition;
 	public final fun component8 ()Z
 	public final fun component9 ()Z
-	public final fun copy (Ljava/lang/String;Lorg/graphiks/kadre/core/PhysicalSize;ZZLorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalPosition;ZZZ)Lorg/graphiks/kadre/core/WindowAttributes;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowAttributes;Ljava/lang/String;Lorg/graphiks/kadre/core/PhysicalSize;ZZLorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalPosition;ZZZILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowAttributes;
+	public final fun copy (Ljava/lang/String;Lorg/graphiks/kadre/core/PhysicalSize;ZZLorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalPosition;ZZZLorg/graphiks/kadre/core/Fullscreen;)Lorg/graphiks/kadre/core/WindowAttributes;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowAttributes;Ljava/lang/String;Lorg/graphiks/kadre/core/PhysicalSize;ZZLorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalSize;Lorg/graphiks/kadre/core/PhysicalPosition;ZZZLorg/graphiks/kadre/core/Fullscreen;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowAttributes;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getActive ()Z
 	public final fun getDecorations ()Z
+	public final fun getFullscreen ()Lorg/graphiks/kadre/core/Fullscreen;
 	public final fun getMaxSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public final fun getMaximized ()Z
 	public final fun getMinSize ()Lorg/graphiks/kadre/core/PhysicalSize;

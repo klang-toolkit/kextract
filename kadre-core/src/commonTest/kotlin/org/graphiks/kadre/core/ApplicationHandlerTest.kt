@@ -35,6 +35,10 @@ class ApplicationHandlerTest {
         override fun createProxy(): EventLoopProxy = object : EventLoopProxy {
             override fun wakeUp() = Unit
         }
+
+        // R2 stubs
+        override fun availableMonitors() = emptyList<org.graphiks.kadre.core.MonitorHandle>()
+        override fun primaryMonitor() = null
     }
 
     // -------------------------------------------------------------------------

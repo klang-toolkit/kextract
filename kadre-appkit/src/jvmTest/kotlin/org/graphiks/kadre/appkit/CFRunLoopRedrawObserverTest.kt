@@ -93,6 +93,9 @@ class CFRunLoopRedrawObserverTest {
             override fun createWindow(attributes: WindowAttributes): Window = throw UnsupportedOperationException()
             override fun exit() = Unit
             override fun createProxy(): EventLoopProxy = throw UnsupportedOperationException()
+            // R2 stubs
+            override fun availableMonitors() = emptyList<org.graphiks.kadre.core.MonitorHandle>()
+            override fun primaryMonitor() = null
         }
         val stubHandler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit

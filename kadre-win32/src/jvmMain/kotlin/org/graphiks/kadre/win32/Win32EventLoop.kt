@@ -21,6 +21,7 @@ import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.StartCause
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -126,6 +127,21 @@ internal class Win32EventLoop : ActiveEventLoop {
      * from a secondary thread.
      */
     override fun createProxy(): EventLoopProxy = Win32EventLoopProxy.create()
+
+    // ── R2: monitor enumeration ───────────────────────────────────────────────
+
+    /**
+     * Returns all connected monitors via EnumDisplayMonitors + GetMonitorInfoW.
+     *
+     * Returns an empty list on non-Windows platforms (graceful no-op).
+     */
+    override fun availableMonitors(): List<MonitorHandle> = enumerateWin32Monitors()
+
+    /**
+     * Returns the primary monitor (dwFlags & MONITORINFOF_PRIMARY), or null.
+     */
+    override fun primaryMonitor(): MonitorHandle? =
+        enumerateWin32Monitors().firstOrNull { (it as? Win32MonitorHandle) != null }
 
     // ── Message loop ──────────────────────────────────────────────────────────
 

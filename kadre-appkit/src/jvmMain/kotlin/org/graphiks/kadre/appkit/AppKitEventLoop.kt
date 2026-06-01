@@ -16,6 +16,7 @@ import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import java.lang.foreign.MemorySegment
@@ -109,6 +110,23 @@ internal class AppKitEventLoop(
      * [AppKitEventLoopProxy].
      */
     override fun createProxy(): EventLoopProxy = AppKitEventLoopProxy.create()
+
+    // ── R2: monitor enumeration ───────────────────────────────────────────────
+
+    /**
+     * Returns all connected screens via NSScreen.screens.
+     *
+     * Falls back to an empty list if the AppKit bindings are unavailable
+     * (e.g. non-macOS or headless CI).
+     */
+    override fun availableMonitors(): List<MonitorHandle> =
+        AppKitMonitorHandle.allScreens()
+
+    /**
+     * Returns the primary monitor via NSScreen.mainScreen, or null if unavailable.
+     */
+    override fun primaryMonitor(): MonitorHandle? =
+        AppKitMonitorHandle.primaryScreen()
 }
 
 /**

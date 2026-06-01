@@ -5,7 +5,9 @@ public final class org/graphiks/kadre/appkit/AppKitEventLoopKt {
 public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/core/Window {
 	public fun <init> (Lorg/graphiks/kadre/core/WindowAttributes;)V
 	public fun close ()V
+	public fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public final fun getDelegate ()Lorg/graphiks/kadre/appkit/KadreWindowDelegate;
+	public fun getFullscreen ()Lorg/graphiks/kadre/core/Fullscreen;
 	public fun getId-1uDr44Y ()J
 	public fun getInnerSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public fun getOuterPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
@@ -22,6 +24,7 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun prePresentNotify ()V
 	public fun requestRedraw ()V
 	public fun setDecorations (Z)V
+	public fun setFullscreen (Lorg/graphiks/kadre/core/Fullscreen;)V
 	public fun setMaxSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V
 	public fun setMaximized (Z)V
 	public fun setMinSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V

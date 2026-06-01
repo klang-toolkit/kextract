@@ -315,6 +315,38 @@ class JsWebDomBridge : WebDomBridge {
     private fun dispatch(event: WebWindowEvent) {
         onWindowEvent?.invoke(event)
     }
+
+    // ── R2: Fullscreen API ────────────────────────────────────────────────────
+
+    /**
+     * Calls `element.requestFullscreen()` on the target canvas.
+     * Uses the dynamic API to handle browser prefixes gracefully.
+     */
+    override fun requestFullscreen(canvasId: String) {
+        val el = document.getElementById(canvasId) ?: targetElement ?: return
+        try {
+            val d = el.asDynamic()
+            when {
+                d.requestFullscreen != null -> d.requestFullscreen()
+                d.webkitRequestFullscreen != null -> d.webkitRequestFullscreen()
+                d.mozRequestFullScreen != null -> d.mozRequestFullScreen()
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Calls `document.exitFullscreen()`.
+     */
+    override fun exitFullscreen() {
+        try {
+            val d = document.asDynamic()
+            when {
+                d.exitFullscreen != null -> d.exitFullscreen()
+                d.webkitExitFullscreen != null -> d.webkitExitFullscreen()
+                d.mozCancelFullScreen != null -> d.mozCancelFullScreen()
+            }
+        } catch (_: Throwable) {}
+    }
 }
 
 /**

@@ -16,10 +16,13 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
@@ -276,6 +279,60 @@ class WaylandWindow private constructor(
      */
     override fun setOuterPosition(position: PhysicalPosition<Int>) { /* no-op: Wayland does not expose global positions */ }
 
+    // ── R2: monitor & fullscreen ──────────────────────────────────────────────
+
+    /**
+     * Returns a synthetic monitor representing the Wayland compositor's output.
+     *
+     * Uses the current window size and scale factor as the monitor's video mode,
+     * since the Wayland protocol does not expose physical screen geometry directly.
+     */
+    override fun currentMonitor(): MonitorHandle? = object : MonitorHandle {
+        override val id: Long = displayPtr
+        override val name: String? = null
+        override val position: PhysicalPosition<Int> = PhysicalPosition(0, 0)
+        override val scaleFactor: Double = _scaleFactor
+        override val currentVideoMode: VideoMode = VideoMode(_innerSize, null, null)
+        override val videoModes: List<VideoMode> = listOf(currentVideoMode)
+    }
+
+    /** In-memory fullscreen state (R2). */
+    @Volatile private var _fullscreen: Fullscreen? = attrs.fullscreen
+
+    override val fullscreen: Fullscreen?
+        get() = _fullscreen
+
+    /**
+     * Enters or exits borderless fullscreen via xdg_toplevel.set_fullscreen / unset_fullscreen.
+     *
+     * **Exclusive fullscreen is not supported on Wayland** — the xdg-shell protocol does not
+     * expose mode-change requests to clients. [Fullscreen.Exclusive] is treated as
+     * [Fullscreen.Borderless] and the no-op is intentional.
+     *
+     * @param fullscreen New fullscreen state, or null to exit fullscreen.
+     */
+    override fun setFullscreen(fullscreen: Fullscreen?) {
+        when (fullscreen) {
+            null -> {
+                xdg?.setFullscreen(false)
+                flushDisplay()
+                _fullscreen = null
+            }
+            is Fullscreen.Borderless -> {
+                xdg?.setFullscreen(true)
+                flushDisplay()
+                _fullscreen = fullscreen
+            }
+            is Fullscreen.Exclusive -> {
+                // Exclusive fullscreen is not supported on Wayland (xdg-shell limitation).
+                // Fall back to borderless silently.
+                xdg?.setFullscreen(true)
+                flushDisplay()
+                _fullscreen = fullscreen // store requested mode for API parity
+            }
+        }
+    }
+
     /**
      * Sends a `wl_surface.commit` to the compositor to signal that the next frame is ready.
      *
@@ -395,6 +452,7 @@ class WaylandWindow private constructor(
                 if (attrs.maximized) window.xdg?.setMaximized(true)
                 attrs.minSize?.let { window.xdg?.setMinSize(it.width, it.height) }
                 attrs.maxSize?.let { window.xdg?.setMaxSize(it.width, it.height) }
+                if (attrs.fullscreen != null) window.xdg?.setFullscreen(true)
             }
 
             // ── 3. Fallback for a bare surface (no xdg_shell): legacy initial commit ──

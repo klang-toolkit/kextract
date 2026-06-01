@@ -20,7 +20,11 @@ import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
+import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.PhysicalPosition
+import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
@@ -112,6 +116,46 @@ class WaylandEventLoop internal constructor(
      * The proxy uses the eventfd to wake up the loop from any thread.
      */
     override fun createProxy(): EventLoopProxy = WaylandEventLoopProxy(eventFd)
+
+    // ── R2: monitor enumeration ───────────────────────────────────────────────
+
+    /**
+     * Returns a synthetic monitor derived from the first window's size and scale factor.
+     *
+     * On Wayland, the compositor does not expose physical monitor geometry to clients
+     * via a simple public API in the core protocol (wl_output geometry is available
+     * but requires additional setup). We return a synthetic monitor based on the
+     * current window/screen state.
+     *
+     * A complete implementation would iterate the bound wl_output objects and read
+     * their `geometry` and `mode` events, which requires storing that data during
+     * the registry binding phase (TODO for a future ticket).
+     */
+    override fun availableMonitors(): List<MonitorHandle> {
+        val win = windows.values.firstOrNull()
+        val scale = win?._scaleFactor ?: 1.0
+        val size = win?.innerSize ?: PhysicalSize(1920, 1080)
+        return listOf(syntheticWaylandMonitor(displayPtr, scale, size))
+    }
+
+    /**
+     * Returns the primary monitor (the single synthetic monitor).
+     */
+    override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+}
+
+/** Creates a synthetic [MonitorHandle] for a Wayland output. */
+private fun syntheticWaylandMonitor(
+    outputPtr: Long,
+    scale: Double,
+    size: PhysicalSize<Int>,
+): MonitorHandle = object : MonitorHandle {
+    override val id: Long = outputPtr
+    override val name: String? = null
+    override val position: PhysicalPosition<Int> = PhysicalPosition(0, 0)
+    override val scaleFactor: Double = scale
+    override val currentVideoMode: VideoMode = VideoMode(size, null, null)
+    override val videoModes: List<VideoMode> = listOf(currentVideoMode)
 }
 
 // ── runApp ────────────────────────────────────────────────────────────────────

@@ -21,7 +21,9 @@ internal const val XDG_TOPLEVEL_SET_MAX_SIZE: Int = 7
 internal const val XDG_TOPLEVEL_SET_MIN_SIZE: Int = 8
 internal const val XDG_TOPLEVEL_SET_MAXIMIZED: Int = 9
 internal const val XDG_TOPLEVEL_UNSET_MAXIMIZED: Int = 10
-internal const val XDG_TOPLEVEL_SET_MINIMIZED: Int = 17
+internal const val XDG_TOPLEVEL_SET_MINIMIZED: Int = 13
+internal const val XDG_TOPLEVEL_SET_FULLSCREEN: Int = 11
+internal const val XDG_TOPLEVEL_UNSET_FULLSCREEN: Int = 12
 
 // xdg_decoration_manager_v1 opcodes
 internal const val XDG_DECORATION_MANAGER_DESTROY: Int = 0

@@ -50,6 +50,9 @@ class KadreWindowDelegateTest {
         override fun setControlFlow(controlFlow: ControlFlow) = Unit
         override fun exit() { _exiting = true }
         override fun createProxy(): EventLoopProxy = throw UnsupportedOperationException()
+        // R2 stubs
+        override fun availableMonitors() = emptyList<org.graphiks.kadre.core.MonitorHandle>()
+        override fun primaryMonitor() = null
     }
 
     // ── Tests ────────────────────────────────────────────────────────────────

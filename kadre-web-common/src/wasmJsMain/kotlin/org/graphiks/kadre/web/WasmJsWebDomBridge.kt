@@ -175,6 +175,14 @@ private external fun observeDevicePixelRatioJs(cb: JsAny, isAttached: JsAny)
 @JsFun("(fn) => fn")
 private external fun wrapEventHandler(fn: (JsAny) -> Unit): JsAny
 
+/** Calls requestFullscreen on the given element (handles vendor prefixes). */
+@JsFun("(el) => { if (el.requestFullscreen) el.requestFullscreen(); else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen(); }")
+private external fun jsRequestFullscreen(el: JsEventTarget)
+
+/** Calls document.exitFullscreen (handles vendor prefixes). */
+@JsFun("() => { if (document.exitFullscreen) document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); }")
+private external fun jsExitFullscreen()
+
 /**
  * Creates a canvas (id + dimensions) and appends it to the parent (parentId or body).
  * If a canvas with that id already exists, returns it as is without recreating.
@@ -421,5 +429,20 @@ class WasmJsWebDomBridge : WebDomBridge {
 
     private fun dispatch(event: WebWindowEvent) {
         onWindowEvent?.invoke(event)
+    }
+
+    // ── R2: Fullscreen API ────────────────────────────────────────────────────
+
+    override fun requestFullscreen(canvasId: String) {
+        try {
+            val el = getElementById(canvasId.toJsString()) ?: targetElement ?: return
+            jsRequestFullscreen(el)
+        } catch (_: Throwable) {}
+    }
+
+    override fun exitFullscreen() {
+        try {
+            jsExitFullscreen()
+        } catch (_: Throwable) {}
     }
 }

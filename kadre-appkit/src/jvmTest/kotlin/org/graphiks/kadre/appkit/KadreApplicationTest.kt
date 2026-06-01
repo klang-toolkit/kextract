@@ -181,5 +181,8 @@ class KadreApplicationTest {
         override fun exit() = Unit
         override val isExiting: Boolean = false
         override fun createProxy(): EventLoopProxy = throw UnsupportedOperationException()
+        // R2 stubs
+        override fun availableMonitors() = emptyList<org.graphiks.kadre.core.MonitorHandle>()
+        override fun primaryMonitor() = null
     }
 }

@@ -830,6 +830,12 @@ internal const val SWP_NOZORDER: Int = 0x0004
 /** SWP_NOACTIVATE — do not activate the window when moving it. */
 internal const val SWP_NOACTIVATE: Int = 0x0010
 
+/** WS_VISIBLE — window is visible. */
+internal const val WS_VISIBLE: Int = 0x10000000
+
+/** HWND_TOP — place the window at the top of the Z-order (non-topmost). */
+internal val HWND_TOP: MemorySegment = MemorySegment.ofAddress(0L)
+
 /** Byte alignment of RECT (LONG = 4 bytes). */
 internal const val RECT_ALIGN: Long = 4L
 

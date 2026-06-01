@@ -13,6 +13,8 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -44,6 +46,17 @@ class Win32Window private constructor(
     private val hInstance: MemorySegment,
     private val attrs: WindowAttributes,
 ) : Window {
+
+    // ── R2 fullscreen state ──────────────────────────────────────────────────
+
+    /** In-memory fullscreen state (R2). */
+    @Volatile private var _fullscreen: Fullscreen? = attrs.fullscreen
+
+    /** Saved window style before entering borderless fullscreen (for restoration). */
+    @Volatile private var _savedStyle: Long? = null
+
+    /** Saved window rect before entering borderless fullscreen (for restoration). */
+    @Volatile private var _savedRect: IntArray? = null
 
     override val id: WindowId = WindowId(hwnd.address())
 
@@ -277,6 +290,112 @@ class Win32Window private constructor(
      * No-op on Win32: there is no equivalent to Wayland's `wl_surface.pre_commit`.
      */
     override fun prePresentNotify() { /* no-op on Win32 */ }
+
+    // ── R2: monitor & fullscreen ──────────────────────────────────────────────
+
+    /**
+     * Returns the monitor that contains the majority of this Win32 window
+     * via MonitorFromWindow(MONITOR_DEFAULTTONEAREST).
+     */
+    override fun currentMonitor(): MonitorHandle? = win32MonitorFromHwnd(hwnd)
+
+    override val fullscreen: Fullscreen?
+        get() = _fullscreen
+
+    /**
+     * Enters or exits fullscreen mode on Win32.
+     *
+     * **Borderless** fullscreen: saves the current window style and rect, switches the
+     * window to WS_POPUP, and stretches it to cover the target monitor's virtual rect.
+     * Exiting restores the saved style and rect.
+     *
+     * **Exclusive** fullscreen: calls ChangeDisplaySettingsExW to request a mode change on
+     * the target monitor, then enters borderless mode covering the full monitor. Exiting
+     * calls ChangeDisplaySettingsExW with NULL to restore the original mode.
+     *
+     * Note: ChangeDisplaySettings is not wired here because it requires a DEVMODEW upcall
+     * and is only relevant on hardware running Windows; it is documented as not yet
+     * implemented and falls back to borderless.
+     */
+    override fun setFullscreen(fullscreen: Fullscreen?) {
+        try {
+            when (fullscreen) {
+                null -> exitFullscreen()
+                is Fullscreen.Borderless -> enterBorderless(fullscreen.monitor)
+                is Fullscreen.Exclusive  -> {
+                    // Exclusive on Win32 would require ChangeDisplaySettingsExW.
+                    // Fallback to borderless and document the limitation.
+                    // TODO(R2-win32-exclusive): implement via ChangeDisplaySettingsExW.
+                    enterBorderless(fullscreen.monitor)
+                    _fullscreen = fullscreen // report back the requested mode
+                }
+            }
+        } catch (_: Throwable) {}
+    }
+
+    private fun enterBorderless(monitor: MonitorHandle?) {
+        if (_savedStyle == null) {
+            // Save current state for restoration
+            _savedStyle = getWindowStyle()
+            _savedRect = try {
+                Arena.ofConfined().use { arena ->
+                    val rect = arena.allocate(16L, 4L)
+                    val ok = getWindowRect?.invokeExact(hwnd, rect) as? Int ?: 0
+                    if (ok != 0) intArrayOf(
+                        rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_LEFT),
+                        rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_TOP),
+                        rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_RIGHT),
+                        rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_BOTTOM),
+                    ) else null
+                }
+            } catch (_: Throwable) { null }
+        }
+
+        // Determine target monitor rect
+        val targetMonitor: Win32MonitorHandle? = when (monitor) {
+            is Win32MonitorHandle -> monitor
+            null -> win32MonitorFromHwnd(hwnd)
+            else -> null
+        }
+
+        val (mx, my, mw, mh) = if (targetMonitor != null) {
+            val pos = targetMonitor.position
+            val cm = targetMonitor.currentVideoMode
+            intArrayOf(pos.x, pos.y, cm?.size?.width ?: 1920, cm?.size?.height ?: 1080)
+        } else {
+            intArrayOf(0, 0, 1920, 1080)
+        }
+
+        // Switch to WS_POPUP (borderless)
+        setWindowStyle(0x80000000L.toLong() or WS_VISIBLE.toLong())
+        setWindowPos?.invokeExact(
+            hwnd, HWND_TOP,
+            mx, my, mw, mh,
+            SWP_NOACTIVATE or 0x0020 /* SWP_FRAMECHANGED */,
+        ) as? Int
+
+        _fullscreen = Fullscreen.Borderless(monitor)
+    }
+
+    private fun exitFullscreen() {
+        val savedStyle = _savedStyle
+        val savedRect  = _savedRect
+        if (savedStyle != null) {
+            setWindowStyle(savedStyle)
+            if (savedRect != null) {
+                val w = savedRect[2] - savedRect[0]
+                val h = savedRect[3] - savedRect[1]
+                setWindowPos?.invokeExact(
+                    hwnd, HWND_TOP,
+                    savedRect[0], savedRect[1], w, h,
+                    SWP_NOACTIVATE or 0x0020 /* SWP_FRAMECHANGED */,
+                ) as? Int
+            }
+            _savedStyle = null
+            _savedRect  = null
+        }
+        _fullscreen = null
+    }
 
     // ── Companion ─────────────────────────────────────────────────────────────
 

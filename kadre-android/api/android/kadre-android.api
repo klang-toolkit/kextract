@@ -6,6 +6,8 @@ public final class org/graphiks/kadre/android/AndroidKadreRuntime {
 
 public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre/core/Window {
 	public fun close ()V
+	public fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
+	public fun getFullscreen ()Lorg/graphiks/kadre/core/Fullscreen;
 	public fun getId-1uDr44Y ()J
 	public fun getInnerSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public fun getOuterPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
@@ -22,6 +24,7 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun prePresentNotify ()V
 	public fun requestRedraw ()V
 	public fun setDecorations (Z)V
+	public fun setFullscreen (Lorg/graphiks/kadre/core/Fullscreen;)V
 	public fun setMaxSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V
 	public fun setMaximized (Z)V
 	public fun setMinSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V

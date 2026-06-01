@@ -1,10 +1,14 @@
 package org.graphiks.kadre.android
 
 import android.view.SurfaceView
+import android.view.WindowManager
+import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
@@ -196,4 +200,73 @@ class AndroidWindow internal constructor(
      * No-op on Android: there is no Wayland-style pre-commit concept on this platform.
      */
     override fun prePresentNotify() { /* no-op on Android */ }
+
+    // ── R2: monitor & fullscreen ──────────────────────────────────────────────
+
+    /**
+     * Returns a synthetic monitor based on the Android display metrics.
+     *
+     * Uses the SurfaceView's display to read width/height/density.
+     */
+    override fun currentMonitor(): MonitorHandle? {
+        return try {
+            val dm = android.util.DisplayMetrics()
+            surfaceView.display?.getRealMetrics(dm)
+                ?: (surfaceView.context.getSystemService(android.content.Context.WINDOW_SERVICE)
+                    as WindowManager).defaultDisplay.getRealMetrics(dm)
+            object : MonitorHandle {
+                override val id: Long = 0L
+                override val name: String? = null
+                override val position: PhysicalPosition<Int> = PhysicalPosition(0, 0)
+                override val scaleFactor: Double = dm.density.toDouble()
+                override val currentVideoMode: VideoMode = VideoMode(
+                    PhysicalSize(dm.widthPixels, dm.heightPixels), null, null)
+                override val videoModes: List<VideoMode> = listOf(currentVideoMode)
+            }
+        } catch (_: Throwable) { null }
+    }
+
+    /** In-memory fullscreen state (R2). */
+    @Volatile private var _fullscreen: Fullscreen? = null
+
+    override val fullscreen: Fullscreen? get() = _fullscreen
+
+    /**
+     * Enters or exits immersive fullscreen on Android via WindowInsetsController.
+     *
+     * **Exclusive fullscreen is not supported on Android** — the immersive mode is
+     * always borderless. [Fullscreen.Exclusive] is treated as [Fullscreen.Borderless].
+     *
+     * Requires API 30+ for [android.view.WindowInsetsController]. On older APIs this is
+     * a documented no-op (the status/navigation bars remain visible).
+     *
+     * @param fullscreen New fullscreen state, or null to exit fullscreen.
+     */
+    override fun setFullscreen(fullscreen: Fullscreen?) {
+        try {
+            val activity = surfaceView.context
+            if (activity is androidx.activity.ComponentActivity) {
+                val window = activity.window ?: return
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    val controller = window.insetsController ?: return
+                    if (fullscreen != null) {
+                        controller.hide(
+                            android.view.WindowInsets.Type.statusBars() or
+                            android.view.WindowInsets.Type.navigationBars()
+                        )
+                        controller.systemBarsBehavior =
+                            android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    } else {
+                        controller.show(
+                            android.view.WindowInsets.Type.statusBars() or
+                            android.view.WindowInsets.Type.navigationBars()
+                        )
+                    }
+                }
+                // For API < 30, fullscreen via SYSTEM_UI_FLAG_IMMERSIVE_STICKY is intentionally
+                // omitted to avoid deprecation warnings — document as out of scope.
+            }
+        } catch (_: Throwable) {}
+        _fullscreen = fullscreen
+    }
 }

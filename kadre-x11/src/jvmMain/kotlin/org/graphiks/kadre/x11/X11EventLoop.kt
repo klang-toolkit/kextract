@@ -24,6 +24,7 @@ import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.Modifiers
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -194,6 +195,23 @@ class X11EventLoop internal constructor(
      */
     override fun createProxy(): EventLoopProxy =
         X11EventLoopProxy(this, displayPtr)
+
+    // ── R2: monitor enumeration ───────────────────────────────────────────────
+
+    /**
+     * Returns all monitors for this X11 display.
+     *
+     * Tries RANDR, then Xinerama, then a synthetic single-monitor fallback.
+     */
+    override fun availableMonitors(): List<MonitorHandle> {
+        val scale = windows.values.firstOrNull()?.scaleFactor ?: 1.0
+        return enumerateX11Monitors(displayPtr, screen, scale)
+    }
+
+    /**
+     * Returns the first monitor (primary/leftmost) or the synthetic monitor.
+     */
+    override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
 }
 
 // ── Dispatch X11 events ───────────────────────────────────────────────────────

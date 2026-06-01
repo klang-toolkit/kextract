@@ -16,6 +16,8 @@
  */
 package org.graphiks.kadre.x11
 
+import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -253,6 +255,61 @@ class X11Window private constructor(
      */
     override fun prePresentNotify() { /* no-op on X11 */ }
 
+    // ── R2: monitor & fullscreen ──────────────────────────────────────────────
+
+    /**
+     * Returns the monitor that contains this window by finding the monitor whose
+     * rect contains the window's outerPosition.
+     *
+     * Falls back to the first available monitor (primary screen).
+     */
+    override fun currentMonitor(): MonitorHandle? {
+        val monitors = enumerateX11Monitors(displayPtr, 0, scaleFactor)
+        if (monitors.isEmpty()) return null
+        val pos = outerPosition
+        return monitors.firstOrNull { m ->
+            val mw = m.currentVideoMode?.size?.width ?: 0
+            val mh = m.currentVideoMode?.size?.height ?: 0
+            pos.x >= m.position.x && pos.x < m.position.x + mw &&
+            pos.y >= m.position.y && pos.y < m.position.y + mh
+        } ?: monitors.first()
+    }
+
+    /** In-memory fullscreen state (R2). */
+    @Volatile private var _fullscreen: Fullscreen? = attrs.fullscreen
+
+    override val fullscreen: Fullscreen?
+        get() = _fullscreen
+
+    /**
+     * Enters or exits fullscreen on X11 via _NET_WM_STATE_FULLSCREEN.
+     *
+     * Uses the [sendNetWmState] helper (already present in this class) to
+     * send the appropriate ClientMessage to the window manager.
+     *
+     * Both [Fullscreen.Borderless] and [Fullscreen.Exclusive] map to the
+     * _NET_WM_STATE_FULLSCREEN atom — X11 WMs do not support exclusive mode.
+     */
+    override fun setFullscreen(fullscreen: Fullscreen?) {
+        val atom = internAtom(displayPtr, "_NET_WM_STATE_FULLSCREEN")
+        when (fullscreen) {
+            null -> {
+                sendNetWmState(false, atom, 0L)
+                _fullscreen = null
+            }
+            is Fullscreen.Borderless -> {
+                sendNetWmState(true, atom, 0L)
+                _fullscreen = fullscreen
+            }
+            is Fullscreen.Exclusive  -> {
+                // Exclusive fullscreen not supported on X11 via EWMH — fall back to borderless.
+                // Note: XRandR mode-setting is possible but out of scope for R2.
+                sendNetWmState(true, atom, 0L)
+                _fullscreen = fullscreen // store requested mode for API parity
+            }
+        }
+    }
+
     // ── X11 helper: intern atom ───────────────────────────────────────────────
 
     private fun internAtom(displayPtr: Long, name: String): Long {
@@ -453,6 +510,11 @@ class X11Window private constructor(
             if (attrs.visible) {
                 xMapWindow?.invokeExact(displaySeg, xWindowId) as? Int
                 xFlush?.invokeExact(displaySeg) as? Int
+            }
+
+            // ── 7. Apply initial fullscreen from attrs ────────────────────────
+            if (attrs.fullscreen != null) {
+                window.setFullscreen(attrs.fullscreen)
             }
 
             return window

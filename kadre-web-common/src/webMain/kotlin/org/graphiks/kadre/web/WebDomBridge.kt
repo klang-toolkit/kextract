@@ -84,4 +84,23 @@ interface WebDomBridge {
      * Default: no-op (test / non-browser bridge).
      */
     fun setDocumentTitle(title: String) { /* no-op by default */ }
+
+    // ── R2: fullscreen API ─────────────────────────────────────────────────────
+
+    /**
+     * Requests the browser Fullscreen API for the element identified by [canvasId].
+     *
+     * Calls `element.requestFullscreen()` (or the prefixed variant on older browsers).
+     * Default: no-op (test / non-browser bridge).
+     *
+     * @param canvasId CSS id of the canvas element to go fullscreen.
+     */
+    fun requestFullscreen(canvasId: String) { /* no-op by default */ }
+
+    /**
+     * Exits fullscreen via `document.exitFullscreen()`.
+     *
+     * Default: no-op (test / non-browser bridge).
+     */
+    fun exitFullscreen() { /* no-op by default */ }
 }

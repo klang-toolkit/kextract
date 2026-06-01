@@ -166,4 +166,41 @@ interface Window {
      * On other backends this is a no-op.
      */
     fun prePresentNotify()
+
+    // ── R2: monitor & fullscreen ──────────────────────────────────────────────
+
+    /**
+     * Returns the monitor that currently contains the majority of the window,
+     * or null if the information is not available.
+     *
+     * On mobile / web backends this always returns the single synthetic monitor.
+     *
+     * @return The [MonitorHandle] for the window's current monitor, or null.
+     */
+    fun currentMonitor(): MonitorHandle?
+
+    /**
+     * Enters or exits fullscreen mode.
+     *
+     * - Pass [Fullscreen.Borderless] to cover the monitor without a mode change.
+     * - Pass [Fullscreen.Exclusive] to request exclusive fullscreen (desktop only).
+     * - Pass null to exit fullscreen and return to the windowed state.
+     *
+     * Backends that do not support [Fullscreen.Exclusive] (Wayland, Web, Android, UIKit)
+     * treat it as [Fullscreen.Borderless] and do NOT throw.
+     *
+     * @param fullscreen New fullscreen state, or null to exit fullscreen.
+     */
+    fun setFullscreen(fullscreen: Fullscreen?)
+
+    /**
+     * Returns the current fullscreen state, or null if the window is not fullscreen.
+     *
+     * The value reflects the last successful [setFullscreen] call on backends that
+     * track state in-memory. It may differ from the actual compositor state immediately
+     * after calling [setFullscreen] (the compositor may asynchronously confirm the change).
+     *
+     * @return The active [Fullscreen] mode, or null when in windowed mode.
+     */
+    val fullscreen: Fullscreen?
 }

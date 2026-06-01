@@ -56,4 +56,27 @@ interface ActiveEventLoop {
      * @return An [EventLoopProxy] usable from any thread.
      */
     fun createProxy(): EventLoopProxy
+
+    // ── R2: monitor enumeration ───────────────────────────────────────────────
+
+    /**
+     * Returns all monitors currently connected to the system.
+     *
+     * The list contains at least one entry on all backends when a display is
+     * available. On mobile / web backends, a single synthetic monitor
+     * representing the screen is returned.
+     *
+     * @return Immutable list of [MonitorHandle] objects.
+     */
+    fun availableMonitors(): List<MonitorHandle>
+
+    /**
+     * Returns the primary monitor, or null if no primary monitor can be determined.
+     *
+     * On desktop backends this is the monitor designated as "primary" by the OS.
+     * On mobile / web backends this is the main screen.
+     *
+     * @return The primary [MonitorHandle], or null if unavailable.
+     */
+    fun primaryMonitor(): MonitorHandle?
 }
