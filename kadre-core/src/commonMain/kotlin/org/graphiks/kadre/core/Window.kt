@@ -18,19 +18,13 @@ interface Window {
 
     /**
      * Returns the native handle of the rendering surface.
-     *
-     * The concrete type will be `RawWindowHandle` once GRA-122 is merged;
-     * declared `Any` so that commonMain remains platform-independent.
      */
-    val rawWindowHandle: Any
+    val rawWindowHandle: RawWindowHandle
 
     /**
      * Returns the native handle of the display.
-     *
-     * The concrete type will be `RawDisplayHandle` once GRA-122 is merged;
-     * declared `Any` so that commonMain remains platform-independent.
      */
-    val rawDisplayHandle: Any
+    val rawDisplayHandle: RawDisplayHandle
 
     /**
      * Requests a redraw of the window at the next iteration.

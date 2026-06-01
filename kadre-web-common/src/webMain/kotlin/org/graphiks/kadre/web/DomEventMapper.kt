@@ -12,6 +12,15 @@
  */
 package org.graphiks.kadre.web
 
+import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.Modifiers
+import org.graphiks.kadre.core.MouseButton
+import org.graphiks.kadre.core.PhysicalPosition
+import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.TouchPhase
+import org.graphiks.kadre.core.WindowEvent
+
 /**
  * Converts a DOM code (`KeyboardEvent.code`) into a Kadre [WebKey].
  *
@@ -191,4 +200,94 @@ internal fun normalizeWheelDelta(delta: Double, deltaMode: Int): Double {
         else -> 1.0
     }
     return delta * scale
+}
+
+// ---------------------------------------------------------------------------
+// WebWindowEvent → WindowEvent bridge
+// ---------------------------------------------------------------------------
+
+/**
+ * Converts a [WebWindowEvent] to the canonical kadre-core [WindowEvent].
+ *
+ * This bridge is needed because kadre-web-common uses its own Web* mirror types
+ * (defined in [WebTypes]) while the [ApplicationHandler] interface uses kadre-core
+ * sealed types. When kadre-core gains JS/wasmJs targets (ticket #32), these mirror
+ * types will be replaced with typealiases and this mapper can be removed.
+ */
+internal fun WebWindowEvent.toWindowEvent(): WindowEvent = when (this) {
+    WebWindowEvent.CloseRequested -> WindowEvent.CloseRequested
+    is WebWindowEvent.Resized -> WindowEvent.Resized(PhysicalSize(width, height))
+    is WebWindowEvent.KeyboardInput -> WindowEvent.KeyboardInput(
+        key = key.toKey(),
+        state = state.toKeyState(),
+        modifiers = modifiers.toModifiers(),
+        isRepeat = isRepeat,
+    )
+    is WebWindowEvent.PointerMoved -> WindowEvent.PointerMoved(PhysicalPosition(x, y))
+    WebWindowEvent.PointerEntered -> WindowEvent.PointerEntered
+    WebWindowEvent.PointerLeft -> WindowEvent.PointerLeft
+    is WebWindowEvent.MouseInput -> WindowEvent.MouseInput(
+        button = button.toMouseButton(),
+        state = state.toKeyState(),
+    )
+    is WebWindowEvent.MouseWheel -> WindowEvent.MouseWheel(deltaX, deltaY)
+    is WebWindowEvent.Focused -> WindowEvent.Focused(gained)
+    is WebWindowEvent.Touch -> WindowEvent.Touch(
+        phase = phase.toTouchPhase(),
+        location = PhysicalPosition(x, y),
+        id = id,
+    )
+    is WebWindowEvent.ScaleFactorChanged -> WindowEvent.ScaleFactorChanged(factor)
+    WebWindowEvent.RedrawRequested -> WindowEvent.RedrawRequested
+    WebWindowEvent.Destroyed -> WindowEvent.Destroyed
+}
+
+private fun WebKey.toKey(): Key = when (this) {
+    WebKey.A -> Key.A; WebKey.B -> Key.B; WebKey.C -> Key.C; WebKey.D -> Key.D
+    WebKey.E -> Key.E; WebKey.F -> Key.F; WebKey.G -> Key.G; WebKey.H -> Key.H
+    WebKey.I -> Key.I; WebKey.J -> Key.J; WebKey.K -> Key.K; WebKey.L -> Key.L
+    WebKey.M -> Key.M; WebKey.N -> Key.N; WebKey.O -> Key.O; WebKey.P -> Key.P
+    WebKey.Q -> Key.Q; WebKey.R -> Key.R; WebKey.S -> Key.S; WebKey.T -> Key.T
+    WebKey.U -> Key.U; WebKey.V -> Key.V; WebKey.W -> Key.W; WebKey.X -> Key.X
+    WebKey.Y -> Key.Y; WebKey.Z -> Key.Z
+    WebKey.Digit0 -> Key.Digit0; WebKey.Digit1 -> Key.Digit1
+    WebKey.Digit2 -> Key.Digit2; WebKey.Digit3 -> Key.Digit3
+    WebKey.Digit4 -> Key.Digit4; WebKey.Digit5 -> Key.Digit5
+    WebKey.Digit6 -> Key.Digit6; WebKey.Digit7 -> Key.Digit7
+    WebKey.Digit8 -> Key.Digit8; WebKey.Digit9 -> Key.Digit9
+    WebKey.F1  -> Key.F1;  WebKey.F2  -> Key.F2;  WebKey.F3  -> Key.F3
+    WebKey.F4  -> Key.F4;  WebKey.F5  -> Key.F5;  WebKey.F6  -> Key.F6
+    WebKey.F7  -> Key.F7;  WebKey.F8  -> Key.F8;  WebKey.F9  -> Key.F9
+    WebKey.F10 -> Key.F10; WebKey.F11 -> Key.F11; WebKey.F12 -> Key.F12
+    WebKey.Space     -> Key.Space;     WebKey.Enter  -> Key.Enter
+    WebKey.Escape    -> Key.Escape;    WebKey.Backspace -> Key.Backspace
+    WebKey.Tab       -> Key.Tab
+    WebKey.ArrowUp   -> Key.ArrowUp;   WebKey.ArrowDown  -> Key.ArrowDown
+    WebKey.ArrowLeft -> Key.ArrowLeft; WebKey.ArrowRight -> Key.ArrowRight
+    WebKey.ShiftLeft    -> Key.ShiftLeft;    WebKey.ShiftRight   -> Key.ShiftRight
+    WebKey.ControlLeft  -> Key.ControlLeft;  WebKey.ControlRight -> Key.ControlRight
+    WebKey.AltLeft      -> Key.AltLeft;      WebKey.AltRight     -> Key.AltRight
+    WebKey.MetaLeft     -> Key.MetaLeft;     WebKey.MetaRight    -> Key.MetaRight
+    WebKey.Unknown -> Key.Unknown
+}
+
+private fun WebKeyState.toKeyState(): KeyState = when (this) {
+    WebKeyState.Pressed  -> KeyState.Pressed
+    WebKeyState.Released -> KeyState.Released
+}
+
+private fun WebModifiers.toModifiers(): Modifiers = Modifiers(bits)
+
+private fun WebMouseButton.toMouseButton(): MouseButton = when (this) {
+    WebMouseButton.Left   -> MouseButton.Left
+    WebMouseButton.Right  -> MouseButton.Right
+    WebMouseButton.Middle -> MouseButton.Middle
+    is WebMouseButton.Other -> MouseButton.Other(button)
+}
+
+private fun WebTouchPhase.toTouchPhase(): TouchPhase = when (this) {
+    WebTouchPhase.Started   -> TouchPhase.Started
+    WebTouchPhase.Moved     -> TouchPhase.Moved
+    WebTouchPhase.Ended     -> TouchPhase.Ended
+    WebTouchPhase.Cancelled -> TouchPhase.Cancelled
 }

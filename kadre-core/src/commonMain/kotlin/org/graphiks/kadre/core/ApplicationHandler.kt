@@ -35,22 +35,20 @@ interface ApplicationHandler {
      *
      * Mandatory — no default implementation.
      *
-     * The window event types will be defined in GRA-123.
-     *
      * @param eventLoop Active event loop.
      * @param windowId  Identifier of the window that emitted the event.
-     * @param event     Received event (Any type pending GRA-123).
+     * @param event     Received window event.
      */
-    fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any)
+    fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent)
 
     /**
      * Called when an input device event is received.
      *
      * @param eventLoop Active event loop.
      * @param deviceId  Identifier of the device that emitted the event.
-     * @param event     Received event (Any type pending GRA-123).
+     * @param event     Received device event.
      */
-    fun deviceEvent(eventLoop: ActiveEventLoop, deviceId: DeviceId, event: Any): Unit = Unit
+    fun deviceEvent(eventLoop: ActiveEventLoop, deviceId: DeviceId, event: DeviceEvent): Unit = Unit
 
     /**
      * Called at the start of each event loop iteration,

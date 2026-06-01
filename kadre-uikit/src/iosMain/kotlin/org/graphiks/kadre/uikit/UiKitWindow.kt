@@ -294,13 +294,13 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         eventLoop.handler.windowEvent(eventLoop, id, WindowEvent.RedrawRequested)
     }
 
-    override val rawWindowHandle: Any
+    override val rawWindowHandle: RawWindowHandle
         get() = RawWindowHandle.UiKit(
             uiView = metalView.objcPtr().toLong(),
             uiViewController = viewController.objcPtr().toLong(),
         )
 
-    override val rawDisplayHandle: Any
+    override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.UiKit
 
     override fun requestRedraw() {

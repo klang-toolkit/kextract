@@ -23,6 +23,7 @@ import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.StartCause
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
@@ -66,7 +67,7 @@ class WaylandEventLoop internal constructor(
      * Window events produced by native upcalls (xdg configure/close), queued here and drained
      * into [ApplicationHandler.windowEvent] from the loop thread after each pump.
      */
-    internal val eventQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<WindowId, Any>>()
+    internal val eventQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<WindowId, WindowEvent>>()
 
     @Volatile private var _isExiting = false
     override val isExiting: Boolean get() = _isExiting

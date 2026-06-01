@@ -8,6 +8,7 @@ import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.StartCause
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import kotlin.test.Test
 import kotlin.test.assertNotNull
@@ -167,7 +168,7 @@ class KadreApplicationTest {
     @Suppress("unused")
     private class NoopHandler : ApplicationHandler {
         override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
-        override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
+        override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
     }
 
     /** No-op stub to validate the KadreAppDelegate constructor signature. */

@@ -65,10 +65,10 @@ class WaylandWindow private constructor(
     /** The xdg_shell decoration (real toplevel), or null if xdg_shell is unavailable. */
     private var xdg: XdgToplevel? = null
 
-    override val rawWindowHandle: Any
+    override val rawWindowHandle: RawWindowHandle
         get() = RawWindowHandle.Wayland(surface = surfacePtr, display = displayPtr)
 
-    override val rawDisplayHandle: Any
+    override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Wayland(display = displayPtr)
 
     /**

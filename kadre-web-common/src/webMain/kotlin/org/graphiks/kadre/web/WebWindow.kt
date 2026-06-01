@@ -81,7 +81,7 @@ class WebWindow(
      * Returns [RawWindowHandle.Web] with [canvasElementId].
      * Declared `Any` in [Window] to stay platform-independent.
      */
-    override val rawWindowHandle: Any
+    override val rawWindowHandle: RawWindowHandle
         get() = RawWindowHandle.Web(canvasElementId = canvasElementId)
 
     /**
@@ -90,7 +90,7 @@ class WebWindow(
      * Returns [RawDisplayHandle.Web].
      * Declared `Any` in [Window] to stay platform-independent.
      */
-    override val rawDisplayHandle: Any
+    override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Web
 
     /**

@@ -162,14 +162,14 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         )
     }
 
-    override val rawWindowHandle: Any
+    override val rawWindowHandle: RawWindowHandle
         get() = RawWindowHandle.AppKit(
             nsView = contentViewPtr.address(),
             nsWindow = nsWindowPtr.address(),
             nsLayer = metalLayerPtr.address(),
         )
 
-    override val rawDisplayHandle: Any
+    override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.AppKit
 
     /**

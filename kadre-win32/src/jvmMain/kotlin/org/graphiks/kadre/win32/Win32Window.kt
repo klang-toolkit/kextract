@@ -45,13 +45,13 @@ class Win32Window private constructor(
 
     override val id: WindowId = WindowId(hwnd.address())
 
-    override val rawWindowHandle: Any
+    override val rawWindowHandle: RawWindowHandle
         get() = RawWindowHandle.Win32(
             hwnd = hwnd.address(),
             hinstance = hInstance.address(),
         )
 
-    override val rawDisplayHandle: Any
+    override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Win32(hinstance = hInstance.address())
 
     /**

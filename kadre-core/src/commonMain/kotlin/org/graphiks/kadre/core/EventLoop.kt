@@ -17,7 +17,7 @@ package org.graphiks.kadre.core
  * ```kotlin
  * EventLoop().runApp(object : ApplicationHandler {
  *     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) { /* ... */ }
- *     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) { /* ... */ }
+ *     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) { /* ... */ }
  * })
  * ```
  */

@@ -12,6 +12,7 @@ package org.graphiks.kadre.x11
 
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -38,7 +39,7 @@ class X11EventLoopSmokeTest {
                 canCreateSurfacesCalled = true
                 eventLoop.exit()
             }
-            override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {}
+            override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {}
         }
 
         // runApp must not throw an exception
@@ -57,7 +58,7 @@ class X11EventLoopSmokeTest {
 
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {}
-            override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {}
+            override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {}
         }
 
         assertFalse(x11Running.get())
@@ -77,7 +78,7 @@ class X11EventLoopSmokeTest {
             try {
                 runApp(object : ApplicationHandler {
                     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {}
-                    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {}
+                    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {}
                 })
             } catch (e: IllegalStateException) {
                 threw = true

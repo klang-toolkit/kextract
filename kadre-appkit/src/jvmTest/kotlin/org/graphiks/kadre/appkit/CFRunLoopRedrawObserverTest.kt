@@ -96,7 +96,7 @@ class CFRunLoopRedrawObserverTest {
         }
         val stubHandler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
-            override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+            override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
                 windowEventsCalled.add(event.toString())
             }
             override fun aboutToWait(eventLoop: ActiveEventLoop) {

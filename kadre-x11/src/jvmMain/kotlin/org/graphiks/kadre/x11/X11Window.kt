@@ -58,10 +58,10 @@ class X11Window private constructor(
 
     override val id: WindowId = WindowId(xWindowId)
 
-    override val rawWindowHandle: Any
+    override val rawWindowHandle: RawWindowHandle
         get() = RawWindowHandle.Xlib(window = xWindowId, display = displayPtr)
 
-    override val rawDisplayHandle: Any
+    override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Xlib(display = displayPtr)
 
     /**

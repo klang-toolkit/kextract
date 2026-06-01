@@ -19,6 +19,7 @@ import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.StartCause
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,7 +44,7 @@ private class TestApplicationHandler(
     private val onCanCreateSurfaces: (ActiveEventLoop) -> Unit = {},
 ) : ApplicationHandler {
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = onCanCreateSurfaces(eventLoop)
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {}
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {}
     override fun resumed(eventLoop: ActiveEventLoop) = onResumed(eventLoop)
     override fun suspended(eventLoop: ActiveEventLoop) = onSuspended(eventLoop)
     override fun newEvents(eventLoop: ActiveEventLoop, startCause: StartCause) = onNewEvents(eventLoop, startCause)

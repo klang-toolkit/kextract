@@ -66,7 +66,7 @@ class AndroidWindow internal constructor(
      * @throws IllegalStateException if the surface is not yet available
      *   (before [onSurfaceAvailable]) or has been released (after [onSurfaceReleased]).
      */
-    override val rawWindowHandle: Any
+    override val rawWindowHandle: RawWindowHandle
         get() = RawWindowHandle.Android(
             surface = _surface
                 ?: throw IllegalStateException(
@@ -76,7 +76,7 @@ class AndroidWindow internal constructor(
                 )
         )
 
-    override val rawDisplayHandle: Any
+    override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Android
 
     @Volatile

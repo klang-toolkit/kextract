@@ -28,11 +28,11 @@ class KadreWindowDelegateTest {
 
     /** ApplicationHandler stub recording the received events. */
     private class RecordingHandler : ApplicationHandler {
-        val events = mutableListOf<Pair<WindowId, Any>>()
+        val events = mutableListOf<Pair<WindowId, WindowEvent>>()
 
         override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
 
-        override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+        override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
             events.add(windowId to event)
         }
     }

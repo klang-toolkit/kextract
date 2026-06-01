@@ -200,7 +200,7 @@ open class WebEventLoop : ActiveEventLoop {
         val snapshot = pendingEvents.toList()
         pendingEvents.clear()
         for ((windowId, event) in snapshot) {
-            handler.windowEvent(this, windowId, event)
+            handler.windowEvent(this, windowId, event.toWindowEvent())
         }
 
         handler.aboutToWait(this)
