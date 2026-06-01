@@ -598,6 +598,76 @@ internal val nativeClose: MethodHandle? by lazy {
     ))
 }
 
+// ── Input device interfaces (exported by libwayland-client.so.0) ─────────────
+
+/** &wl_seat_interface — required by bind(wl_seat). */
+internal val wlSeatInterface: MemorySegment? by lazy { libWaylandClient.symbol("wl_seat_interface") }
+
+/** &wl_keyboard_interface — required by wl_seat_get_keyboard (new_id). */
+internal val wlKeyboardInterface: MemorySegment? by lazy { libWaylandClient.symbol("wl_keyboard_interface") }
+
+/** &wl_pointer_interface — required by wl_seat_get_pointer (new_id). */
+internal val wlPointerInterface: MemorySegment? by lazy { libWaylandClient.symbol("wl_pointer_interface") }
+
+/** &wl_touch_interface — required by wl_seat_get_touch (new_id). */
+internal val wlTouchInterface: MemorySegment? by lazy { libWaylandClient.symbol("wl_touch_interface") }
+
+/** &wl_output_interface — required by bind(wl_output). */
+internal val wlOutputInterface: MemorySegment? by lazy { libWaylandClient.symbol("wl_output_interface") }
+
+// ── wl_seat_get_keyboard / wl_seat_get_pointer / wl_seat_get_touch ────────────
+
+/**
+ * wl_proxy_marshal_flags for wl_seat.get_keyboard (opcode 0).
+ *
+ * Signature: wl_keyboard* wl_proxy_marshal_flags(seat, 0, &wl_keyboard_interface, version, flags, NULL).
+ */
+internal val wlSeatGetKeyboard: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,   // wl_proxy* (seat)
+            ValueLayout.JAVA_INT,  // opcode = 0
+            ValueLayout.ADDRESS,   // wl_interface* (&wl_keyboard_interface)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.ADDRESS,   // new_id placeholder (NULL)
+        ))
+}
+
+/**
+ * wl_proxy_marshal_flags for wl_seat.get_pointer (opcode 1).
+ *
+ * Signature: wl_pointer* wl_proxy_marshal_flags(seat, 1, &wl_pointer_interface, version, flags, NULL).
+ */
+internal val wlSeatGetPointer: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,   // wl_proxy* (seat)
+            ValueLayout.JAVA_INT,  // opcode = 1
+            ValueLayout.ADDRESS,   // wl_interface* (&wl_pointer_interface)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.ADDRESS,   // new_id placeholder (NULL)
+        ))
+}
+
+/**
+ * wl_proxy_marshal_flags for wl_seat.get_touch (opcode 2).
+ *
+ * Signature: wl_touch* wl_proxy_marshal_flags(seat, 2, &wl_touch_interface, version, flags, NULL).
+ */
+internal val wlSeatGetTouch: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,   // wl_proxy* (seat)
+            ValueLayout.JAVA_INT,  // opcode = 2
+            ValueLayout.ADDRESS,   // wl_interface* (&wl_touch_interface)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.ADDRESS,   // new_id placeholder (NULL)
+        ))
+}
+
 // ── pollfd layout helpers ─────────────────────────────────────────────────────
 
 /**

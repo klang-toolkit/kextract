@@ -14,6 +14,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.wayland.generated.xdg_wm_base_interface
 import org.graphiks.kadre.wayland.generated.zxdg_decoration_manager_v1_interface
 import java.lang.foreign.Arena
@@ -33,11 +34,15 @@ internal data class WaylandGlobals(
     val compositorPtr: Long,
     val xdgWmBasePtr: Long,
     val decorationManagerPtr: Long = 0L,
+    val seatPtr: Long = 0L,
+    val seatVersion: Int = 0,
+    val outputPtr: Long = 0L,
+    val outputVersion: Int = 0,
 )
 
 /**
  * `wl_registry.global` event collector: retains the `name` and `version` of the globals
- * Kadre needs (`wl_compositor`, `xdg_wm_base`) as they are announced.
+ * Kadre needs (`wl_compositor`, `xdg_wm_base`, `wl_seat`, `wl_output`) as they are announced.
  */
 private class GlobalsCollector {
     var compositorName: Int = -1
@@ -46,6 +51,10 @@ private class GlobalsCollector {
     var xdgWmBaseVersion: Int = 0
     var decorationManagerName: Int = -1
     var decorationManagerVersion: Int = 0
+    var seatName: Int = -1
+    var seatVersion: Int = 0
+    var outputName: Int = -1
+    var outputVersion: Int = 0
 
     /** C callback: void global(data, wl_registry*, uint32 name, const char* interface, uint32 version). */
     @Suppress("UNUSED_PARAMETER")
@@ -60,6 +69,8 @@ private class GlobalsCollector {
             "xdg_wm_base" -> if (xdgWmBaseName < 0) { xdgWmBaseName = name; xdgWmBaseVersion = version }
             "zxdg_decoration_manager_v1" ->
                 if (decorationManagerName < 0) { decorationManagerName = name; decorationManagerVersion = version }
+            "wl_seat" -> if (seatName < 0) { seatName = name; seatVersion = version }
+            "wl_output" -> if (outputName < 0) { outputName = name; outputVersion = version }
         }
     }
 
@@ -189,7 +200,51 @@ internal fun discoverGlobals(displayPtr: Long): WaylandGlobals {
             }.getOrDefault(0L)
         }
 
-        WaylandGlobals(compositor.address(), xdgWmBasePtr, decorationManagerPtr)
+        // 7. wl_registry.bind(wl_seat) for keyboard/pointer/touch input.
+        var seatPtr = 0L
+        var seatVersion = 0
+        if (collector.seatName >= 0) {
+            val iface = wlSeatInterface
+            if (iface != null) {
+                val namePtr = iface.reinterpret(ValueLayout.ADDRESS.byteSize()).get(ValueLayout.ADDRESS, 0L)
+                val boundVersion = collector.seatVersion.coerceAtMost(7) // cap at v7
+                seatPtr = runCatching {
+                    (bind.invokeExact(
+                        registry, WL_REGISTRY_BIND, iface, boundVersion, 0,
+                        collector.seatName, namePtr, boundVersion, MemorySegment.NULL,
+                    ) as MemorySegment).address()
+                }.getOrDefault(0L)
+                seatVersion = boundVersion
+            }
+        }
+
+        // 8. wl_registry.bind(wl_output) for scale factor.
+        var outputPtr = 0L
+        var outputVersion = 0
+        if (collector.outputName >= 0) {
+            val iface = wlOutputInterface
+            if (iface != null) {
+                val namePtr = iface.reinterpret(ValueLayout.ADDRESS.byteSize()).get(ValueLayout.ADDRESS, 0L)
+                val boundVersion = collector.outputVersion.coerceAtMost(4) // cap at v4 (scale is v2)
+                outputPtr = runCatching {
+                    (bind.invokeExact(
+                        registry, WL_REGISTRY_BIND, iface, boundVersion, 0,
+                        collector.outputName, namePtr, boundVersion, MemorySegment.NULL,
+                    ) as MemorySegment).address()
+                }.getOrDefault(0L)
+                outputVersion = boundVersion
+            }
+        }
+
+        WaylandGlobals(
+            compositorPtr        = compositor.address(),
+            xdgWmBasePtr         = xdgWmBasePtr,
+            decorationManagerPtr = decorationManagerPtr,
+            seatPtr              = seatPtr,
+            seatVersion          = seatVersion,
+            outputPtr            = outputPtr,
+            outputVersion        = outputVersion,
+        )
     } catch (_: Throwable) {
         WaylandGlobals(0L, 0L)
     }

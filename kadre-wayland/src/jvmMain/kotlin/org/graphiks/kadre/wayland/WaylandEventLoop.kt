@@ -181,13 +181,38 @@ private fun runAppInternal(handler: ApplicationHandler) {
         throw t
     }
 
-    // ── 4. Discover Wayland globals (compositor) ──────────────────────────────
-    // get_registry + listener(global) + roundtrip + bind(wl_compositor).
-    // xdg_wm_base remains to be negotiated (not required to create a wl_surface / wgpu surface).
+    // ── 4. Discover Wayland globals (compositor, seat, output) ───────────────
+    // get_registry + listener(global) + roundtrip + bind(wl_compositor, wl_seat, wl_output, …).
     val globals = discoverGlobals(displayPtr)
 
     val eventLoop = WaylandEventLoop(
         displayPtr, globals.compositorPtr, globals.xdgWmBasePtr, eventFd, globals.decorationManagerPtr,
+    )
+
+    // ── 4b. Install seat / output listeners (keyboard, pointer, touch, scale) ─
+    // Route all input events into the eventQueue; events will be dispatched below in the main loop.
+    // The seat and output globals may be absent (0) — installSeatListeners tolerates that.
+    installSeatListeners(
+        displayPtr    = displayPtr,
+        seatPtr       = globals.seatPtr,
+        outputPtr     = globals.outputPtr,
+        seatVersion   = globals.seatVersion,
+        outputVersion = globals.outputVersion,
+        onEvent = { event ->
+            // Dispatch to the first available window (input events target the focused window;
+            // on Wayland, the compositor ensures the keyboard surface matches the focused one).
+            val win = eventLoop.windows.values.firstOrNull() ?: return@installSeatListeners
+            eventLoop.eventQueue.add(win.id to event)
+        },
+        onScaleChanged = { scale ->
+            val factor = scale.toDouble()
+            for (win in eventLoop.windows.values) {
+                if (win._scaleFactor != factor) {
+                    win._scaleFactor = factor
+                    eventLoop.eventQueue.add(win.id to org.graphiks.kadre.core.WindowEvent.ScaleFactorChanged(factor))
+                }
+            }
+        },
     )
 
     try {

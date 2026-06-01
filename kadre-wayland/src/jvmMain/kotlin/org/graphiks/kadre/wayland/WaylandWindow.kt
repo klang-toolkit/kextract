@@ -96,9 +96,13 @@ class WaylandWindow private constructor(
     /**
      * DPI scale factor of this window.
      *
-     * Returns 1.0 by default; updated via wl_output.scale events (planned for later).
+     * Initialized to 1.0; updated when a wl_output.scale event is received
+     * (see [WaylandSeat.kt] / [installSeatListeners]).
      */
-    override val scaleFactor: Double = 1.0
+    @Volatile
+    internal var _scaleFactor: Double = 1.0
+
+    override val scaleFactor: Double get() = _scaleFactor
 
     /**
      * Requests a redraw.

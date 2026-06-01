@@ -171,3 +171,12 @@ fun mapWaylandKeyEvent(
     modifiers = modifiers,
     isRepeat  = state == WL_KEY_REPEATED,
 )
+
+/**
+ * Builds a [WindowEvent.Focused] from a wl_keyboard.enter or wl_keyboard.leave event.
+ *
+ * @param gained `true` for wl_keyboard.enter (focus gained), `false` for wl_keyboard.leave.
+ * @return The corresponding focus event.
+ */
+fun mapWaylandKeyboardFocused(gained: Boolean): WindowEvent.Focused =
+    WindowEvent.Focused(gained)
