@@ -26,6 +26,7 @@ import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
+
 /**
  * Combined event mask selected for each X11 window.
  *
@@ -91,9 +92,13 @@ class X11Window private constructor(
     /**
      * DPI scale factor of this window.
      *
-     * Returns 1.0 (DPI heuristic planned for later).
+     * Read once at construction time from the X11 RESOURCE_MANAGER property
+     * (Xft.dpi entry). Formula: scaleFactor = Xft.dpi / 96.0.
+     * Falls back to 1.0 if the resource is absent or unreadable.
+     *
+     * ScaleFactorChanged is not emitted dynamically (no RRNotify subscription yet).
      */
-    override val scaleFactor: Double = 1.0
+    override val scaleFactor: Double = readXftDpi(displayPtr)
 
     override fun requestRedraw() {
         // No direct action needed: the event loop picks up the Expose events.
