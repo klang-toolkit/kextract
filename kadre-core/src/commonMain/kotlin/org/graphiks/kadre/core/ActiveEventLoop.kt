@@ -6,6 +6,32 @@
 package org.graphiks.kadre.core
 
 /**
+ * Controls which raw [DeviceEvent]s the event loop dispatches to the application.
+ *
+ * Passed to [ActiveEventLoop.listenDeviceEvents].
+ *
+ * @since R4
+ */
+enum class DeviceEvents {
+    /**
+     * Device events are dispatched unconditionally, even when no application window
+     * has focus (e.g. for FPS-style raw mouse input).
+     */
+    Always,
+
+    /**
+     * Device events are dispatched only while at least one application window
+     * has keyboard focus. This is the default behavior.
+     */
+    WhenFocused,
+
+    /**
+     * No device events are dispatched. Useful to suppress raw input entirely.
+     */
+    Never,
+}
+
+/**
  * Access to the event loop from [ApplicationHandler] callbacks.
  *
  * This interface is passed as a parameter on each incoming call into the
@@ -97,4 +123,24 @@ interface ActiveEventLoop {
      * | Wayland  | `org.freedesktop.portal.Settings` — no-op, always null  |
      */
     fun systemTheme(): Theme?
+
+    // ── R4: device event filter ───────────────────────────────────────────────
+
+    /**
+     * Controls which raw [DeviceEvent]s are dispatched to
+     * [ApplicationHandler.deviceEvent].
+     *
+     * | Mode              | Behaviour                                                    |
+     * |-------------------|--------------------------------------------------------------|
+     * | [DeviceEvents.Always]      | Events are dispatched regardless of window focus.  |
+     * | [DeviceEvents.WhenFocused] | Events are dispatched only while a window has focus (default). |
+     * | [DeviceEvents.Never]       | No device events are dispatched.                   |
+     *
+     * Backends that do not distinguish focus-filtered device events treat
+     * [DeviceEvents.WhenFocused] as [DeviceEvents.Always] (documented no-op difference).
+     * Never throws.
+     *
+     * @param mode New filter mode.
+     */
+    fun listenDeviceEvents(mode: DeviceEvents)
 }

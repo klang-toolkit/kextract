@@ -37,6 +37,7 @@
 package org.graphiks.kadre.win32
 
 import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyLocation
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.Modifiers
 import org.graphiks.kadre.core.MouseButton
@@ -184,18 +185,34 @@ object KadreWndProc {
             // ── Keyboard ──────────────────────────────────────────────────────
             WM_KEYDOWN.toUInt(),
             WM_SYSKEYDOWN.toUInt() -> {
-                val key      = Win32KeyMapper.fromVkCode(wParam.toInt())
+                val vkCode   = wParam.toInt()
+                val key      = Win32KeyMapper.fromVkCode(vkCode)
                 val isRepeat = (lParam and KF_REPEAT) != 0L
                 val mods     = currentModifiers()
-                emit(hwnd, WindowEvent.KeyboardInput(key, KeyState.Pressed, mods, isRepeat))
+                // R4: scancode is bits 16-23 of lParam (always valid for key messages)
+                val scanCode = ((lParam ushr 16) and 0xFF).toInt()
+                // R4: location from extended-key bit (bit 24) and VK code
+                val location = win32KeyLocation(vkCode, lParam)
+                // R4: text via ToUnicode (if available)
+                val text     = if (!isRepeat) win32KeyText(vkCode, scanCode) else null
+                emit(hwnd, WindowEvent.KeyboardInput(key, KeyState.Pressed, mods, isRepeat,
+                    text = text, location = location, scanCode = scanCode))
+                // R4: ModifiersChanged on modifier key press
+                if (isModifierVk(vkCode)) emit(hwnd, WindowEvent.ModifiersChanged(mods))
                 0L
             }
 
             WM_KEYUP.toUInt(),
             WM_SYSKEYUP.toUInt() -> {
-                val key  = Win32KeyMapper.fromVkCode(wParam.toInt())
-                val mods = currentModifiers()
-                emit(hwnd, WindowEvent.KeyboardInput(key, KeyState.Released, mods, isRepeat = false))
+                val vkCode   = wParam.toInt()
+                val key      = Win32KeyMapper.fromVkCode(vkCode)
+                val mods     = currentModifiers()
+                val scanCode = ((lParam ushr 16) and 0xFF).toInt()
+                val location = win32KeyLocation(vkCode, lParam)
+                emit(hwnd, WindowEvent.KeyboardInput(key, KeyState.Released, mods, isRepeat = false,
+                    text = null, location = location, scanCode = scanCode))
+                // R4: ModifiersChanged on modifier key release
+                if (isModifierVk(vkCode)) emit(hwnd, WindowEvent.ModifiersChanged(mods))
                 0L
             }
 
@@ -365,6 +382,79 @@ object KadreWndProc {
         if ((getKeyState!!.invokeExact(VK_LWIN)    as Short).toInt() and 0x8000 != 0 ||
             (getKeyState!!.invokeExact(VK_RWIN)    as Short).toInt() and 0x8000 != 0) bits = bits or 0x8
         return Modifiers(bits)
+    }
+
+    /**
+     * Returns the [KeyLocation] for a key given its VK code and lParam.
+     *
+     * The extended-key bit (bit 24 of lParam) distinguishes:
+     * - right Ctrl, right Alt, numpad Enter, numpad Delete, etc.
+     *
+     * Also dispatches left/right based on specific VK codes for shift
+     * (Win32 uses VK_LSHIFT/VK_RSHIFT directly in WM_KEYDOWN after processing).
+     *
+     * @param vkCode VK code (wParam of the keyboard message).
+     * @param lParam lParam of the keyboard message.
+     */
+    private fun win32KeyLocation(vkCode: Int, lParam: Long): KeyLocation {
+        val extended = (lParam and 0x0100_0000L) != 0L
+        return when (vkCode) {
+            VK_LSHIFT, VK_LCONTROL, VK_LMENU, VK_LWIN -> KeyLocation.Left
+            VK_RSHIFT, VK_RCONTROL, VK_RMENU, VK_RWIN -> KeyLocation.Right
+            VK_SHIFT -> if (extended) KeyLocation.Right else KeyLocation.Left
+            VK_CONTROL -> if (extended) KeyLocation.Right else KeyLocation.Left
+            VK_MENU -> if (extended) KeyLocation.Right else KeyLocation.Left
+            // Numpad keys: VK_NUMPAD0–VK_NUMPAD9, VK_ADD, VK_SUBTRACT, etc.
+            in 0x60..0x69, 0x6A, 0x6B, 0x6D, 0x6E, 0x6F -> KeyLocation.Numpad
+            else -> KeyLocation.Standard
+        }
+    }
+
+    /**
+     * Returns true if the given VK code is a modifier key.
+     */
+    private fun isModifierVk(vkCode: Int): Boolean = vkCode in setOf(
+        VK_SHIFT, VK_LSHIFT, VK_RSHIFT,
+        VK_CONTROL, VK_LCONTROL, VK_RCONTROL,
+        VK_MENU, VK_LMENU, VK_RMENU,
+        VK_LWIN, VK_RWIN,
+    )
+
+    /**
+     * Returns the Unicode text produced by a key via ToUnicode (FFM, lazy binding).
+     *
+     * Returns null if:
+     * - ToUnicode is not available (non-Windows platform)
+     * - The key does not produce printable text (control chars, function keys, etc.)
+     * - The call fails
+     *
+     * **FFM risk note (R4)**: `toUnicode` calls `ToUnicode` which has a side-effect:
+     * it may consume the dead-key state in the Win32 keyboard buffer. Call only when
+     * [isRepeat] is false to avoid clearing it for every repeated keystroke.
+     * A later follow-up may replace this with `ToUnicodeEx` + keyboard state snapshot.
+     *
+     * @param vkCode   Virtual key code (wParam).
+     * @param scanCode Scan code (bits 16-23 of lParam).
+     */
+    private fun win32KeyText(vkCode: Int, scanCode: Int): String? {
+        val handle = toUnicode ?: return null
+        return try {
+            // Native (off-heap) buffers: heap MemorySegments cannot be passed to a downcall,
+            // which would throw and silently force text=null on every keystroke.
+            java.lang.foreign.Arena.ofConfined().use { arena ->
+                val buf = arena.allocate(16L, 2L)        // 8 WCHARs
+                val keyState = arena.allocate(256L, 1L)  // BYTE[256]
+                getKeyboardState?.invoke(keyState)
+                val result = handle.invokeExact(vkCode, scanCode, keyState, buf, 8, 0) as Int
+                if (result <= 0) return@use null
+                val sb = StringBuilder()
+                for (i in 0 until result) {
+                    val ch = buf.getAtIndex(ValueLayout.JAVA_CHAR, i.toLong())
+                    if (ch >= ' ') sb.append(ch)
+                }
+                if (sb.isEmpty()) null else sb.toString()
+            }
+        } catch (_: Throwable) { null }
     }
 
     /**

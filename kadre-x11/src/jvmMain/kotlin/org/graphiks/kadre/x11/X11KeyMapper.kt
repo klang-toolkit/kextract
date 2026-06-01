@@ -225,6 +225,15 @@ object X11KeyMapper {
         val keyState = if (isPressed) KeyState.Pressed else KeyState.Released
         val modifiers = stateToModifiers(state)
 
-        return WindowEvent.KeyboardInput(key, keyState, modifiers, isRepeat)
+        // R4: scanCode = X11 hardware keycode (independent of layout)
+        // R4: text = null (TODO: XLookupString / Xutf8LookupString not yet wired as FFM binding)
+        return WindowEvent.KeyboardInput(
+            key = key,
+            state = keyState,
+            modifiers = modifiers,
+            isRepeat = isRepeat,
+            text = null,          // TODO(R4-x11-text): wire XLookupString / Xutf8LookupString
+            scanCode = keycode,   // X11 hardware keycode is the scan code equivalent
+        )
     }
 }

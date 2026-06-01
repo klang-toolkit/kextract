@@ -38,6 +38,8 @@ external interface JsDomEvent : JsAny {
 @JsName("KeyboardEvent")
 external interface JsKeyboardEvent : JsDomEvent {
     val code: JsString
+    val key: JsString
+    val location: JsNumber
     val shiftKey: JsBoolean
     val ctrlKey: JsBoolean
     val altKey: JsBoolean
@@ -267,36 +269,54 @@ class WasmJsWebDomBridge : WebDomBridge {
         // --- Keyboard ---
         addDomListener(canvas, "keydown") { e ->
             val ke = e.unsafeCast<JsKeyboardEvent>()
+            val mods = domModifiers(
+                shiftKey = ke.shiftKey.toBoolean(),
+                ctrlKey  = ke.ctrlKey.toBoolean(),
+                altKey   = ke.altKey.toBoolean(),
+                metaKey  = ke.metaKey.toBoolean(),
+            )
+            val keyStr = ke.key.toString()
             dispatch(
                 WebWindowEvent.KeyboardInput(
                     key = domCodeToKey(ke.code.toString()),
                     state = WebKeyState.Pressed,
-                    modifiers = domModifiers(
-                        shiftKey = ke.shiftKey.toBoolean(),
-                        ctrlKey  = ke.ctrlKey.toBoolean(),
-                        altKey   = ke.altKey.toBoolean(),
-                        metaKey  = ke.metaKey.toBoolean(),
-                    ),
+                    modifiers = mods,
                     isRepeat = ke.repeat.toBoolean(),
+                    text = domKeyToText(keyStr),
+                    location = domLocationToKeyLocation(ke.location.toDouble().toInt()),
+                    scanCode = ke.code.toString(),
                 )
             )
+            // R4: emit ModifiersChanged on modifier key press
+            if (keyStr in setOf("Shift", "Control", "Alt", "Meta")) {
+                dispatch(WebWindowEvent.ModifiersChanged(mods))
+            }
         }
 
         addDomListener(canvas, "keyup") { e ->
             val ke = e.unsafeCast<JsKeyboardEvent>()
+            val mods = domModifiers(
+                shiftKey = ke.shiftKey.toBoolean(),
+                ctrlKey  = ke.ctrlKey.toBoolean(),
+                altKey   = ke.altKey.toBoolean(),
+                metaKey  = ke.metaKey.toBoolean(),
+            )
+            val keyStr = ke.key.toString()
             dispatch(
                 WebWindowEvent.KeyboardInput(
                     key = domCodeToKey(ke.code.toString()),
                     state = WebKeyState.Released,
-                    modifiers = domModifiers(
-                        shiftKey = ke.shiftKey.toBoolean(),
-                        ctrlKey  = ke.ctrlKey.toBoolean(),
-                        altKey   = ke.altKey.toBoolean(),
-                        metaKey  = ke.metaKey.toBoolean(),
-                    ),
+                    modifiers = mods,
                     isRepeat = false,
+                    text = null,
+                    location = domLocationToKeyLocation(ke.location.toDouble().toInt()),
+                    scanCode = ke.code.toString(),
                 )
             )
+            // R4: emit ModifiersChanged on modifier key release
+            if (keyStr in setOf("Shift", "Control", "Alt", "Meta")) {
+                dispatch(WebWindowEvent.ModifiersChanged(mods))
+            }
         }
 
         // --- Pointer ---

@@ -15,6 +15,7 @@ import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.Theme
@@ -145,6 +146,19 @@ internal class AppKitEventLoop(
         ) as MemorySegment
         AppKitThemeHelper.effectiveTheme(nsApp)
     } catch (_: Throwable) { null }
+
+    // ── R4: device event filter ───────────────────────────────────────────────
+
+    /**
+     * No-op on AppKit: device events are dispatched independently of focus.
+     *
+     * AppKit dispatches raw device events (PointerMotion, Button, Key) via
+     * `sendEvent:` which fires regardless of window focus. A proper filter
+     * would require an NSEvent global monitor; out of scope for R4.
+     */
+    override fun listenDeviceEvents(mode: DeviceEvents) {
+        // no-op on AppKit: all device events are always dispatched
+    }
 }
 
 /**

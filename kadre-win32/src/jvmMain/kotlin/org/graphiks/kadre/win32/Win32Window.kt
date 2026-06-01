@@ -606,6 +606,32 @@ class Win32Window private constructor(
         } catch (_: Throwable) {}
     }
 
+    // ── R4: keyboard ──────────────────────────────────────────────────────────
+
+    /**
+     * Resets any pending dead-key state by calling ToUnicode with a dummy key.
+     *
+     * Win32 maintains a dead-key state in the thread's key buffer. Calling
+     * ToUnicode with VK_SPACE and the scan code 0x39 is the canonical way to
+     * flush that state without producing visible text.
+     *
+     * **FFM risk (R4)**: if [toUnicode] is not available (non-Windows), this is a no-op.
+     */
+    override fun resetDeadKeys() {
+        try {
+            val handle = toUnicode ?: return
+            Arena.ofConfined().use { arena ->
+                val keyState = arena.allocate(256L, 1L)  // BYTE[256], native
+                getKeyboardState?.invoke(keyState)
+                val buf = arena.allocate(16L, 2L)        // 8 WCHARs
+                // Flush dead-key buffer by translating VK_SPACE (0x20), scan 0x39
+                handle.invokeExact(0x20, 0x39, keyState, buf, 8, 0) as Int
+            }
+        } catch (_: Throwable) {
+            // Best-effort only
+        }
+    }
+
     // ── Companion ─────────────────────────────────────────────────────────────
 
     companion object {

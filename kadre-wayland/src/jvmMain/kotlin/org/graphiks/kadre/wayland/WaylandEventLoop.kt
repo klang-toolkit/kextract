@@ -19,6 +19,7 @@ package org.graphiks.kadre.wayland
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
@@ -155,6 +156,17 @@ class WaylandEventLoop internal constructor(
      * TODO(R3-wayland-theme): query org.freedesktop.portal.Settings via JVM D-Bus.
      */
     override fun systemTheme(): Theme? = null
+
+    // ── R4: device event filter ───────────────────────────────────────────────
+
+    /**
+     * No-op on Wayland: device events are always dispatched.
+     *
+     * TODO(R4-wayland-device-filter): use wl_seat capabilities to control dispatch.
+     */
+    override fun listenDeviceEvents(mode: DeviceEvents) {
+        // no-op on Wayland
+    }
 }
 
 /** Creates a synthetic [MonitorHandle] for a Wayland output. */

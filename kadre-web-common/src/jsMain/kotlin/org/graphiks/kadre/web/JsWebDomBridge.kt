@@ -90,26 +90,42 @@ class JsWebDomBridge : WebDomBridge {
         // --- Keyboard ---
         addListener(canvas, "keydown") { e ->
             val ke = e as KeyboardEvent
+            val mods = domModifiers(ke.shiftKey, ke.ctrlKey, ke.altKey, ke.metaKey)
             dispatch(
                 WebWindowEvent.KeyboardInput(
                     key = domCodeToKey(ke.code),
                     state = WebKeyState.Pressed,
-                    modifiers = domModifiers(ke.shiftKey, ke.ctrlKey, ke.altKey, ke.metaKey),
+                    modifiers = mods,
                     isRepeat = ke.repeat,
+                    text = domKeyToText(ke.key),
+                    location = domLocationToKeyLocation(ke.location),
+                    scanCode = ke.code,
                 )
             )
+            // R4: emit ModifiersChanged when a modifier key is pressed
+            if (ke.key in setOf("Shift", "Control", "Alt", "Meta")) {
+                dispatch(WebWindowEvent.ModifiersChanged(mods))
+            }
         }
 
         addListener(canvas, "keyup") { e ->
             val ke = e as KeyboardEvent
+            val mods = domModifiers(ke.shiftKey, ke.ctrlKey, ke.altKey, ke.metaKey)
             dispatch(
                 WebWindowEvent.KeyboardInput(
                     key = domCodeToKey(ke.code),
                     state = WebKeyState.Released,
-                    modifiers = domModifiers(ke.shiftKey, ke.ctrlKey, ke.altKey, ke.metaKey),
+                    modifiers = mods,
                     isRepeat = false,
+                    text = null,
+                    location = domLocationToKeyLocation(ke.location),
+                    scanCode = ke.code,
                 )
             )
+            // R4: emit ModifiersChanged when a modifier key is released
+            if (ke.key in setOf("Shift", "Control", "Alt", "Meta")) {
+                dispatch(WebWindowEvent.ModifiersChanged(mods))
+            }
         }
 
         // --- Pointer (unified PointerEvent) ---

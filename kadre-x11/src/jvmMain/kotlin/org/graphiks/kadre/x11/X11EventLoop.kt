@@ -20,6 +20,7 @@ package org.graphiks.kadre.x11
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
@@ -225,6 +226,17 @@ class X11EventLoop internal constructor(
      * TODO(R3-x11-theme): query xsettings or GTK_THEME env variable.
      */
     override fun systemTheme(): Theme? = null
+
+    // ── R4: device event filter ───────────────────────────────────────────────
+
+    /**
+     * No-op on X11: device events are always dispatched.
+     *
+     * TODO(R4-x11-device-filter): use XSelectInput to selectively disable raw motion.
+     */
+    override fun listenDeviceEvents(mode: DeviceEvents) {
+        // no-op on X11
+    }
 }
 
 // ── Dispatch X11 events ───────────────────────────────────────────────────────

@@ -538,6 +538,21 @@ class X11Window private constructor(
         } catch (_: Throwable) {}
     }
 
+    // ── R4: keyboard ──────────────────────────────────────────────────────────
+
+    /**
+     * Resets dead-key state for this X11 window.
+     *
+     * Best-effort: resets the [X11KeyMapper] internal pressed-key state.
+     * Full XkbCompose / XIC reset would require the XIC pointer, which
+     * is not yet stored in X11Window — documented TODO.
+     *
+     * TODO(R4-x11-dead-keys): store the XIC and call XmbResetIC / Xutf8ResetIC.
+     */
+    override fun resetDeadKeys() {
+        X11KeyMapper.resetState()
+    }
+
     // ── X11 helper: intern atom ───────────────────────────────────────────────
 
     private fun internAtom(displayPtr: Long, name: String): Long {

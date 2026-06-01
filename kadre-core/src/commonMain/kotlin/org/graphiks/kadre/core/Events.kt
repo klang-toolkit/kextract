@@ -6,7 +6,13 @@
  * - [DeviceEvent]: raw device events (absolute motion, button, key)
  *
  * It also defines the support types used by these events:
- * [Key], [KeyState], [Modifiers], [MouseButton] and [TouchPhase].
+ * [Key], [KeyState], [KeyLocation], [Modifiers], [MouseButton] and [TouchPhase].
+ *
+ * ## Pointer model decision (R4)
+ * We KEEP the existing [WindowEvent.MouseInput] + [WindowEvent.Touch] model (Option A).
+ * We do NOT migrate to a unified PointerButton / PointerSource model (winit Option B).
+ * Rationale: no breaking change, all existing call sites remain valid, the unified model
+ * would require a major version bump with no clear gain for current consumers.
  *
  * ## Scope
  * All declarations are 100% commonMain (no native dependency).
@@ -211,6 +217,28 @@ sealed interface MouseButton {
 }
 
 /**
+ * Physical location of a keyboard key.
+ *
+ * Distinguishes between keys that appear in multiple locations on the keyboard
+ * (e.g. left vs. right Shift, numpad digits vs. top-row digits).
+ *
+ * @since R4
+ */
+enum class KeyLocation {
+    /** Key appears only once or its position is the standard one. */
+    Standard,
+
+    /** Left-side instance of a key (e.g. left Shift, left Ctrl). */
+    Left,
+
+    /** Right-side instance of a key (e.g. right Shift, right Alt/AltGr). */
+    Right,
+
+    /** Key is on the numeric keypad. */
+    Numpad,
+}
+
+/**
  * Phase of a touch contact.
  */
 enum class TouchPhase {
@@ -256,6 +284,7 @@ enum class TouchPhase {
  *         WindowEvent.RedrawRequested   -> redraw()
  *         WindowEvent.Destroyed         -> releaseResources()
  *         is WindowEvent.ThemeChanged   -> applyTheme(event.theme)
+ *         is WindowEvent.ModifiersChanged -> updateModifiers(event.modifiers)
  *     }
  * }
  * ```
@@ -300,15 +329,27 @@ sealed interface WindowEvent {
     /**
      * A keyboard event occurred while the window had focus.
      *
-     * @property key     Logical key involved.
-     * @property state   Key state ([KeyState.Pressed] or [KeyState.Released]).
+     * @property key       Logical key involved (layout-dependent).
+     * @property state     Key state ([KeyState.Pressed] or [KeyState.Released]).
      * @property modifiers Modifiers active at the time of the event.
+     * @property isRepeat  `true` if the key is being held and this is an auto-repeat.
+     * @property text      Unicode character(s) produced by this key press, or null if the
+     *   key does not produce printable text (e.g. function keys, modifiers, arrows).
+     *   Populated on a best-effort basis per backend — null is always safe to handle.
+     * @property location  Physical location of the key on the keyboard (standard, left, right,
+     *   or numpad). Defaults to [KeyLocation.Standard]. Populated where the platform exposes it.
+     * @property scanCode  Platform-independent physical key code (evdev / HID usage / Win32 scan),
+     *   independent of the active keyboard layout. Null if the backend does not expose it.
      */
     data class KeyboardInput(
         val key: Key,
         val state: KeyState,
         val modifiers: Modifiers,
         val isRepeat: Boolean = false,
+        // ── R4 additions (with defaults to keep all existing call sites valid) ──
+        val text: String? = null,
+        val location: KeyLocation = KeyLocation.Standard,
+        val scanCode: Int? = null,
     ) : WindowEvent
 
     /**
@@ -379,6 +420,25 @@ sealed interface WindowEvent {
      */
     data object Destroyed : WindowEvent
 
+    // ── R4: modifier state ────────────────────────────────────────────────────
+
+    /**
+     * The set of active keyboard modifiers changed.
+     *
+     * Emitted when a modifier key (Shift, Ctrl, Alt, Meta) is pressed or released.
+     * Backends emit this on a best-effort basis:
+     * - win32   : WM_KEYDOWN / WM_KEYUP on VK_SHIFT/CONTROL/MENU/WIN
+     * - web     : keydown / keyup when `KeyboardEvent.key` is a modifier
+     * - x11     : XkbStateNotify (TODO — not yet wired)
+     * - wayland : wl_keyboard.modifiers (TODO — not yet wired)
+     * - appkit  : NSEventTypeKeyDown / NSEventTypeKeyUp on modifier key codes
+     * - android : onKeyDown/Up for KEYCODE_SHIFT_* etc. (TODO — not yet wired)
+     * - uikit   : pressesBegan/Ended on modifier keys (TODO — not yet wired)
+     *
+     * @property modifiers New modifier state after the change.
+     */
+    data class ModifiersChanged(val modifiers: Modifiers) : WindowEvent
+
     // ── R3: theme ────────────────────────────────────────────────────────────
 
     /**
@@ -411,6 +471,7 @@ sealed interface WindowEvent {
  *         is DeviceEvent.PointerMotion -> handleMotion(event.dx, event.dy)
  *         is DeviceEvent.Button        -> handleButton(event.button, event.state)
  *         is DeviceEvent.Key           -> handleKey(event.scancode, event.state)
+ *         is DeviceEvent.MouseWheel    -> handleWheel(event.deltaX, event.deltaY)
  *     }
  * }
  * ```
@@ -440,4 +501,17 @@ sealed interface DeviceEvent {
      * @property state    Key state ([KeyState.Pressed] or [KeyState.Released]).
      */
     data class Key(val scancode: Int, val state: KeyState) : DeviceEvent
+
+    // ── R4 ────────────────────────────────────────────────────────────────────
+
+    /**
+     * The mouse wheel (or trackpad) scrolled — raw device event, not clipped to a window.
+     *
+     * Emitted alongside [WindowEvent.MouseWheel] when the device-events filter allows it.
+     * See [ActiveEventLoop.listenDeviceEvents].
+     *
+     * @property deltaX Horizontal scroll delta (positive towards the right).
+     * @property deltaY Vertical scroll delta (positive towards the bottom).
+     */
+    data class MouseWheel(val deltaX: Double, val deltaY: Double) : DeviceEvent
 }

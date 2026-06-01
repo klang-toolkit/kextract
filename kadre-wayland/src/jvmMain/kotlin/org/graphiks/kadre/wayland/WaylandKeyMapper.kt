@@ -170,6 +170,8 @@ fun mapWaylandKeyEvent(
     state     = waylandKeyStateToKeyState(state),
     modifiers = modifiers,
     isRepeat  = state == WL_KEY_REPEATED,
+    text      = null,    // TODO(R4-wayland-text): wire xkb_state_key_get_utf8
+    scanCode  = keycode, // Linux evdev keycode is the scan code equivalent
 )
 
 /**

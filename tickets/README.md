@@ -16,7 +16,7 @@ Source de vérité : [`docs/kadre/remediation-plan.md`](../docs/kadre/remediatio
 | [R1](./R1-etat-geometrie-fenetre.md) | État et géométrie de la fenêtre | R1 | ✅ Fait | R0.1 |
 | [R2](./R2-moniteurs-plein-ecran.md) | Moniteurs et plein écran | R2 | ✅ Fait | R1 |
 | [R3](./R3-curseur-theme-apparence.md) | Curseur, thème et apparence | R3 | ✅ Fait | R0.1 |
-| [R4](./R4-richesse-entree.md) | Richesse des entrées (clavier / pointeur) | R4 | À faire | R0.1 |
+| [R4](./R4-richesse-entree.md) | Richesse des entrées (clavier / pointeur) | R4 | ✅ Fait | R0.1 |
 | [R5-IME](./R5-ime.md) | Saisie IME | R5 | À faire | R3, R4 |
 | [R5-DnD](./R5-glisser-deposer.md) | Glisser-déposer | R5 | À faire | R3, R4 |
 | [R5-Gestures](./R5-gestes-trackpad.md) | Gestes trackpad | R5 | À faire | R3, R4 |

@@ -25,6 +25,7 @@ import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.Fullscreen
@@ -183,6 +184,9 @@ class ScriptedWindow(
     override fun setTransparent(transparent: Boolean) {}
     override fun setBlur(blur: Boolean) {}
     override fun setWindowIcon(icon: Icon?) {}
+
+    /** No-op in scripted test: dead-key state is not simulated. */
+    override fun resetDeadKeys() { /* no-op in scripted test */ }
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +230,9 @@ class ScriptedEventLoop(
 
     // R3 stub
     override fun systemTheme(): Theme? = null
+
+    // R4 stub — no-op, device-event filtering not simulated in scripted tests
+    override fun listenDeviceEvents(mode: DeviceEvents) { /* no-op in scripted test */ }
 
     // ── Exécution ───────────────────────────────────────────────────────────
 

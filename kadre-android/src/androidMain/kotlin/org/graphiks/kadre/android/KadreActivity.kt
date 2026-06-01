@@ -239,6 +239,12 @@ abstract class KadreActivity : ComponentActivity() {
         if (destroyed || window == null) return false
         val key = AndroidKeyMapper.fromKeyCode(keyCode)
         if (key == org.graphiks.kadre.core.Key.Unknown) return false
+        // R4: unicodeChar is 0 for non-printable keys; convert to text if printable
+        val unicodeChar = event.unicodeChar
+        val text = if (unicodeChar > 0x20 && !Character.isISOControl(unicodeChar)) {
+            String(Character.toChars(unicodeChar))
+        } else null
+
         handler.windowEvent(
             eventLoop,
             window.id,
@@ -247,6 +253,8 @@ abstract class KadreActivity : ComponentActivity() {
                 state = state,
                 modifiers = AndroidKeyMapper.modifiersFrom(event.metaState),
                 isRepeat = isRepeat,
+                text = text,
+                scanCode = event.scanCode,
             ),
         )
         return true

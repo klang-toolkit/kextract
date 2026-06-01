@@ -331,4 +331,15 @@ class AndroidWindow internal constructor(
         } catch (_: Throwable) {}
         _fullscreen = fullscreen
     }
+
+    // ── R4: keyboard ──────────────────────────────────────────────────────────
+
+    /**
+     * No-op on Android: dead-key state is managed by the InputMethodManager.
+     *
+     * TODO(R4-android-dead-keys): call InputMethodManager.restartInput to reset IME.
+     */
+    override fun resetDeadKeys() {
+        // no-op: Android IME state is managed by InputMethodManager
+    }
 }

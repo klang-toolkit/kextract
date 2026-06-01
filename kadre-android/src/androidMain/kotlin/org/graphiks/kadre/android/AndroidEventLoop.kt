@@ -4,6 +4,7 @@ import android.view.Choreographer
 import androidx.activity.ComponentActivity
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
@@ -188,6 +189,15 @@ internal class AndroidEventLoop(
             else -> null
         }
     } catch (_: Throwable) { null }
+
+    // ── R4: device event filter ───────────────────────────────────────────────
+
+    /**
+     * No-op on Android: raw device events are not dispatched at the Android level.
+     */
+    override fun listenDeviceEvents(mode: DeviceEvents) {
+        // no-op on Android
+    }
 
     /**
      * Schedules the next vsync callback if not already scheduled.

@@ -85,6 +85,15 @@ internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : 
         // TODO(R3-uikit-theme): access via UIApplication.shared.keyWindow?.traitCollection
         null // documented no-op until proper API access is established
     } catch (_: Throwable) { null }
+
+    // ── R4: device event filter ───────────────────────────────────────────────
+
+    /**
+     * No-op on UIKit: device events are not dispatched on iOS.
+     */
+    override fun listenDeviceEvents(mode: DeviceEvents) {
+        // no-op on UIKit
+    }
 }
 
 /** Creates a synthetic monitor from UIScreen.mainScreen. */

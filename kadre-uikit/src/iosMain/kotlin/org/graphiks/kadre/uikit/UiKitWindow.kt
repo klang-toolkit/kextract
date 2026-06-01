@@ -123,12 +123,19 @@ class KadreMetalView(
             val key = UiKitKeyMapper.fromHidUsage(uiKey.keyCode)
             if (key == org.graphiks.kadre.core.Key.Unknown) return@forEach
             handled = true
+            // R4: UIKey.characters is the text produced by the key (may be nil/empty)
+            val characters = uiKey.characters
+            val text: String? = if (!characters.isNullOrEmpty() && characters[0] >= ' ') characters else null
+            // R4: UIKey.keyCode maps to HID usage (same as what the mapper uses)
+            val scanCode: Int = uiKey.keyCode.toInt()
             onEvent(
                 WindowEvent.KeyboardInput(
                     key = key,
                     state = state,
                     modifiers = UiKitKeyMapper.modifiersFrom(uiKey.modifierFlags),
                     isRepeat = false,
+                    text = text,
+                    scanCode = scanCode,
                 )
             )
         }
@@ -526,5 +533,16 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         // A more complete implementation would call UIViewController.prefersStatusBarHidden
         // but that requires overriding the view controller, which is out of scope for R2.
         // The state is stored so callers can read it back.
+    }
+
+    // ── R4: keyboard ──────────────────────────────────────────────────────────
+
+    /**
+     * No-op on UIKit: dead-key state is managed by UIKit's text input system.
+     *
+     * TODO(R4-uikit-dead-keys): call UITextInputDelegate.textDidChange to reset.
+     */
+    override fun resetDeadKeys() {
+        // no-op: UIKit manages dead-key state internally
     }
 }

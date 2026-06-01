@@ -997,6 +997,56 @@ internal val HWND_BOTTOM: MemorySegment = MemorySegment.ofAddress(1L)
 
 /** WM_SETICON message. */
 internal const val WM_SETICON: Int = 0x0080
+
+// ── R4: ToUnicode / GetKeyboardState ─────────────────────────────────────────
+
+/**
+ * int ToUnicode(UINT wVirtKey, UINT wScanCode, const BYTE *lpKeyState,
+ *               LPWSTR pwszBuff, int cchBuff, UINT wFlags);
+ *
+ * Translates the virtual-key code and keyboard state into a Unicode character.
+ * Returns the number of wide characters written into [pwszBuff]:
+ *  > 0 : character(s) produced
+ *  = 0 : key does not produce a character
+ *  < 0 : dead key (diacritical)
+ *
+ * **FFM risk**: ToUnicode has a side-effect — it may consume the dead-key state.
+ * Use only for non-repeat key-down events; see KadreWndProc.win32KeyText.
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-tounicode
+ */
+internal val toUnicode: MethodHandle? by lazy {
+    user32.downcall(
+        "ToUnicode",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int (chars written)
+            ValueLayout.JAVA_INT,   // UINT wVirtKey
+            ValueLayout.JAVA_INT,   // UINT wScanCode
+            ValueLayout.ADDRESS,    // const BYTE *lpKeyState (256 bytes)
+            ValueLayout.ADDRESS,    // LPWSTR pwszBuff
+            ValueLayout.JAVA_INT,   // int cchBuff
+            ValueLayout.JAVA_INT,   // UINT wFlags
+        )
+    )
+}
+
+/**
+ * BOOL GetKeyboardState(PBYTE lpKeyState);
+ *
+ * Fills a 256-byte buffer with the current state of all virtual keys.
+ * Each byte: bit 7 = key down, bit 0 = toggled (Caps Lock etc.).
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getkeyboardstate
+ */
+internal val getKeyboardState: MethodHandle? by lazy {
+    user32.downcall(
+        "GetKeyboardState",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // PBYTE lpKeyState (256 bytes)
+        )
+    )
+}
 /** ICON_SMALL (0) and ICON_BIG (1) for WM_SETICON. */
 internal const val ICON_SMALL: Long = 0L
 internal const val ICON_BIG: Long = 1L

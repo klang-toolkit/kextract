@@ -690,6 +690,31 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         NSWindow(nsWindowPtr).setDelegate(del.ptr)
         delegate = del
     }
+
+    // ── R4: keyboard ─────────────────────────────────────────────────────────
+
+    /**
+     * Resets any pending dead-key state for this window.
+     *
+     * Best-effort: sends `markedTextAbandoned:` to the current NSInputManager.
+     * On macOS 10.15+ the NSInputManager API is deprecated but still works.
+     * No-op if the call fails (the IME state may persist but nothing breaks).
+     */
+    override fun resetDeadKeys() {
+        try {
+            val inputManagerClass = ObjCRuntime.getClass("NSInputManager")
+            val currentIM = ObjCRuntime.msgSend(
+                ValueLayout.ADDRESS,
+                inputManagerClass,
+                ObjCRuntime.sel("currentInputManager"),
+            ) as MemorySegment
+            if (currentIM != MemorySegment.NULL) {
+                ObjCRuntime.msgSend(null, currentIM, ObjCRuntime.sel("markedTextAbandoned:"), nsWindowPtr)
+            }
+        } catch (_: Throwable) {
+            // Best-effort only — no-op on failure
+        }
+    }
 }
 
 /**

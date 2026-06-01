@@ -5,6 +5,7 @@ public abstract interface class org/graphiks/kadre/core/ActiveEventLoop {
 	public abstract fun exit ()V
 	public abstract fun getControlFlow ()Lorg/graphiks/kadre/core/ControlFlow;
 	public abstract fun isExiting ()Z
+	public abstract fun listenDeviceEvents (Lorg/graphiks/kadre/core/DeviceEvents;)V
 	public abstract fun primaryMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public abstract fun setControlFlow (Lorg/graphiks/kadre/core/ControlFlow;)V
 	public abstract fun systemTheme ()Lorg/graphiks/kadre/core/Theme;
@@ -120,6 +121,19 @@ public final class org/graphiks/kadre/core/DeviceEvent$Key : org/graphiks/kadre/
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/graphiks/kadre/core/DeviceEvent$MouseWheel : org/graphiks/kadre/core/DeviceEvent {
+	public fun <init> (DD)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun copy (DD)Lorg/graphiks/kadre/core/DeviceEvent$MouseWheel;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/DeviceEvent$MouseWheel;DDILjava/lang/Object;)Lorg/graphiks/kadre/core/DeviceEvent$MouseWheel;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeltaX ()D
+	public final fun getDeltaY ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/graphiks/kadre/core/DeviceEvent$PointerMotion : org/graphiks/kadre/core/DeviceEvent {
 	public fun <init> (DD)V
 	public final fun component1 ()D
@@ -131,6 +145,15 @@ public final class org/graphiks/kadre/core/DeviceEvent$PointerMotion : org/graph
 	public final fun getDy ()D
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/DeviceEvents : java/lang/Enum {
+	public static final field Always Lorg/graphiks/kadre/core/DeviceEvents;
+	public static final field Never Lorg/graphiks/kadre/core/DeviceEvents;
+	public static final field WhenFocused Lorg/graphiks/kadre/core/DeviceEvents;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/DeviceEvents;
+	public static fun values ()[Lorg/graphiks/kadre/core/DeviceEvents;
 }
 
 public final class org/graphiks/kadre/core/DeviceId {
@@ -291,6 +314,16 @@ public final class org/graphiks/kadre/core/Key : java/lang/Enum {
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/Key;
 	public static fun values ()[Lorg/graphiks/kadre/core/Key;
+}
+
+public final class org/graphiks/kadre/core/KeyLocation : java/lang/Enum {
+	public static final field Left Lorg/graphiks/kadre/core/KeyLocation;
+	public static final field Numpad Lorg/graphiks/kadre/core/KeyLocation;
+	public static final field Right Lorg/graphiks/kadre/core/KeyLocation;
+	public static final field Standard Lorg/graphiks/kadre/core/KeyLocation;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/KeyLocation;
+	public static fun values ()[Lorg/graphiks/kadre/core/KeyLocation;
 }
 
 public final class org/graphiks/kadre/core/KeyState : java/lang/Enum {
@@ -677,6 +710,7 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun isVisible ()Z
 	public abstract fun prePresentNotify ()V
 	public abstract fun requestRedraw ()V
+	public abstract fun resetDeadKeys ()V
 	public abstract fun setBlur (Z)V
 	public abstract fun setCursor (Lorg/graphiks/kadre/core/CursorIcon;)V
 	public abstract fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)V
@@ -773,20 +807,37 @@ public final class org/graphiks/kadre/core/WindowEvent$Focused : org/graphiks/ka
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$KeyboardInput : org/graphiks/kadre/core/WindowEvent {
-	public synthetic fun <init> (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public synthetic fun <init> (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lorg/graphiks/kadre/core/Key;
 	public final fun component2 ()Lorg/graphiks/kadre/core/KeyState;
 	public final fun component3-yizPXk8 ()I
 	public final fun component4 ()Z
-	public final fun copy-ZcbDSzA (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZ)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
-	public static synthetic fun copy-ZcbDSzA$default (Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Lorg/graphiks/kadre/core/KeyLocation;
+	public final fun component7 ()Ljava/lang/Integer;
+	public final fun copy-AD0OCrI (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
+	public static synthetic fun copy-AD0OCrI$default (Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getKey ()Lorg/graphiks/kadre/core/Key;
+	public final fun getLocation ()Lorg/graphiks/kadre/core/KeyLocation;
 	public final fun getModifiers-yizPXk8 ()I
+	public final fun getScanCode ()Ljava/lang/Integer;
 	public final fun getState ()Lorg/graphiks/kadre/core/KeyState;
+	public final fun getText ()Ljava/lang/String;
 	public fun hashCode ()I
 	public final fun isRepeat ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/WindowEvent$ModifiersChanged : org/graphiks/kadre/core/WindowEvent {
+	public synthetic fun <init> (ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-yizPXk8 ()I
+	public final fun copy-ZhwnmpE (I)Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;
+	public static synthetic fun copy-ZhwnmpE$default (Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;IILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getModifiers-yizPXk8 ()I
+	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 

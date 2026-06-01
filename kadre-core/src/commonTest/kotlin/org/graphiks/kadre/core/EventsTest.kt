@@ -186,8 +186,9 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     /**
-     * Explicitly enumerates the 15 variants without an `else` clause.
+     * Explicitly enumerates the 16 variants without an `else` clause.
      * If a variant is added or removed, this `when` will no longer compile.
+     * R4 added: ModifiersChanged.
      */
     private fun classerWindowEvent(event: WindowEvent): String = when (event) {
         WindowEvent.CloseRequested        -> "CloseRequested"
@@ -205,6 +206,7 @@ class EventsTest {
         WindowEvent.RedrawRequested       -> "RedrawRequested"
         WindowEvent.Destroyed             -> "Destroyed"
         is WindowEvent.ThemeChanged       -> "ThemeChanged"
+        is WindowEvent.ModifiersChanged   -> "ModifiersChanged"  // R4
     }
 
     @Test
@@ -319,12 +321,14 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     /**
-     * Explicitly enumerates the 3 variants without an `else` clause.
+     * Explicitly enumerates the 4 variants without an `else` clause.
+     * R4 added: MouseWheel.
      */
     private fun classerDeviceEvent(event: DeviceEvent): String = when (event) {
         is DeviceEvent.PointerMotion -> "PointerMotion"
         is DeviceEvent.Button        -> "Button"
         is DeviceEvent.Key           -> "Key"
+        is DeviceEvent.MouseWheel    -> "MouseWheel"  // R4
     }
 
     @Test

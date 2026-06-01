@@ -498,6 +498,20 @@ class WaylandWindow private constructor(
         // No-op on Wayland: window icons are not part of the Wayland protocol.
     }
 
+    // ── R4: keyboard ──────────────────────────────────────────────────────────
+
+    /**
+     * Resets dead-key state for this Wayland window.
+     *
+     * Best-effort: would require an xkb_compose_state pointer, which is not yet stored.
+     * Documented no-op.
+     *
+     * TODO(R4-wayland-dead-keys): store xkb_compose_state and call xkb_compose_state_reset.
+     */
+    override fun resetDeadKeys() {
+        // no-op: xkb_compose_state not yet wired (TODO R4-wayland-dead-keys)
+    }
+
     // ── Companion ─────────────────────────────────────────────────────────────
 
     companion object {

@@ -1,7 +1,7 @@
 # [R4] Richesse des entrées (clavier / pointeur)
 
 - **Milestone** : R4
-- **Statut** : À faire
+- **Statut** : ✅ Fait
 - **Dépend de** : R0.1
 - **Modules touchés** : kadre-core, kadre-appkit, kadre-win32, kadre-x11, kadre-wayland, kadre-uikit, kadre-android, kadre-web-common, kadre-js, kadre-wasm
 

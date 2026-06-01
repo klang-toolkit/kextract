@@ -34,6 +34,7 @@ package org.graphiks.kadre.web
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
@@ -182,6 +183,15 @@ open class WebEventLoop : ActiveEventLoop {
      * Returns the single synthetic web monitor.
      */
     override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+
+    // ── R4: device event filter ───────────────────────────────────────────────
+
+    /**
+     * No-op on Web: device events are not emitted (no raw input API in the browser).
+     */
+    override fun listenDeviceEvents(mode: DeviceEvents) {
+        // no-op on Web: raw device events are not dispatched
+    }
 
     // ── R3: system theme ──────────────────────────────────────────────────────
 

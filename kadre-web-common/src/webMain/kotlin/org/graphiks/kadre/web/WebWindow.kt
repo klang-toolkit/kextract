@@ -418,6 +418,17 @@ class WebWindow(
         // No-op: Web page icons are managed via <link rel="icon"> in the HTML document.
     }
 
+    // ── R4: keyboard ──────────────────────────────────────────────────────────
+
+    /**
+     * No-op on Web: dead-key state is managed by the browser's IME.
+     *
+     * The DOM provides no API to reset the input method's dead-key buffer.
+     */
+    override fun resetDeadKeys() {
+        // no-op: browser IME state is not accessible from JavaScript
+    }
+
     /**
      * Requests fullscreen via the browser Fullscreen API (delegate to bridge).
      *

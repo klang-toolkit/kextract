@@ -38,6 +38,8 @@ import org.graphiks.kadre.appkit.bindings.NSEvent
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.DeviceId
+import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyLocation
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
@@ -206,6 +208,39 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                 val modifiers = AppKitKeyMapper.modifierFlags(modFlags)
                 val state = if (isKeyDown) KeyState.Pressed else KeyState.Released
 
+                // R4: extract text via [NSEvent characters] (nil-safe)
+                val text: String? = if (isKeyDown) {
+                    try {
+                        val charsPtr = ObjCRuntime.msgSend(
+                            ValueLayout.ADDRESS,
+                            event,
+                            ObjCRuntime.sel("characters"),
+                        ) as MemorySegment
+                        if (charsPtr == MemorySegment.NULL) null
+                        else {
+                            // NSString → UTF-8 via UTF8String selector
+                            val utf8Ptr = ObjCRuntime.msgSend(
+                                ValueLayout.ADDRESS,
+                                charsPtr,
+                                ObjCRuntime.sel("UTF8String"),
+                            ) as MemorySegment
+                            if (utf8Ptr == MemorySegment.NULL) null
+                            else {
+                                val s = utf8Ptr.reinterpret(256L).getString(0L, java.nio.charset.StandardCharsets.UTF_8)
+                                // Only return text if it's printable (non-control)
+                                if (s.isNotEmpty() && s.all { it >= ' ' }) s else null
+                            }
+                        }
+                    } catch (_: Throwable) { null }
+                } else null
+
+                // R4: location based on VK code (left/right modifiers)
+                val location: KeyLocation = when (key) {
+                    Key.ShiftLeft, Key.ControlLeft, Key.AltLeft, Key.MetaLeft -> KeyLocation.Left
+                    Key.ShiftRight, Key.ControlRight, Key.AltRight, Key.MetaRight -> KeyLocation.Right
+                    else -> KeyLocation.Standard
+                }
+
                 // GRA-156: dispatch raw DeviceEvent.Key BEFORE window-scoped WindowEvent
                 loop.handler.deviceEvent(
                     loop,
@@ -216,8 +251,31 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                 loop.handler.windowEvent(
                     loop,
                     appKitWindow.id,
-                    WindowEvent.KeyboardInput(key, state, modifiers, isRepeat),
+                    WindowEvent.KeyboardInput(
+                        key = key,
+                        state = state,
+                        modifiers = modifiers,
+                        isRepeat = isRepeat,
+                        text = text,
+                        location = location,
+                        scanCode = keyCode.toInt(),
+                    ),
                 )
+
+                // R4: emit ModifiersChanged when a modifier key is involved
+                val isModifierKey = key in setOf(
+                    Key.ShiftLeft, Key.ShiftRight,
+                    Key.ControlLeft, Key.ControlRight,
+                    Key.AltLeft, Key.AltRight,
+                    Key.MetaLeft, Key.MetaRight,
+                )
+                if (isModifierKey) {
+                    loop.handler.windowEvent(
+                        loop,
+                        appKitWindow.id,
+                        WindowEvent.ModifiersChanged(modifiers),
+                    )
+                }
                 return
             }
 
