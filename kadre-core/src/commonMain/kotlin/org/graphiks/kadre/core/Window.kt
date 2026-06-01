@@ -203,4 +203,130 @@ interface Window {
      * @return The active [Fullscreen] mode, or null when in windowed mode.
      */
     val fullscreen: Fullscreen?
+
+    // ── R3: cursor, theme & appearance ───────────────────────────────────────
+
+    /**
+     * Changes the cursor shape displayed over this window.
+     *
+     * No-op on mobile (Android, iOS) where there is no visible cursor.
+     * Never throws.
+     *
+     * @param cursor New cursor shape.
+     */
+    fun setCursor(cursor: CursorIcon)
+
+    /**
+     * Shows or hides the cursor while it is inside this window.
+     *
+     * On mobile backends this is a no-op.
+     * Never throws.
+     *
+     * @param visible true to show the cursor, false to hide it.
+     */
+    fun setCursorVisible(visible: Boolean)
+
+    /**
+     * Sets the cursor grab mode for this window.
+     *
+     * - [CursorGrabMode.None]     — releases any existing grab.
+     * - [CursorGrabMode.Confined] — limits the cursor to the window bounds.
+     * - [CursorGrabMode.Locked]   — locks the cursor position (FPS mode).
+     *
+     * Backends that do not support a given mode implement a documented no-op.
+     * Never throws.
+     *
+     * @param mode New grab mode.
+     */
+    fun setCursorGrab(mode: CursorGrabMode)
+
+    /**
+     * Warps the cursor to the given position (physical pixels, relative to the
+     * top-left of the window's client area).
+     *
+     * On backends where cursor warping is not supported this is a no-op.
+     * Never throws.
+     *
+     * @param position New cursor position in physical pixels.
+     */
+    fun setCursorPosition(position: PhysicalPosition<Int>)
+
+    /**
+     * Enables or disables cursor hit-testing for this window.
+     *
+     * When disabled (`false`) the window becomes click-through — pointer
+     * events are forwarded to the window underneath. On backends that do not
+     * support hit-testing this is a no-op.
+     * Never throws.
+     *
+     * @param hittest true (default) to receive pointer events; false to pass them through.
+     */
+    fun setCursorHittest(hittest: Boolean)
+
+    /**
+     * Returns the current system theme as seen by this window, or null if unknown.
+     *
+     * Uses the same source as [ActiveEventLoop.systemTheme] but restricted to
+     * this window's appearance (e.g. a per-window NSAppearance override on macOS).
+     */
+    val theme: Theme?
+
+    /**
+     * Requests a specific theme for this window.
+     *
+     * Passing null restores the system default. On backends where per-window
+     * theme control is not available this is a no-op.
+     * Never throws.
+     *
+     * @param theme Desired theme, or null to follow the system.
+     */
+    fun setTheme(theme: Theme?)
+
+    /**
+     * Sets the Z-order level of this window.
+     *
+     * On mobile / web backends where window ordering is not applicable this
+     * is a no-op.
+     * Never throws.
+     *
+     * @param level New window level.
+     */
+    fun setWindowLevel(level: WindowLevel)
+
+    /**
+     * Makes the window background transparent.
+     *
+     * Transparency requires the renderer to draw with alpha < 1.0 for the
+     * transparent areas. On backends that do not support per-pixel alpha
+     * this is a no-op.
+     * Never throws.
+     *
+     * @param transparent true to enable transparency, false to disable it.
+     */
+    fun setTransparent(transparent: Boolean)
+
+    /**
+     * Enables or disables a blur effect behind the window.
+     *
+     * Requires [setTransparent](true) to be meaningful. On backends that do
+     * not support blur (X11, Wayland, Web, Android) this is a no-op.
+     * Never throws.
+     *
+     * @param blur true to enable blur, false to disable it.
+     */
+    fun setBlur(blur: Boolean)
+
+    /**
+     * Sets the application icon shown in the taskbar / dock.
+     *
+     * Passing null resets to the default icon. Behaviour is best-effort:
+     * - AppKit: sets `NSApp.applicationIconImage`.
+     * - Win32:  sends `WM_SETICON`.
+     * - X11:    sets `_NET_WM_ICON`.
+     * - Others: no-op.
+     * Never throws.
+     *
+     * @param icon Icon data, or null to restore the default.
+     */
+    fun setWindowIcon(icon: Icon?)
 }

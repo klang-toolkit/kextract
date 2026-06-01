@@ -29,6 +29,7 @@ import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
@@ -212,6 +213,18 @@ class X11EventLoop internal constructor(
      * Returns the first monitor (primary/leftmost) or the synthetic monitor.
      */
     override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+
+    // ── R3: system theme ──────────────────────────────────────────────────────
+
+    /**
+     * X11 has no standard theme API.
+     *
+     * The xsettings daemon exposes `Net/ThemeName` but there is no standardised
+     * Light/Dark distinction. Documented null.
+     *
+     * TODO(R3-x11-theme): query xsettings or GTK_THEME env variable.
+     */
+    override fun systemTheme(): Theme? = null
 }
 
 // ── Dispatch X11 events ───────────────────────────────────────────────────────

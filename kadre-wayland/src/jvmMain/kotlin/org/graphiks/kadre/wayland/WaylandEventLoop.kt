@@ -24,6 +24,7 @@ import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -142,6 +143,18 @@ class WaylandEventLoop internal constructor(
      * Returns the primary monitor (the single synthetic monitor).
      */
     override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+
+    // ── R3: system theme ──────────────────────────────────────────────────────
+
+    /**
+     * Returns null on Wayland.
+     *
+     * Theme detection via org.freedesktop.portal.Settings (D-Bus) is not yet wired.
+     * Documented no-op.
+     *
+     * TODO(R3-wayland-theme): query org.freedesktop.portal.Settings via JVM D-Bus.
+     */
+    override fun systemTheme(): Theme? = null
 }
 
 /** Creates a synthetic [MonitorHandle] for a Wayland output. */

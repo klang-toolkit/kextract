@@ -17,6 +17,7 @@ import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import java.lang.foreign.MemorySegment
@@ -127,6 +128,23 @@ internal class AppKitEventLoop(
      */
     override fun primaryMonitor(): MonitorHandle? =
         AppKitMonitorHandle.primaryScreen()
+
+    // ── R3: system theme ──────────────────────────────────────────────────────
+
+    /**
+     * Returns the current system-wide theme by reading `NSApp.effectiveAppearance`.
+     *
+     * Returns null if AppKit is not available or the call fails.
+     */
+    override fun systemTheme(): Theme? = try {
+        val nsAppClass = ObjCRuntime.getClass("NSApplication")
+        val nsApp = ObjCRuntime.msgSend(
+            ValueLayout.ADDRESS,
+            nsAppClass,
+            ObjCRuntime.sel("sharedApplication"),
+        ) as MemorySegment
+        AppKitThemeHelper.effectiveTheme(nsApp)
+    } catch (_: Throwable) { null }
 }
 
 /**

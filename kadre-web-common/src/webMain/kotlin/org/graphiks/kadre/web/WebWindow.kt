@@ -24,15 +24,50 @@
  */
 package org.graphiks.kadre.web
 
+import org.graphiks.kadre.core.CursorGrabMode
+import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
+import org.graphiks.kadre.core.WindowLevel
+
+/**
+ * Maps a [CursorIcon] to the corresponding CSS cursor property value.
+ */
+internal fun CursorIcon.toCssCursorValue(): String = when (this) {
+    CursorIcon.Default        -> "default"
+    CursorIcon.Pointer        -> "pointer"
+    CursorIcon.Text           -> "text"
+    CursorIcon.Crosshair      -> "crosshair"
+    CursorIcon.Move           -> "move"
+    CursorIcon.ResizeNorth    -> "n-resize"
+    CursorIcon.ResizeSouth    -> "s-resize"
+    CursorIcon.ResizeEast     -> "e-resize"
+    CursorIcon.ResizeWest     -> "w-resize"
+    CursorIcon.ResizeNorthEast -> "ne-resize"
+    CursorIcon.ResizeNorthWest -> "nw-resize"
+    CursorIcon.ResizeSouthEast -> "se-resize"
+    CursorIcon.ResizeSouthWest -> "sw-resize"
+    CursorIcon.NotAllowed     -> "not-allowed"
+    CursorIcon.Grab           -> "grab"
+    CursorIcon.Grabbing       -> "grabbing"
+    CursorIcon.Wait           -> "wait"
+    CursorIcon.Progress       -> "progress"
+    CursorIcon.EwResize       -> "ew-resize"
+    CursorIcon.NsResize       -> "ns-resize"
+    CursorIcon.NeswResize     -> "nesw-resize"
+    CursorIcon.NwseResize     -> "nwse-resize"
+    CursorIcon.ColResize      -> "col-resize"
+    CursorIcon.RowResize      -> "row-resize"
+}
 
 /**
  * [Window] implementation for the web backends (JS and wasmJs).
@@ -288,6 +323,100 @@ class WebWindow(
     private var _fullscreen: Fullscreen? = null
 
     override val fullscreen: Fullscreen? get() = _fullscreen
+
+    // ── R3: cursor, theme & appearance ───────────────────────────────────────
+
+    /**
+     * Sets the CSS cursor style on the canvas via the bridge.
+     *
+     * Maps [CursorIcon] to the corresponding CSS cursor value.
+     */
+    override fun setCursor(cursor: CursorIcon) {
+        bridge.setCssCursor(canvasElementId, cursor.toCssCursorValue())
+    }
+
+    /**
+     * Shows or hides the cursor by setting CSS `cursor: none` or restoring it.
+     */
+    override fun setCursorVisible(visible: Boolean) {
+        if (!visible) {
+            bridge.setCssCursor(canvasElementId, "none")
+        } else {
+            bridge.setCssCursor(canvasElementId, CursorIcon.Default.toCssCursorValue())
+        }
+    }
+
+    /**
+     * Sets the cursor grab mode.
+     *
+     * - [CursorGrabMode.Locked]: calls `requestPointerLock()` on the canvas.
+     * - [CursorGrabMode.Confined]: no-op (browsers do not expose canvas-confined grab).
+     * - [CursorGrabMode.None]: calls `exitPointerLock()`.
+     */
+    override fun setCursorGrab(mode: CursorGrabMode) {
+        when (mode) {
+            CursorGrabMode.Locked   -> bridge.requestPointerLock(canvasElementId)
+            CursorGrabMode.Confined -> { /* no-op: no confined grab API in browsers */ }
+            CursorGrabMode.None     -> bridge.exitPointerLock()
+        }
+    }
+
+    /**
+     * No-op on Web: cursor warping is not exposed by browser APIs.
+     */
+    override fun setCursorPosition(position: PhysicalPosition<Int>) {
+        // No-op: browsers do not allow JavaScript to warp the cursor position.
+    }
+
+    /**
+     * No-op on Web.
+     *
+     * TODO(R3-web-hittest): implement via CSS pointer-events: none.
+     */
+    override fun setCursorHittest(hittest: Boolean) {
+        // No-op on Web: pointer-events CSS could be toggled but is out of scope for R3.
+    }
+
+    /**
+     * Returns the system theme via the bridge's `prefersDarkColorScheme`.
+     */
+    override val theme: Theme?
+        get() = if (bridge.prefersDarkColorScheme()) Theme.Dark else Theme.Light
+
+    /**
+     * No-op on Web: individual elements do not control the OS theme.
+     */
+    override fun setTheme(theme: Theme?) {
+        // No-op: Web pages cannot override the OS theme.
+    }
+
+    /**
+     * No-op on Web: Z-ordering is managed by the browser.
+     */
+    override fun setWindowLevel(level: WindowLevel) {
+        // No-op: browser controls window stacking.
+    }
+
+    /**
+     * No-op on Web: canvas transparency is a renderer concern (WebGL blending).
+     */
+    override fun setTransparent(transparent: Boolean) {
+        // No-op: canvas background transparency is set via CSS / WebGL context attributes.
+    }
+
+    /**
+     * No-op on Web.
+     */
+    override fun setBlur(blur: Boolean) {
+        // No-op: CSS backdrop-filter blur could be applied but is out of scope for R3.
+    }
+
+    /**
+     * No-op on Web: the page icon is set via `<link rel="icon">` in the HTML.
+     */
+    override fun setWindowIcon(icon: Icon?) {
+        // No-op: Web page icons are managed via <link rel="icon"> in the HTML document.
+    }
 
     /**
      * Requests fullscreen via the browser Fullscreen API (delegate to bridge).

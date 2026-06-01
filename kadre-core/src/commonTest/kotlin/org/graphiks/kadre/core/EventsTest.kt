@@ -186,7 +186,7 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     /**
-     * Explicitly enumerates the 14 variants without an `else` clause.
+     * Explicitly enumerates the 15 variants without an `else` clause.
      * If a variant is added or removed, this `when` will no longer compile.
      */
     private fun classerWindowEvent(event: WindowEvent): String = when (event) {
@@ -204,6 +204,7 @@ class EventsTest {
         is WindowEvent.Touch              -> "Touch"
         WindowEvent.RedrawRequested       -> "RedrawRequested"
         WindowEvent.Destroyed             -> "Destroyed"
+        is WindowEvent.ThemeChanged       -> "ThemeChanged"
     }
 
     @Test
@@ -304,6 +305,13 @@ class EventsTest {
     @Test
     fun `WindowEvent Destroyed is correctly classified`() {
         assertEquals("Destroyed", classerWindowEvent(WindowEvent.Destroyed))
+    }
+
+    @Test
+    fun `WindowEvent ThemeChanged keeps the theme`() {
+        val event = WindowEvent.ThemeChanged(Theme.Dark)
+        assertEquals("ThemeChanged", classerWindowEvent(event))
+        assertEquals(Theme.Dark, event.theme)
     }
 
     // -----------------------------------------------------------------------

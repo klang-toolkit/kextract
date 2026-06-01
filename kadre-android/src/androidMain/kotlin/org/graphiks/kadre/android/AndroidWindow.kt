@@ -2,16 +2,21 @@ package org.graphiks.kadre.android
 
 import android.view.SurfaceView
 import android.view.WindowManager
+import org.graphiks.kadre.core.CursorGrabMode
+import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
+import org.graphiks.kadre.core.WindowLevel
 
 /**
  * Android implementation of [Window].
@@ -230,6 +235,63 @@ class AndroidWindow internal constructor(
     @Volatile private var _fullscreen: Fullscreen? = null
 
     override val fullscreen: Fullscreen? get() = _fullscreen
+
+    // ── R3: cursor, theme & appearance — no-ops on Android ───────────────────
+
+    /** No-op on Android: there is no visible cursor. */
+    override fun setCursor(cursor: CursorIcon) { /* no-op: Android has no cursor */ }
+
+    /** No-op on Android: there is no visible cursor. */
+    override fun setCursorVisible(visible: Boolean) { /* no-op: Android has no cursor */ }
+
+    /** No-op on Android: there is no cursor to grab. */
+    override fun setCursorGrab(mode: CursorGrabMode) { /* no-op: Android has no cursor */ }
+
+    /** No-op on Android: there is no cursor to warp. */
+    override fun setCursorPosition(position: PhysicalPosition<Int>) { /* no-op: Android has no cursor */ }
+
+    /** No-op on Android. */
+    override fun setCursorHittest(hittest: Boolean) { /* no-op: Android does not support hit-testing */ }
+
+    /**
+     * Returns the current UI theme via UiModeManager.
+     *
+     * Reads [android.app.UiModeManager.nightMode]:
+     * - MODE_NIGHT_YES → [Theme.Dark]
+     * - MODE_NIGHT_NO  → [Theme.Light]
+     * - otherwise      → null
+     */
+    override val theme: Theme?
+        get() = try {
+            val uiModeManager = surfaceView.context
+                .getSystemService(android.content.Context.UI_MODE_SERVICE)
+                    as? android.app.UiModeManager
+            when (uiModeManager?.nightMode) {
+                android.app.UiModeManager.MODE_NIGHT_YES -> Theme.Dark
+                android.app.UiModeManager.MODE_NIGHT_NO  -> Theme.Light
+                else -> null
+            }
+        } catch (_: Throwable) { null }
+
+    /**
+     * No-op on Android.
+     *
+     * Per-window theme override is not standard at the Window level;
+     * it can be done at the Activity level via AppCompatDelegate.setDefaultNightMode().
+     */
+    override fun setTheme(theme: Theme?) { /* no-op: use AppCompatDelegate for Android theme */ }
+
+    /** No-op on Android: Z-ordering is managed by the system. */
+    override fun setWindowLevel(level: WindowLevel) { /* no-op: Android Z-ordering is system-managed */ }
+
+    /** No-op on Android: transparency is managed by the renderer and Surface format. */
+    override fun setTransparent(transparent: Boolean) { /* no-op: transparency requires SurfaceHolder.setFormat */ }
+
+    /** No-op on Android: no standard blur API for SurfaceView. */
+    override fun setBlur(blur: Boolean) { /* no-op: Android has no standard window blur API */ }
+
+    /** No-op on Android: application icon is set via the manifest, not via Window. */
+    override fun setWindowIcon(icon: Icon?) { /* no-op: Android icon is set via the app manifest */ }
 
     /**
      * Enters or exits immersive fullscreen on Android via WindowInsetsController.

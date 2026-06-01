@@ -103,4 +103,38 @@ interface WebDomBridge {
      * Default: no-op (test / non-browser bridge).
      */
     fun exitFullscreen() { /* no-op by default */ }
+
+    // ── R3: cursor, pointer lock, theme ──────────────────────────────────────
+
+    /**
+     * Sets the CSS cursor style on the canvas identified by [canvasId].
+     *
+     * @param cssCursorValue CSS cursor name (e.g. "pointer", "text", "none").
+     * Default: no-op (test / non-browser bridge).
+     */
+    fun setCssCursor(canvasId: String, cssCursorValue: String) { /* no-op by default */ }
+
+    /**
+     * Requests Pointer Lock on the canvas element (for [CursorGrabMode.Locked]).
+     *
+     * The browser may require a user gesture. Asynchronous — the lock is granted
+     * via a `pointerlockchange` event.
+     * Default: no-op.
+     */
+    fun requestPointerLock(canvasId: String) { /* no-op by default */ }
+
+    /**
+     * Exits Pointer Lock via `document.exitPointerLock()`.
+     *
+     * Default: no-op.
+     */
+    fun exitPointerLock() { /* no-op by default */ }
+
+    /**
+     * Returns true if `window.matchMedia('(prefers-color-scheme: dark)')` matches.
+     *
+     * Used by [WebEventLoop.systemTheme] to detect the system theme.
+     * Default: false (test / non-browser bridge).
+     */
+    fun prefersDarkColorScheme(): Boolean = false
 }

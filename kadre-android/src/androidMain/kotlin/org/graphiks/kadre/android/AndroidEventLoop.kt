@@ -8,6 +8,7 @@ import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -167,6 +168,26 @@ internal class AndroidEventLoop(
      * Returns the primary monitor (the single Android screen).
      */
     override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+
+    // ── R3: system theme ──────────────────────────────────────────────────────
+
+    /**
+     * Returns the current system UI theme via UiModeManager.nightMode.
+     *
+     * - MODE_NIGHT_YES → [Theme.Dark]
+     * - MODE_NIGHT_NO  → [Theme.Light]
+     * - otherwise      → null (FOLLOW_SYSTEM or unknown)
+     */
+    override fun systemTheme(): Theme? = try {
+        val uiModeManager = activity
+            .getSystemService(android.content.Context.UI_MODE_SERVICE)
+                as? android.app.UiModeManager
+        when (uiModeManager?.nightMode) {
+            android.app.UiModeManager.MODE_NIGHT_YES -> Theme.Dark
+            android.app.UiModeManager.MODE_NIGHT_NO  -> Theme.Light
+            else -> null
+        }
+    } catch (_: Throwable) { null }
 
     /**
      * Schedules the next vsync callback if not already scheduled.

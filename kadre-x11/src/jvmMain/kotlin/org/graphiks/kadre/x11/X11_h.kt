@@ -520,3 +520,141 @@ internal val xResourceManagerString: MethodHandle? by lazy {
         )
     )
 }
+
+// ── R3: cursor, grab, warp ────────────────────────────────────────────────────
+
+/**
+ * Cursor XCreateFontCursor(Display* display, unsigned int shape);
+ *
+ * Creates a cursor from the standard X11 cursor font.
+ * Risk FFM: shape argument is unsigned int (32-bit); passed as JAVA_INT.
+ */
+internal val xCreateFontCursor: MethodHandle? by lazy {
+    libX11.downcall(
+        "XCreateFontCursor",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_LONG,  // Cursor (XID = unsigned long)
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_INT,   // unsigned int shape
+        )
+    )
+}
+
+/**
+ * int XDefineCursor(Display* display, Window w, Cursor cursor);
+ */
+internal val xDefineCursor: MethodHandle? by lazy {
+    libX11.downcall(
+        "XDefineCursor",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window (XID)
+            ValueLayout.JAVA_LONG,  // Cursor (XID)
+        )
+    )
+}
+
+/**
+ * int XUndefineCursor(Display* display, Window w);
+ */
+internal val xUndefineCursor: MethodHandle? by lazy {
+    libX11.downcall(
+        "XUndefineCursor",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window
+        )
+    )
+}
+
+/**
+ * int XGrabPointer(Display*, Window, Bool, unsigned int, int, int, Window, Cursor, Time);
+ *
+ * Grabs the pointer (mouse). Returns GrabSuccess (0) on success.
+ * Risk FFM: multiple integer types; we pass as JAVA_INT / JAVA_LONG.
+ */
+internal val xGrabPointer: MethodHandle? by lazy {
+    libX11.downcall(
+        "XGrabPointer",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int (GrabSuccess/etc)
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window grab_window
+            ValueLayout.JAVA_INT,   // Bool owner_events
+            ValueLayout.JAVA_INT,   // unsigned int event_mask
+            ValueLayout.JAVA_INT,   // int pointer_mode (GrabModeAsync=1)
+            ValueLayout.JAVA_INT,   // int keyboard_mode
+            ValueLayout.JAVA_LONG,  // Window confine_to (or None=0)
+            ValueLayout.JAVA_LONG,  // Cursor cursor (or None=0)
+            ValueLayout.JAVA_LONG,  // Time (CurrentTime=0)
+        )
+    )
+}
+
+/**
+ * int XUngrabPointer(Display*, Time);
+ */
+internal val xUngrabPointer: MethodHandle? by lazy {
+    libX11.downcall(
+        "XUngrabPointer",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Time (CurrentTime=0)
+        )
+    )
+}
+
+/**
+ * int XWarpPointer(Display*, Window src_w, Window dest_w, int src_x, int src_y,
+ *                  unsigned int src_width, unsigned int src_height, int dest_x, int dest_y);
+ */
+internal val xWarpPointer: MethodHandle? by lazy {
+    libX11.downcall(
+        "XWarpPointer",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window src_w (None=0)
+            ValueLayout.JAVA_LONG,  // Window dest_w
+            ValueLayout.JAVA_INT,   // int src_x
+            ValueLayout.JAVA_INT,   // int src_y
+            ValueLayout.JAVA_INT,   // unsigned src_width
+            ValueLayout.JAVA_INT,   // unsigned src_height
+            ValueLayout.JAVA_INT,   // int dest_x
+            ValueLayout.JAVA_INT,   // int dest_y
+        )
+    )
+}
+
+/**
+ * int XChangeProperty(Display* display, Window w, Atom property, Atom type,
+ *                     int format, int mode, const unsigned char* data, int nelements);
+ *
+ * Already declared above for _MOTIF_WM_HINTS; re-exported as an alias
+ * for the _NET_WM_ICON implementation.
+ * Note: xChangeProperty is already declared in the file above.
+ */
+
+// ── X11 cursor shape constants (cursorfont.h) ─────────────────────────────────
+
+internal const val XC_left_ptr: Int          = 68   // default arrow
+internal const val XC_hand2: Int             = 60   // pointer / hand
+internal const val XC_xterm: Int             = 152  // text I-beam
+internal const val XC_crosshair: Int         = 34   // crosshair
+internal const val XC_fleur: Int             = 52   // move (all-direction)
+internal const val XC_watch: Int             = 150  // wait / busy
+internal const val XC_X_cursor: Int          = 0    // not-allowed (X shape)
+internal const val XC_hand1: Int             = 58   // grab open
+internal const val XC_top_side: Int          = 138  // resize north
+internal const val XC_bottom_side: Int       = 16   // resize south
+internal const val XC_right_side: Int        = 96   // resize east
+internal const val XC_left_side: Int         = 70   // resize west
+internal const val XC_top_right_corner: Int  = 136  // resize NE
+internal const val XC_top_left_corner: Int   = 134  // resize NW
+internal const val XC_bottom_right_corner: Int = 14 // resize SE
+internal const val XC_bottom_left_corner: Int = 12  // resize SW
+internal const val XC_sb_h_double_arrow: Int = 108  // EW resize
+internal const val XC_sb_v_double_arrow: Int = 116  // NS resize

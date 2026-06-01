@@ -16,17 +16,22 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.CursorGrabMode
+import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
+import org.graphiks.kadre.core.WindowLevel
 import java.lang.foreign.MemorySegment
 
 /** wl_compositor.create_surface opcode in the core Wayland protocol. */
@@ -376,6 +381,121 @@ class WaylandWindow private constructor(
         if (width > 0 && height > 0) {
             _innerSize = PhysicalSize(width, height)
         }
+    }
+
+    // ── R3: cursor, theme & appearance ───────────────────────────────────────
+
+    /**
+     * No-op on Wayland.
+     *
+     * Cursor shape requires wl_pointer.set_cursor with a wl_surface carrying
+     * a cursor buffer from libwayland-cursor. This is significant extra work
+     * (loading cursor theme, creating a wl_surface, attaching a shm buffer).
+     *
+     * TODO(R3-wayland-cursor): implement via wl_cursor_theme_load +
+     * wl_pointer.set_cursor if libwayland-cursor is available.
+     */
+    override fun setCursor(cursor: CursorIcon) {
+        // No-op on Wayland: cursor theme requires libwayland-cursor integration.
+    }
+
+    /**
+     * No-op on Wayland.
+     *
+     * TODO(R3-wayland-cursor-visible): hide via wl_pointer.set_cursor(null).
+     */
+    override fun setCursorVisible(visible: Boolean) {
+        // No-op on Wayland: cursor visibility requires libwayland-cursor integration.
+    }
+
+    /**
+     * No-op on Wayland.
+     *
+     * Pointer confinement requires zwp_pointer_constraints_v1, which is an
+     * optional Wayland protocol extension not yet wired in this backend.
+     *
+     * TODO(R3-wayland-grab): implement via zwp_pointer_constraints_v1.
+     */
+    override fun setCursorGrab(mode: CursorGrabMode) {
+        // No-op on Wayland: pointer constraints require zwp_pointer_constraints_v1.
+    }
+
+    /**
+     * No-op on Wayland.
+     *
+     * Wayland does not expose global cursor warping. The protocol intentionally
+     * hides pointer positions from clients for security reasons.
+     */
+    override fun setCursorPosition(position: PhysicalPosition<Int>) {
+        // No-op on Wayland: cursor warping is not exposed by the Wayland protocol.
+    }
+
+    /**
+     * No-op on Wayland.
+     *
+     * TODO(R3-wayland-hittest): implement via the input-region protocol.
+     */
+    override fun setCursorHittest(hittest: Boolean) {
+        // No-op on Wayland: no standard click-through mechanism.
+    }
+
+    /**
+     * Returns null on Wayland.
+     *
+     * Theme detection via org.freedesktop.portal.Settings is not yet wired.
+     *
+     * TODO(R3-wayland-theme): query org.freedesktop.portal.Settings via D-Bus.
+     */
+    override val theme: Theme? get() = null
+
+    /**
+     * No-op on Wayland — no standard per-window theme control.
+     */
+    override fun setTheme(theme: Theme?) {
+        // No-op on Wayland: no standard per-window theme API.
+    }
+
+    /**
+     * No-op on Wayland.
+     *
+     * Window Z-ordering is managed entirely by the compositor.
+     * There is no standard Wayland protocol to request AlwaysOnTop/AlwaysOnBottom.
+     */
+    override fun setWindowLevel(level: WindowLevel) {
+        // No-op on Wayland: Z-ordering is compositor-managed.
+    }
+
+    /**
+     * No-op on Wayland.
+     *
+     * Per-pixel alpha transparency requires the compositor to support the
+     * EGL_EXT_platform_wayland or similar; this is renderer-side and outside
+     * the window API scope.
+     *
+     * TODO(R3-wayland-transparent): set _NET_WM_WINDOW_OPACITY or use
+     * wl_surface with ARGB buffer format when the renderer supports it.
+     */
+    override fun setTransparent(transparent: Boolean) {
+        // No-op on Wayland.
+    }
+
+    /**
+     * No-op on Wayland.
+     *
+     * Blur requires compositor-specific protocols (e.g. org.kde.kwin.blur).
+     */
+    override fun setBlur(blur: Boolean) {
+        // No-op on Wayland: no standard blur protocol.
+    }
+
+    /**
+     * No-op on Wayland.
+     *
+     * Wayland does not support per-window application icons; the desktop
+     * file or XDG portal is the correct mechanism.
+     */
+    override fun setWindowIcon(icon: Icon?) {
+        // No-op on Wayland: window icons are not part of the Wayland protocol.
     }
 
     // ── Companion ─────────────────────────────────────────────────────────────

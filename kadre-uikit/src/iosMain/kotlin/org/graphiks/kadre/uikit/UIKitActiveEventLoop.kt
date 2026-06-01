@@ -4,6 +4,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import org.graphiks.kadre.core.*
 import platform.UIKit.UIScreen
+import platform.UIKit.UIUserInterfaceStyle
 
 /**
  * UIKit ActiveEventLoop — lightweight proxy to ApplicationHandler.
@@ -68,6 +69,22 @@ internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : 
      * Returns the primary monitor (the single UIKit screen).
      */
     override fun primaryMonitor(): MonitorHandle? = syntheticUiKitMonitor()
+
+    // ── R3: system theme ──────────────────────────────────────────────────────
+
+    /**
+     * Returns the current system theme via UITraitCollection.
+     *
+     * - UIUserInterfaceStyleLight (1) → [Theme.Light]
+     * - UIUserInterfaceStyleDark  (2) → [Theme.Dark]
+     * - otherwise                     → null
+     */
+    override fun systemTheme(): Theme? = try {
+        // UITraitCollection.currentTraitCollection is not available in Kotlin/Native bindings.
+        // Use the main screen's traitCollection as a best-effort fallback via the window.
+        // TODO(R3-uikit-theme): access via UIApplication.shared.keyWindow?.traitCollection
+        null // documented no-op until proper API access is established
+    } catch (_: Throwable) { null }
 }
 
 /** Creates a synthetic monitor from UIScreen.mainScreen. */

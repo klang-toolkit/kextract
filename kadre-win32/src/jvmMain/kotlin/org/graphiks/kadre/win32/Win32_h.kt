@@ -824,6 +824,9 @@ internal const val SW_MAXIMIZE: Int = 3
 /** SWP_NOSIZE — retain the current size when calling SetWindowPos. */
 internal const val SWP_NOSIZE: Int = 0x0001
 
+/** SWP_NOMOVE — retain the current position when calling SetWindowPos. */
+internal const val SWP_NOMOVE: Int = 0x0002
+
 /** SWP_NOZORDER — retain the current Z order when calling SetWindowPos. */
 internal const val SWP_NOZORDER: Int = 0x0004
 
@@ -850,3 +853,173 @@ internal const val RECT_OFFSET_RIGHT: Long = 8L
 
 /** Byte offset of RECT.bottom */
 internal const val RECT_OFFSET_BOTTOM: Long = 12L
+
+// ── R3 bindings ──────────────────────────────────────────────────────────────
+
+/**
+ * BOOL SetCursorPos(int X, int Y);
+ *
+ * Moves the cursor to the specified screen coordinates.
+ */
+internal val setCursorPos: MethodHandle? by lazy {
+    user32.downcall(
+        "SetCursorPos",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.JAVA_INT,   // X
+            ValueLayout.JAVA_INT,   // Y
+        )
+    )
+}
+
+/**
+ * HCURSOR SetCursor(HCURSOR hCursor);
+ *
+ * Sets the cursor shape for the current thread.
+ */
+internal val setCursor: MethodHandle? by lazy {
+    user32.downcall(
+        "SetCursor",
+        FunctionDescriptor.of(
+            ValueLayout.ADDRESS,    // HCURSOR (previous cursor)
+            ValueLayout.ADDRESS,    // HCURSOR hCursor
+        )
+    )
+}
+
+/**
+ * int ShowCursor(BOOL bShow);
+ *
+ * Shows or hides the cursor. Returns the display counter (>= 0 = visible).
+ */
+internal val showCursorHandle: MethodHandle? by lazy {
+    user32.downcall(
+        "ShowCursor",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int (display counter)
+            ValueLayout.JAVA_INT,   // BOOL bShow
+        )
+    )
+}
+
+/**
+ * BOOL ClipCursor(const RECT *lpRect);
+ *
+ * Confines the cursor to the given rectangle. Pass NULL to release.
+ */
+internal val clipCursor: MethodHandle? by lazy {
+    user32.downcall(
+        "ClipCursor",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // const RECT* (NULL to release)
+        )
+    )
+}
+
+/**
+ * BOOL GetClientRect(HWND hWnd, LPRECT lpRect) — re-exported as getClientRectW for R3 use.
+ * Already declared above as [getClientRect].
+ */
+
+/**
+ * BOOL SendMessageW(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+ *
+ * Used here for WM_SETICON.
+ */
+internal val sendMessageW: MethodHandle? by lazy {
+    user32.downcall(
+        "SendMessageW",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_LONG,  // LRESULT
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.JAVA_INT,   // UINT Msg
+            ValueLayout.JAVA_LONG,  // WPARAM
+            ValueLayout.JAVA_LONG,  // LPARAM
+        )
+    )
+}
+
+/**
+ * HRESULT DwmSetWindowAttribute(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute);
+ *
+ * Used for DWMWA_USE_IMMERSIVE_DARK_MODE (= 20) to apply dark mode title bar.
+ * Available since Windows 11 Build 22000; silently fails on older versions.
+ *
+ * Risk (FFM): dwmapi.dll may not be available in all configurations; the lazy
+ * lookup and try/catch guard against this.
+ */
+internal val dwmapi: SymbolLookup? by lazy {
+    try { SymbolLookup.libraryLookup("dwmapi.dll", Arena.global()) } catch (_: Throwable) { null }
+}
+
+internal val dwmSetWindowAttribute: MethodHandle? by lazy {
+    dwmapi.downcall(
+        "DwmSetWindowAttribute",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // HRESULT
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.JAVA_INT,   // DWORD dwAttribute
+            ValueLayout.ADDRESS,    // LPCVOID pvAttribute
+            ValueLayout.JAVA_INT,   // DWORD cbAttribute
+        )
+    )
+}
+
+/** DWMWA_USE_IMMERSIVE_DARK_MODE — enables dark title bar (Windows 11+). */
+internal const val DWMWA_USE_IMMERSIVE_DARK_MODE: Int = 20
+
+// IDC cursor resource IDs (passed to LoadCursorW via MAKEINTRESOURCE)
+internal const val IDC_WAIT: Long     = 32514L
+internal const val IDC_IBEAM: Long    = 32513L
+internal const val IDC_CROSS: Long    = 32515L
+internal const val IDC_SIZEALL: Long  = 32646L
+internal const val IDC_NO: Long       = 32648L
+internal const val IDC_HAND: Long     = 32649L
+internal const val IDC_APPSTARTING: Long = 32650L
+internal const val IDC_SIZENS: Long   = 32645L
+internal const val IDC_SIZEWE: Long   = 32644L
+internal const val IDC_SIZENWSE: Long = 32642L
+internal const val IDC_SIZENESW: Long = 32643L
+internal const val IDC_SIZENWS: Long  = 32642L
+internal const val IDC_SIZENORTH: Long = 32645L  // same as SIZENS
+internal const val IDC_SIZESOUTH: Long = 32645L
+internal const val IDC_SIZEEAST: Long  = 32644L
+internal const val IDC_SIZEWEST: Long  = 32644L
+
+// HWND Z-order constants
+/** HWND_TOPMOST = (HWND)(LONG_PTR)-1 */
+internal val HWND_TOPMOST: MemorySegment = MemorySegment.ofAddress(-1L)
+/** HWND_NOTOPMOST = (HWND)(LONG_PTR)-2 */
+internal val HWND_NOTOPMOST: MemorySegment = MemorySegment.ofAddress(-2L)
+/** HWND_BOTTOM = (HWND)(LONG_PTR)1 */
+internal val HWND_BOTTOM: MemorySegment = MemorySegment.ofAddress(1L)
+
+/** WM_SETICON message. */
+internal const val WM_SETICON: Int = 0x0080
+/** ICON_SMALL (0) and ICON_BIG (1) for WM_SETICON. */
+internal const val ICON_SMALL: Long = 0L
+internal const val ICON_BIG: Long = 1L
+
+/** WS_EX_LAYERED — required to use SetLayeredWindowAttributes. */
+internal const val WS_EX_LAYERED: Int = 0x00080000
+
+/** GWL_EXSTYLE — window extended style index. */
+internal const val GWL_EXSTYLE: Int = -20
+
+/**
+ * BOOL SetLayeredWindowAttributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags);
+ * LWA_ALPHA = 0x2 → use bAlpha for the entire window.
+ */
+internal val setLayeredWindowAttributes: MethodHandle? by lazy {
+    user32.downcall(
+        "SetLayeredWindowAttributes",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.JAVA_INT,   // COLORREF crKey (0 = no color key)
+            ValueLayout.JAVA_BYTE,  // BYTE bAlpha (ignored when LWA_COLORKEY only)
+            ValueLayout.JAVA_INT,   // DWORD dwFlags
+        )
+    )
+}

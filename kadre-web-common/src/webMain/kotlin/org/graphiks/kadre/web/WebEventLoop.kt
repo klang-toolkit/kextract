@@ -39,6 +39,7 @@ import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -65,6 +66,9 @@ open class WebEventLoop : ActiveEventLoop {
 
     /** List of active windows created by this loop. */
     private val windows = mutableListOf<WebWindow>()
+
+    /** Primary DOM bridge (the first one created); used for system-level queries. */
+    private var primaryBridge: WebDomBridge? = null
 
     /** Queue of DOM events received between two frames. */
     private val pendingEvents = mutableListOf<Pair<WindowId, WebWindowEvent>>()
@@ -120,6 +124,7 @@ open class WebEventLoop : ActiveEventLoop {
      */
     fun createWindow(attrs: WebWindowAttributes): Window {
         val bridge = createDomBridge()
+        if (primaryBridge == null) primaryBridge = bridge
         val canvasId = bridge.ensureCanvas(attrs)
         val window = WebWindow(canvasId, bridge)
 
@@ -177,6 +182,19 @@ open class WebEventLoop : ActiveEventLoop {
      * Returns the single synthetic web monitor.
      */
     override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+
+    // ── R3: system theme ──────────────────────────────────────────────────────
+
+    /**
+     * Returns the current system theme via `prefers-color-scheme`.
+     *
+     * Delegates to [WebDomBridge.prefersDarkColorScheme] on the primary bridge.
+     * Returns null if no window has been created yet.
+     */
+    override fun systemTheme(): Theme? {
+        val b = primaryBridge ?: return null
+        return if (b.prefersDarkColorScheme()) Theme.Dark else Theme.Light
+    }
 
     // -------------------------------------------------------------------------
     // Public entry point

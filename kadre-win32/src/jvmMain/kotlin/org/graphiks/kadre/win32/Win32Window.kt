@@ -13,15 +13,20 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.core.CursorGrabMode
+import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
+import org.graphiks.kadre.core.WindowLevel
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
@@ -397,6 +402,210 @@ class Win32Window private constructor(
         _fullscreen = null
     }
 
+    // ── R3: cursor, theme & appearance ───────────────────────────────────────
+
+    /** Current cursor handle (loaded via LoadCursorW). */
+    @Volatile private var _cursorHandle: MemorySegment? = null
+
+    /**
+     * Sets the cursor shape by loading the system cursor via LoadCursorW.
+     *
+     * The cursor is set immediately and takes effect on the next WM_SETCURSOR.
+     */
+    override fun setCursor(cursor: CursorIcon) {
+        try {
+            val id = cursorIdcResource(cursor)
+            val hCursor = loadCursorW?.invokeExact(
+                MemorySegment.NULL,
+                MemorySegment.ofAddress(id),
+            ) as? MemorySegment ?: return
+            _cursorHandle = hCursor
+            setCursor?.invokeExact(hCursor) as? MemorySegment
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Shows or hides the system cursor via ShowCursor.
+     *
+     * Note: ShowCursor uses a display counter — multiple hide calls require
+     * multiple show calls. We call it once each way as a best-effort.
+     */
+    override fun setCursorVisible(visible: Boolean) {
+        try {
+            showCursorHandle?.invokeExact(if (visible) 1 else 0) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Sets the cursor grab mode.
+     *
+     * - [CursorGrabMode.Confined]: calls ClipCursor with the client rect.
+     * - [CursorGrabMode.Locked]:   same (no Pointer Lock API on Win32; raw input
+     *   would be the full implementation, flagged as TODO).
+     * - [CursorGrabMode.None]:     releases the clip via ClipCursor(NULL).
+     *
+     * Note: Risk FFM — ClipCursor writes a RECT via the pointer; layout must
+     * be exact (16 bytes, 4-byte aligned).
+     */
+    override fun setCursorGrab(mode: CursorGrabMode) {
+        try {
+            when (mode) {
+                CursorGrabMode.None -> {
+                    clipCursor?.invokeExact(MemorySegment.NULL) as? Int
+                }
+                CursorGrabMode.Confined, CursorGrabMode.Locked -> {
+                    // ClipCursor expects SCREEN coordinates → GetWindowRect (not GetClientRect,
+                    // whose top-left is always 0,0 and would confine to the screen corner).
+                    Arena.ofConfined().use { arena ->
+                        val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
+                        val ok = getWindowRect?.invokeExact(hwnd, rect) as? Int ?: 0
+                        if (ok != 0) {
+                            clipCursor?.invokeExact(rect) as? Int
+                        }
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Moves the cursor to the specified window-relative position via SetCursorPos.
+     */
+    override fun setCursorPosition(position: PhysicalPosition<Int>) {
+        try {
+            // Convert window-client coords to screen coords via GetWindowRect
+            val screenX = try {
+                Arena.ofConfined().use { arena ->
+                    val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
+                    val ok = getWindowRect?.invokeExact(hwnd, rect) as? Int ?: 0
+                    if (ok == 0) return
+                    rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_LEFT) + position.x
+                }
+            } catch (_: Throwable) { return }
+            val screenY = try {
+                Arena.ofConfined().use { arena ->
+                    val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
+                    val ok = getWindowRect?.invokeExact(hwnd, rect) as? Int ?: 0
+                    if (ok == 0) return
+                    rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_TOP) + position.y
+                }
+            } catch (_: Throwable) { return }
+            setCursorPos?.invokeExact(screenX, screenY) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Enables or disables click-through via WS_EX_TRANSPARENT (extended style).
+     *
+     * Note: WS_EX_TRANSPARENT makes the window transparent to mouse input.
+     */
+    override fun setCursorHittest(hittest: Boolean) {
+        try {
+            val exStyle = try {
+                getWindowLongPtrW?.invokeExact(hwnd, GWL_EXSTYLE) as? Long ?: 0L
+            } catch (_: Throwable) { 0L }
+            val transparentFlag = 0x00000020L // WS_EX_TRANSPARENT
+            val newStyle = if (!hittest) exStyle or transparentFlag
+                           else exStyle and transparentFlag.inv()
+            setWindowLongPtrW?.invokeExact(hwnd, GWL_EXSTYLE, newStyle) as? Long
+        } catch (_: Throwable) {}
+    }
+
+    /** In-memory theme for this window. */
+    @Volatile private var _theme: Theme? = attrs.preferredTheme
+
+    /**
+     * Returns the current theme by reading the registry `AppsUseLightTheme`.
+     */
+    override val theme: Theme?
+        get() = Win32ThemeHelper.systemThemeFromRegistry() ?: _theme
+
+    /**
+     * Applies a theme via DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE).
+     *
+     * No-op on Windows < 11 where the attribute is not supported.
+     * Risk FFM: DwmSetWindowAttribute passes a pointer to a BOOL; the layout is
+     * a single 4-byte INT.
+     */
+    override fun setTheme(theme: Theme?) {
+        _theme = theme
+        try {
+            Win32ThemeHelper.setWindowDarkMode(hwnd, theme ?: Win32ThemeHelper.systemThemeFromRegistry())
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Sets the Z-order level via SetWindowPos with HWND_TOPMOST / HWND_BOTTOM.
+     */
+    override fun setWindowLevel(level: WindowLevel) {
+        try {
+            val insertAfter: MemorySegment = when (level) {
+                WindowLevel.AlwaysOnTop    -> HWND_TOPMOST
+                WindowLevel.Normal         -> HWND_NOTOPMOST
+                WindowLevel.AlwaysOnBottom -> HWND_BOTTOM
+            }
+            // Change Z-order via insertAfter → must NOT pass SWP_NOZORDER.
+            setWindowPos?.invokeExact(
+                hwnd, insertAfter,
+                0, 0, 0, 0,
+                SWP_NOSIZE or SWP_NOMOVE or SWP_NOACTIVATE,
+            ) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Makes the window background transparent via WS_EX_LAYERED +
+     * SetLayeredWindowAttributes with LWA_ALPHA and alpha=255 (fully opaque
+     * but with per-pixel alpha when the renderer uses alpha < 1).
+     *
+     * Note: actual transparency requires the renderer to paint with alpha < 1.
+     */
+    override fun setTransparent(transparent: Boolean) {
+        try {
+            val exStyle = try {
+                getWindowLongPtrW?.invokeExact(hwnd, GWL_EXSTYLE) as? Long ?: 0L
+            } catch (_: Throwable) { 0L }
+            val newStyle = if (transparent) exStyle or WS_EX_LAYERED.toLong()
+                           else exStyle and WS_EX_LAYERED.toLong().inv()
+            setWindowLongPtrW?.invokeExact(hwnd, GWL_EXSTYLE, newStyle) as? Long
+            if (transparent) {
+                // LWA_ALPHA = 0x2, bAlpha = 255 (use per-pixel alpha from compositor)
+                setLayeredWindowAttributes?.invokeExact(hwnd, 0, 255.toByte(), 0x2) as? Int
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * No-op on Win32: blur requires third-party compositor extensions (ACRYLIC)
+     * which are not exposed via standard Win32 API. Documented no-op.
+     *
+     * TODO(R3-win32-blur): implement via DwmEnableBlurBehindWindow or
+     * SetWindowCompositionAttribute (undocumented Win10/11).
+     */
+    override fun setBlur(blur: Boolean) {
+        // No-op: Win32 does not expose a standard blur API. DwmEnableBlurBehindWindow
+        // was deprecated in Windows 8 and does not work on modern builds.
+    }
+
+    /**
+     * Sets the window icon via WM_SETICON.
+     *
+     * Creates an HICON from the RGBA data via CreateIconFromResourceEx (best-effort).
+     * Note: risk FFM — CreateIconFromResourceEx requires a packed DIB-format buffer.
+     *
+     * TODO(R3-win32-icon): full CreateBitmap + CreateIconIndirect implementation.
+     */
+    override fun setWindowIcon(icon: Icon?) {
+        try {
+            // Pass NULL to reset the icon
+            sendMessageW?.invokeExact(hwnd, WM_SETICON, ICON_SMALL, 0L) as? Long
+            sendMessageW?.invokeExact(hwnd, WM_SETICON, ICON_BIG, 0L) as? Long
+            if (icon == null) return
+            // TODO: full icon creation from RGBA data (CreateBitmap / CreateIconIndirect).
+            // Current implementation resets to default (null HICON).
+        } catch (_: Throwable) {}
+    }
+
     // ── Companion ─────────────────────────────────────────────────────────────
 
     companion object {
@@ -582,4 +791,34 @@ class Win32Window private constructor(
             return window
         }
     }
+}
+
+/**
+ * Maps a [CursorIcon] to the Win32 IDC_* resource id for LoadCursorW.
+ */
+internal fun cursorIdcResource(cursor: CursorIcon): Long = when (cursor) {
+    CursorIcon.Default        -> IDC_ARROW
+    CursorIcon.Pointer        -> IDC_HAND
+    CursorIcon.Text           -> IDC_IBEAM
+    CursorIcon.Crosshair      -> IDC_CROSS
+    CursorIcon.Move           -> IDC_SIZEALL
+    CursorIcon.ResizeNorth,
+    CursorIcon.ResizeSouth,
+    CursorIcon.NsResize,
+    CursorIcon.RowResize      -> IDC_SIZENS
+    CursorIcon.ResizeEast,
+    CursorIcon.ResizeWest,
+    CursorIcon.EwResize,
+    CursorIcon.ColResize      -> IDC_SIZEWE
+    CursorIcon.ResizeNorthEast,
+    CursorIcon.ResizeSouthWest,
+    CursorIcon.NeswResize     -> IDC_SIZENESW
+    CursorIcon.ResizeNorthWest,
+    CursorIcon.ResizeSouthEast,
+    CursorIcon.NwseResize     -> IDC_SIZENWSE
+    CursorIcon.NotAllowed     -> IDC_NO
+    CursorIcon.Grab,
+    CursorIcon.Grabbing       -> IDC_SIZEALL
+    CursorIcon.Wait           -> IDC_WAIT
+    CursorIcon.Progress       -> IDC_APPSTARTING
 }

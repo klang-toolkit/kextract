@@ -23,9 +23,12 @@ package org.graphiks.kadre.test
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.CursorGrabMode
+import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.DeviceEvent
@@ -37,10 +40,12 @@ import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
+import org.graphiks.kadre.core.WindowLevel
 
 // ---------------------------------------------------------------------------
 // Trace de callbacks
@@ -165,6 +170,19 @@ class ScriptedWindow(
     private var _fullscreen: Fullscreen? = null
     override val fullscreen: Fullscreen? get() = _fullscreen
     override fun setFullscreen(fullscreen: Fullscreen?) { _fullscreen = fullscreen }
+
+    // R3 stubs (in-memory no-ops)
+    override fun setCursor(cursor: CursorIcon) {}
+    override fun setCursorVisible(visible: Boolean) {}
+    override fun setCursorGrab(mode: CursorGrabMode) {}
+    override fun setCursorPosition(position: PhysicalPosition<Int>) {}
+    override fun setCursorHittest(hittest: Boolean) {}
+    override val theme: Theme? get() = null
+    override fun setTheme(theme: Theme?) {}
+    override fun setWindowLevel(level: WindowLevel) {}
+    override fun setTransparent(transparent: Boolean) {}
+    override fun setBlur(blur: Boolean) {}
+    override fun setWindowIcon(icon: Icon?) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -205,6 +223,9 @@ class ScriptedEventLoop(
     // R2 stubs
     override fun availableMonitors(): List<MonitorHandle> = emptyList()
     override fun primaryMonitor(): MonitorHandle? = null
+
+    // R3 stub
+    override fun systemTheme(): Theme? = null
 
     // ── Exécution ───────────────────────────────────────────────────────────
 

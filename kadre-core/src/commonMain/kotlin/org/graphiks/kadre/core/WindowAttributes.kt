@@ -19,6 +19,12 @@ package org.graphiks.kadre.core
  * @property decorations Whether the window should have platform decorations (title bar, borders).
  * @property active Whether the window should be active (focused) at creation time.
  * @property fullscreen Initial fullscreen state, or null to create a windowed window.
+ * @property cursor Initial cursor shape shown over the window.
+ * @property preferredTheme Preferred UI theme override, or null to follow the system.
+ * @property transparent Whether the window background should be transparent.
+ * @property blur Whether a blur effect should be applied behind the window.
+ * @property windowLevel Z-order level of the window.
+ * @property windowIcon Application icon shown in the taskbar / dock, or null for the default.
  */
 data class WindowAttributes(
     val title: String = "Kadre",
@@ -32,4 +38,11 @@ data class WindowAttributes(
     val decorations: Boolean = true,
     val active: Boolean = true,
     val fullscreen: Fullscreen? = null,
+    // ── R3 ────────────────────────────────────────────────────────────────────
+    val cursor: CursorIcon = CursorIcon.Default,
+    val preferredTheme: Theme? = null,
+    val transparent: Boolean = false,
+    val blur: Boolean = false,
+    val windowLevel: WindowLevel = WindowLevel.Normal,
+    val windowIcon: Icon? = null,
 )

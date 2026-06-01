@@ -255,6 +255,7 @@ enum class TouchPhase {
  *         is WindowEvent.Touch          -> handleTouch(event.phase, event.location, event.id)
  *         WindowEvent.RedrawRequested   -> redraw()
  *         WindowEvent.Destroyed         -> releaseResources()
+ *         is WindowEvent.ThemeChanged   -> applyTheme(event.theme)
  *     }
  * }
  * ```
@@ -377,6 +378,20 @@ sealed interface WindowEvent {
      * No further event will be emitted for this window after [Destroyed].
      */
     data object Destroyed : WindowEvent
+
+    // ── R3: theme ────────────────────────────────────────────────────────────
+
+    /**
+     * The system UI theme changed (light ↔ dark).
+     *
+     * Emitted by backends that support theme-change notifications
+     * (AppKit, Win32). Not emitted on X11, Wayland, Android (where
+     * [ActiveEventLoop.systemTheme] should be polled) or Web (use
+     * `matchMedia('prefers-color-scheme')` via the bridge).
+     *
+     * @property theme New active theme.
+     */
+    data class ThemeChanged(val theme: Theme) : WindowEvent
 }
 
 // ---------------------------------------------------------------------------

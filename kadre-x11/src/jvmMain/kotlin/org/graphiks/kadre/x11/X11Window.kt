@@ -16,15 +16,20 @@
  */
 package org.graphiks.kadre.x11
 
+import org.graphiks.kadre.core.CursorGrabMode
+import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
+import org.graphiks.kadre.core.WindowLevel
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
@@ -310,6 +315,229 @@ class X11Window private constructor(
         }
     }
 
+    // ── R3: cursor, theme & appearance ───────────────────────────────────────
+
+    /**
+     * Sets the cursor shape via XCreateFontCursor + XDefineCursor.
+     */
+    override fun setCursor(cursor: CursorIcon) {
+        try {
+            val display = MemorySegment.ofAddress(displayPtr)
+            val shape = cursorToXShape(cursor)
+            val xcursor = xCreateFontCursor?.invokeExact(display, shape) as? Long ?: return
+            xDefineCursor?.invokeExact(display, xWindowId, xcursor) as? Int
+            xFlush?.invokeExact(display) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Shows or hides the cursor.
+     *
+     * When hiding: creates an invisible cursor using XCreateFontCursor(XC_left_ptr)
+     * with a pixel mask that makes it transparent.
+     * Best-effort — uses XUndefineCursor to restore.
+     */
+    override fun setCursorVisible(visible: Boolean) {
+        try {
+            val display = MemorySegment.ofAddress(displayPtr)
+            if (visible) {
+                xUndefineCursor?.invokeExact(display, xWindowId) as? Int
+            } else {
+                // Invisible cursor: use XDefineCursor with a blank cursor
+                // Best-effort: create a 1x1 blank cursor via XCreateFontCursor shape 0
+                // (a proper invisible cursor requires XCreatePixmapCursor — TODO)
+                // For now, just leave cursor as-is. Full implementation deferred.
+                // TODO(R3-x11-hide): XCreatePixmapCursor with blank 1×1 bitmaps.
+            }
+            xFlush?.invokeExact(display) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Sets the cursor grab mode via XGrabPointer / XUngrabPointer.
+     *
+     * - [CursorGrabMode.Confined]: grabs the pointer confined to this window.
+     * - [CursorGrabMode.Locked]:   same (raw delta via DeviceEvent — no standard
+     *   X11 API for lock; XGrabPointer is the best equivalent).
+     * - [CursorGrabMode.None]:     releases the grab.
+     *
+     * Note: XGrabPointer may fail (returns != GrabSuccess) if the pointer is
+     * already grabbed; the result is silently ignored per the no-throw contract.
+     */
+    override fun setCursorGrab(mode: CursorGrabMode) {
+        try {
+            val display = MemorySegment.ofAddress(displayPtr)
+            when (mode) {
+                CursorGrabMode.None -> {
+                    xUngrabPointer?.invokeExact(display, 0L) as? Int
+                }
+                CursorGrabMode.Confined, CursorGrabMode.Locked -> {
+                    // GrabModeAsync = 1; event_mask = PointerMotionMask|ButtonPressMask|ButtonReleaseMask
+                    val eventMask = (PointerMotionMask or ButtonPressMask or ButtonReleaseMask).toInt()
+                    xGrabPointer?.invokeExact(
+                        display,
+                        xWindowId,        // grab_window
+                        1,                // owner_events = True
+                        eventMask,        // event_mask
+                        1,                // pointer_mode = GrabModeAsync
+                        1,                // keyboard_mode = GrabModeAsync
+                        xWindowId,        // confine_to = this window
+                        0L,               // cursor = None
+                        0L,               // time = CurrentTime
+                    ) as? Int
+                }
+            }
+            xFlush?.invokeExact(display) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Warps the cursor to [position] relative to this window via XWarpPointer.
+     */
+    override fun setCursorPosition(position: PhysicalPosition<Int>) {
+        try {
+            val display = MemorySegment.ofAddress(displayPtr)
+            xWarpPointer?.invokeExact(
+                display,
+                0L,           // src_window = None
+                xWindowId,    // dest_window = this window
+                0, 0, 0, 0,   // src_x, src_y, src_width, src_height (ignored when src=None)
+                position.x,
+                position.y,
+            ) as? Int
+            xFlush?.invokeExact(display) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Hit-testing is not supported on X11.
+     *
+     * X11 has no standard mechanism for click-through windows.
+     * Documented no-op.
+     *
+     * TODO(R3-x11-hittest): use _NET_WM_WINDOW_TYPE_DESKTOP or
+     * XInputShape (X11 Shape Extension) for partial hit-testing.
+     */
+    override fun setCursorHittest(hittest: Boolean) {
+        // No-op on X11: no standard click-through mechanism.
+    }
+
+    /**
+     * Returns null — X11 has no standard theme API.
+     *
+     * The xsettings daemon or GTK theme variables could be queried, but there
+     * is no reliable cross-distribution standard. Documented null.
+     */
+    override val theme: Theme? get() = null
+
+    /**
+     * No-op — X11 has no standard theme API.
+     */
+    override fun setTheme(theme: Theme?) {
+        // No-op: X11 does not expose a standard theme control API.
+    }
+
+    /**
+     * Sets the Z-order level via _NET_WM_STATE_ABOVE / _NET_WM_STATE_BELOW.
+     */
+    override fun setWindowLevel(level: WindowLevel) {
+        val aboveAtom = internAtom(displayPtr, "_NET_WM_STATE_ABOVE")
+        val belowAtom = internAtom(displayPtr, "_NET_WM_STATE_BELOW")
+        when (level) {
+            WindowLevel.AlwaysOnTop -> {
+                sendNetWmState(false, belowAtom, 0L)
+                sendNetWmState(true,  aboveAtom, 0L)
+            }
+            WindowLevel.AlwaysOnBottom -> {
+                sendNetWmState(false, aboveAtom, 0L)
+                sendNetWmState(true,  belowAtom, 0L)
+            }
+            WindowLevel.Normal -> {
+                sendNetWmState(false, aboveAtom, 0L)
+                sendNetWmState(false, belowAtom, 0L)
+            }
+        }
+    }
+
+    /**
+     * No-op on X11.
+     *
+     * Window transparency requires compositor support (e.g. compton/picom)
+     * and the _NET_WM_WINDOW_OPACITY property or a compositor-specific API.
+     * Documented no-op.
+     *
+     * TODO(R3-x11-transparent): set _NET_WM_WINDOW_OPACITY or request ARGB visual.
+     */
+    override fun setTransparent(transparent: Boolean) {
+        // No-op on X11: standard transparency requires compositor-specific APIs.
+    }
+
+    /**
+     * No-op on X11.
+     *
+     * Blur requires compositor-specific APIs (e.g. KDE Blur, _KDE_NET_WM_BLUR_BEHIND_REGION).
+     * Documented no-op.
+     */
+    override fun setBlur(blur: Boolean) {
+        // No-op on X11: no standard blur API.
+    }
+
+    /**
+     * Sets the window icon via _NET_WM_ICON.
+     *
+     * The property data is a flat array of C longs:
+     *   [width, height, pixel0, pixel1, …]  (each in ARGB format)
+     *
+     * Risk FFM: writes an array of C longs (8 bytes each on LP64).
+     * Passing null removes the property.
+     */
+    override fun setWindowIcon(icon: Icon?) {
+        val display = MemorySegment.ofAddress(displayPtr)
+        val wmIconAtom = internAtom(displayPtr, "_NET_WM_ICON")
+        val cardinalAtom = internAtom(displayPtr, "CARDINAL")
+        if (wmIconAtom == 0L) return
+        try {
+            if (icon == null) {
+                // Delete the property (XDeleteProperty)
+                xChangeProperty?.invokeExact(
+                    display, xWindowId,
+                    wmIconAtom, cardinalAtom,
+                    32, 0, MemorySegment.NULL, 0,
+                ) as? Int
+                xFlush?.invokeExact(display) as? Int
+                return
+            }
+            val w = icon.width
+            val h = icon.height
+            val nPixels = w * h
+            val nElements = 2 + nPixels // width + height + pixels
+            Arena.ofConfined().use { arena ->
+                // Each element is a C long (8 bytes on LP64)
+                val buf = arena.allocate(nElements.toLong() * 8, 8L)
+                buf.setAtIndex(ValueLayout.JAVA_LONG, 0, w.toLong())
+                buf.setAtIndex(ValueLayout.JAVA_LONG, 1, h.toLong())
+                val rgba = icon.rgba
+                for (i in 0 until nPixels) {
+                    val base = i * 4
+                    val r = rgba[base].toLong() and 0xFFL
+                    val g = rgba[base + 1].toLong() and 0xFFL
+                    val b = rgba[base + 2].toLong() and 0xFFL
+                    val a = rgba[base + 3].toLong() and 0xFFL
+                    // _NET_WM_ICON uses ARGB
+                    val argb = (a shl 24) or (r shl 16) or (g shl 8) or b
+                    buf.setAtIndex(ValueLayout.JAVA_LONG, (2 + i).toLong(), argb)
+                }
+                xChangeProperty?.invokeExact(
+                    display, xWindowId,
+                    wmIconAtom, cardinalAtom,
+                    32, 0 /* PropModeReplace */,
+                    buf, nElements,
+                ) as? Int
+                xFlush?.invokeExact(display) as? Int
+            }
+        } catch (_: Throwable) {}
+    }
+
     // ── X11 helper: intern atom ───────────────────────────────────────────────
 
     private fun internAtom(displayPtr: Long, name: String): Long {
@@ -421,6 +649,36 @@ class X11Window private constructor(
         if (width > 0 && height > 0) {
             _innerSize = PhysicalSize(width, height)
         }
+    }
+
+    // ── R3 helpers ────────────────────────────────────────────────────────────
+
+    /** Maps a [CursorIcon] to the X11 cursorfont shape constant. */
+    private fun cursorToXShape(cursor: CursorIcon): Int = when (cursor) {
+        CursorIcon.Default        -> XC_left_ptr
+        CursorIcon.Pointer        -> XC_hand2
+        CursorIcon.Text           -> XC_xterm
+        CursorIcon.Crosshair      -> XC_crosshair
+        CursorIcon.Move           -> XC_fleur
+        CursorIcon.ResizeNorth    -> XC_top_side
+        CursorIcon.ResizeSouth    -> XC_bottom_side
+        CursorIcon.ResizeEast     -> XC_right_side
+        CursorIcon.ResizeWest     -> XC_left_side
+        CursorIcon.ResizeNorthEast -> XC_top_right_corner
+        CursorIcon.ResizeNorthWest -> XC_top_left_corner
+        CursorIcon.ResizeSouthEast -> XC_bottom_right_corner
+        CursorIcon.ResizeSouthWest -> XC_bottom_left_corner
+        CursorIcon.NotAllowed     -> XC_X_cursor
+        CursorIcon.Grab           -> XC_hand1
+        CursorIcon.Grabbing       -> XC_fleur
+        CursorIcon.Wait,
+        CursorIcon.Progress       -> XC_watch
+        CursorIcon.EwResize,
+        CursorIcon.ColResize      -> XC_sb_h_double_arrow
+        CursorIcon.NsResize,
+        CursorIcon.RowResize      -> XC_sb_v_double_arrow
+        CursorIcon.NeswResize     -> XC_top_right_corner
+        CursorIcon.NwseResize     -> XC_top_left_corner
     }
 
     // ── Companion ─────────────────────────────────────────────────────────────

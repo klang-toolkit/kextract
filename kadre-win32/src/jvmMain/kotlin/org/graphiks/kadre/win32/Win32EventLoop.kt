@@ -23,6 +23,7 @@ import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
@@ -142,6 +143,16 @@ internal class Win32EventLoop : ActiveEventLoop {
      */
     override fun primaryMonitor(): MonitorHandle? =
         enumerateWin32Monitors().firstOrNull { (it as? Win32MonitorHandle) != null }
+
+    // ── R3: system theme ──────────────────────────────────────────────────────
+
+    /**
+     * Returns the current system theme by reading the registry.
+     *
+     * Reads HKCU\...\Personalize\AppsUseLightTheme via Java Preferences.
+     * Returns null if the key is absent or the call fails.
+     */
+    override fun systemTheme(): Theme? = Win32ThemeHelper.systemThemeFromRegistry()
 
     // ── Message loop ──────────────────────────────────────────────────────────
 

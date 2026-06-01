@@ -15,6 +15,7 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun getRawDisplayHandle ()Lorg/graphiks/kadre/core/RawDisplayHandle;
 	public fun getRawWindowHandle ()Lorg/graphiks/kadre/core/RawWindowHandle;
 	public fun getScaleFactor ()D
+	public fun getTheme ()Lorg/graphiks/kadre/core/Theme;
 	public fun getTitle ()Ljava/lang/String;
 	public fun isDecorated ()Z
 	public fun isMaximized ()Z
@@ -23,6 +24,12 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun isVisible ()Z
 	public fun prePresentNotify ()V
 	public fun requestRedraw ()V
+	public fun setBlur (Z)V
+	public fun setCursor (Lorg/graphiks/kadre/core/CursorIcon;)V
+	public fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)V
+	public fun setCursorHittest (Z)V
+	public fun setCursorPosition (Lorg/graphiks/kadre/core/PhysicalPosition;)V
+	public fun setCursorVisible (Z)V
 	public fun setDecorations (Z)V
 	public fun setFullscreen (Lorg/graphiks/kadre/core/Fullscreen;)V
 	public fun setMaxSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V
@@ -31,8 +38,12 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun setMinimized (Z)V
 	public fun setOuterPosition (Lorg/graphiks/kadre/core/PhysicalPosition;)V
 	public fun setResizable (Z)V
+	public fun setTheme (Lorg/graphiks/kadre/core/Theme;)V
 	public fun setTitle (Ljava/lang/String;)V
+	public fun setTransparent (Z)V
 	public fun setVisible (Z)V
+	public fun setWindowIcon (Lorg/graphiks/kadre/core/Icon;)V
+	public fun setWindowLevel (Lorg/graphiks/kadre/core/WindowLevel;)V
 }
 
 public abstract class org/graphiks/kadre/android/KadreActivity : androidx/activity/ComponentActivity {

@@ -39,6 +39,9 @@ class ApplicationHandlerTest {
         // R2 stubs
         override fun availableMonitors() = emptyList<org.graphiks.kadre.core.MonitorHandle>()
         override fun primaryMonitor() = null
+
+        // R3 stub
+        override fun systemTheme() = null
     }
 
     // -------------------------------------------------------------------------
