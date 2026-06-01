@@ -23,7 +23,7 @@ class WaylandEventLoopSmokeTest {
      */
     @Test
     fun `waylandRunning starts false`() {
-        assertFalse(waylandRunning.get(), "waylandRunning doit être false au démarrage")
+        assertFalse(waylandRunning.get(), "waylandRunning must be false at startup")
     }
 
     /**
@@ -58,7 +58,7 @@ class WaylandEventLoopSmokeTest {
             proxy.wakeUp()
         } catch (e: Throwable) {
             // Tolerated only if the exception is unexpected — log for diagnosis
-            throw AssertionError("wakeUp() ne doit jamais propager d'exception : $e", e)
+            throw AssertionError("wakeUp() must never propagate an exception: $e", e)
         }
     }
 
@@ -74,11 +74,11 @@ class WaylandEventLoopSmokeTest {
         val lib = libC  // may be null
         // On Linux, we can verify the derived handles
         if (lib != null) {
-            assertNotNull(nativePoll, "nativePoll doit être non-null si libC est disponible")
-            assertNotNull(nativeEventfd, "nativeEventfd doit être non-null si libC est disponible")
-            assertNotNull(nativeRead, "nativeRead doit être non-null si libC est disponible")
-            assertNotNull(nativeWrite, "nativeWrite doit être non-null si libC est disponible")
-            assertNotNull(nativeClose, "nativeClose doit être non-null si libC est disponible")
+            assertNotNull(nativePoll, "nativePoll must be non-null if libC is available")
+            assertNotNull(nativeEventfd, "nativeEventfd must be non-null if libC is available")
+            assertNotNull(nativeRead, "nativeRead must be non-null if libC is available")
+            assertNotNull(nativeWrite, "nativeWrite must be non-null if libC is available")
+            assertNotNull(nativeClose, "nativeClose must be non-null if libC is available")
         }
     }
 }

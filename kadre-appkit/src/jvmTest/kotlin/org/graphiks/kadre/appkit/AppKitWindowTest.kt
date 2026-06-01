@@ -24,19 +24,19 @@ import kotlin.test.assertTrue
 class AppKitWindowTest {
 
     @Test
-    fun `AppKitWindow implemente Window`() {
+    fun `AppKitWindow implements Window`() {
         assertTrue(Window::class.java.isAssignableFrom(AppKitWindow::class.java))
     }
 
     @Test
-    fun `AppKitWindow a un constructeur acceptant WindowAttributes`() {
+    fun `AppKitWindow has a constructor accepting WindowAttributes`() {
         val ctor = AppKitWindow::class.java.constructors.first()
         val paramTypes = ctor.parameterTypes
         assertTrue(paramTypes.any { WindowAttributes::class.java.isAssignableFrom(it) })
     }
 
     @Test
-    fun `RawWindowHandle AppKit contient nsView et nsWindow en Long`() {
+    fun `RawWindowHandle AppKit contains nsView and nsWindow as Long`() {
         // Verify that RawWindowHandle.AppKit compiles with the right types (Long)
         val handle = RawWindowHandle.AppKit(nsView = 0L, nsWindow = 0L)
         assertTrue(handle.nsView == 0L)
@@ -45,13 +45,13 @@ class AppKitWindowTest {
     }
 
     @Test
-    fun `RawDisplayHandle AppKit est un data object`() {
+    fun `RawDisplayHandle AppKit is a data object`() {
         val display: RawDisplayHandle = RawDisplayHandle.AppKit
         assertTrue(display is RawDisplayHandle.AppKit)
     }
 
     @Test
-    fun `WindowAttributes a des valeurs par defaut raisonnables`() {
+    fun `WindowAttributes has reasonable default values`() {
         val attrs = WindowAttributes()
         assertTrue(attrs.title == "Kadre")
         assertTrue(attrs.visible)
@@ -60,7 +60,7 @@ class AppKitWindowTest {
     }
 
     @Test
-    fun `WindowAttributes accepte une taille physique`() {
+    fun `WindowAttributes accepts a physical size`() {
         val attrs = WindowAttributes(
             title = "Test",
             size = PhysicalSize(1920, 1080),
@@ -74,19 +74,19 @@ class AppKitWindowTest {
     }
 
     @Test
-    fun `WindowId encapsule un Long`() {
+    fun `WindowId encapsulates a Long`() {
         val id = WindowId(42L)
         assertTrue(id.value == 42L)
     }
 
     @Test
-    fun `AppKitWindow herite bien de NSWindow et NSView via bindings`() {
+    fun `AppKitWindow inherits from NSWindow and NSView via bindings`() {
         // Verify that the binding classes used in AppKitWindow exist
         // and are instantiable via constructor(MemorySegment).
         val nsWindowCtor = NSWindow::class.java.constructors.firstOrNull { it.parameterCount == 1 }
-        assertTrue(nsWindowCtor != null, "NSWindow doit avoir un constructeur(MemorySegment)")
+        assertTrue(nsWindowCtor != null, "NSWindow must have a constructor(MemorySegment)")
 
         val nsViewCtor = NSView::class.java.constructors.firstOrNull { it.parameterCount == 1 }
-        assertTrue(nsViewCtor != null, "NSView doit avoir un constructeur(MemorySegment)")
+        assertTrue(nsViewCtor != null, "NSView must have a constructor(MemorySegment)")
     }
 }

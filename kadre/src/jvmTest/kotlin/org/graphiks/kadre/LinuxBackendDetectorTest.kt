@@ -24,34 +24,34 @@ class LinuxBackendDetectorTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `canLoad retourne true pour une classe existante`() {
+    fun `canLoad returns true for an existing class`() {
         // String is always on the classpath
         val result = LinuxBackendDetector.canLoad("java.lang.String")
-        assertTrue(result, "java.lang.String doit être chargeable")
+        assertTrue(result, "java.lang.String must be loadable")
     }
 
     @Test
-    fun `canLoad retourne false pour une classe inexistante`() {
+    fun `canLoad returns false for a non-existent class`() {
         val result = LinuxBackendDetector.canLoad("org.graphiks.kadre.NonExistentClass999")
-        assertFalse(result, "Une classe fictive ne doit pas être chargeable")
+        assertFalse(result, "A fictitious class must not be loadable")
     }
 
     @Test
-    fun `canLoad retourne false pour le backend X11 absent du classpath`() {
+    fun `canLoad returns false for the X11 backend absent from the classpath`() {
         // kadre-x11 is not a dependency of :kadre — must be absent
         val result = LinuxBackendDetector.canLoad(LinuxBackendDetector.X11_CLASS)
-        assertFalse(result, "kadre-x11 ne doit pas être sur le classpath de :kadre")
+        assertFalse(result, "kadre-x11 must not be on the classpath of :kadre")
     }
 
     @Test
-    fun `canLoad retourne false pour le backend Wayland absent du classpath`() {
+    fun `canLoad returns false for the Wayland backend absent from the classpath`() {
         // kadre-wayland is not a dependency of :kadre — must be absent
         val result = LinuxBackendDetector.canLoad(LinuxBackendDetector.WAYLAND_CLASS)
-        assertFalse(result, "kadre-wayland ne doit pas être sur le classpath de :kadre")
+        assertFalse(result, "kadre-wayland must not be on the classpath of :kadre")
     }
 
     @Test
-    fun `canLoad avec debug=true ne lance pas d exception`() {
+    fun `canLoad with debug=true does not throw an exception`() {
         // Verifies that the debug flag does not introduce a regression
         val result = LinuxBackendDetector.canLoad("org.graphiks.kadre.DoesNotExist", debug = true)
         assertFalse(result)
@@ -62,7 +62,7 @@ class LinuxBackendDetectorTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `X11_CLASS pointe vers le package x11 attendu`() {
+    fun `X11_CLASS points to the expected x11 package`() {
         assertEquals(
             "org.graphiks.kadre.x11.X11EventLoopKt",
             LinuxBackendDetector.X11_CLASS,
@@ -70,7 +70,7 @@ class LinuxBackendDetectorTest {
     }
 
     @Test
-    fun `WAYLAND_CLASS pointe vers le package wayland attendu`() {
+    fun `WAYLAND_CLASS points to the expected wayland package`() {
         assertEquals(
             "org.graphiks.kadre.wayland.WaylandEventLoopKt",
             LinuxBackendDetector.WAYLAND_CLASS,

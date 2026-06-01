@@ -19,7 +19,7 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domCodeToKey mappe les lettres`() {
+    fun `domCodeToKey maps letters`() {
         assertEquals(WebKey.A, domCodeToKey("KeyA"))
         assertEquals(WebKey.Z, domCodeToKey("KeyZ"))
         assertEquals(WebKey.M, domCodeToKey("KeyM"))
@@ -30,7 +30,7 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domCodeToKey mappe les chiffres`() {
+    fun `domCodeToKey maps digits`() {
         assertEquals(WebKey.Digit0, domCodeToKey("Digit0"))
         assertEquals(WebKey.Digit9, domCodeToKey("Digit9"))
         assertEquals(WebKey.Digit5, domCodeToKey("Digit5"))
@@ -41,7 +41,7 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domCodeToKey mappe les touches de fonction`() {
+    fun `domCodeToKey maps function keys`() {
         assertEquals(WebKey.F1,  domCodeToKey("F1"))
         assertEquals(WebKey.F12, domCodeToKey("F12"))
         assertEquals(WebKey.F6,  domCodeToKey("F6"))
@@ -52,7 +52,7 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domCodeToKey mappe les touches spéciales`() {
+    fun `domCodeToKey maps special keys`() {
         assertEquals(WebKey.Space,     domCodeToKey("Space"))
         assertEquals(WebKey.Enter,     domCodeToKey("Enter"))
         assertEquals(WebKey.Escape,    domCodeToKey("Escape"))
@@ -65,7 +65,7 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domCodeToKey mappe les touches de navigation`() {
+    fun `domCodeToKey maps navigation keys`() {
         assertEquals(WebKey.ArrowUp,    domCodeToKey("ArrowUp"))
         assertEquals(WebKey.ArrowDown,  domCodeToKey("ArrowDown"))
         assertEquals(WebKey.ArrowLeft,  domCodeToKey("ArrowLeft"))
@@ -77,7 +77,7 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domCodeToKey mappe les modificateurs`() {
+    fun `domCodeToKey maps modifiers`() {
         assertEquals(WebKey.ShiftLeft,    domCodeToKey("ShiftLeft"))
         assertEquals(WebKey.ShiftRight,   domCodeToKey("ShiftRight"))
         assertEquals(WebKey.ControlLeft,  domCodeToKey("ControlLeft"))
@@ -93,7 +93,7 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domCodeToKey retourne Unknown pour un code non reconnu`() {
+    fun `domCodeToKey returns Unknown for an unrecognized code`() {
         assertEquals(WebKey.Unknown, domCodeToKey(""))
         assertEquals(WebKey.Unknown, domCodeToKey("NumpadAdd"))
         assertEquals(WebKey.Unknown, domCodeToKey("BrowserBack"))
@@ -104,13 +104,13 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domModifiers retourne NONE quand tous les drapeaux sont faux`() {
+    fun `domModifiers returns NONE when all flags are false`() {
         val mods = domModifiers(shiftKey = false, ctrlKey = false, altKey = false, metaKey = false)
         assertEquals(WebModifiers.NONE, mods)
     }
 
     @Test
-    fun `domModifiers retourne SHIFT quand shiftKey est vrai`() {
+    fun `domModifiers returns SHIFT when shiftKey is true`() {
         val mods = domModifiers(shiftKey = true, ctrlKey = false, altKey = false, metaKey = false)
         assertTrue(mods.shift)
         assertFalse(mods.ctrl)
@@ -119,26 +119,26 @@ class DomEventMapperTest {
     }
 
     @Test
-    fun `domModifiers retourne CTRL quand ctrlKey est vrai`() {
+    fun `domModifiers returns CTRL when ctrlKey is true`() {
         val mods = domModifiers(shiftKey = false, ctrlKey = true, altKey = false, metaKey = false)
         assertFalse(mods.shift)
         assertTrue(mods.ctrl)
     }
 
     @Test
-    fun `domModifiers retourne ALT quand altKey est vrai`() {
+    fun `domModifiers returns ALT when altKey is true`() {
         val mods = domModifiers(shiftKey = false, ctrlKey = false, altKey = true, metaKey = false)
         assertTrue(mods.alt)
     }
 
     @Test
-    fun `domModifiers retourne META quand metaKey est vrai`() {
+    fun `domModifiers returns META when metaKey is true`() {
         val mods = domModifiers(shiftKey = false, ctrlKey = false, altKey = false, metaKey = true)
         assertTrue(mods.meta)
     }
 
     @Test
-    fun `domModifiers combine correctement plusieurs modificateurs`() {
+    fun `domModifiers combines multiple modifiers correctly`() {
         val mods = domModifiers(shiftKey = true, ctrlKey = true, altKey = false, metaKey = false)
         assertTrue(mods.shift)
         assertTrue(mods.ctrl)
@@ -148,7 +148,7 @@ class DomEventMapperTest {
     }
 
     @Test
-    fun `domModifiers tous les modificateurs actifs`() {
+    fun `domModifiers all modifiers active`() {
         val mods = domModifiers(shiftKey = true, ctrlKey = true, altKey = true, metaKey = true)
         assertTrue(mods.shift)
         assertTrue(mods.ctrl)
@@ -161,22 +161,22 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domButtonToMouseButton mappe le bouton gauche`() {
+    fun `domButtonToMouseButton maps the left button`() {
         assertEquals(WebMouseButton.Left, domButtonToMouseButton(0))
     }
 
     @Test
-    fun `domButtonToMouseButton mappe le bouton milieu`() {
+    fun `domButtonToMouseButton maps the middle button`() {
         assertEquals(WebMouseButton.Middle, domButtonToMouseButton(1))
     }
 
     @Test
-    fun `domButtonToMouseButton mappe le bouton droit`() {
+    fun `domButtonToMouseButton maps the right button`() {
         assertEquals(WebMouseButton.Right, domButtonToMouseButton(2))
     }
 
     @Test
-    fun `domButtonToMouseButton mappe les boutons supplémentaires en Other`() {
+    fun `domButtonToMouseButton maps extra buttons to Other`() {
         assertEquals(WebMouseButton.Other(3), domButtonToMouseButton(3))
         assertEquals(WebMouseButton.Other(4), domButtonToMouseButton(4))
         assertEquals(WebMouseButton.Other(10), domButtonToMouseButton(10))
@@ -187,27 +187,27 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `domKeyStateFromEventType retourne Pressed pour keydown`() {
+    fun `domKeyStateFromEventType returns Pressed for keydown`() {
         assertEquals(WebKeyState.Pressed, domKeyStateFromEventType("keydown"))
     }
 
     @Test
-    fun `domKeyStateFromEventType retourne Released pour keyup`() {
+    fun `domKeyStateFromEventType returns Released for keyup`() {
         assertEquals(WebKeyState.Released, domKeyStateFromEventType("keyup"))
     }
 
     @Test
-    fun `domKeyStateFromEventType retourne Pressed pour pointerdown`() {
+    fun `domKeyStateFromEventType returns Pressed for pointerdown`() {
         assertEquals(WebKeyState.Pressed, domKeyStateFromEventType("pointerdown"))
     }
 
     @Test
-    fun `domKeyStateFromEventType retourne Released pour pointerup`() {
+    fun `domKeyStateFromEventType returns Released for pointerup`() {
         assertEquals(WebKeyState.Released, domKeyStateFromEventType("pointerup"))
     }
 
     @Test
-    fun `domKeyStateFromEventType retourne Released pour toute autre valeur`() {
+    fun `domKeyStateFromEventType returns Released for any other value`() {
         assertEquals(WebKeyState.Released, domKeyStateFromEventType(""))
         assertEquals(WebKeyState.Released, domKeyStateFromEventType("click"))
     }
@@ -235,30 +235,30 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `normalizeWheelDelta ne modifie pas le delta en mode pixel (0)`() {
+    fun `normalizeWheelDelta does not modify the delta in pixel mode (0)`() {
         assertEquals(42.0, normalizeWheelDelta(42.0, deltaMode = 0))
         assertEquals(-10.5, normalizeWheelDelta(-10.5, deltaMode = 0))
     }
 
     @Test
-    fun `normalizeWheelDelta multiplie par 16 en mode ligne (1)`() {
+    fun `normalizeWheelDelta multiplies by 16 in line mode (1)`() {
         assertEquals(48.0, normalizeWheelDelta(3.0, deltaMode = 1))
         assertEquals(-16.0, normalizeWheelDelta(-1.0, deltaMode = 1))
     }
 
     @Test
-    fun `normalizeWheelDelta multiplie par 600 en mode page (2)`() {
+    fun `normalizeWheelDelta multiplies by 600 in page mode (2)`() {
         assertEquals(600.0, normalizeWheelDelta(1.0, deltaMode = 2))
         assertEquals(-1200.0, normalizeWheelDelta(-2.0, deltaMode = 2))
     }
 
     @Test
-    fun `normalizeWheelDelta traite un mode inconnu comme pixel`() {
+    fun `normalizeWheelDelta treats an unknown mode as pixel`() {
         assertEquals(5.0, normalizeWheelDelta(5.0, deltaMode = 99))
     }
 
     @Test
-    fun `normalizeWheelDelta gere un delta zero`() {
+    fun `normalizeWheelDelta handles a zero delta`() {
         assertEquals(0.0, normalizeWheelDelta(0.0, deltaMode = 0))
         assertEquals(0.0, normalizeWheelDelta(0.0, deltaMode = 1))
         assertEquals(0.0, normalizeWheelDelta(0.0, deltaMode = 2))
@@ -269,7 +269,7 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `WebWindowEvent KeyboardInput egalite structurelle`() {
+    fun `WebWindowEvent KeyboardInput structural equality`() {
         val e1 = WebWindowEvent.KeyboardInput(
             key = WebKey.A,
             state = WebKeyState.Pressed,
@@ -286,7 +286,7 @@ class DomEventMapperTest {
     }
 
     @Test
-    fun `WebWindowEvent PointerMoved egalite structurelle`() {
+    fun `WebWindowEvent PointerMoved structural equality`() {
         assertEquals(
             WebWindowEvent.PointerMoved(x = 10.0, y = 20.0),
             WebWindowEvent.PointerMoved(x = 10.0, y = 20.0),
@@ -294,7 +294,7 @@ class DomEventMapperTest {
     }
 
     @Test
-    fun `WebWindowEvent MouseInput egalite structurelle`() {
+    fun `WebWindowEvent MouseInput structural equality`() {
         assertEquals(
             WebWindowEvent.MouseInput(WebMouseButton.Left, WebKeyState.Pressed),
             WebWindowEvent.MouseInput(WebMouseButton.Left, WebKeyState.Pressed),
@@ -302,7 +302,7 @@ class DomEventMapperTest {
     }
 
     @Test
-    fun `WebWindowEvent MouseWheel egalite structurelle`() {
+    fun `WebWindowEvent MouseWheel structural equality`() {
         assertEquals(
             WebWindowEvent.MouseWheel(deltaX = 1.0, deltaY = -2.0),
             WebWindowEvent.MouseWheel(deltaX = 1.0, deltaY = -2.0),
@@ -310,7 +310,7 @@ class DomEventMapperTest {
     }
 
     @Test
-    fun `WebWindowEvent Resized egalite structurelle`() {
+    fun `WebWindowEvent Resized structural equality`() {
         assertEquals(
             WebWindowEvent.Resized(width = 800, height = 600),
             WebWindowEvent.Resized(width = 800, height = 600),

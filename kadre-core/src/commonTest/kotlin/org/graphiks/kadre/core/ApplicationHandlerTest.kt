@@ -22,7 +22,7 @@ class ApplicationHandlerTest {
 
     private val stubEventLoop = object : ActiveEventLoop {
         override fun createWindow(attributes: WindowAttributes): Window =
-            error("Non implémenté dans le stub de test")
+            error("Not implemented in the test stub")
 
         override fun setControlFlow(controlFlow: ControlFlow) = Unit
 
@@ -46,7 +46,7 @@ class ApplicationHandlerTest {
      * must be instantiable without a compilation error.
      */
     @Test
-    fun handlerMinimalInstancié() {
+    fun minimalHandlerInstantiated() {
         val handler: ApplicationHandler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
@@ -60,7 +60,7 @@ class ApplicationHandlerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun deviceEventParDéfautRetourneUnit() {
+    fun deviceEventByDefaultReturnsUnit() {
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
@@ -70,7 +70,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun newEventsParDéfautRetourneUnit() {
+    fun newEventsByDefaultReturnsUnit() {
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
@@ -79,7 +79,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun aboutToWaitParDéfautRetourneUnit() {
+    fun aboutToWaitByDefaultReturnsUnit() {
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
@@ -88,7 +88,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun resumedParDéfautRetourneUnit() {
+    fun resumedByDefaultReturnsUnit() {
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
@@ -97,7 +97,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun suspendedParDéfautRetourneUnit() {
+    fun suspendedByDefaultReturnsUnit() {
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
@@ -106,7 +106,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun destroySurfacesParDéfautRetourneUnit() {
+    fun destroySurfacesByDefaultReturnsUnit() {
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
@@ -119,7 +119,7 @@ class ApplicationHandlerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun deviceEventEstSurchargeable() {
+    fun deviceEventIsOverridable() {
         var appelé = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
@@ -129,11 +129,11 @@ class ApplicationHandlerTest {
             }
         }
         handler.deviceEvent(stubEventLoop, DeviceId(42L), Any())
-        assertTrue(appelé, "deviceEvent surchargé doit être appelé")
+        assertTrue(appelé, "overridden deviceEvent must be called")
     }
 
     @Test
-    fun newEventsEstSurchargeable() {
+    fun newEventsIsOverridable() {
         var causReçue: StartCause? = null
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
@@ -147,7 +147,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun aboutToWaitEstSurchargeable() {
+    fun aboutToWaitIsOverridable() {
         var appelé = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
@@ -161,7 +161,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun resumedEstSurchargeable() {
+    fun resumedIsOverridable() {
         var appelé = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
@@ -175,7 +175,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun suspendedEstSurchargeable() {
+    fun suspendedIsOverridable() {
         var appelé = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
@@ -189,7 +189,7 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun destroySurfacesEstSurchargeable() {
+    fun destroySurfacesIsOverridable() {
         var appelé = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
@@ -207,7 +207,7 @@ class ApplicationHandlerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun canCreateSurfacesReçoitEventLoop() {
+    fun canCreateSurfacesReceivesEventLoop() {
         var eventLoopReçu: ActiveEventLoop? = null
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
@@ -224,19 +224,19 @@ class ApplicationHandlerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun controlFlowWaitEstDistinct() {
+    fun controlFlowWaitIsDistinct() {
         val cf: ControlFlow = ControlFlow.Wait
         assertEquals(ControlFlow.Wait, cf)
     }
 
     @Test
-    fun controlFlowPollEstDistinct() {
+    fun controlFlowPollIsDistinct() {
         val cf: ControlFlow = ControlFlow.Poll
         assertEquals(ControlFlow.Poll, cf)
     }
 
     @Test
-    fun controlFlowWaitUntilContientInstant() {
+    fun controlFlowWaitUntilContainsInstant() {
         val cf = ControlFlow.WaitUntil(instant = 1_000L)
         assertEquals(1_000L, cf.instant)
     }
@@ -246,31 +246,31 @@ class ApplicationHandlerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun startCauseInitEstSingleton() {
+    fun startCauseInitIsSingleton() {
         val sc: StartCause = StartCause.Init
         assertEquals(StartCause.Init, sc)
     }
 
     @Test
-    fun startCausePollEstSingleton() {
+    fun startCausePollIsSingleton() {
         val sc: StartCause = StartCause.Poll
         assertEquals(StartCause.Poll, sc)
     }
 
     @Test
-    fun startCauseWaitCancelledAvecValeurOptionnelle() {
+    fun startCauseWaitCancelledWithOptionalValue() {
         val sc = StartCause.WaitCancelled(requestedResume = 500L)
         assertEquals(500L, sc.requestedResume)
     }
 
     @Test
-    fun startCauseWaitCancelledSansValeur() {
+    fun startCauseWaitCancelledWithoutValue() {
         val sc = StartCause.WaitCancelled()
         assertFalse(sc.requestedResume != null)
     }
 
     @Test
-    fun startCauseResumeTimeReachedContientInstants() {
+    fun startCauseResumeTimeReachedContainsInstants() {
         val sc = StartCause.ResumeTimeReached(requestedResume = 100L, start = 105L)
         assertEquals(100L, sc.requestedResume)
         assertEquals(105L, sc.start)
@@ -281,13 +281,13 @@ class ApplicationHandlerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun windowIdEncapsuleUnLong() {
+    fun windowIdWrapsALong() {
         val id = WindowId(42L)
         assertEquals(42L, id.value)
     }
 
     @Test
-    fun deviceIdEncapsuleUnLong() {
+    fun deviceIdWrapsALong() {
         val id = DeviceId(7L)
         assertEquals(7L, id.value)
     }
@@ -297,7 +297,7 @@ class ApplicationHandlerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun windowAttributesValeursParDéfaut() {
+    fun windowAttributesDefaultValues() {
         val attrs = WindowAttributes()
         assertEquals("Kadre", attrs.title)
         assertFalse(attrs.size != null)
@@ -306,14 +306,14 @@ class ApplicationHandlerTest {
     }
 
     @Test
-    fun windowAttributesPersonnalisées() {
+    fun windowAttributesCustomized() {
         val attrs = WindowAttributes(
-            title = "Ma fenêtre",
+            title = "My window",
             size = PhysicalSize(1920, 1080),
             visible = false,
             resizable = false,
         )
-        assertEquals("Ma fenêtre", attrs.title)
+        assertEquals("My window", attrs.title)
         assertEquals(PhysicalSize(1920, 1080), attrs.size)
         assertFalse(attrs.visible)
         assertFalse(attrs.resizable)

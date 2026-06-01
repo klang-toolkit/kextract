@@ -33,7 +33,7 @@ import kotlin.test.assertNotNull
 class SmokeTest {
 
     @Test
-    fun `les type aliases Win32 compilent et sont assignables`() {
+    fun `the Win32 type aliases compile and are assignable`() {
         // Verifies that the typealiases are usable as ordinary Kotlin types
         val dword: DWORD = 0xFFFF_FFFFL
         val word: WORD = 0xFFFF
@@ -71,14 +71,14 @@ class SmokeTest {
     }
 
     @Test
-    fun `DWORD peut representer une valeur 32 bits non signee`() {
+    fun `DWORD can represent a 32-bit unsigned value`() {
         // DWORD is Long — can store 0xFFFFFFFF without overflow
         val maxDword: DWORD = 0xFFFF_FFFFL
         assertEquals(4294967295L, maxDword)
     }
 
     @Test
-    fun `BOOL semantique Win32 - zero est FALSE`() {
+    fun `BOOL Win32 semantics - zero is FALSE`() {
         val winFalse: BOOL = 0
         val winTrue: BOOL = 1
         // Verification of the Win32 semantics: 0 = FALSE
@@ -87,20 +87,20 @@ class SmokeTest {
     }
 
     @Test
-    fun `Win32Runtime est accessible`() {
+    fun `Win32Runtime is accessible`() {
         val runtime: Win32Runtime = Win32Runtime
         assertNotNull(runtime)
     }
 
     @Test
-    fun `Win32Runtime constantes de bibliotheques sont definies`() {
+    fun `Win32Runtime library constants are defined`() {
         assertEquals("user32", Win32Runtime.USER32_LIB)
         assertEquals("kernel32", Win32Runtime.KERNEL32_LIB)
         assertEquals("gdi32", Win32Runtime.GDI32_LIB)
     }
 
     @Test
-    fun `Win32Runtime isAvailable retourne false hors Windows`() {
+    fun `Win32Runtime isAvailable returns false outside Windows`() {
         // This test runs on macOS/Linux in CI — isAvailable must be false
         // (on Windows, the test would be skipped or inverted)
         if (!System.getProperty("os.name", "").startsWith("Windows")) {

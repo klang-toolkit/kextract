@@ -55,7 +55,7 @@ class KadreWindowDelegateTest {
     // ── Tests ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `KadreWindowDelegate a un constructeur acceptant handler eventLoop windowId nsWindowPtr metalLayerPtr`() {
+    fun `KadreWindowDelegate has a constructor accepting handler eventLoop windowId nsWindowPtr metalLayerPtr`() {
         // The public constructor generated for a value class param (WindowId) has an extra
         // DefaultConstructorMarker → paramCount >= 5, the first params are ApplicationHandler, ActiveEventLoop, long/WindowId
         val ctor = KadreWindowDelegate::class.java.constructors
@@ -66,19 +66,19 @@ class KadreWindowDelegateTest {
                         ActiveEventLoop::class.java.isAssignableFrom(p[1]) &&
                         (p[2] == WindowId::class.java || p[2] == Long::class.java || p[2] == java.lang.Long.TYPE)
             }
-        assertNotNull(ctor, "KadreWindowDelegate doit avoir un ctor(ApplicationHandler, ActiveEventLoop, WindowId/long, MemorySegment, MemorySegment)")
+        assertNotNull(ctor, "KadreWindowDelegate must have a ctor(ApplicationHandler, ActiveEventLoop, WindowId/long, MemorySegment, MemorySegment)")
     }
 
     @Test
-    fun `KadreWindowDelegate expose un champ ptr de type MemorySegment`() {
+    fun `KadreWindowDelegate exposes a ptr field of type MemorySegment`() {
         val field = KadreWindowDelegate::class.java.methods
             .firstOrNull { it.name == "getPtr" && it.parameterCount == 0 }
-        assertNotNull(field, "KadreWindowDelegate doit exposer ptr: MemorySegment via getPtr()")
+        assertNotNull(field, "KadreWindowDelegate must expose ptr: MemorySegment via getPtr()")
         assertEquals(MemorySegment::class.java, field.returnType)
     }
 
     @Test
-    fun `onWindowShouldClose retourne 0 quand eventLoop nest pas en cours darret`() {
+    fun `onWindowShouldClose returns 0 when eventLoop is not exiting`() {
         val handler = RecordingHandler()
         val eventLoop = StubEventLoop()
         val windowId = WindowId(42L)
@@ -90,71 +90,71 @@ class KadreWindowDelegateTest {
         // Here we only verify that Callbacks.windowShouldClose returns Byte.
         val callbacksClass = Class.forName("org.graphiks.kadre.appkit.KadreWindowDelegate\$Callbacks")
         val method = callbacksClass.methods.firstOrNull { it.name == "windowShouldClose" }
-        assertNotNull(method, "Callbacks.windowShouldClose doit exister")
+        assertNotNull(method, "Callbacks.windowShouldClose must exist")
         assertEquals(
             java.lang.Byte.TYPE,
             method.returnType,
-            "windowShouldClose doit retourner Byte (BOOL)",
+            "windowShouldClose must return Byte (BOOL)",
         )
-        assertEquals(3, method.parameterCount, "windowShouldClose doit prendre 3 params (self, cmd, sender)")
+        assertEquals(3, method.parameterCount, "windowShouldClose must take 3 params (self, cmd, sender)")
     }
 
     @Test
-    fun `Callbacks windowDidResize existe avec la bonne signature`() {
+    fun `Callbacks windowDidResize exists with the correct signature`() {
         val callbacksClass = Class.forName("org.graphiks.kadre.appkit.KadreWindowDelegate\$Callbacks")
         val method = callbacksClass.methods.firstOrNull { it.name == "windowDidResize" }
-        assertNotNull(method, "Callbacks.windowDidResize doit exister")
+        assertNotNull(method, "Callbacks.windowDidResize must exist")
         assertEquals(
             Void.TYPE,
             method.returnType,
-            "windowDidResize doit retourner void",
+            "windowDidResize must return void",
         )
-        assertEquals(3, method.parameterCount, "windowDidResize doit prendre 3 params (self, cmd, notification)")
+        assertEquals(3, method.parameterCount, "windowDidResize must take 3 params (self, cmd, notification)")
     }
 
     @Test
-    fun `Callbacks windowDidChangeBackingProperties existe avec la bonne signature`() {
+    fun `Callbacks windowDidChangeBackingProperties exists with the correct signature`() {
         val callbacksClass = Class.forName("org.graphiks.kadre.appkit.KadreWindowDelegate\$Callbacks")
         val method = callbacksClass.methods.firstOrNull { it.name == "windowDidChangeBackingProperties" }
-        assertNotNull(method, "Callbacks.windowDidChangeBackingProperties doit exister")
+        assertNotNull(method, "Callbacks.windowDidChangeBackingProperties must exist")
         assertEquals(Void.TYPE, method.returnType)
         assertEquals(3, method.parameterCount)
     }
 
     @Test
-    fun `WindowEvent ScaleFactorChanged est reconnu comme WindowEvent`() {
+    fun `WindowEvent ScaleFactorChanged is recognized as a WindowEvent`() {
         val event: WindowEvent = WindowEvent.ScaleFactorChanged(2.0)
         assertTrue(event is WindowEvent.ScaleFactorChanged)
         assertEquals(2.0, (event as WindowEvent.ScaleFactorChanged).factor)
     }
 
     @Test
-    fun `WindowEvent Resized est reconnu comme WindowEvent`() {
+    fun `WindowEvent Resized is recognized as a WindowEvent`() {
         val event: WindowEvent = WindowEvent.Resized(org.graphiks.kadre.core.PhysicalSize(800, 600))
         assertTrue(event is WindowEvent.Resized)
     }
 
     @Test
-    fun `WindowEvent CloseRequested est reconnu comme WindowEvent`() {
+    fun `WindowEvent CloseRequested is recognized as a WindowEvent`() {
         val event: WindowEvent = WindowEvent.CloseRequested
         assertTrue(event is WindowEvent.CloseRequested)
     }
 
     @Test
-    fun `AppKitWindow expose setWindowDelegate avec la bonne signature`() {
+    fun `AppKitWindow exposes setWindowDelegate with the correct signature`() {
         val method = AppKitWindow::class.java.methods
             .firstOrNull { it.name == "setWindowDelegate" }
-        assertNotNull(method, "AppKitWindow doit avoir setWindowDelegate()")
+        assertNotNull(method, "AppKitWindow must have setWindowDelegate()")
         assertEquals(2, method.parameterCount)
         assertTrue(ApplicationHandler::class.java.isAssignableFrom(method.parameterTypes[0]))
         assertTrue(ActiveEventLoop::class.java.isAssignableFrom(method.parameterTypes[1]))
     }
 
     @Test
-    fun `AppKitWindow expose delegate nullable`() {
+    fun `AppKitWindow exposes a nullable delegate`() {
         val method = AppKitWindow::class.java.methods
             .firstOrNull { it.name == "getDelegate" }
-        assertNotNull(method, "AppKitWindow doit exposer getDelegate()")
+        assertNotNull(method, "AppKitWindow must expose getDelegate()")
         assertEquals(KadreWindowDelegate::class.java, method.returnType)
     }
 }

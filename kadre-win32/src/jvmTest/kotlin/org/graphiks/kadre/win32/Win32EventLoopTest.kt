@@ -57,20 +57,20 @@ class Win32EventLoopTest {
     // ── ControlFlow ───────────────────────────────────────────────────────────
 
     @Test
-    fun `ControlFlow initial est Wait`() {
+    fun `initial ControlFlow is Wait`() {
         val loop = Win32EventLoop()
         assertTrue(loop.controlFlow is ControlFlow.Wait)
     }
 
     @Test
-    fun `setControlFlow Poll change le mode`() {
+    fun `setControlFlow Poll changes the mode`() {
         val loop = Win32EventLoop()
         loop.setControlFlow(ControlFlow.Poll)
         assertTrue(loop.controlFlow is ControlFlow.Poll)
     }
 
     @Test
-    fun `setControlFlow WaitUntil change le mode avec l instant cible`() {
+    fun `setControlFlow WaitUntil changes the mode with the target instant`() {
         val loop = Win32EventLoop()
         val instant = System.currentTimeMillis() + 1000L
         loop.setControlFlow(ControlFlow.WaitUntil(instant))
@@ -80,7 +80,7 @@ class Win32EventLoopTest {
     }
 
     @Test
-    fun `setControlFlow Wait revient au mode attente bloquant`() {
+    fun `setControlFlow Wait returns to blocking wait mode`() {
         val loop = Win32EventLoop()
         loop.setControlFlow(ControlFlow.Poll)
         loop.setControlFlow(ControlFlow.Wait)
@@ -90,13 +90,13 @@ class Win32EventLoopTest {
     // ── isExiting ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `isExiting est false au demarrage`() {
+    fun `isExiting is false at startup`() {
         val loop = Win32EventLoop()
         assertFalse(loop.isExiting)
     }
 
     @Test
-    fun `exit positionne isExiting a true`() {
+    fun `exit sets isExiting to true`() {
         val loop = Win32EventLoop()
         loop.exit()
         assertTrue(loop.isExiting)
@@ -105,14 +105,14 @@ class Win32EventLoopTest {
     // ── createProxy ──────────────────────────────────────────────────────────
 
     @Test
-    fun `createProxy retourne un proxy non null`() {
+    fun `createProxy returns a non null proxy`() {
         val loop = Win32EventLoop()
         val proxy = loop.createProxy()
         assertNotNull(proxy)
     }
 
     @Test
-    fun `wakeUp du proxy ne leve pas d exception sur non-Windows`() {
+    fun `proxy wakeUp does not throw an exception on non-Windows`() {
         if (isWindows()) return
         val loop = Win32EventLoop()
         val proxy = loop.createProxy()
@@ -123,54 +123,54 @@ class Win32EventLoopTest {
     // ── Message loop constants ────────────────────────────────────────────────
 
     @Test
-    fun `PM_REMOVE a la valeur 0x0001`() {
+    fun `PM_REMOVE has the value 0x0001`() {
         assertEquals(0x0001, PM_REMOVE)
     }
 
     @Test
-    fun `PM_NOREMOVE a la valeur 0x0000`() {
+    fun `PM_NOREMOVE has the value 0x0000`() {
         assertEquals(0x0000, PM_NOREMOVE)
     }
 
     @Test
-    fun `QS_ALLINPUT a la valeur 0x04FF`() {
+    fun `QS_ALLINPUT has the value 0x04FF`() {
         assertEquals(0x04FF, QS_ALLINPUT)
     }
 
     @Test
-    fun `MWMO_INPUTAVAILABLE a la valeur 0x0004`() {
+    fun `MWMO_INPUTAVAILABLE has the value 0x0004`() {
         assertEquals(0x0004, MWMO_INPUTAVAILABLE)
     }
 
     @Test
-    fun `WAIT_OBJECT_0 a la valeur 0`() {
+    fun `WAIT_OBJECT_0 has the value 0`() {
         assertEquals(0, WAIT_OBJECT_0)
     }
 
     @Test
-    fun `WAIT_TIMEOUT a la valeur 0x102`() {
+    fun `WAIT_TIMEOUT has the value 0x102`() {
         assertEquals(0x00000102, WAIT_TIMEOUT)
     }
 
     // ── MSG Layout ────────────────────────────────────────────────────────────
 
     @Test
-    fun `MsgLayout SIZEOF est 48 octets`() {
+    fun `MsgLayout SIZEOF is 48 bytes`() {
         assertEquals(48, MsgLayout.SIZEOF)
     }
 
     @Test
-    fun `MsgLayout ALIGN est 8`() {
+    fun `MsgLayout ALIGN is 8`() {
         assertEquals(8, MsgLayout.ALIGN)
     }
 
     @Test
-    fun `MsgLayout LAYOUT byte size correspond a SIZEOF`() {
+    fun `MsgLayout LAYOUT byte size matches SIZEOF`() {
         assertEquals(MsgLayout.SIZEOF.toLong(), MsgLayout.LAYOUT.byteSize())
     }
 
     @Test
-    fun `MsgLayout offsets corrects pour Win64 ABI`() {
+    fun `MsgLayout offsets correct for Win64 ABI`() {
         assertEquals(0,  MsgLayout.OFFSET_HWND)
         assertEquals(8,  MsgLayout.OFFSET_MESSAGE)
         assertEquals(16, MsgLayout.OFFSET_WPARAM)
@@ -183,31 +183,31 @@ class Win32EventLoopTest {
     // ── FFM bindings — null on non-Windows ────────────────────────────────────
 
     @Test
-    fun `peekMessageW est null sur plateforme non-Windows`() {
+    fun `peekMessageW is null on non-Windows platform`() {
         if (isWindows()) return
         assertEquals(null, peekMessageW)
     }
 
     @Test
-    fun `getMessageW est null sur plateforme non-Windows`() {
+    fun `getMessageW is null on non-Windows platform`() {
         if (isWindows()) return
         assertEquals(null, getMessageW)
     }
 
     @Test
-    fun `translateMessage est null sur plateforme non-Windows`() {
+    fun `translateMessage is null on non-Windows platform`() {
         if (isWindows()) return
         assertEquals(null, translateMessage)
     }
 
     @Test
-    fun `dispatchMessageW est null sur plateforme non-Windows`() {
+    fun `dispatchMessageW is null on non-Windows platform`() {
         if (isWindows()) return
         assertEquals(null, dispatchMessageW)
     }
 
     @Test
-    fun `msgWaitForMultipleObjectsEx est null sur plateforme non-Windows`() {
+    fun `msgWaitForMultipleObjectsEx is null on non-Windows platform`() {
         if (isWindows()) return
         assertEquals(null, msgWaitForMultipleObjectsEx)
     }
@@ -215,8 +215,8 @@ class Win32EventLoopTest {
     // ── runApp — singleton lock ───────────────────────────────────────────────
 
     @Test
-    fun `win32Running est false avant runApp`() {
+    fun `win32Running is false before runApp`() {
         // If another test forgot to reset the lock, this test will detect it
-        assertFalse(win32Running.get(), "win32Running doit être false au démarrage du test")
+        assertFalse(win32Running.get(), "win32Running must be false at test startup")
     }
 }

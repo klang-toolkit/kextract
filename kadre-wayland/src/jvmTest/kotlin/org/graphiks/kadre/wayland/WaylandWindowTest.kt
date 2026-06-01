@@ -21,7 +21,7 @@ class WaylandWindowTest {
 
     @Test
     fun `WaylandWindow can be constructed with mock pointers without crashing`() {
-        // createForTest contourne les appels FFM — fonctionne sur toutes les plateformes
+        // createForTest bypasses the FFM calls — works on all platforms
         val window = WaylandWindow.createForTest(
             display = 0L,
             compositor = 0L,
@@ -101,21 +101,21 @@ class WaylandWindowTest {
 
     @Test
     fun `close does not crash with null surface`() {
-        // surface = 0 → close() doit retourner sans appel FFM
+        // surface = 0 → close() must return without an FFM call
         val window = WaylandWindow.createForTest(surface = 0L)
-        window.close() // Ne doit pas lever d'exception
+        window.close() // Must not throw an exception
     }
 
     @Test
     fun `requestRedraw does not crash with null surface`() {
         val window = WaylandWindow.createForTest(surface = 0L)
-        window.requestRedraw() // Ne doit pas lever d'exception
+        window.requestRedraw() // Must not throw an exception
     }
 
     @Test
     fun `setTitle does not crash`() {
         val window = WaylandWindow.createForTest()
-        window.setTitle("Test Window") // Stub — ne doit pas lever d'exception
+        window.setTitle("Test Window") // Stub — must not throw an exception
     }
 
     @Test
@@ -127,9 +127,9 @@ class WaylandWindowTest {
 
     @Test
     fun `WaylandWindow create returns null when libwayland is not available`() {
-        // Sur macOS/Windows, wlCompositorCreateSurface est null
-        // → create() retourne null gracieusement
-        if (libWaylandClient != null) return // Skip sur Wayland Linux
+        // On macOS/Windows, wlCompositorCreateSurface is null
+        // → create() returns null gracefully
+        if (libWaylandClient != null) return // Skip on Wayland Linux
 
         val result = WaylandWindow.create(
             display = 0L,
@@ -137,7 +137,7 @@ class WaylandWindowTest {
             xdgWmBase = 0L,
             attrs = WindowAttributes(),
         )
-        // Sur non-Wayland, le binding est null et create() retourne null
+        // On non-Wayland, the binding is null and create() returns null
         assertEquals(null, result)
     }
 }

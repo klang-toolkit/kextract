@@ -12,27 +12,27 @@ class PongAiTest {
     )
 
     @Test
-    fun `balle au centre paddle au centre → None`() {
+    fun `ball at center paddle at center → None`() {
         val ai = PongAi(reactionLagMs = 0L)
         assertEquals(PaddleInput.NONE, ai.suggest(state, 0L))
     }
 
     @Test
-    fun `balle en haut paddle au centre → UP`() {
+    fun `ball at top paddle at center → UP`() {
         val ai = PongAi(reactionLagMs = 0L)
         val s = state.copy(ball = state.ball.copy(y = 0.1))
         assertEquals(PaddleInput.UP, ai.suggest(s, 0L))
     }
 
     @Test
-    fun `balle en bas paddle au centre → DOWN`() {
+    fun `ball at bottom paddle at center → DOWN`() {
         val ai = PongAi(reactionLagMs = 0L)
         val s = state.copy(ball = state.ball.copy(y = 0.9))
         assertEquals(PaddleInput.DOWN, ai.suggest(s, 0L))
     }
 
     @Test
-    fun `lag empêche mise à jour immédiate`() {
+    fun `lag prevents immediate update`() {
         val ai = PongAi(reactionLagMs = 100L)
         // Ball at center → None (target = 0.5)
         ai.suggest(state, 0L)
@@ -42,7 +42,7 @@ class PongAiTest {
     }
 
     @Test
-    fun `lag écoulé → met à jour la cible`() {
+    fun `lag elapsed → updates the target`() {
         val ai = PongAi(reactionLagMs = 100L)
         ai.suggest(state, 0L)
         val s2 = state.copy(ball = state.ball.copy(y = 0.1))
@@ -51,7 +51,7 @@ class PongAiTest {
     }
 
     @Test
-    fun `reset remet la cible à 0,5`() {
+    fun `reset puts the target back to 0,5`() {
         val ai = PongAi(reactionLagMs = 0L)
         val s = state.copy(ball = state.ball.copy(y = 0.9))
         ai.suggest(s, 0L) // target = 0.9

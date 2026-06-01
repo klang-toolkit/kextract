@@ -22,7 +22,7 @@ import kotlin.test.assertNotNull
 class SmokeTest {
 
     @Test
-    fun `les classes AppKit generees sont accessibles`() {
+    fun `the generated AppKit classes are accessible`() {
         // Verify that the companions exist and are referenceable
         // (no real ObjC call — just checking that the types compile)
         val nsApplicationClass: kotlin.reflect.KClass<NSApplication> = NSApplication::class
@@ -37,7 +37,7 @@ class SmokeTest {
     }
 
     @Test
-    fun `les interfaces delegate AppKit sont importables`() {
+    fun `the AppKit delegate interfaces are importable`() {
         // Verify that the NSApplicationDelegate and NSWindowDelegate protocols
         // are generated as accessible Kotlin interfaces
         val appDelegateClass: kotlin.reflect.KClass<NSApplicationDelegate> = NSApplicationDelegate::class
@@ -48,7 +48,7 @@ class SmokeTest {
     }
 
     @Test
-    fun `ObjCRuntime est accessible`() {
+    fun `ObjCRuntime is accessible`() {
         // Verify that the FFM/ObjC runtime bridge compiles
         val runtime: ObjCRuntime = ObjCRuntime
         assertNotNull(runtime)

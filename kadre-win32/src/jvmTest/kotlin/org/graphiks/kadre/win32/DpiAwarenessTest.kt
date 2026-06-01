@@ -14,7 +14,7 @@ import kotlin.test.assertFalse
 class DpiAwarenessTest {
 
     @Test
-    fun enablePerMonitorV2DpiAwareness_neLevePasDException() {
+    fun enablePerMonitorV2DpiAwareness_doesNotThrow() {
         // Must never throw, regardless of the platform.
         val result = enablePerMonitorV2DpiAwareness()
         // Idempotence: a second call remains safe.
@@ -24,7 +24,7 @@ class DpiAwarenessTest {
     }
 
     @Test
-    fun constanteDpiAwarenessContext_estLaPseudoHandleAttendue() {
+    fun dpiAwarenessContextConstant_isTheExpectedPseudoHandle() {
         // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == -4 (Win32 pseudo-handle).
         assertFalse(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 != -4L)
     }

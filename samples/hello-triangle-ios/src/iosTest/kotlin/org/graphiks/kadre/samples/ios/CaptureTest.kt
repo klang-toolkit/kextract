@@ -16,8 +16,8 @@ class CaptureTest {
     @Test
     fun capturesTriangleIfMetalAvailable() {
         if (MTLCreateSystemDefaultDevice() == null) {
-            println("[ios-visual] Pas de device Metal (simulateur headless) — capture sautée. " +
-                "Le rendu réel nécessite un device iOS (ou un simulateur avec Metal).")
+            println("[ios-visual] No Metal device (headless simulator) — capture skipped. " +
+                "Actual rendering requires an iOS device (or a simulator with Metal).")
             return
         }
 
@@ -35,7 +35,7 @@ class CaptureTest {
             if (g > 128 && r < 96 && b < 96) green++
             if (b > 128 && r < 96 && g < 96) blue++
         }
-        assertTrue(nonBlack in (px / 20)..(px / 2), "pixels non-noirs (triangle) : $nonBlack/$px")
-        assertTrue(red > 0 && green > 0 && blue > 0, "régions R/G/B : r=$red g=$green b=$blue")
+        assertTrue(nonBlack in (px / 20)..(px / 2), "non-black pixels (triangle): $nonBlack/$px")
+        assertTrue(red > 0 && green > 0 && blue > 0, "R/G/B regions: r=$red g=$green b=$blue")
     }
 }

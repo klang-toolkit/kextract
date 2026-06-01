@@ -55,7 +55,7 @@ class InputAdapterTest {
     }
 
     @Test
-    fun `autre touche n'affecte pas l'état`() {
+    fun `other key does not affect the state`() {
         val adapter = InputAdapter()
         adapter.onKey(keyEvent(Key.ArrowUp, KeyState.Pressed))
         adapter.onKey(keyEvent(Key.Space, KeyState.Pressed))
@@ -67,7 +67,7 @@ class InputAdapterTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `touch Started droite haut → UP`() {
+    fun `touch Started right top → UP`() {
         val adapter = InputAdapter()
         // x > 400 (right), y < 300 (top)
         adapter.onTouch(touchEvent(TouchPhase.Started, x = 600.0, y = 100.0), screenSize)
@@ -75,7 +75,7 @@ class InputAdapterTest {
     }
 
     @Test
-    fun `touch Started droite bas → DOWN`() {
+    fun `touch Started right bottom → DOWN`() {
         val adapter = InputAdapter()
         // x > 400 (right), y > 300 (bottom)
         adapter.onTouch(touchEvent(TouchPhase.Started, x = 600.0, y = 500.0), screenSize)
@@ -83,7 +83,7 @@ class InputAdapterTest {
     }
 
     @Test
-    fun `touch Started gauche ignoré`() {
+    fun `touch Started left ignored`() {
         val adapter = InputAdapter()
         // x < 400 (left) → does not change the state
         adapter.onTouch(touchEvent(TouchPhase.Started, x = 100.0, y = 100.0), screenSize)
@@ -91,7 +91,7 @@ class InputAdapterTest {
     }
 
     @Test
-    fun `touch Moved droite haut → UP`() {
+    fun `touch Moved right top → UP`() {
         val adapter = InputAdapter()
         adapter.onTouch(touchEvent(TouchPhase.Moved, x = 700.0, y = 50.0), screenSize)
         assertEquals(PaddleInput.UP, adapter.playerInput)
@@ -114,7 +114,7 @@ class InputAdapterTest {
     }
 
     @Test
-    fun `état initial est NONE`() {
+    fun `initial state is NONE`() {
         val adapter = InputAdapter()
         assertEquals(PaddleInput.NONE, adapter.playerInput)
     }

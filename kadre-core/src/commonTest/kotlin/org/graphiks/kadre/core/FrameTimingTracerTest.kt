@@ -21,7 +21,7 @@ class FrameTimingTracerTest {
     }
 
     @Test
-    fun desactive_aucunLog_aucuneCollecte() {
+    fun disabled_noLog_noCollection() {
         val logs = mutableListOf<String>()
         FrameTimingTracer.sink = { logs += it }
         FrameTimingTracer.enabled = false
@@ -32,11 +32,11 @@ class FrameTimingTracerTest {
         }
         FrameTimingTracer.flush()
 
-        assertTrue(logs.isEmpty(), "Aucun log ne doit être émis quand désactivé")
+        assertTrue(logs.isEmpty(), "No log must be emitted when disabled")
     }
 
     @Test
-    fun active_flushPublieDesStats() {
+    fun enabled_flushPublishesStats() {
         val logs = mutableListOf<String>()
         FrameTimingTracer.sink = { logs += it }
         FrameTimingTracer.enabled = true
@@ -49,12 +49,12 @@ class FrameTimingTracerTest {
         FrameTimingTracer.flush()
 
         val stats = logs.filter { it.contains("frames=") }
-        assertEquals(1, stats.size, "flush() doit publier une ligne de stats agrégées")
+        assertEquals(1, stats.size, "flush() must publish one line of aggregated stats")
         assertTrue(stats.first().contains("min=") && stats.first().contains("p99="))
     }
 
     @Test
-    fun frameLente_estJournalisee() {
+    fun slowFrame_isLogged() {
         val logs = mutableListOf<String>()
         FrameTimingTracer.sink = { logs += it }
         FrameTimingTracer.enabled = true
@@ -70,7 +70,7 @@ class FrameTimingTracerTest {
 
         assertTrue(
             logs.any { it.contains("slow frame") },
-            "Une frame dépassant le seuil doit être journalisée",
+            "A frame exceeding the threshold must be logged",
         )
         FrameTimingTracer.slowFrameThresholdMs = 16.7
     }

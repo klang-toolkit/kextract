@@ -29,8 +29,8 @@ class CaptureTest {
             if (g > 128 && r < 96 && b < 96) green++
             if (b > 128 && r < 96 && g < 96) blue++
         }
-        assertTrue("pixels non-noirs (triangle): $nonBlack/$px", nonBlack in (px / 20)..(px / 2))
-        assertTrue("régions R/G/B: r=$red g=$green b=$blue", red > 0 && green > 0 && blue > 0)
+        assertTrue("non-black pixels (triangle): $nonBlack/$px", nonBlack in (px / 20)..(px / 2))
+        assertTrue("R/G/B regions: r=$red g=$green b=$blue", red > 0 && green > 0 && blue > 0)
     }
 
     private fun writePng(img: CaptureImage) {
@@ -52,6 +52,6 @@ class CaptureTest {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
         }
         bitmap.recycle()
-        println("[android-visual] PNG capture écrit via TestStorage")
+        println("[android-visual] PNG capture written via TestStorage")
     }
 }

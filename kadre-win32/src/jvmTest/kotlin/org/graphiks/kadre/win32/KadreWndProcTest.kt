@@ -55,7 +55,7 @@ class KadreWndProcTest {
     // ── WM_PAINT ──────────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_PAINT emet RedrawRequested`() {
+    fun `WM_PAINT emits RedrawRequested`() {
         KadreWndProc.dispatch(TEST_HWND, WM_PAINT, 0L, 0L)
 
         assertEquals(TEST_HWND, capturedHwnd)
@@ -63,7 +63,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_PAINT retourne 0`() {
+    fun `WM_PAINT returns 0`() {
         val result = KadreWndProc.dispatch(TEST_HWND, WM_PAINT, 0L, 0L)
         assertEquals(0L, result)
     }
@@ -71,7 +71,7 @@ class KadreWndProcTest {
     // ── WM_SIZE ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_SIZE emet Resized avec dimensions correctes`() {
+    fun `WM_SIZE emits Resized with correct dimensions`() {
         // lParam = MAKELPARAM(800, 600) = 600 << 16 | 800
         val lParam = (600L shl 16) or 800L
         KadreWndProc.dispatch(TEST_HWND, WM_SIZE, 0L, lParam)
@@ -82,7 +82,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_SIZE retourne 0`() {
+    fun `WM_SIZE returns 0`() {
         val result = KadreWndProc.dispatch(TEST_HWND, WM_SIZE, 0L, 0L)
         assertEquals(0L, result)
     }
@@ -90,7 +90,7 @@ class KadreWndProcTest {
     // ── WM_KEYDOWN ────────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_KEYDOWN emet KeyboardInput Pressed pour touche A`() {
+    fun `WM_KEYDOWN emits KeyboardInput Pressed for key A`() {
         // wParam = VK_A, lParam = 0 (no repeat)
         KadreWndProc.dispatch(TEST_HWND, WM_KEYDOWN, VK_A.toLong(), 0L)
 
@@ -102,7 +102,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_KEYDOWN detecte la repetition via bit 30 de lParam`() {
+    fun `WM_KEYDOWN detects repeat via bit 30 of lParam`() {
         // Bit 30 = 0x4000_0000 → key already down (repeat)
         val lParamRepeat = KF_REPEAT
         KadreWndProc.dispatch(TEST_HWND, WM_KEYDOWN, VK_SPACE.toLong(), lParamRepeat)
@@ -115,7 +115,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_KEYUP emet KeyboardInput Released`() {
+    fun `WM_KEYUP emits KeyboardInput Released`() {
         KadreWndProc.dispatch(TEST_HWND, WM_KEYUP, VK_ESCAPE.toLong(), 0L)
 
         assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
@@ -126,7 +126,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_SYSKEYDOWN emet KeyboardInput Pressed pour touche F4`() {
+    fun `WM_SYSKEYDOWN emits KeyboardInput Pressed for key F4`() {
         KadreWndProc.dispatch(TEST_HWND, WM_SYSKEYDOWN, VK_F4.toLong(), 0L)
 
         assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
@@ -136,7 +136,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_SYSKEYUP emet KeyboardInput Released`() {
+    fun `WM_SYSKEYUP emits KeyboardInput Released`() {
         KadreWndProc.dispatch(TEST_HWND, WM_SYSKEYUP, VK_F4.toLong(), 0L)
 
         assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
@@ -148,7 +148,7 @@ class KadreWndProcTest {
     // ── WM_MOUSEMOVE ──────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_MOUSEMOVE emet PointerMoved avec coordonnees correctes`() {
+    fun `WM_MOUSEMOVE emits PointerMoved with correct coordinates`() {
         // lParam = MAKELPARAM(320, 240)
         val lParam = (240L shl 16) or 320L
         KadreWndProc.dispatch(TEST_HWND, WM_MOUSEMOVE, 0L, lParam)
@@ -162,7 +162,7 @@ class KadreWndProcTest {
     // ── Mouse buttons ───────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_LBUTTONDOWN emet MouseInput Left Pressed`() {
+    fun `WM_LBUTTONDOWN emits MouseInput Left Pressed`() {
         KadreWndProc.dispatch(TEST_HWND, WM_LBUTTONDOWN, 0L, 0L)
         assertIs<WindowEvent.MouseInput>(capturedEvent).also { event ->
             assertEquals(MouseButton.Left, event.button)
@@ -171,7 +171,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_LBUTTONUP emet MouseInput Left Released`() {
+    fun `WM_LBUTTONUP emits MouseInput Left Released`() {
         KadreWndProc.dispatch(TEST_HWND, WM_LBUTTONUP, 0L, 0L)
         assertIs<WindowEvent.MouseInput>(capturedEvent).also { event ->
             assertEquals(MouseButton.Left, event.button)
@@ -180,7 +180,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_RBUTTONDOWN emet MouseInput Right Pressed`() {
+    fun `WM_RBUTTONDOWN emits MouseInput Right Pressed`() {
         KadreWndProc.dispatch(TEST_HWND, WM_RBUTTONDOWN, 0L, 0L)
         assertIs<WindowEvent.MouseInput>(capturedEvent).also { event ->
             assertEquals(MouseButton.Right, event.button)
@@ -189,7 +189,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_RBUTTONUP emet MouseInput Right Released`() {
+    fun `WM_RBUTTONUP emits MouseInput Right Released`() {
         KadreWndProc.dispatch(TEST_HWND, WM_RBUTTONUP, 0L, 0L)
         assertIs<WindowEvent.MouseInput>(capturedEvent).also { event ->
             assertEquals(MouseButton.Right, event.button)
@@ -198,7 +198,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_MBUTTONDOWN emet MouseInput Middle Pressed`() {
+    fun `WM_MBUTTONDOWN emits MouseInput Middle Pressed`() {
         KadreWndProc.dispatch(TEST_HWND, WM_MBUTTONDOWN, 0L, 0L)
         assertIs<WindowEvent.MouseInput>(capturedEvent).also { event ->
             assertEquals(MouseButton.Middle, event.button)
@@ -207,7 +207,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_MBUTTONUP emet MouseInput Middle Released`() {
+    fun `WM_MBUTTONUP emits MouseInput Middle Released`() {
         KadreWndProc.dispatch(TEST_HWND, WM_MBUTTONUP, 0L, 0L)
         assertIs<WindowEvent.MouseInput>(capturedEvent).also { event ->
             assertEquals(MouseButton.Middle, event.button)
@@ -218,7 +218,7 @@ class KadreWndProcTest {
     // ── WM_MOUSEWHEEL ─────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_MOUSEWHEEL emet MouseWheel avec delta positif vers le haut`() {
+    fun `WM_MOUSEWHEEL emits MouseWheel with positive delta upward`() {
         // wParam HIWORD = +120 (one notch up)
         val wParam = 120L shl 16
         KadreWndProc.dispatch(TEST_HWND, WM_MOUSEWHEEL, wParam, 0L)
@@ -230,7 +230,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_MOUSEWHEEL emet MouseWheel avec delta negatif vers le bas`() {
+    fun `WM_MOUSEWHEEL emits MouseWheel with negative delta downward`() {
         // wParam HIWORD = -120 (one notch down) → SHORT(-120) = 0xFF88
         val shortNeg120 = (-120).toShort().toInt() and 0xFFFF
         val wParam = (shortNeg120.toLong() shl 16)
@@ -245,13 +245,13 @@ class KadreWndProcTest {
     // ── WM_CLOSE ──────────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_CLOSE emet CloseRequested`() {
+    fun `WM_CLOSE emits CloseRequested`() {
         KadreWndProc.dispatch(TEST_HWND, WM_CLOSE, 0L, 0L)
         assertIs<WindowEvent.CloseRequested>(capturedEvent)
     }
 
     @Test
-    fun `WM_CLOSE retourne 0 sans appeler DefWindowProcW`() {
+    fun `WM_CLOSE returns 0 without calling DefWindowProcW`() {
         val result = KadreWndProc.dispatch(TEST_HWND, WM_CLOSE, 0L, 0L)
         assertEquals(0L, result)
     }
@@ -259,13 +259,13 @@ class KadreWndProcTest {
     // ── WM_DESTROY ────────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_DESTROY emet Destroyed`() {
+    fun `WM_DESTROY emits Destroyed`() {
         KadreWndProc.dispatch(TEST_HWND, WM_DESTROY, 0L, 0L)
         assertIs<WindowEvent.Destroyed>(capturedEvent)
     }
 
     @Test
-    fun `WM_DESTROY retourne 0`() {
+    fun `WM_DESTROY returns 0`() {
         val result = KadreWndProc.dispatch(TEST_HWND, WM_DESTROY, 0L, 0L)
         assertEquals(0L, result)
     }
@@ -273,7 +273,7 @@ class KadreWndProcTest {
     // ── WM_DPICHANGED ─────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_DPICHANGED emet ScaleFactorChanged avec facteur correct`() {
+    fun `WM_DPICHANGED emits ScaleFactorChanged with correct factor`() {
         // wParam LOWORD = 192 DPI → factor 2.0 (192 / 96)
         val wParam = 192L
         KadreWndProc.dispatch(TEST_HWND, WM_DPICHANGED, wParam, 0L)
@@ -284,7 +284,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `WM_DPICHANGED avec 96 DPI retourne facteur 1 0`() {
+    fun `WM_DPICHANGED with 96 DPI returns factor 1 0`() {
         // wParam LOWORD = 96 DPI → factor 1.0 (identity)
         val wParam = 96L
         KadreWndProc.dispatch(TEST_HWND, WM_DPICHANGED, wParam, 0L)
@@ -391,7 +391,7 @@ class KadreWndProcTest {
     // ── Unknown message ─────────────────────────────────────────────────────────
 
     @Test
-    fun `message inconnu ne transmet pas d evenement au handler`() {
+    fun `unknown message does not forward an event to the handler`() {
         // 0xDEAD is not a known WM_* — must go into else → defWindowProcW
         // On macOS/Linux, defWindowProcW is null → returns 0
         KadreWndProc.dispatch(TEST_HWND, 0xDEAD, 0L, 0L)
@@ -402,7 +402,7 @@ class KadreWndProcTest {
     // ── Handler not installed ─────────────────────────────────────────────────
 
     @Test
-    fun `dispatch sans handler installe ne leve pas d exception`() {
+    fun `dispatch without installed handler does not throw an exception`() {
         KadreWndProc.uninstall()
         // Must not throw an exception — events are silently ignored
         KadreWndProc.dispatch(TEST_HWND, WM_PAINT, 0L, 0L)
@@ -412,7 +412,7 @@ class KadreWndProcTest {
     // ── Win32 constants ─────────────────────────────────────────────────────────
 
     @Test
-    fun `constantes WM ont les valeurs hexadecimales attendues`() {
+    fun `WM constants have the expected hexadecimal values`() {
         assertEquals(0x000F, WM_PAINT)
         assertEquals(0x0005, WM_SIZE)
         assertEquals(0x0100, WM_KEYDOWN)
@@ -433,7 +433,7 @@ class KadreWndProcTest {
     }
 
     @Test
-    fun `KF_REPEAT est le bit 30`() {
+    fun `KF_REPEAT is bit 30`() {
         assertEquals(0x4000_0000L, KF_REPEAT)
     }
 }

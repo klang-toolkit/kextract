@@ -18,42 +18,42 @@ class DpiTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `LogicalSize Int toPhysical scaleFactor 1 doit être identique`() {
+    fun `LogicalSize Int toPhysical scaleFactor 1 must be identical`() {
         val logique = LogicalSize(100, 200)
         val physique = logique.toPhysical(scaleFactor = 1.0)
         assertEquals(PhysicalSize(100.0, 200.0), physique)
     }
 
     @Test
-    fun `LogicalSize Float toPhysical scaleFactor 1 doit être identique`() {
+    fun `LogicalSize Float toPhysical scaleFactor 1 must be identical`() {
         val logique = LogicalSize(100f, 200f)
         val physique = logique.toPhysical(scaleFactor = 1.0)
         assertEquals(PhysicalSize(100.0, 200.0), physique)
     }
 
     @Test
-    fun `LogicalSize Double toPhysical scaleFactor 1 doit être identique`() {
+    fun `LogicalSize Double toPhysical scaleFactor 1 must be identical`() {
         val logique = LogicalSize(100.0, 200.0)
         val physique = logique.toPhysical(scaleFactor = 1.0)
         assertEquals(PhysicalSize(100.0, 200.0), physique)
     }
 
     @Test
-    fun `LogicalSize Int toPhysical scaleFactor 2 doit doubler les dimensions`() {
+    fun `LogicalSize Int toPhysical scaleFactor 2 must double the dimensions`() {
         val logique = LogicalSize(100, 50)
         val physique = logique.toPhysical(scaleFactor = 2.0)
         assertEquals(PhysicalSize(200.0, 100.0), physique)
     }
 
     @Test
-    fun `LogicalSize Float toPhysical scaleFactor 2 doit doubler les dimensions`() {
+    fun `LogicalSize Float toPhysical scaleFactor 2 must double the dimensions`() {
         val logique = LogicalSize(100f, 50f)
         val physique = logique.toPhysical(scaleFactor = 2.0)
         assertEquals(PhysicalSize(200.0, 100.0), physique)
     }
 
     @Test
-    fun `LogicalSize Double toPhysical scaleFactor 2 doit doubler les dimensions`() {
+    fun `LogicalSize Double toPhysical scaleFactor 2 must double the dimensions`() {
         val logique = LogicalSize(100.0, 50.0)
         val physique = logique.toPhysical(scaleFactor = 2.0)
         assertEquals(PhysicalSize(200.0, 100.0), physique)
@@ -64,42 +64,42 @@ class DpiTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `PhysicalSize Int toLogical scaleFactor 1 doit être identique`() {
+    fun `PhysicalSize Int toLogical scaleFactor 1 must be identical`() {
         val physique = PhysicalSize(100, 200)
         val logique = physique.toLogical(scaleFactor = 1.0)
         assertEquals(LogicalSize(100.0, 200.0), logique)
     }
 
     @Test
-    fun `PhysicalSize Float toLogical scaleFactor 1 doit être identique`() {
+    fun `PhysicalSize Float toLogical scaleFactor 1 must be identical`() {
         val physique = PhysicalSize(100f, 200f)
         val logique = physique.toLogical(scaleFactor = 1.0)
         assertEquals(LogicalSize(100.0, 200.0), logique)
     }
 
     @Test
-    fun `PhysicalSize Double toLogical scaleFactor 1 doit être identique`() {
+    fun `PhysicalSize Double toLogical scaleFactor 1 must be identical`() {
         val physique = PhysicalSize(100.0, 200.0)
         val logique = physique.toLogical(scaleFactor = 1.0)
         assertEquals(LogicalSize(100.0, 200.0), logique)
     }
 
     @Test
-    fun `PhysicalSize Int toLogical scaleFactor 2 doit diviser les dimensions par deux`() {
+    fun `PhysicalSize Int toLogical scaleFactor 2 must halve the dimensions`() {
         val physique = PhysicalSize(200, 100)
         val logique = physique.toLogical(scaleFactor = 2.0)
         assertEquals(LogicalSize(100.0, 50.0), logique)
     }
 
     @Test
-    fun `PhysicalSize Float toLogical scaleFactor 2 doit diviser les dimensions par deux`() {
+    fun `PhysicalSize Float toLogical scaleFactor 2 must halve the dimensions`() {
         val physique = PhysicalSize(200f, 100f)
         val logique = physique.toLogical(scaleFactor = 2.0)
         assertEquals(LogicalSize(100.0, 50.0), logique)
     }
 
     @Test
-    fun `PhysicalSize Double toLogical scaleFactor 2 doit diviser les dimensions par deux`() {
+    fun `PhysicalSize Double toLogical scaleFactor 2 must halve the dimensions`() {
         val physique = PhysicalSize(200.0, 100.0)
         val logique = physique.toLogical(scaleFactor = 2.0)
         assertEquals(LogicalSize(100.0, 50.0), logique)
@@ -110,7 +110,7 @@ class DpiTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `LogicalSize round-trip via PhysicalSize scaleFactor 1 doit être identique`() {
+    fun `LogicalSize round-trip via PhysicalSize scaleFactor 1 must be identical`() {
         val original = LogicalSize(800.0, 600.0)
         val aller = original.toPhysical(scaleFactor = 1.0)
         val retour = aller.toLogical(scaleFactor = 1.0)
@@ -118,7 +118,7 @@ class DpiTest {
     }
 
     @Test
-    fun `LogicalSize round-trip via PhysicalSize scaleFactor 2 doit être identique`() {
+    fun `LogicalSize round-trip via PhysicalSize scaleFactor 2 must be identical`() {
         val original = LogicalSize(800.0, 600.0)
         val aller = original.toPhysical(scaleFactor = 2.0)
         val retour = aller.toLogical(scaleFactor = 2.0)
@@ -130,42 +130,42 @@ class DpiTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `LogicalPosition Int toPhysical scaleFactor 1 doit être identique`() {
+    fun `LogicalPosition Int toPhysical scaleFactor 1 must be identical`() {
         val logique = LogicalPosition(10, 20)
         val physique = logique.toPhysical(scaleFactor = 1.0)
         assertEquals(PhysicalPosition(10.0, 20.0), physique)
     }
 
     @Test
-    fun `LogicalPosition Float toPhysical scaleFactor 1 doit être identique`() {
+    fun `LogicalPosition Float toPhysical scaleFactor 1 must be identical`() {
         val logique = LogicalPosition(10f, 20f)
         val physique = logique.toPhysical(scaleFactor = 1.0)
         assertEquals(PhysicalPosition(10.0, 20.0), physique)
     }
 
     @Test
-    fun `LogicalPosition Double toPhysical scaleFactor 1 doit être identique`() {
+    fun `LogicalPosition Double toPhysical scaleFactor 1 must be identical`() {
         val logique = LogicalPosition(10.0, 20.0)
         val physique = logique.toPhysical(scaleFactor = 1.0)
         assertEquals(PhysicalPosition(10.0, 20.0), physique)
     }
 
     @Test
-    fun `LogicalPosition Int toPhysical scaleFactor 2 doit doubler les coordonnées`() {
+    fun `LogicalPosition Int toPhysical scaleFactor 2 must double the coordinates`() {
         val logique = LogicalPosition(100, 50)
         val physique = logique.toPhysical(scaleFactor = 2.0)
         assertEquals(PhysicalPosition(200.0, 100.0), physique)
     }
 
     @Test
-    fun `LogicalPosition Float toPhysical scaleFactor 2 doit doubler les coordonnées`() {
+    fun `LogicalPosition Float toPhysical scaleFactor 2 must double the coordinates`() {
         val logique = LogicalPosition(100f, 50f)
         val physique = logique.toPhysical(scaleFactor = 2.0)
         assertEquals(PhysicalPosition(200.0, 100.0), physique)
     }
 
     @Test
-    fun `LogicalPosition Double toPhysical scaleFactor 2 doit doubler les coordonnées`() {
+    fun `LogicalPosition Double toPhysical scaleFactor 2 must double the coordinates`() {
         val logique = LogicalPosition(100.0, 50.0)
         val physique = logique.toPhysical(scaleFactor = 2.0)
         assertEquals(PhysicalPosition(200.0, 100.0), physique)
@@ -176,42 +176,42 @@ class DpiTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `PhysicalPosition Int toLogical scaleFactor 1 doit être identique`() {
+    fun `PhysicalPosition Int toLogical scaleFactor 1 must be identical`() {
         val physique = PhysicalPosition(10, 20)
         val logique = physique.toLogical(scaleFactor = 1.0)
         assertEquals(LogicalPosition(10.0, 20.0), logique)
     }
 
     @Test
-    fun `PhysicalPosition Float toLogical scaleFactor 1 doit être identique`() {
+    fun `PhysicalPosition Float toLogical scaleFactor 1 must be identical`() {
         val physique = PhysicalPosition(10f, 20f)
         val logique = physique.toLogical(scaleFactor = 1.0)
         assertEquals(LogicalPosition(10.0, 20.0), logique)
     }
 
     @Test
-    fun `PhysicalPosition Double toLogical scaleFactor 1 doit être identique`() {
+    fun `PhysicalPosition Double toLogical scaleFactor 1 must be identical`() {
         val physique = PhysicalPosition(10.0, 20.0)
         val logique = physique.toLogical(scaleFactor = 1.0)
         assertEquals(LogicalPosition(10.0, 20.0), logique)
     }
 
     @Test
-    fun `PhysicalPosition Int toLogical scaleFactor 2 doit diviser les coordonnées par deux`() {
+    fun `PhysicalPosition Int toLogical scaleFactor 2 must halve the coordinates`() {
         val physique = PhysicalPosition(200, 100)
         val logique = physique.toLogical(scaleFactor = 2.0)
         assertEquals(LogicalPosition(100.0, 50.0), logique)
     }
 
     @Test
-    fun `PhysicalPosition Float toLogical scaleFactor 2 doit diviser les coordonnées par deux`() {
+    fun `PhysicalPosition Float toLogical scaleFactor 2 must halve the coordinates`() {
         val physique = PhysicalPosition(200f, 100f)
         val logique = physique.toLogical(scaleFactor = 2.0)
         assertEquals(LogicalPosition(100.0, 50.0), logique)
     }
 
     @Test
-    fun `PhysicalPosition Double toLogical scaleFactor 2 doit diviser les coordonnées par deux`() {
+    fun `PhysicalPosition Double toLogical scaleFactor 2 must halve the coordinates`() {
         val physique = PhysicalPosition(200.0, 100.0)
         val logique = physique.toLogical(scaleFactor = 2.0)
         assertEquals(LogicalPosition(100.0, 50.0), logique)
@@ -222,7 +222,7 @@ class DpiTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `LogicalPosition round-trip via PhysicalPosition scaleFactor 1 doit être identique`() {
+    fun `LogicalPosition round-trip via PhysicalPosition scaleFactor 1 must be identical`() {
         val original = LogicalPosition(300.0, 400.0)
         val aller = original.toPhysical(scaleFactor = 1.0)
         val retour = aller.toLogical(scaleFactor = 1.0)
@@ -230,7 +230,7 @@ class DpiTest {
     }
 
     @Test
-    fun `LogicalPosition round-trip via PhysicalPosition scaleFactor 2 doit être identique`() {
+    fun `LogicalPosition round-trip via PhysicalPosition scaleFactor 2 must be identical`() {
         val original = LogicalPosition(300.0, 400.0)
         val aller = original.toPhysical(scaleFactor = 2.0)
         val retour = aller.toLogical(scaleFactor = 2.0)

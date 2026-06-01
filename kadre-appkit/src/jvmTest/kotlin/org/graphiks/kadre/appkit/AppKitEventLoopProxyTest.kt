@@ -15,45 +15,45 @@ import kotlin.test.assertTrue
 class AppKitEventLoopProxyTest {
 
     @Test
-    fun `AppKitEventLoopProxy implémente EventLoopProxy`() {
+    fun `AppKitEventLoopProxy implements EventLoopProxy`() {
         assertTrue(
             EventLoopProxy::class.java.isAssignableFrom(AppKitEventLoopProxy::class.java),
-            "AppKitEventLoopProxy doit implémenter EventLoopProxy",
+            "AppKitEventLoopProxy must implement EventLoopProxy",
         )
     }
 
     @Test
-    fun `AppKitEventLoopProxy expose create dans son companion`() {
+    fun `AppKitEventLoopProxy exposes create in its companion`() {
         val companionClass = AppKitEventLoopProxy.Companion::class.java
         val method = companionClass.declaredMethods
             .firstOrNull { it.name == "create" }
-        assertNotNull(method, "AppKitEventLoopProxy.Companion doit exposer create()")
+        assertNotNull(method, "AppKitEventLoopProxy.Companion must expose create()")
         // The actual return is AppKitEventLoopProxy (a subtype of EventLoopProxy).
         assertTrue(
             EventLoopProxy::class.java.isAssignableFrom(method.returnType),
-            "create() doit retourner un EventLoopProxy",
+            "create() must return an EventLoopProxy",
         )
     }
 
     @Test
-    fun `wakeUp existe et retourne void`() {
+    fun `wakeUp exists and returns void`() {
         val method = AppKitEventLoopProxy::class.java.methods
             .firstOrNull { it.name == "wakeUp" }
-        assertNotNull(method, "AppKitEventLoopProxy doit avoir wakeUp()")
+        assertNotNull(method, "AppKitEventLoopProxy must have wakeUp()")
         assertEquals(Void.TYPE, method.returnType)
         assertEquals(0, method.parameterCount)
     }
 
     @Test
-    fun `AppKitEventLoop createProxy ne lève plus UnsupportedOperationException (GRA-136)`() {
+    fun `AppKitEventLoop createProxy no longer throws UnsupportedOperationException (GRA-136)`() {
         val method = AppKitEventLoop::class.java.methods
             .firstOrNull { it.name == "createProxy" }
-        assertNotNull(method, "AppKitEventLoop doit avoir createProxy()")
+        assertNotNull(method, "AppKitEventLoop must have createProxy()")
         assertEquals(EventLoopProxy::class.java, method.returnType)
     }
 
     @Test
-    fun `CFRunLoopRedrawObserver onBeforeWaiting accepte ControlFlow WaitUntil`() {
+    fun `CFRunLoopRedrawObserver onBeforeWaiting accepts ControlFlow WaitUntil`() {
         val cf = ControlFlow.WaitUntil(System.currentTimeMillis() + 100L)
         assertTrue(cf is ControlFlow.WaitUntil)
         assertTrue(cf.instant > 0)

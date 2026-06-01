@@ -24,7 +24,7 @@ class RawHandlesTest {
      * Verifies that the `when` on [RawWindowHandle] covers all variants without `else`.
      */
     @Test
-    fun `when sur RawWindowHandle est exhaustif`() {
+    fun `when on RawWindowHandle is exhaustive`() {
         val handles: List<RawWindowHandle> = listOf(
             RawWindowHandle.AppKit(nsView = 1L, nsWindow = 2L),
             RawWindowHandle.UiKit(uiView = 3L, uiViewController = 4L),
@@ -52,14 +52,14 @@ class RawHandlesTest {
     }
 
     @Test
-    fun `AppKit expose nsView et nsWindow`() {
+    fun `AppKit exposes nsView and nsWindow`() {
         val handle = RawWindowHandle.AppKit(nsView = 0xDEADBEEFL, nsWindow = 0xCAFEBABEL)
         assertEquals(0xDEADBEEFL, handle.nsView)
         assertEquals(0xCAFEBABEL, handle.nsWindow)
     }
 
     @Test
-    fun `UiKit expose uiView et uiViewController nullable`() {
+    fun `UiKit exposes uiView and nullable uiViewController`() {
         val avecControleur = RawWindowHandle.UiKit(uiView = 10L, uiViewController = 20L)
         assertEquals(10L, avecControleur.uiView)
         assertEquals(20L, avecControleur.uiViewController)
@@ -70,7 +70,7 @@ class RawHandlesTest {
     }
 
     @Test
-    fun `Android encapsule la surface comme Any`() {
+    fun `Android wraps the surface as Any`() {
         val surfaceMock = object {}
         val handle = RawWindowHandle.Android(surface = surfaceMock)
         assertTrue(handle.surface === surfaceMock)
@@ -84,7 +84,7 @@ class RawHandlesTest {
      * Verifies that the `when` on [RawDisplayHandle] covers all variants without `else`.
      */
     @Test
-    fun `when sur RawDisplayHandle est exhaustif`() {
+    fun `when on RawDisplayHandle is exhaustive`() {
         val handles: List<RawDisplayHandle> = listOf(
             RawDisplayHandle.AppKit,
             RawDisplayHandle.UiKit,
@@ -111,17 +111,17 @@ class RawHandlesTest {
     }
 
     @Test
-    fun `RawDisplayHandle AppKit est un singleton`() {
+    fun `RawDisplayHandle AppKit is a singleton`() {
         assertTrue(RawDisplayHandle.AppKit === RawDisplayHandle.AppKit)
     }
 
     @Test
-    fun `RawDisplayHandle UiKit est un singleton`() {
+    fun `RawDisplayHandle UiKit is a singleton`() {
         assertTrue(RawDisplayHandle.UiKit === RawDisplayHandle.UiKit)
     }
 
     @Test
-    fun `RawDisplayHandle Android est un singleton`() {
+    fun `RawDisplayHandle Android is a singleton`() {
         assertTrue(RawDisplayHandle.Android === RawDisplayHandle.Android)
     }
 
@@ -130,14 +130,14 @@ class RawHandlesTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `RawWindowHandle Win32 expose hwnd et hinstance`() {
+    fun `RawWindowHandle Win32 exposes hwnd and hinstance`() {
         val handle = RawWindowHandle.Win32(hwnd = 0xDEADBEEFL, hinstance = 0xCAFEBABEL)
         assertEquals(0xDEADBEEFL, handle.hwnd)
         assertEquals(0xCAFEBABEL, handle.hinstance)
     }
 
     @Test
-    fun `RawDisplayHandle Win32 expose hinstance`() {
+    fun `RawDisplayHandle Win32 exposes hinstance`() {
         val handle = RawDisplayHandle.Win32(hinstance = 0xCAFEBABEL)
         assertEquals(0xCAFEBABEL, handle.hinstance)
     }
@@ -147,14 +147,14 @@ class RawHandlesTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `RawWindowHandle Web id only est valide`() {
+    fun `RawWindowHandle Web id only is valid`() {
         val handle = RawWindowHandle.Web(canvasElementId = "my-canvas")
         assertEquals("my-canvas", handle.canvasElementId)
         assertNull(handle.canvasElement)
     }
 
     @Test
-    fun `RawWindowHandle Web element only est valide`() {
+    fun `RawWindowHandle Web element only is valid`() {
         val element = object {}
         val handle = RawWindowHandle.Web(canvasElement = element)
         assertNull(handle.canvasElementId)
@@ -162,7 +162,7 @@ class RawHandlesTest {
     }
 
     @Test
-    fun `RawWindowHandle Web les deux fournis est valide`() {
+    fun `RawWindowHandle Web both provided is valid`() {
         val element = object {}
         val handle = RawWindowHandle.Web(canvasElementId = "my-canvas", canvasElement = element)
         assertEquals("my-canvas", handle.canvasElementId)
@@ -170,14 +170,14 @@ class RawHandlesTest {
     }
 
     @Test
-    fun `RawWindowHandle Web les deux null leve IllegalArgumentException`() {
+    fun `RawWindowHandle Web both null throws IllegalArgumentException`() {
         assertFailsWith<IllegalArgumentException> {
             RawWindowHandle.Web(canvasElementId = null, canvasElement = null)
         }
     }
 
     @Test
-    fun `RawDisplayHandle Web est un singleton`() {
+    fun `RawDisplayHandle Web is a singleton`() {
         assertTrue(RawDisplayHandle.Web === RawDisplayHandle.Web)
     }
 }

@@ -1,10 +1,10 @@
 /**
- * Tests de smoke pour X11EventLoop et X11EventLoopProxy.
+ * Smoke tests for X11EventLoop and X11EventLoopProxy.
  *
  * Verifies:
  * - x11Running starts at false.
  * - runApp enables/disables the x11Running flag (handler that quits immediately).
- * - X11EventLoopProxy.wakeUp() est safe sur non-Linux (no-op).
+ * - X11EventLoopProxy.wakeUp() is safe on non-Linux (no-op).
  *
  * X11EventLoop smoke tests.
  */
@@ -20,15 +20,15 @@ import kotlin.test.assertTrue
 class X11EventLoopSmokeTest {
 
     @Test
-    fun `x11Running commence a false`() {
+    fun `x11Running starts at false`() {
         // The global flag must be false at startup (or after a finished runApp)
         // Note: if another test left the flag at true, this test will fail —
         // but x11Running is reset to false in runApp's finally block.
-        assertFalse(x11Running.get(), "x11Running doit être false hors boucle active")
+        assertFalse(x11Running.get(), "x11Running must be false outside an active loop")
     }
 
     @Test
-    fun `runApp reste un no-op sur non-Linux`() {
+    fun `runApp stays a no-op on non-Linux`() {
         // On macOS/Windows, libX11 is null → runApp returns immediately
         if (libX11 != null) return // Skip on Linux (requires an X server)
 
@@ -41,19 +41,19 @@ class X11EventLoopSmokeTest {
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {}
         }
 
-        // runApp ne doit pas lever d'exception
+        // runApp must not throw an exception
         runApp(handler)
 
-        // Sur non-Linux : libX11 null → on ne rentre pas dans la boucle
+        // On non-Linux: libX11 null → we do not enter the loop
         assertFalse(canCreateSurfacesCalled,
-            "canCreateSurfaces ne doit pas être appelé si libX11 est absent")
+            "canCreateSurfaces must not be called if libX11 is absent")
         assertFalse(x11Running.get(),
-            "x11Running doit être false après runApp()")
+            "x11Running must be false after runApp()")
     }
 
     @Test
-    fun `x11Running est remis a false apres runApp sur non-Linux`() {
-        if (libX11 != null) return // Skip sur Linux
+    fun `x11Running is reset to false after runApp on non-Linux`() {
+        if (libX11 != null) return // Skip on Linux
 
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {}
@@ -63,14 +63,14 @@ class X11EventLoopSmokeTest {
         assertFalse(x11Running.get())
         runApp(handler)
         assertFalse(x11Running.get(),
-            "x11Running doit être false après runApp() sur non-Linux")
+            "x11Running must be false after runApp() on non-Linux")
     }
 
     @Test
-    fun `runApp leve IllegalStateException si deja active`() {
-        if (libX11 != null) return // Skip sur Linux (manipulation de flag non thread-safe en test)
+    fun `runApp throws IllegalStateException if already active`() {
+        if (libX11 != null) return // Skip on Linux (non thread-safe flag manipulation in test)
 
-        // Simuler une boucle active
+        // Simulate an active loop
         x11Running.set(true)
         try {
             var threw = false
@@ -82,22 +82,22 @@ class X11EventLoopSmokeTest {
             } catch (e: IllegalStateException) {
                 threw = true
             }
-            assertTrue(threw, "runApp doit lever IllegalStateException si x11Running est true")
+            assertTrue(threw, "runApp must throw IllegalStateException if x11Running is true")
         } finally {
             x11Running.set(false)
         }
     }
 
     @Test
-    fun `X11EventLoopProxy wakeUp est un no-op si xSendEvent absent`() {
-        // Sur macOS/Windows, xSendEvent est null → wakeUp ne doit pas lever d'exception
-        if (libX11 != null) return // Skip sur Linux
+    fun `X11EventLoopProxy wakeUp is a no-op if xSendEvent is absent`() {
+        // On macOS/Windows, xSendEvent is null → wakeUp must not throw an exception
+        if (libX11 != null) return // Skip on Linux
 
         // Create a proxy with a fictitious displayPtr and an empty loop
         val fakeLoop = X11EventLoop(displayPtr = 0L, screen = 0)
         val proxy = X11EventLoopProxy(fakeLoop, displayPtr = 0L)
 
-        // Ne doit pas lever d'exception
+        // Must not throw an exception
         proxy.wakeUp()
     }
 }

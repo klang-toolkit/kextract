@@ -1,5 +1,5 @@
 /**
- * Tests unitaires pour X11KeyMapper, X11MouseMapper et X11DrawMapper.
+ * Unit tests for X11KeyMapper, X11MouseMapper and X11DrawMapper.
  *
  * These tests are purely in-memory (no FFM, no libX11):
  * - The keysyms are tested via the KEYSYM_TABLE table.
@@ -47,34 +47,34 @@ private fun MemorySegment.setLong(offset: Long, value: Long): MemorySegment {
     return this
 }
 
-// ── Tests X11KeyMapper ────────────────────────────────────────────────────────
+// ── X11KeyMapper tests ────────────────────────────────────────────────────────
 
 class X11KeyMapperTest {
 
     @Test
-    fun `keysym table — lettres minuscules a-z mappent sur Key_A-Z`() {
+    fun `keysym table — lowercase letters a-z map to Key_A-Z`() {
         for (i in 0..25) {
             val keysym = 0x61 + i      // 'a'–'z'
-            val expected = Key.entries[i] // Key.A..Key.Z (premiers 26 ordinal)
+            val expected = Key.entries[i] // Key.A..Key.Z (first 26 ordinals)
             val actual = KEYSYM_TABLE[keysym]
             assertEquals(expected, actual,
-                "Keysym 0x${keysym.toString(16)} devrait mapper sur $expected")
+                "Keysym 0x${keysym.toString(16)} should map to $expected")
         }
     }
 
     @Test
-    fun `keysym table — lettres majuscules A-Z mappent sur Key_A-Z`() {
+    fun `keysym table — uppercase letters A-Z map to Key_A-Z`() {
         for (i in 0..25) {
             val keysym = 0x41 + i      // 'A'–'Z'
             val expected = Key.entries[i]
             val actual = KEYSYM_TABLE[keysym]
             assertEquals(expected, actual,
-                "Keysym 0x${keysym.toString(16)} devrait mapper sur $expected")
+                "Keysym 0x${keysym.toString(16)} should map to $expected")
         }
     }
 
     @Test
-    fun `keysym table — chiffres 0-9 mappent sur Key_Digit0-9`() {
+    fun `keysym table — digits 0-9 map to Key_Digit0-9`() {
         val digits = listOf(
             Key.Digit0, Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4,
             Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9
@@ -82,12 +82,12 @@ class X11KeyMapperTest {
         for (i in 0..9) {
             val keysym = 0x30 + i
             assertEquals(digits[i], KEYSYM_TABLE[keysym],
-                "Keysym 0x${keysym.toString(16)} devrait mapper sur ${digits[i]}")
+                "Keysym 0x${keysym.toString(16)} should map to ${digits[i]}")
         }
     }
 
     @Test
-    fun `keysym table — touches spéciales`() {
+    fun `keysym table — special keys`() {
         assertEquals(Key.Backspace, KEYSYM_TABLE[0xFF08])
         assertEquals(Key.Tab,       KEYSYM_TABLE[0xFF09])
         assertEquals(Key.Enter,     KEYSYM_TABLE[0xFF0D])
@@ -96,7 +96,7 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `keysym table — touches de navigation`() {
+    fun `keysym table — navigation keys`() {
         assertEquals(Key.ArrowLeft,  KEYSYM_TABLE[0xFF51])
         assertEquals(Key.ArrowUp,    KEYSYM_TABLE[0xFF52])
         assertEquals(Key.ArrowRight, KEYSYM_TABLE[0xFF53])
@@ -104,18 +104,18 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `keysym table — touches de fonction F1-F12`() {
+    fun `keysym table — function keys F1-F12`() {
         val fKeys = listOf(Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6,
                            Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12)
         for (i in 0..11) {
             val keysym = 0xFFBE + i
             assertEquals(fKeys[i], KEYSYM_TABLE[keysym],
-                "Keysym 0x${keysym.toString(16)} devrait mapper sur ${fKeys[i]}")
+                "Keysym 0x${keysym.toString(16)} should map to ${fKeys[i]}")
         }
     }
 
     @Test
-    fun `keysym table — modificateurs`() {
+    fun `keysym table — modifiers`() {
         assertEquals(Key.ShiftLeft,    KEYSYM_TABLE[0xFFE1])
         assertEquals(Key.ShiftRight,   KEYSYM_TABLE[0xFFE2])
         assertEquals(Key.ControlLeft,  KEYSYM_TABLE[0xFFE3])
@@ -127,7 +127,7 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `stateToModifiers — aucun modificateur`() {
+    fun `stateToModifiers — no modifier`() {
         val mods = stateToModifiers(0)
         assertEquals(Modifiers.NONE, mods)
     }
@@ -161,7 +161,7 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `stateToModifiers — Shift+Ctrl combinés`() {
+    fun `stateToModifiers — Shift+Ctrl combined`() {
         val mods = stateToModifiers(0x01 or 0x04)
         assertEquals(true, mods.shift)
         assertEquals(true, mods.ctrl)
@@ -169,12 +169,12 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `fromXEvent — KeyPress avec keysym 0x61 retourne Key_A Pressed`() {
+    fun `fromXEvent — KeyPress with keysym 0x61 returns Key_A Pressed`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(KeyPress)
-                .setInt(64L, 0)    // state: aucun modificateur
-                .setInt(68L, 38)   // keycode = 38 (arbitraire)
+                .setInt(64L, 0)    // state: no modifier
+                .setInt(68L, 38)   // keycode = 38 (arbitrary)
 
             X11KeyMapper.resetState()
             val event = X11KeyMapper.fromXEvent(seg, KeyPress, keysym = 0x61)
@@ -187,7 +187,7 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `fromXEvent — KeyRelease retourne Released`() {
+    fun `fromXEvent — KeyRelease returns Released`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(KeyRelease)
@@ -204,7 +204,7 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `fromXEvent — répétition détectée sur double KeyPress même keycode`() {
+    fun `fromXEvent — repeat detected on double KeyPress same keycode`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(KeyPress)
@@ -225,7 +225,7 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `fromXEvent — keysym inconnu retourne Key_Unknown`() {
+    fun `fromXEvent — unknown keysym returns Key_Unknown`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(KeyPress)
@@ -240,7 +240,7 @@ class X11KeyMapperTest {
     }
 
     @Test
-    fun `fromXEvent — modificateurs Shift+Alt transmis correctement`() {
+    fun `fromXEvent — modifiers Shift+Alt forwarded correctly`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(KeyPress)
@@ -258,12 +258,12 @@ class X11KeyMapperTest {
     }
 }
 
-// ── Tests X11MouseMapper ──────────────────────────────────────────────────────
+// ── X11MouseMapper tests ──────────────────────────────────────────────────────
 
 class X11MouseMapperTest {
 
     @Test
-    fun `ButtonPress bouton 1 retourne MouseInput Left Pressed`() {
+    fun `ButtonPress button 1 returns MouseInput Left Pressed`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonPress)
@@ -277,7 +277,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `ButtonRelease bouton 3 retourne MouseInput Right Released`() {
+    fun `ButtonRelease button 3 returns MouseInput Right Released`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonRelease)
@@ -291,7 +291,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `ButtonPress bouton 2 retourne MouseInput Middle Pressed`() {
+    fun `ButtonPress button 2 returns MouseInput Middle Pressed`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonPress)
@@ -304,7 +304,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `ButtonPress bouton 4 retourne MouseWheel deltaY positif scroll down`() {
+    fun `ButtonPress button 4 returns MouseWheel positive deltaY scroll down`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonPress)
@@ -318,7 +318,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `ButtonPress bouton 5 retourne MouseWheel deltaY negatif scroll up`() {
+    fun `ButtonPress button 5 returns MouseWheel negative deltaY scroll up`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonPress)
@@ -332,7 +332,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `ButtonPress bouton 6 retourne MouseWheel deltaX negatif scroll left`() {
+    fun `ButtonPress button 6 returns MouseWheel negative deltaX scroll left`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonPress)
@@ -346,7 +346,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `ButtonPress bouton 7 retourne MouseWheel deltaX positif scroll right`() {
+    fun `ButtonPress button 7 returns MouseWheel positive deltaX scroll right`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonPress)
@@ -360,19 +360,19 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `ButtonRelease bouton 4 retourne null — pas d'evenement release molette`() {
+    fun `ButtonRelease button 4 returns null — no wheel release event`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonRelease)
                 .setInt(68L, 4)   // scroll down release
 
             val event = X11MouseMapper.fromXEvent(seg, ButtonRelease)
-            assertNull(event, "ButtonRelease de molette ne doit pas générer d'événement")
+            assertNull(event, "A wheel ButtonRelease must not generate an event")
         }
     }
 
     @Test
-    fun `MotionNotify retourne PointerMoved avec coordonnees correctes`() {
+    fun `MotionNotify returns PointerMoved with correct coordinates`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(MotionNotify)
@@ -387,7 +387,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `EnterNotify retourne PointerEntered`() {
+    fun `EnterNotify returns PointerEntered`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena).setType(EnterNotify)
             val event = X11MouseMapper.fromXEvent(seg, EnterNotify)
@@ -396,7 +396,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `LeaveNotify retourne PointerLeft`() {
+    fun `LeaveNotify returns PointerLeft`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena).setType(LeaveNotify)
             val event = X11MouseMapper.fromXEvent(seg, LeaveNotify)
@@ -405,7 +405,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `FocusIn retourne Focused gained=true`() {
+    fun `FocusIn returns Focused gained=true`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena).setType(FocusIn)
             val event = X11MouseMapper.fromXEvent(seg, FocusIn)
@@ -415,7 +415,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `FocusOut retourne Focused gained=false`() {
+    fun `FocusOut returns Focused gained=false`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena).setType(FocusOut)
             val event = X11MouseMapper.fromXEvent(seg, FocusOut)
@@ -425,7 +425,7 @@ class X11MouseMapperTest {
     }
 
     @Test
-    fun `type inconnu retourne null`() {
+    fun `unknown type returns null`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena).setType(99)
             val event = X11MouseMapper.fromXEvent(seg, 99)
@@ -434,12 +434,12 @@ class X11MouseMapperTest {
     }
 }
 
-// ── Tests X11DrawMapper ───────────────────────────────────────────────────────
+// ── X11DrawMapper tests ───────────────────────────────────────────────────────
 
 class X11DrawMapperTest {
 
     @Test
-    fun `Expose count=0 retourne RedrawRequested`() {
+    fun `Expose count=0 returns RedrawRequested`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(Expose)
@@ -451,7 +451,7 @@ class X11DrawMapperTest {
     }
 
     @Test
-    fun `Expose count=2 retourne null — pas le dernier expose`() {
+    fun `Expose count=2 returns null — not the last expose`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(Expose)
@@ -463,7 +463,7 @@ class X11DrawMapperTest {
     }
 
     @Test
-    fun `ConfigureNotify — fenetre null retourne Resized avec dimensions`() {
+    fun `ConfigureNotify — null window returns Resized with dimensions`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ConfigureNotify)
@@ -480,7 +480,7 @@ class X11DrawMapperTest {
     }
 
     @Test
-    fun `ClientMessage avec atom matching wmDeleteWindow retourne CloseRequested`() {
+    fun `ClientMessage with atom matching wmDeleteWindow returns CloseRequested`() {
         Arena.ofConfined().use { arena ->
             val wmDelete = 0x1234_5678L
             val seg = xEventSegment(arena)
@@ -493,7 +493,7 @@ class X11DrawMapperTest {
     }
 
     @Test
-    fun `ClientMessage avec atom different retourne null`() {
+    fun `ClientMessage with different atom returns null`() {
         Arena.ofConfined().use { arena ->
             val wmDelete = 0x1234_5678L
             val seg = xEventSegment(arena)
@@ -506,7 +506,7 @@ class X11DrawMapperTest {
     }
 
     @Test
-    fun `type inconnu retourne null`() {
+    fun `unknown type returns null`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena).setType(99)
             val event = X11DrawMapper.fromXEvent(seg, 99, null, 0L)
@@ -515,41 +515,41 @@ class X11DrawMapperTest {
     }
 }
 
-// ── Tests parseXftDpi ─────────────────────────────────────────────────────────
+// ── parseXftDpi tests ─────────────────────────────────────────────────────────
 
 class ParseXftDpiTest {
 
     @Test
-    fun `Xft_dpi 96 retourne facteur 1_0`() {
+    fun `Xft_dpi 96 returns factor 1_0`() {
         val resources = "Xft.dpi:\t96\nXft.antialias:\t1\n"
         assertEquals(1.0, parseXftDpi(resources))
     }
 
     @Test
-    fun `Xft_dpi 192 retourne facteur 2_0`() {
+    fun `Xft_dpi 192 returns factor 2_0`() {
         val resources = "Xft.dpi:\t192\n"
         assertEquals(2.0, parseXftDpi(resources))
     }
 
     @Test
-    fun `Xft_dpi 144 retourne facteur 1_5`() {
+    fun `Xft_dpi 144 returns factor 1_5`() {
         val resources = "Xft.dpi:\t144\n"
         assertEquals(1.5, parseXftDpi(resources))
     }
 
     @Test
-    fun `chaine vide retourne 1_0`() {
+    fun `empty string returns 1_0`() {
         assertEquals(1.0, parseXftDpi(""))
     }
 
     @Test
-    fun `Xft_dpi absent retourne 1_0`() {
+    fun `Xft_dpi absent returns 1_0`() {
         val resources = "Xft.antialias:\t1\nXft.hinting:\t1\n"
         assertEquals(1.0, parseXftDpi(resources))
     }
 
     @Test
-    fun `Xft_dpi avec espace au lieu de tabulation`() {
+    fun `Xft_dpi with space instead of tab`() {
         val resources = "Xft.dpi: 120\n"
         assertEquals(120.0 / 96.0, parseXftDpi(resources))
     }

@@ -24,58 +24,58 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `SHIFT plus CTRL contient SHIFT`() {
+    fun `SHIFT plus CTRL contains SHIFT`() {
         val mods = Modifiers.SHIFT + Modifiers.CTRL
-        assertTrue(mods.contains(Modifiers.SHIFT), "SHIFT+CTRL doit contenir SHIFT")
+        assertTrue(mods.contains(Modifiers.SHIFT), "SHIFT+CTRL must contain SHIFT")
     }
 
     @Test
-    fun `SHIFT plus CTRL contient CTRL`() {
+    fun `SHIFT plus CTRL contains CTRL`() {
         val mods = Modifiers.SHIFT + Modifiers.CTRL
-        assertTrue(mods.contains(Modifiers.CTRL), "SHIFT+CTRL doit contenir CTRL")
+        assertTrue(mods.contains(Modifiers.CTRL), "SHIFT+CTRL must contain CTRL")
     }
 
     @Test
-    fun `SHIFT plus CTRL ne contient pas ALT`() {
+    fun `SHIFT plus CTRL does not contain ALT`() {
         val mods = Modifiers.SHIFT + Modifiers.CTRL
-        assertFalse(mods.contains(Modifiers.ALT), "SHIFT+CTRL ne doit pas contenir ALT")
+        assertFalse(mods.contains(Modifiers.ALT), "SHIFT+CTRL must not contain ALT")
     }
 
     @Test
-    fun `NONE ne contient aucun modificateur`() {
+    fun `NONE contains no modifier`() {
         val mods = Modifiers.NONE
-        assertFalse(mods.shift, "NONE.shift doit être false")
-        assertFalse(mods.ctrl,  "NONE.ctrl doit être false")
-        assertFalse(mods.alt,   "NONE.alt doit être false")
-        assertFalse(mods.meta,  "NONE.meta doit être false")
+        assertFalse(mods.shift, "NONE.shift must be false")
+        assertFalse(mods.ctrl,  "NONE.ctrl must be false")
+        assertFalse(mods.alt,   "NONE.alt must be false")
+        assertFalse(mods.meta,  "NONE.meta must be false")
     }
 
     @Test
-    fun `chaque constante active exactement sa propriété booléenne`() {
-        assertTrue(Modifiers.SHIFT.shift, "SHIFT.shift doit être true")
-        assertTrue(Modifiers.CTRL.ctrl,   "CTRL.ctrl doit être true")
-        assertTrue(Modifiers.ALT.alt,     "ALT.alt doit être true")
-        assertTrue(Modifiers.META.meta,   "META.meta doit être true")
+    fun `each constant enables exactly its boolean property`() {
+        assertTrue(Modifiers.SHIFT.shift, "SHIFT.shift must be true")
+        assertTrue(Modifiers.CTRL.ctrl,   "CTRL.ctrl must be true")
+        assertTrue(Modifiers.ALT.alt,     "ALT.alt must be true")
+        assertTrue(Modifiers.META.meta,   "META.meta must be true")
     }
 
     @Test
-    fun `SHIFT plus CTRL plus ALT plus META active les quatre propriétés`() {
+    fun `SHIFT plus CTRL plus ALT plus META enables all four properties`() {
         val tout = Modifiers.SHIFT + Modifiers.CTRL + Modifiers.ALT + Modifiers.META
-        assertTrue(tout.shift, "shift doit être true")
-        assertTrue(tout.ctrl,  "ctrl doit être true")
-        assertTrue(tout.alt,   "alt doit être true")
-        assertTrue(tout.meta,  "meta doit être true")
+        assertTrue(tout.shift, "shift must be true")
+        assertTrue(tout.ctrl,  "ctrl must be true")
+        assertTrue(tout.alt,   "alt must be true")
+        assertTrue(tout.meta,  "meta must be true")
     }
 
     @Test
-    fun `NONE contient NONE`() {
+    fun `NONE contains NONE`() {
         assertTrue(Modifiers.NONE.contains(Modifiers.NONE))
     }
 
     @Test
-    fun `plus est idempotent`() {
+    fun `plus is idempotent`() {
         val mods = Modifiers.SHIFT + Modifiers.SHIFT
-        assertEquals(Modifiers.SHIFT, mods, "SHIFT+SHIFT doit égaler SHIFT")
+        assertEquals(Modifiers.SHIFT, mods, "SHIFT+SHIFT must equal SHIFT")
     }
 
     // -----------------------------------------------------------------------
@@ -83,43 +83,43 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `toutes les lettres A a Z sont presentes dans Key`() {
+    fun `all letters A to Z are present in Key`() {
         val lettres = ('A'..'Z').map { it.toString() }
         val entrees = Key.entries.map { it.name }
         for (lettre in lettres) {
-            assertTrue(lettre in entrees, "Key.$lettre manquant")
+            assertTrue(lettre in entrees, "Key.$lettre missing")
         }
     }
 
     @Test
-    fun `tous les chiffres Digit0 a Digit9 sont presents dans Key`() {
+    fun `all digits Digit0 to Digit9 are present in Key`() {
         val chiffres = (0..9).map { "Digit$it" }
         val entrees = Key.entries.map { it.name }
         for (chiffre in chiffres) {
-            assertTrue(chiffre in entrees, "Key.$chiffre manquant")
+            assertTrue(chiffre in entrees, "Key.$chiffre missing")
         }
     }
 
     @Test
-    fun `toutes les touches de fonction F1 a F12 sont presentes dans Key`() {
+    fun `all function keys F1 to F12 are present in Key`() {
         val fonctions = (1..12).map { "F$it" }
         val entrees = Key.entries.map { it.name }
         for (fn in fonctions) {
-            assertTrue(fn in entrees, "Key.$fn manquant")
+            assertTrue(fn in entrees, "Key.$fn missing")
         }
     }
 
     @Test
-    fun `les touches de navigation sont presentes dans Key`() {
+    fun `navigation keys are present in Key`() {
         val navigation = listOf("ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight")
         val entrees = Key.entries.map { it.name }
         for (touche in navigation) {
-            assertTrue(touche in entrees, "Key.$touche manquant")
+            assertTrue(touche in entrees, "Key.$touche missing")
         }
     }
 
     @Test
-    fun `les modificateurs sont presents dans Key`() {
+    fun `modifiers are present in Key`() {
         val modificateurs = listOf(
             "ShiftLeft", "ShiftRight",
             "ControlLeft", "ControlRight",
@@ -128,16 +128,16 @@ class EventsTest {
         )
         val entrees = Key.entries.map { it.name }
         for (touche in modificateurs) {
-            assertTrue(touche in entrees, "Key.$touche manquant")
+            assertTrue(touche in entrees, "Key.$touche missing")
         }
     }
 
     @Test
-    fun `les touches speciales sont presentes dans Key`() {
+    fun `special keys are present in Key`() {
         val speciales = listOf("Space", "Enter", "Escape", "Backspace", "Tab", "Unknown")
         val entrees = Key.entries.map { it.name }
         for (touche in speciales) {
-            assertTrue(touche in entrees, "Key.$touche manquant")
+            assertTrue(touche in entrees, "Key.$touche missing")
         }
     }
 
@@ -146,7 +146,7 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `KeyState possede exactement Pressed et Released`() {
+    fun `KeyState has exactly Pressed and Released`() {
         val noms = KeyState.entries.map { it.name }.toSet()
         assertEquals(setOf("Pressed", "Released"), noms)
     }
@@ -156,7 +156,7 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `TouchPhase possede exactement les quatre phases`() {
+    fun `TouchPhase has exactly the four phases`() {
         val noms = TouchPhase.entries.map { it.name }.toSet()
         assertEquals(setOf("Started", "Moved", "Ended", "Cancelled"), noms)
     }
@@ -166,18 +166,18 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `MouseButton Left est un singleton`() {
+    fun `MouseButton Left is a singleton`() {
         assertTrue(MouseButton.Left === MouseButton.Left)
     }
 
     @Test
-    fun `MouseButton Other conserve son indice`() {
+    fun `MouseButton Other keeps its index`() {
         val bouton = MouseButton.Other(5)
         assertEquals(5, bouton.button)
     }
 
     @Test
-    fun `deux MouseButton Other avec memes indices sont egaux`() {
+    fun `two MouseButton Other with same indices are equal`() {
         assertEquals(MouseButton.Other(3), MouseButton.Other(3))
     }
 
@@ -207,12 +207,12 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent CloseRequested est correctement classe`() {
+    fun `WindowEvent CloseRequested is correctly classified`() {
         assertEquals("CloseRequested", classerWindowEvent(WindowEvent.CloseRequested))
     }
 
     @Test
-    fun `WindowEvent Resized conserve la taille`() {
+    fun `WindowEvent Resized keeps the size`() {
         val taille = PhysicalSize(1920, 1080)
         val event = WindowEvent.Resized(taille)
         assertEquals("Resized", classerWindowEvent(event))
@@ -220,7 +220,7 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent Moved conserve la position`() {
+    fun `WindowEvent Moved keeps the position`() {
         val pos = PhysicalPosition(100, 200)
         val event = WindowEvent.Moved(pos)
         assertEquals("Moved", classerWindowEvent(event))
@@ -228,14 +228,14 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent ScaleFactorChanged conserve le facteur`() {
+    fun `WindowEvent ScaleFactorChanged keeps the factor`() {
         val event = WindowEvent.ScaleFactorChanged(2.0)
         assertEquals("ScaleFactorChanged", classerWindowEvent(event))
         assertEquals(2.0, event.factor)
     }
 
     @Test
-    fun `WindowEvent Focused conserve le booleen`() {
+    fun `WindowEvent Focused keeps the boolean`() {
         val eventGained = WindowEvent.Focused(true)
         val eventLost   = WindowEvent.Focused(false)
         assertEquals("Focused", classerWindowEvent(eventGained))
@@ -244,7 +244,7 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent KeyboardInput conserve key state et modifiers`() {
+    fun `WindowEvent KeyboardInput keeps key state and modifiers`() {
         val event = WindowEvent.KeyboardInput(Key.A, KeyState.Pressed, Modifiers.SHIFT)
         assertEquals("KeyboardInput", classerWindowEvent(event))
         assertEquals(Key.A, event.key)
@@ -253,7 +253,7 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent PointerMoved conserve la position`() {
+    fun `WindowEvent PointerMoved keeps the position`() {
         val pos = PhysicalPosition(123.4, 567.8)
         val event = WindowEvent.PointerMoved(pos)
         assertEquals("PointerMoved", classerWindowEvent(event))
@@ -261,17 +261,17 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent PointerEntered est correctement classe`() {
+    fun `WindowEvent PointerEntered is correctly classified`() {
         assertEquals("PointerEntered", classerWindowEvent(WindowEvent.PointerEntered))
     }
 
     @Test
-    fun `WindowEvent PointerLeft est correctement classe`() {
+    fun `WindowEvent PointerLeft is correctly classified`() {
         assertEquals("PointerLeft", classerWindowEvent(WindowEvent.PointerLeft))
     }
 
     @Test
-    fun `WindowEvent MouseInput conserve bouton et etat`() {
+    fun `WindowEvent MouseInput keeps button and state`() {
         val event = WindowEvent.MouseInput(MouseButton.Left, KeyState.Released)
         assertEquals("MouseInput", classerWindowEvent(event))
         assertEquals(MouseButton.Left, event.button)
@@ -279,7 +279,7 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent MouseWheel conserve les deltas`() {
+    fun `WindowEvent MouseWheel keeps the deltas`() {
         val event = WindowEvent.MouseWheel(3.0, -1.5)
         assertEquals("MouseWheel", classerWindowEvent(event))
         assertEquals(3.0,  event.deltaX)
@@ -287,7 +287,7 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent Touch conserve phase location et id`() {
+    fun `WindowEvent Touch keeps phase location and id`() {
         val loc = PhysicalPosition(50.0, 75.0)
         val event = WindowEvent.Touch(TouchPhase.Started, loc, 42L)
         assertEquals("Touch", classerWindowEvent(event))
@@ -297,12 +297,12 @@ class EventsTest {
     }
 
     @Test
-    fun `WindowEvent RedrawRequested est correctement classe`() {
+    fun `WindowEvent RedrawRequested is correctly classified`() {
         assertEquals("RedrawRequested", classerWindowEvent(WindowEvent.RedrawRequested))
     }
 
     @Test
-    fun `WindowEvent Destroyed est correctement classe`() {
+    fun `WindowEvent Destroyed is correctly classified`() {
         assertEquals("Destroyed", classerWindowEvent(WindowEvent.Destroyed))
     }
 
@@ -320,7 +320,7 @@ class EventsTest {
     }
 
     @Test
-    fun `DeviceEvent PointerMotion conserve dx et dy`() {
+    fun `DeviceEvent PointerMotion keeps dx and dy`() {
         val event = DeviceEvent.PointerMotion(1.5, -2.5)
         assertEquals("PointerMotion", classerDeviceEvent(event))
         assertEquals(1.5,  event.dx)
@@ -328,7 +328,7 @@ class EventsTest {
     }
 
     @Test
-    fun `DeviceEvent Button conserve le bouton et l etat`() {
+    fun `DeviceEvent Button keeps the button and the state`() {
         val event = DeviceEvent.Button(2, KeyState.Pressed)
         assertEquals("Button", classerDeviceEvent(event))
         assertEquals(2, event.button)
@@ -336,7 +336,7 @@ class EventsTest {
     }
 
     @Test
-    fun `DeviceEvent Key conserve le scancode et l etat`() {
+    fun `DeviceEvent Key keeps the scancode and the state`() {
         val event = DeviceEvent.Key(0x1E, KeyState.Released)
         assertEquals("Key", classerDeviceEvent(event))
         assertEquals(0x1E, event.scancode)
@@ -348,7 +348,7 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `DoD - SHIFT plus CTRL contient SHIFT est vrai`() {
+    fun `DoD - SHIFT plus CTRL contains SHIFT is true`() {
         assertTrue((Modifiers.SHIFT + Modifiers.CTRL).contains(Modifiers.SHIFT))
     }
 }
