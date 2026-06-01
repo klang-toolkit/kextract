@@ -49,6 +49,5 @@ internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : 
     override fun exit() { _isExiting = true }
     override val isExiting: Boolean get() = _isExiting
 
-    override fun createProxy(): EventLoopProxy =
-        throw UnsupportedOperationException("EventLoopProxy UIKit non implémenté — post-M3")
+    override fun createProxy(): EventLoopProxy = UIKitEventLoopProxy(this)
 }
