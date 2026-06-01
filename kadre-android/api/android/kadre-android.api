@@ -33,6 +33,9 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun setCursorVisible (Z)V
 	public fun setDecorations (Z)V
 	public fun setFullscreen (Lorg/graphiks/kadre/core/Fullscreen;)V
+	public fun setImeAllowed (Z)V
+	public fun setImeCursorArea (Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/PhysicalSize;)V
+	public fun setImePurpose (Lorg/graphiks/kadre/core/ImePurpose;)V
 	public fun setMaxSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V
 	public fun setMaximized (Z)V
 	public fun setMinSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V

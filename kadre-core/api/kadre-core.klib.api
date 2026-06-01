@@ -63,6 +63,18 @@ final enum class org.graphiks.kadre.core/DeviceEvents : kotlin/Enum<org.graphiks
     final fun values(): kotlin/Array<org.graphiks.kadre.core/DeviceEvents> // org.graphiks.kadre.core/DeviceEvents.values|values#static(){}[0]
 }
 
+final enum class org.graphiks.kadre.core/ImePurpose : kotlin/Enum<org.graphiks.kadre.core/ImePurpose> { // org.graphiks.kadre.core/ImePurpose|null[0]
+    enum entry Normal // org.graphiks.kadre.core/ImePurpose.Normal|null[0]
+    enum entry Password // org.graphiks.kadre.core/ImePurpose.Password|null[0]
+    enum entry Terminal // org.graphiks.kadre.core/ImePurpose.Terminal|null[0]
+
+    final val entries // org.graphiks.kadre.core/ImePurpose.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<org.graphiks.kadre.core/ImePurpose> // org.graphiks.kadre.core/ImePurpose.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): org.graphiks.kadre.core/ImePurpose // org.graphiks.kadre.core/ImePurpose.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<org.graphiks.kadre.core/ImePurpose> // org.graphiks.kadre.core/ImePurpose.values|values#static(){}[0]
+}
+
 final enum class org.graphiks.kadre.core/Key : kotlin/Enum<org.graphiks.kadre.core/Key> { // org.graphiks.kadre.core/Key|null[0]
     enum entry A // org.graphiks.kadre.core/Key.A|null[0]
     enum entry AltLeft // org.graphiks.kadre.core/Key.AltLeft|null[0]
@@ -301,6 +313,9 @@ abstract interface org.graphiks.kadre.core/Window { // org.graphiks.kadre.core/W
     abstract fun setVisible(kotlin/Boolean) // org.graphiks.kadre.core/Window.setVisible|setVisible(kotlin.Boolean){}[0]
     abstract fun setWindowIcon(org.graphiks.kadre.core/Icon?) // org.graphiks.kadre.core/Window.setWindowIcon|setWindowIcon(org.graphiks.kadre.core.Icon?){}[0]
     abstract fun setWindowLevel(org.graphiks.kadre.core/WindowLevel) // org.graphiks.kadre.core/Window.setWindowLevel|setWindowLevel(org.graphiks.kadre.core.WindowLevel){}[0]
+    open fun setImeAllowed(kotlin/Boolean) // org.graphiks.kadre.core/Window.setImeAllowed|setImeAllowed(kotlin.Boolean){}[0]
+    open fun setImeCursorArea(org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>, org.graphiks.kadre.core/PhysicalSize<kotlin/Int>) // org.graphiks.kadre.core/Window.setImeCursorArea|setImeCursorArea(org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>){}[0]
+    open fun setImePurpose(org.graphiks.kadre.core/ImePurpose) // org.graphiks.kadre.core/Window.setImePurpose|setImePurpose(org.graphiks.kadre.core.ImePurpose){}[0]
 }
 
 sealed interface org.graphiks.kadre.core/DeviceEvent { // org.graphiks.kadre.core/DeviceEvent|null[0]
@@ -624,6 +639,78 @@ sealed interface org.graphiks.kadre.core/WindowEvent { // org.graphiks.kadre.cor
         final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowEvent.Focused.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Focused.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Focused.toString|toString(){}[0]
+    }
+
+    final class Ime : org.graphiks.kadre.core/WindowEvent { // org.graphiks.kadre.core/WindowEvent.Ime|null[0]
+        constructor <init>(org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent) // org.graphiks.kadre.core/WindowEvent.Ime.<init>|<init>(org.graphiks.kadre.core.WindowEvent.Ime.ImeEvent){}[0]
+
+        final val ime // org.graphiks.kadre.core/WindowEvent.Ime.ime|{}ime[0]
+            final fun <get-ime>(): org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent // org.graphiks.kadre.core/WindowEvent.Ime.ime.<get-ime>|<get-ime>(){}[0]
+
+        final fun component1(): org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent // org.graphiks.kadre.core/WindowEvent.Ime.component1|component1(){}[0]
+        final fun copy(org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent = ...): org.graphiks.kadre.core/WindowEvent.Ime // org.graphiks.kadre.core/WindowEvent.Ime.copy|copy(org.graphiks.kadre.core.WindowEvent.Ime.ImeEvent){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowEvent.Ime.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.toString|toString(){}[0]
+
+        sealed interface ImeEvent { // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent|null[0]
+            final class Commit : org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent { // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit|null[0]
+                constructor <init>(kotlin/String) // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit.<init>|<init>(kotlin.String){}[0]
+
+                final val text // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit.text|{}text[0]
+                    final fun <get-text>(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit.text.<get-text>|<get-text>(){}[0]
+
+                final fun component1(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit.component1|component1(){}[0]
+                final fun copy(kotlin/String = ...): org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit.copy|copy(kotlin.String){}[0]
+                final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit.equals|equals(kotlin.Any?){}[0]
+                final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit.hashCode|hashCode(){}[0]
+                final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Commit.toString|toString(){}[0]
+            }
+
+            final class DeleteSurrounding : org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent { // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding|null[0]
+                constructor <init>(kotlin/Int, kotlin/Int) // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.<init>|<init>(kotlin.Int;kotlin.Int){}[0]
+
+                final val afterBytes // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.afterBytes|{}afterBytes[0]
+                    final fun <get-afterBytes>(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.afterBytes.<get-afterBytes>|<get-afterBytes>(){}[0]
+                final val beforeBytes // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.beforeBytes|{}beforeBytes[0]
+                    final fun <get-beforeBytes>(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.beforeBytes.<get-beforeBytes>|<get-beforeBytes>(){}[0]
+
+                final fun component1(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.component1|component1(){}[0]
+                final fun component2(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.component2|component2(){}[0]
+                final fun copy(kotlin/Int = ..., kotlin/Int = ...): org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.copy|copy(kotlin.Int;kotlin.Int){}[0]
+                final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.equals|equals(kotlin.Any?){}[0]
+                final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.hashCode|hashCode(){}[0]
+                final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.DeleteSurrounding.toString|toString(){}[0]
+            }
+
+            final class Preedit : org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent { // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit|null[0]
+                constructor <init>(kotlin/String, kotlin/Pair<kotlin/Int, kotlin/Int>?) // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.<init>|<init>(kotlin.String;kotlin.Pair<kotlin.Int,kotlin.Int>?){}[0]
+
+                final val cursorRange // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.cursorRange|{}cursorRange[0]
+                    final fun <get-cursorRange>(): kotlin/Pair<kotlin/Int, kotlin/Int>? // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.cursorRange.<get-cursorRange>|<get-cursorRange>(){}[0]
+                final val text // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.text|{}text[0]
+                    final fun <get-text>(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.text.<get-text>|<get-text>(){}[0]
+
+                final fun component1(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.component1|component1(){}[0]
+                final fun component2(): kotlin/Pair<kotlin/Int, kotlin/Int>? // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.component2|component2(){}[0]
+                final fun copy(kotlin/String = ..., kotlin/Pair<kotlin/Int, kotlin/Int>? = ...): org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.copy|copy(kotlin.String;kotlin.Pair<kotlin.Int,kotlin.Int>?){}[0]
+                final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.equals|equals(kotlin.Any?){}[0]
+                final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.hashCode|hashCode(){}[0]
+                final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Preedit.toString|toString(){}[0]
+            }
+
+            final object Disabled : org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent { // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Disabled|null[0]
+                final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Disabled.equals|equals(kotlin.Any?){}[0]
+                final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Disabled.hashCode|hashCode(){}[0]
+                final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Disabled.toString|toString(){}[0]
+            }
+
+            final object Enabled : org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent { // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Enabled|null[0]
+                final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Enabled.equals|equals(kotlin.Any?){}[0]
+                final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Enabled.hashCode|hashCode(){}[0]
+                final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowEvent.Ime.ImeEvent.Enabled.toString|toString(){}[0]
+            }
+        }
     }
 
     final class KeyboardInput : org.graphiks.kadre.core/WindowEvent { // org.graphiks.kadre.core/WindowEvent.KeyboardInput|null[0]

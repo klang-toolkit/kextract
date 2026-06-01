@@ -330,6 +330,51 @@ interface Window {
      */
     fun setWindowIcon(icon: Icon?)
 
+    // ── R5-IME: input method ──────────────────────────────────────────────────
+
+    /**
+     * Enables or disables IME (Input Method Editor) input for this window.
+     *
+     * When [allowed] is `true`, the platform may activate the IME and the window
+     * will start receiving [WindowEvent.Ime] events. When `false`, the IME is
+     * suppressed and only raw [WindowEvent.KeyboardInput] events are delivered.
+     *
+     * Default implementation is a no-op — backends that support IME will override.
+     * TODO R5-IME: wire in each backend.
+     *
+     * @param allowed `true` to allow IME input, `false` to suppress it.
+     */
+    fun setImeAllowed(allowed: Boolean) { /* no-op by default, TODO R5-IME */ }
+
+    /**
+     * Notifies the IME of the text cursor's current position and bounding box.
+     *
+     * The platform uses this information to position the IME candidate window
+     * near the cursor. Should be called whenever the cursor moves or the
+     * text layout changes.
+     *
+     * Default implementation is a no-op — backends that support IME will override.
+     * TODO R5-IME: wire in each backend.
+     *
+     * @param position Top-left corner of the cursor area in physical pixels (window-relative).
+     * @param size     Size of the cursor area in physical pixels.
+     */
+    fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) { }
+
+    /**
+     * Hints the IME about the intended purpose of the focused text field.
+     *
+     * Allows the input method to adapt its behaviour (e.g. hide suggestions
+     * for a terminal, mask characters for a password field).
+     *
+     * Default implementation is a no-op — backends that support IME will override.
+     * TODO R5-IME: wire in each backend.
+     *
+     * @param purpose Intended use of the text field.
+     * @see ImePurpose
+     */
+    fun setImePurpose(purpose: ImePurpose) { }
+
     // ── R4: keyboard ──────────────────────────────────────────────────────────
 
     /**

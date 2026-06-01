@@ -186,9 +186,10 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     /**
-     * Explicitly enumerates the 16 variants without an `else` clause.
+     * Explicitly enumerates the 17 variants without an `else` clause.
      * If a variant is added or removed, this `when` will no longer compile.
      * R4 added: ModifiersChanged.
+     * R5-IME added: Ime.
      */
     private fun classerWindowEvent(event: WindowEvent): String = when (event) {
         WindowEvent.CloseRequested        -> "CloseRequested"
@@ -207,6 +208,7 @@ class EventsTest {
         WindowEvent.Destroyed             -> "Destroyed"
         is WindowEvent.ThemeChanged       -> "ThemeChanged"
         is WindowEvent.ModifiersChanged   -> "ModifiersChanged"  // R4
+        is WindowEvent.Ime                -> "Ime"               // R5-IME
     }
 
     @Test
@@ -314,6 +316,56 @@ class EventsTest {
         val event = WindowEvent.ThemeChanged(Theme.Dark)
         assertEquals("ThemeChanged", classerWindowEvent(event))
         assertEquals(Theme.Dark, event.theme)
+    }
+
+    // -----------------------------------------------------------------------
+    // WindowEvent.Ime — R5-IME
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `WindowEvent Ime Commit keeps the committed text`() {
+        val imeEvent = WindowEvent.Ime.ImeEvent.Commit("hello")
+        val event = WindowEvent.Ime(imeEvent)
+        assertEquals("Ime", classerWindowEvent(event))
+        val commit = event.ime as WindowEvent.Ime.ImeEvent.Commit
+        assertEquals("hello", commit.text)
+    }
+
+    @Test
+    fun `WindowEvent Ime Preedit keeps text and cursor range`() {
+        val imeEvent = WindowEvent.Ime.ImeEvent.Preedit("こん", Pair(0, 3))
+        val event = WindowEvent.Ime(imeEvent)
+        assertEquals("Ime", classerWindowEvent(event))
+        val preedit = event.ime as WindowEvent.Ime.ImeEvent.Preedit
+        assertEquals("こん", preedit.text)
+        assertEquals(Pair(0, 3), preedit.cursorRange)
+    }
+
+    @Test
+    fun `WindowEvent Ime Preedit with null cursor range`() {
+        val imeEvent = WindowEvent.Ime.ImeEvent.Preedit("abc", null)
+        val preedit = imeEvent
+        assertEquals(null, preedit.cursorRange)
+    }
+
+    @Test
+    fun `WindowEvent Ime Enabled and Disabled are singletons`() {
+        val enabled1 = WindowEvent.Ime.ImeEvent.Enabled
+        val enabled2 = WindowEvent.Ime.ImeEvent.Enabled
+        assertTrue(enabled1 === enabled2, "Enabled must be a singleton")
+        val disabled1 = WindowEvent.Ime.ImeEvent.Disabled
+        val disabled2 = WindowEvent.Ime.ImeEvent.Disabled
+        assertTrue(disabled1 === disabled2, "Disabled must be a singleton")
+    }
+
+    @Test
+    fun `WindowEvent Ime DeleteSurrounding keeps before and after bytes`() {
+        val imeEvent = WindowEvent.Ime.ImeEvent.DeleteSurrounding(3, 5)
+        val event = WindowEvent.Ime(imeEvent)
+        assertEquals("Ime", classerWindowEvent(event))
+        val del = event.ime as WindowEvent.Ime.ImeEvent.DeleteSurrounding
+        assertEquals(3, del.beforeBytes)
+        assertEquals(5, del.afterBytes)
     }
 
     // -----------------------------------------------------------------------

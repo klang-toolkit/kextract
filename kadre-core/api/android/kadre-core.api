@@ -244,6 +244,15 @@ public final class org/graphiks/kadre/core/Icon {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/graphiks/kadre/core/ImePurpose : java/lang/Enum {
+	public static final field Normal Lorg/graphiks/kadre/core/ImePurpose;
+	public static final field Password Lorg/graphiks/kadre/core/ImePurpose;
+	public static final field Terminal Lorg/graphiks/kadre/core/ImePurpose;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/ImePurpose;
+	public static fun values ()[Lorg/graphiks/kadre/core/ImePurpose;
+}
+
 public final class org/graphiks/kadre/core/Key : java/lang/Enum {
 	public static final field A Lorg/graphiks/kadre/core/Key;
 	public static final field AltLeft Lorg/graphiks/kadre/core/Key;
@@ -719,6 +728,9 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun setCursorVisible (Z)V
 	public abstract fun setDecorations (Z)V
 	public abstract fun setFullscreen (Lorg/graphiks/kadre/core/Fullscreen;)V
+	public fun setImeAllowed (Z)V
+	public fun setImeCursorArea (Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/PhysicalSize;)V
+	public fun setImePurpose (Lorg/graphiks/kadre/core/ImePurpose;)V
 	public abstract fun setMaxSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V
 	public abstract fun setMaximized (Z)V
 	public abstract fun setMinSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)V
@@ -731,6 +743,12 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun setVisible (Z)V
 	public abstract fun setWindowIcon (Lorg/graphiks/kadre/core/Icon;)V
 	public abstract fun setWindowLevel (Lorg/graphiks/kadre/core/WindowLevel;)V
+}
+
+public final class org/graphiks/kadre/core/Window$DefaultImpls {
+	public static fun setImeAllowed (Lorg/graphiks/kadre/core/Window;Z)V
+	public static fun setImeCursorArea (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/PhysicalSize;)V
+	public static fun setImePurpose (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/ImePurpose;)V
 }
 
 public final class org/graphiks/kadre/core/WindowAttributes {
@@ -802,6 +820,71 @@ public final class org/graphiks/kadre/core/WindowEvent$Focused : org/graphiks/ka
 	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$Focused;ZILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$Focused;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getGained ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/WindowEvent$Ime : org/graphiks/kadre/core/WindowEvent {
+	public fun <init> (Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent;
+	public final fun copy (Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent;)Lorg/graphiks/kadre/core/WindowEvent$Ime;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$Ime;Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$Ime;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getIme ()Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent {
+}
+
+public final class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Commit : org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Commit;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Commit;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Commit;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getText ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$DeleteSurrounding : org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent {
+	public fun <init> (II)V
+	public final fun component1 ()I
+	public final fun component2 ()I
+	public final fun copy (II)Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$DeleteSurrounding;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$DeleteSurrounding;IIILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$DeleteSurrounding;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAfterBytes ()I
+	public final fun getBeforeBytes ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Disabled : org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent {
+	public static final field INSTANCE Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Disabled;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Enabled : org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent {
+	public static final field INSTANCE Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Enabled;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Preedit : org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent {
+	public fun <init> (Ljava/lang/String;Lkotlin/Pair;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lkotlin/Pair;
+	public final fun copy (Ljava/lang/String;Lkotlin/Pair;)Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Preedit;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Preedit;Ljava/lang/String;Lkotlin/Pair;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Preedit;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCursorRange ()Lkotlin/Pair;
+	public final fun getText ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

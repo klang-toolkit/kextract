@@ -6,7 +6,8 @@
  * - [DeviceEvent]: raw device events (absolute motion, button, key)
  *
  * It also defines the support types used by these events:
- * [Key], [KeyState], [KeyLocation], [Modifiers], [MouseButton] and [TouchPhase].
+ * [Key], [KeyState], [KeyLocation], [Modifiers], [MouseButton], [TouchPhase]
+ * and [ImePurpose].
  *
  * ## Pointer model decision (R4)
  * We KEEP the existing [WindowEvent.MouseInput] + [WindowEvent.Touch] model (Option A).
@@ -255,6 +256,26 @@ enum class TouchPhase {
     Cancelled,
 }
 
+/**
+ * Intended purpose of the IME text field currently focused.
+ *
+ * Passed to [Window.setImePurpose] so that the platform input method can
+ * adapt its behaviour (e.g. hide suggestions for a terminal, mask characters
+ * for a password field).
+ *
+ * @since R5-IME
+ */
+enum class ImePurpose {
+    /** General text input — the default. */
+    Normal,
+
+    /** Password field — the IME should hide the composed text. */
+    Password,
+
+    /** Terminal / command input — suggestions and auto-correct should be suppressed. */
+    Terminal,
+}
+
 // ---------------------------------------------------------------------------
 // WindowEvent
 // ---------------------------------------------------------------------------
@@ -285,6 +306,7 @@ enum class TouchPhase {
  *         WindowEvent.Destroyed         -> releaseResources()
  *         is WindowEvent.ThemeChanged   -> applyTheme(event.theme)
  *         is WindowEvent.ModifiersChanged -> updateModifiers(event.modifiers)
+ *         is WindowEvent.Ime            -> handleIme(event.ime)
  *     }
  * }
  * ```
@@ -452,6 +474,89 @@ sealed interface WindowEvent {
      * @property theme New active theme.
      */
     data class ThemeChanged(val theme: Theme) : WindowEvent
+
+    // ── R5-IME: input method ──────────────────────────────────────────────────
+
+    /**
+     * An IME (Input Method Editor) event occurred on this window.
+     *
+     * IME events are emitted on platforms that expose an input method pipeline
+     * (Wayland via `zwp_text_input_v3`, X11 via XIC, Win32 via TSF/IMM32,
+     * Android via `InputMethodManager`, iOS/macOS via `NSTextInputClient`).
+     *
+     * Emission of these events is out of scope for R5-IME — backends will be
+     * wired in later milestones. Use [Window.setImeAllowed] to opt in.
+     *
+     * @property ime The concrete IME event sub-type.
+     * @see ImeEvent
+     */
+    data class Ime(val ime: ImeEvent) : WindowEvent {
+
+        /**
+         * Sub-events of the IME pipeline.
+         *
+         * The typical lifecycle is:
+         * 1. [Enabled]  — the IME context was activated (e.g. focus entered a text field).
+         * 2. [Preedit]  — intermediate composed text (shown with underline in most UIs).
+         * 3. [Commit]   — the final string to insert into the text buffer.
+         * 4. [Disabled] — the IME context was deactivated.
+         *
+         * [DeleteSurrounding] may be emitted at any point to request deletion of text
+         * around the cursor (needed by some CJK / prediction engines).
+         */
+        sealed interface ImeEvent {
+
+            /**
+             * The IME context was activated for this window.
+             *
+             * From this point on [Preedit], [Commit] and [DeleteSurrounding] events
+             * may be emitted.
+             */
+            data object Enabled : ImeEvent
+
+            /**
+             * The IME is composing text (pre-edit string).
+             *
+             * The application should display [text] with a visual indicator (underline,
+             * highlight) at the current cursor position. When [text] is empty the
+             * pre-edit string is cleared.
+             *
+             * @property text         The current pre-edit string (may be empty).
+             * @property cursorRange  Byte range `[start, end)` within [text] where the
+             *   IME cursor / selection sits, or null if the IME does not expose it.
+             */
+            data class Preedit(val text: String, val cursorRange: Pair<Int, Int>?) : ImeEvent
+
+            /**
+             * The IME committed a final string.
+             *
+             * The application should insert [text] into its text buffer at the cursor
+             * position, replacing any active pre-edit string.
+             *
+             * @property text The committed text to insert.
+             */
+            data class Commit(val text: String) : ImeEvent
+
+            /**
+             * The IME requests deletion of surrounding text.
+             *
+             * The application should delete [beforeBytes] bytes before the cursor and
+             * [afterBytes] bytes after the cursor (byte offsets in UTF-8).
+             *
+             * @property beforeBytes Bytes to delete before the cursor (≥ 0).
+             * @property afterBytes  Bytes to delete after the cursor (≥ 0).
+             */
+            data class DeleteSurrounding(val beforeBytes: Int, val afterBytes: Int) : ImeEvent
+
+            /**
+             * The IME context was deactivated for this window.
+             *
+             * No further [Preedit] or [Commit] events will be emitted until the next
+             * [Enabled] event.
+             */
+            data object Disabled : ImeEvent
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

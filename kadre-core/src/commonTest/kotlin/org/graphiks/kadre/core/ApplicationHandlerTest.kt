@@ -42,6 +42,9 @@ class ApplicationHandlerTest {
 
         // R3 stub
         override fun systemTheme() = null
+
+        // R4 stub
+        override fun listenDeviceEvents(mode: DeviceEvents) = Unit
     }
 
     // -------------------------------------------------------------------------
