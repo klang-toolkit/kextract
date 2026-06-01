@@ -546,6 +546,30 @@ internal val closeTouchInputHandle: MethodHandle? by lazy {
     )
 }
 
+// ── ScreenToClient ────────────────────────────────────────────────────────────
+
+/**
+ * BOOL ScreenToClient(HWND hWnd, LPPOINT lpPoint);
+ *
+ * Converts a point from screen coordinates to client-area coordinates for the
+ * specified window. Used for WM_TOUCH because TOUCHINPUT.x/y are screen
+ * coordinates while kadre pointer positions are client coordinates.
+ *
+ * POINT layout: { LONG x, LONG y } = 8 bytes.
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-screentoclient
+ */
+internal val screenToClient: MethodHandle? by lazy {
+    user32.downcall(
+        "ScreenToClient",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.ADDRESS,    // LPPOINT
+        )
+    )
+}
+
 // ── GetCursorPos ──────────────────────────────────────────────────────────────
 
 /**

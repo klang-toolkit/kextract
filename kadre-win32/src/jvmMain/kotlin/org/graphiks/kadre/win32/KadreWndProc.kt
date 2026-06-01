@@ -540,7 +540,7 @@ object KadreWndProc {
                 ) as Int
                 if (ok != 0) {
                     for (i in 0 until cInputs) {
-                        decodeTouchInput(buffer, i).forEach { event -> emit(hwnd, event) }
+                        decodeTouchInput(hwnd, buffer, i).forEach { event -> emit(hwnd, event) }
                     }
                 }
             }
@@ -559,9 +559,8 @@ object KadreWndProc {
      * buffer on any platform.
      *
      * Coordinates: TOUCHINPUT.x / .y are physical **screen** coordinates in
-     * hundredths of a pixel; they are divided by [TOUCH_COORD_SCALE] to yield
-     * physical pixels. Client-area conversion (ScreenToClient) is left as a
-     * follow-up, mirroring the existing innerSize TODO.
+     * hundredths of a pixel. They are converted to client coordinates with
+     * ScreenToClient when an HWND is available.
      *
      * Phase: TOUCHEVENTF_DOWN → [TouchPhase.Started], TOUCHEVENTF_UP →
      * [TouchPhase.Ended], otherwise (TOUCHEVENTF_MOVE) → [TouchPhase.Moved].
@@ -572,6 +571,28 @@ object KadreWndProc {
      * @param index  Zero-based index of the contact to decode.
      */
     internal fun decodeTouchInput(buffer: MemorySegment, index: Int): List<WindowEvent> {
+        return decodeTouchInput(hwnd = 0L, buffer = buffer, index = index, screenToClient = null)
+    }
+
+    /**
+     * Decodes a TOUCHINPUT using the source [hwnd] to convert Win32 screen
+     * coordinates into kadre client coordinates.
+     */
+    internal fun decodeTouchInput(hwnd: Long, buffer: MemorySegment, index: Int): List<WindowEvent> {
+        return decodeTouchInput(hwnd, buffer, index, ::screenToClientTouchPoint)
+    }
+
+    /**
+     * Testable TOUCHINPUT decoder. [screenToClient] receives the integer screen
+     * pixel point required by Win32; the fractional hundredths are preserved and
+     * re-applied after conversion.
+     */
+    internal fun decodeTouchInput(
+        hwnd: Long,
+        buffer: MemorySegment,
+        index: Int,
+        screenToClient: ((hwnd: Long, screenX: Int, screenY: Int) -> PhysicalPosition<Int>?)?,
+    ): List<WindowEvent> {
         val base = index.toLong() * TOUCHINPUT_SIZE
         val rawX = buffer.get(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_X)
         val rawY = buffer.get(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_Y)
@@ -585,10 +606,7 @@ object KadreWndProc {
             else                            -> TouchPhase.Moved
         }
 
-        val location = PhysicalPosition(
-            rawX.toDouble() / TOUCH_COORD_SCALE,
-            rawY.toDouble() / TOUCH_COORD_SCALE,
-        )
+        val location = touchClientPosition(hwnd, rawX, rawY, screenToClient)
         val fingerId = FingerId(id)
         return when (phase) {
             TouchPhase.Started -> listOf(
@@ -605,6 +623,51 @@ object KadreWndProc {
             TouchPhase.Cancelled -> listOf(
                 WindowEvent.PointerLeft(null, location, primary = true, kind = PointerKind.Touch),
             )
+        }
+    }
+
+    private fun touchClientPosition(
+        hwnd: Long,
+        rawX: Int,
+        rawY: Int,
+        screenToClient: ((hwnd: Long, screenX: Int, screenY: Int) -> PhysicalPosition<Int>?)?,
+    ): PhysicalPosition<Double> {
+        val scale = TOUCH_COORD_SCALE.toInt()
+        // Match Win32 TOUCH_COORD_TO_PIXEL semantics: integer division truncates toward zero.
+        val screenX = rawX / scale
+        val screenY = rawY / scale
+        val fractionX = rawX - screenX * scale
+        val fractionY = rawY - screenY * scale
+        val client = screenToClient?.invoke(hwnd, screenX, screenY)
+        return if (client != null) {
+            PhysicalPosition(
+                client.x + fractionX.toDouble() / TOUCH_COORD_SCALE,
+                client.y + fractionY.toDouble() / TOUCH_COORD_SCALE,
+            )
+        } else {
+            PhysicalPosition(
+                rawX.toDouble() / TOUCH_COORD_SCALE,
+                rawY.toDouble() / TOUCH_COORD_SCALE,
+            )
+        }
+    }
+
+    private fun screenToClientTouchPoint(hwnd: Long, screenX: Int, screenY: Int): PhysicalPosition<Int>? {
+        val handle = screenToClient ?: return null
+        return try {
+            java.lang.foreign.Arena.ofConfined().use { arena ->
+                val point = arena.allocate(8L, 4L)
+                point.set(ValueLayout.JAVA_INT, 0L, screenX)
+                point.set(ValueLayout.JAVA_INT, 4L, screenY)
+                val ok = handle.invokeExact(MemorySegment.ofAddress(hwnd), point) as Int
+                if (ok == 0) return@use null
+                PhysicalPosition(
+                    point.get(ValueLayout.JAVA_INT, 0L),
+                    point.get(ValueLayout.JAVA_INT, 4L),
+                )
+            }
+        } catch (_: Throwable) {
+            null
         }
     }
 

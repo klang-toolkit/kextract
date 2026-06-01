@@ -18,6 +18,7 @@ import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.FingerId
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.PointerSource
@@ -377,6 +378,66 @@ class KadreWndProcTest {
             assertIs<WindowEvent.PointerMoved>(event)
             assertEquals(123.45, event.position.x)
             assertEquals(67.89, event.position.y)
+        }
+    }
+
+    @Test
+    fun `decodeTouchInput converts TOUCHINPUT screen coordinates to client coordinates`() {
+        Arena.ofConfined().use { arena ->
+            // TOUCHINPUT stores screen coordinates in hundredths of a physical pixel.
+            // The native ScreenToClient call only accepts integer POINT values, so the
+            // decoder must convert the integer screen pixel and preserve the fraction.
+            val buffer = arena.allocate(TOUCHINPUT_SIZE.toLong(), 8L)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_X, 12345)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_Y, 6789)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_FLAGS, TOUCHEVENTF_MOVE)
+
+            val event = KadreWndProc.decodeTouchInput(TEST_HWND, buffer, 0) { hwnd, screenX, screenY ->
+                assertEquals(TEST_HWND, hwnd)
+                assertEquals(123, screenX)
+                assertEquals(67, screenY)
+                PhysicalPosition(screenX - 100, screenY - 50)
+            }.single()
+
+            assertIs<WindowEvent.PointerMoved>(event)
+            assertEquals(23.45, event.position.x)
+            assertEquals(17.89, event.position.y)
+        }
+    }
+
+    @Test
+    fun `decodeTouchInput keeps screen coordinates when client conversion fails`() {
+        Arena.ofConfined().use { arena ->
+            val buffer = arena.allocate(TOUCHINPUT_SIZE.toLong(), 8L)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_X, 12345)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_Y, 6789)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_FLAGS, TOUCHEVENTF_MOVE)
+
+            val event = KadreWndProc.decodeTouchInput(TEST_HWND, buffer, 0) { _, _, _ -> null }.single()
+
+            assertIs<WindowEvent.PointerMoved>(event)
+            assertEquals(123.45, event.position.x)
+            assertEquals(67.89, event.position.y)
+        }
+    }
+
+    @Test
+    fun `decodeTouchInput truncates negative touch coordinates toward zero before client conversion`() {
+        Arena.ofConfined().use { arena ->
+            val buffer = arena.allocate(TOUCHINPUT_SIZE.toLong(), 8L)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_X, -12345)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_Y, -6789)
+            buffer.set(ValueLayout.JAVA_INT, TOUCHINPUT_OFFSET_FLAGS, TOUCHEVENTF_MOVE)
+
+            val event = KadreWndProc.decodeTouchInput(TEST_HWND, buffer, 0) { _, screenX, screenY ->
+                assertEquals(-123, screenX)
+                assertEquals(-67, screenY)
+                PhysicalPosition(screenX + 100, screenY + 50)
+            }.single()
+
+            assertIs<WindowEvent.PointerMoved>(event)
+            assertEquals(-23.45, event.position.x)
+            assertEquals(-17.89, event.position.y)
         }
     }
 
