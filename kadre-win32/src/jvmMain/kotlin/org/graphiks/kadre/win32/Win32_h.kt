@@ -655,6 +655,181 @@ internal val getWindowRect: MethodHandle? by lazy {
 /** Size of the RECT structure in bytes (4 × LONG = 4 × 4 bytes). */
 internal const val RECT_SIZE: Long = 16L
 
+// ── SetWindowLongPtrW ─────────────────────────────────────────────────────────
+
+/**
+ * LONG_PTR SetWindowLongPtrW(HWND hWnd, int nIndex, LONG_PTR dwNewLong);
+ *
+ * Sets a value in the extra window information. Used to change the window style
+ * (GWL_STYLE / GWL_EXSTYLE) and to set the resizable flag (WS_THICKFRAME).
+ */
+internal val setWindowLongPtrW: MethodHandle? by lazy {
+    user32.downcall(
+        "SetWindowLongPtrW",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_LONG,  // LONG_PTR (return)
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.JAVA_INT,   // int nIndex
+            ValueLayout.JAVA_LONG,  // LONG_PTR dwNewLong
+        )
+    )
+}
+
+// ── GetWindowLongPtrW ─────────────────────────────────────────────────────────
+
+/**
+ * LONG_PTR GetWindowLongPtrW(HWND hWnd, int nIndex);
+ *
+ * Retrieves information about the specified window.
+ * nIndex = GWL_STYLE (-16) to get the window style flags.
+ */
+internal val getWindowLongPtrW: MethodHandle? by lazy {
+    user32.downcall(
+        "GetWindowLongPtrW",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_LONG,  // LONG_PTR (return)
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.JAVA_INT,   // int nIndex
+        )
+    )
+}
+
+// ── IsZoomed ──────────────────────────────────────────────────────────────────
+
+/**
+ * BOOL IsZoomed(HWND hWnd);
+ *
+ * Returns non-zero if the window is maximized.
+ */
+internal val isZoomed: MethodHandle? by lazy {
+    user32.downcall(
+        "IsZoomed",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+        )
+    )
+}
+
+// ── IsIconic ──────────────────────────────────────────────────────────────────
+
+/**
+ * BOOL IsIconic(HWND hWnd);
+ *
+ * Returns non-zero if the window is minimized (iconic).
+ */
+internal val isIconic: MethodHandle? by lazy {
+    user32.downcall(
+        "IsIconic",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+        )
+    )
+}
+
+// ── IsWindowVisible ───────────────────────────────────────────────────────────
+
+/**
+ * BOOL IsWindowVisible(HWND hWnd);
+ *
+ * Returns non-zero if the window is visible (WS_VISIBLE style flag is set).
+ */
+internal val isWindowVisible: MethodHandle? by lazy {
+    user32.downcall(
+        "IsWindowVisible",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+        )
+    )
+}
+
+// ── GetWindowTextW ────────────────────────────────────────────────────────────
+
+/**
+ * int GetWindowTextW(HWND hWnd, LPWSTR lpString, int nMaxCount);
+ *
+ * Copies the text of the specified window's title bar into a buffer.
+ * Returns the number of characters copied (0 on failure).
+ */
+internal val getWindowTextW: MethodHandle? by lazy {
+    user32.downcall(
+        "GetWindowTextW",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int (char count)
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.ADDRESS,    // LPWSTR lpString
+            ValueLayout.JAVA_INT,   // int nMaxCount
+        )
+    )
+}
+
+// ── SetWindowPos ──────────────────────────────────────────────────────────────
+
+/**
+ * BOOL SetWindowPos(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags);
+ *
+ * Changes the size, position, and Z order of a child, pop-up, or top-level window.
+ * Pass SWP_NOSIZE to move without resizing; SWP_NOZORDER to keep the Z order.
+ */
+internal val setWindowPos: MethodHandle? by lazy {
+    user32.downcall(
+        "SetWindowPos",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND hWnd
+            ValueLayout.ADDRESS,    // HWND hWndInsertAfter
+            ValueLayout.JAVA_INT,   // int X
+            ValueLayout.JAVA_INT,   // int Y
+            ValueLayout.JAVA_INT,   // int cx
+            ValueLayout.JAVA_INT,   // int cy
+            ValueLayout.JAVA_INT,   // UINT uFlags
+        )
+    )
+}
+
+// ── Win32 style / ShowWindow constants for R1 ────────────────────────────────
+
+/** GWL_STYLE — window style index for Get/SetWindowLongPtrW. */
+internal const val GWL_STYLE: Int = -16
+
+/** WS_THICKFRAME — resizable border / size box. */
+internal const val WS_THICKFRAME: Int = 0x00040000
+
+/** WS_CAPTION — title bar and border (= WS_BORDER | WS_DLGFRAME). */
+internal const val WS_CAPTION: Int = 0x00C00000
+
+/** WS_BORDER — thin border. */
+internal const val WS_BORDER: Int = 0x00800000
+
+/** WS_SYSMENU — system menu in title bar. */
+internal const val WS_SYSMENU: Int = 0x00080000
+
+/** WS_MINIMIZEBOX — minimize button. */
+internal const val WS_MINIMIZEBOX: Int = 0x00020000
+
+/** WS_MAXIMIZEBOX — maximize button. */
+internal const val WS_MAXIMIZEBOX: Int = 0x00010000
+
+/** SW_MINIMIZE — minimize (iconic) state. */
+internal const val SW_MINIMIZE: Int = 6
+
+/** SW_RESTORE — restore minimized/maximized window to normal. */
+internal const val SW_RESTORE: Int = 9
+
+/** SW_MAXIMIZE — maximize the window. */
+internal const val SW_MAXIMIZE: Int = 3
+
+/** SWP_NOSIZE — retain the current size when calling SetWindowPos. */
+internal const val SWP_NOSIZE: Int = 0x0001
+
+/** SWP_NOZORDER — retain the current Z order when calling SetWindowPos. */
+internal const val SWP_NOZORDER: Int = 0x0004
+
+/** SWP_NOACTIVATE — do not activate the window when moving it. */
+internal const val SWP_NOACTIVATE: Int = 0x0010
+
 /** Byte alignment of RECT (LONG = 4 bytes). */
 internal const val RECT_ALIGN: Long = 4L
 

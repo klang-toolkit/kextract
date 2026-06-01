@@ -24,6 +24,7 @@
  */
 package org.graphiks.kadre.web
 
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
@@ -160,16 +161,6 @@ class WebWindow(
     }
 
     /**
-     * No-op on the Web side.
-     *
-     * Web pages have no title bar in the sense of a native window.
-     * `document.title` could be updated here but is out of scope for this ticket.
-     */
-    override fun setTitle(title: String) {
-        // no-op Web — document.title would be the target, out of scope for ticket #25
-    }
-
-    /**
      * Handles canvas visibility via CSS (future) — no-op in this version.
      *
      * @param visible true to show, false to hide.
@@ -187,4 +178,98 @@ class WebWindow(
     override fun close() {
         bridge.detach()
     }
+
+    // ── R1: window state & geometry — mostly no-ops on Web ────────────────────
+    //
+    // Web browsers control the browser window — the canvas/page has no
+    // access to minimize, maximize, resize, or decorate the OS window.
+    // `title` delegates to `document.title`.
+
+    private var _title: String = canvasElementId
+
+    /**
+     * Sets the browser tab / document title via the bridge.
+     *
+     * @param title New title to display in the browser tab.
+     */
+    override fun setTitle(title: String) {
+        _title = title
+        bridge.setDocumentTitle(title)
+    }
+
+    /**
+     * Returns the current document title (last value passed to [setTitle]).
+     */
+    override val title: String get() = _title
+
+    /**
+     * Web windows are always visible while the page is open.
+     * CSS visibility could be toggled, but that is out of scope.
+     */
+    override val isVisible: Boolean get() = true
+
+    /**
+     * Web browsers do not support programmatic window resizing.
+     * This is a no-op.
+     */
+    override fun setResizable(resizable: Boolean) { /* no-op: Web does not support programmatic window resizing */ }
+
+    /** Web windows are not programmatically resizable. Always returns false. */
+    override val isResizable: Boolean get() = false
+
+    /**
+     * Web browsers do not support programmatic window minimization.
+     * This is a no-op.
+     */
+    override fun setMinimized(minimized: Boolean) { /* no-op: Web does not support programmatic window minimization */ }
+
+    /** Web windows cannot be minimized programmatically. Always returns false. */
+    override val isMinimized: Boolean get() = false
+
+    /**
+     * Web browsers do not support programmatic window maximization.
+     * This is a no-op.
+     */
+    override fun setMaximized(maximized: Boolean) { /* no-op: Web does not support programmatic window maximization */ }
+
+    /** Web windows cannot be maximized programmatically. Always returns false. */
+    override val isMaximized: Boolean get() = false
+
+    /**
+     * Web pages have no platform window decorations.
+     * This is a no-op.
+     */
+    override fun setDecorations(decorated: Boolean) { /* no-op: Web pages have no platform window decorations */ }
+
+    /** Web pages have no platform window decorations. Always returns false. */
+    override val isDecorated: Boolean get() = false
+
+    /**
+     * Web canvases do not have surface size constraints.
+     * This is a no-op.
+     */
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) { /* no-op: Web does not support canvas size constraints */ }
+
+    /**
+     * Web canvases do not have surface size constraints.
+     * This is a no-op.
+     */
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) { /* no-op: Web does not support canvas size constraints */ }
+
+    /**
+     * Web pages do not expose the browser window's screen position.
+     * Returns PhysicalPosition(0, 0).
+     */
+    override val outerPosition: PhysicalPosition<Int> get() = PhysicalPosition(0, 0)
+
+    /**
+     * Web browsers do not support programmatic window positioning.
+     * This is a no-op.
+     */
+    override fun setOuterPosition(position: PhysicalPosition<Int>) { /* no-op: Web does not support programmatic window positioning */ }
+
+    /**
+     * No-op on Web: there is no Wayland-style pre-commit concept in the browser.
+     */
+    override fun prePresentNotify() { /* no-op on Web */ }
 }

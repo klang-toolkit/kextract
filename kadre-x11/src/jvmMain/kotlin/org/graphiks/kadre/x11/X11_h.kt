@@ -350,6 +350,139 @@ internal val xSendEvent: MethodHandle? by lazy {
     )
 }
 
+// ── XResizeWindow ─────────────────────────────────────────────────────────────
+
+/**
+ * int XResizeWindow(Display *display, Window w, unsigned int width, unsigned int height);
+ *
+ * Resizes the window. Does not move it.
+ */
+internal val xResizeWindow: MethodHandle? by lazy {
+    libX11.downcall(
+        "XResizeWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int return
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window (XID)
+            ValueLayout.JAVA_INT,   // unsigned int width
+            ValueLayout.JAVA_INT,   // unsigned int height
+        )
+    )
+}
+
+// ── XMoveWindow ───────────────────────────────────────────────────────────────
+
+/**
+ * int XMoveWindow(Display *display, Window w, int x, int y);
+ *
+ * Moves the window to the given position (relative to the parent window).
+ * For a top-level window this is the screen position.
+ */
+internal val xMoveWindow: MethodHandle? by lazy {
+    libX11.downcall(
+        "XMoveWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int return
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window (XID)
+            ValueLayout.JAVA_INT,   // int x
+            ValueLayout.JAVA_INT,   // int y
+        )
+    )
+}
+
+// ── XIconifyWindow ────────────────────────────────────────────────────────────
+
+/**
+ * Status XIconifyWindow(Display *display, Window w, int screen_number);
+ *
+ * Asks the window manager to iconify (minimize) the window.
+ */
+internal val xIconifyWindow: MethodHandle? by lazy {
+    libX11.downcall(
+        "XIconifyWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // Status
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window (XID)
+            ValueLayout.JAVA_INT,   // int screen_number
+        )
+    )
+}
+
+// ── XChangeProperty ───────────────────────────────────────────────────────────
+
+/**
+ * int XChangeProperty(Display *display, Window w, Atom property, Atom type,
+ *     int format, int mode, const unsigned char *data, int nelements);
+ *
+ * Changes the value of a property on a window. Used to set _NET_WM_STATE,
+ * _MOTIF_WM_HINTS, etc.
+ */
+internal val xChangeProperty: MethodHandle? by lazy {
+    libX11.downcall(
+        "XChangeProperty",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int return
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window (XID)
+            ValueLayout.JAVA_LONG,  // Atom property
+            ValueLayout.JAVA_LONG,  // Atom type
+            ValueLayout.JAVA_INT,   // int format (8, 16, or 32)
+            ValueLayout.JAVA_INT,   // int mode (PropModeReplace=0)
+            ValueLayout.ADDRESS,    // const unsigned char* data
+            ValueLayout.JAVA_INT,   // int nelements
+        )
+    )
+}
+
+// ── XGetGeometry ──────────────────────────────────────────────────────────────
+
+/**
+ * Status XGetGeometry(Display *display, Drawable d,
+ *     Window *root_return, int *x_return, int *y_return,
+ *     unsigned int *width_return, unsigned int *height_return,
+ *     unsigned int *border_width_return, unsigned int *depth_return);
+ *
+ * Returns the geometry of the window in root-window coordinates.
+ * Used to obtain the outer position.
+ */
+internal val xGetGeometry: MethodHandle? by lazy {
+    libX11.downcall(
+        "XGetGeometry",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // Status
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Drawable (XID)
+            ValueLayout.ADDRESS,    // Window* root_return
+            ValueLayout.ADDRESS,    // int* x_return
+            ValueLayout.ADDRESS,    // int* y_return
+            ValueLayout.ADDRESS,    // unsigned int* width_return
+            ValueLayout.ADDRESS,    // unsigned int* height_return
+            ValueLayout.ADDRESS,    // unsigned int* border_width_return
+            ValueLayout.ADDRESS,    // unsigned int* depth_return
+        )
+    )
+}
+
+// ── XUnmapWindow ──────────────────────────────────────────────────────────────
+
+/**
+ * int XUnmapWindow(Display *display, Window w);
+ *
+ * Unmaps the window (hides it from screen).
+ */
+internal val xUnmapWindow: MethodHandle? by lazy {
+    libX11.downcall(
+        "XUnmapWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int return
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window (XID)
+        )
+    )
+}
+
 // ── XkbSetDetectableAutoRepeat ────────────────────────────────────────────────
 
 /**

@@ -39,6 +39,11 @@ interface Window {
     fun setTitle(title: String)
 
     /**
+     * Returns the current title of the window's title bar.
+     */
+    val title: String
+
+    /**
      * Returns the inner size of the window in physical pixels
      * (rendering surface, without the decorations).
      */
@@ -64,10 +69,101 @@ interface Window {
     fun setVisible(visible: Boolean)
 
     /**
+     * Returns whether the window is currently visible.
+     */
+    val isVisible: Boolean
+
+    /**
      * Closes the window.
      *
      * Once closed, the window no longer emits events and its identifier
      * becomes invalid.
      */
     fun close()
+
+    // ── R1: window state & geometry ───────────────────────────────────────────
+
+    /**
+     * Sets whether the window can be resized by the user.
+     *
+     * @param resizable true to allow resizing, false to prevent it.
+     */
+    fun setResizable(resizable: Boolean)
+
+    /**
+     * Returns whether the window can be resized by the user.
+     */
+    val isResizable: Boolean
+
+    /**
+     * Minimizes or restores the window.
+     *
+     * @param minimized true to minimize, false to restore.
+     */
+    fun setMinimized(minimized: Boolean)
+
+    /**
+     * Returns whether the window is currently minimized.
+     */
+    val isMinimized: Boolean
+
+    /**
+     * Maximizes or restores the window.
+     *
+     * @param maximized true to maximize, false to restore.
+     */
+    fun setMaximized(maximized: Boolean)
+
+    /**
+     * Returns whether the window is currently maximized.
+     */
+    val isMaximized: Boolean
+
+    /**
+     * Shows or hides the window's platform decorations (title bar, borders).
+     *
+     * @param decorated true to show decorations, false to hide them.
+     */
+    fun setDecorations(decorated: Boolean)
+
+    /**
+     * Returns whether the window currently has platform decorations.
+     */
+    val isDecorated: Boolean
+
+    /**
+     * Sets the minimum surface size constraint.
+     *
+     * @param size minimum size in physical pixels, or null to remove the constraint.
+     */
+    fun setMinSurfaceSize(size: PhysicalSize<Int>?)
+
+    /**
+     * Sets the maximum surface size constraint.
+     *
+     * @param size maximum size in physical pixels, or null to remove the constraint.
+     */
+    fun setMaxSurfaceSize(size: PhysicalSize<Int>?)
+
+    /**
+     * Returns the outer position of the window on the screen in physical pixels
+     * (top-left corner of the window frame, including decorations).
+     */
+    val outerPosition: PhysicalPosition<Int>
+
+    /**
+     * Moves the window so that its outer top-left corner is at [position]
+     * (in physical screen pixels).
+     *
+     * @param position new position in physical pixels.
+     */
+    fun setOuterPosition(position: PhysicalPosition<Int>)
+
+    /**
+     * Notifies the compositor that the window is about to present a frame.
+     *
+     * On Wayland this triggers `wl_surface.pre_commit` / frame optimizations.
+     * On other backends this is a no-op.
+     */
+    fun prePresentNotify()
 }

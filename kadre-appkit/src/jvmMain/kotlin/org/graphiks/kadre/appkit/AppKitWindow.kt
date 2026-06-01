@@ -16,6 +16,7 @@ import org.graphiks.kadre.appkit.bindings.NSWindowStyleMask
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
@@ -53,10 +54,14 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         MainThreadCheck.require()
 
         // 1. Compute styleMask from the attributes
-        var styleMask = NSWindowStyleMask.NSWindowStyleMaskTitled +
-                NSWindowStyleMask.NSWindowStyleMaskClosable +
-                NSWindowStyleMask.NSWindowStyleMaskMiniaturizable
-        if (attrs.resizable) {
+        var styleMask = if (attrs.decorations) {
+            NSWindowStyleMask.NSWindowStyleMaskTitled +
+            NSWindowStyleMask.NSWindowStyleMaskClosable +
+            NSWindowStyleMask.NSWindowStyleMaskMiniaturizable
+        } else {
+            NSWindowStyleMask.NSWindowStyleMaskBorderless
+        }
+        if (attrs.resizable && attrs.decorations) {
             styleMask = styleMask + NSWindowStyleMask.NSWindowStyleMaskResizable
         }
 
@@ -117,6 +122,26 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
         // 7. Initial title
         nsWindow.setTitle(attrs.title)
+
+        // 7b. Apply R1 attrs: minSize / maxSize / position / maximized
+        attrs.minSize?.let { min ->
+            Arena.ofConfined().use { a ->
+                nsWindow.setContentMinSize(allocNSSize(a, min.width.toDouble(), min.height.toDouble()))
+            }
+        }
+        attrs.maxSize?.let { max ->
+            Arena.ofConfined().use { a ->
+                nsWindow.setContentMaxSize(allocNSSize(a, max.width.toDouble(), max.height.toDouble()))
+            }
+        }
+        attrs.position?.let { pos ->
+            Arena.ofConfined().use { a ->
+                nsWindow.setFrameOrigin(allocNSPoint(a, pos.x.toDouble(), pos.y.toDouble()))
+            }
+        }
+        if (attrs.maximized) {
+            nsWindow.zoom(MemorySegment.NULL)
+        }
 
         // 8. Display if requested
         if (attrs.visible) {
@@ -237,6 +262,141 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         NSWindow(nsWindowPtr).close()
     }
 
+    // ── R1: window state & geometry ───────────────────────────────────────────
+
+    override val title: String
+        get() = try {
+            NSWindow(nsWindowPtr).titleAsString()
+        } catch (_: Throwable) { "" }
+
+    override val isVisible: Boolean
+        get() = try {
+            NSWindow(nsWindowPtr).isVisible()
+        } catch (_: Throwable) { false }
+
+    override fun setResizable(resizable: Boolean) {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val current = nsWindow.styleMask()
+            val resizableMask = NSWindowStyleMask.NSWindowStyleMaskResizable
+            val newMask = if (resizable) current + resizableMask
+                          else NSWindowStyleMask(current.rawValue and resizableMask.rawValue.inv())
+            nsWindow.setStyleMask(newMask)
+        } catch (_: Throwable) {}
+    }
+
+    override val isResizable: Boolean
+        get() = try {
+            NSWindowStyleMask.NSWindowStyleMaskResizable in NSWindow(nsWindowPtr).styleMask()
+        } catch (_: Throwable) { false }
+
+    override fun setMinimized(minimized: Boolean) {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            if (minimized) nsWindow.miniaturize(MemorySegment.NULL)
+            else nsWindow.deminiaturize(MemorySegment.NULL)
+        } catch (_: Throwable) {}
+    }
+
+    override val isMinimized: Boolean
+        get() = try {
+            NSWindow(nsWindowPtr).isMiniaturized()
+        } catch (_: Throwable) { false }
+
+    override fun setMaximized(maximized: Boolean) {
+        try {
+            val isZoomed = NSWindow(nsWindowPtr).isZoomed()
+            if (maximized != isZoomed) NSWindow(nsWindowPtr).zoom(MemorySegment.NULL)
+        } catch (_: Throwable) {}
+    }
+
+    override val isMaximized: Boolean
+        get() = try {
+            NSWindow(nsWindowPtr).isZoomed()
+        } catch (_: Throwable) { false }
+
+    override fun setDecorations(decorated: Boolean) {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val newMask = if (decorated) {
+                NSWindowStyleMask.NSWindowStyleMaskTitled +
+                NSWindowStyleMask.NSWindowStyleMaskClosable +
+                NSWindowStyleMask.NSWindowStyleMaskMiniaturizable +
+                (if (isResizable) NSWindowStyleMask.NSWindowStyleMaskResizable else NSWindowStyleMask.NSWindowStyleMaskBorderless)
+            } else {
+                NSWindowStyleMask.NSWindowStyleMaskBorderless
+            }
+            nsWindow.setStyleMask(newMask)
+        } catch (_: Throwable) {}
+    }
+
+    override val isDecorated: Boolean
+        get() = try {
+            NSWindowStyleMask.NSWindowStyleMaskTitled in NSWindow(nsWindowPtr).styleMask()
+        } catch (_: Throwable) { true }
+
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val scale = nsWindow.backingScaleFactor()
+            Arena.ofConfined().use { arena ->
+                val nsSize = allocNSSize(arena,
+                    if (size != null) size.width / scale else 0.0,
+                    if (size != null) size.height / scale else 0.0,
+                )
+                nsWindow.setContentMinSize(nsSize)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val scale = nsWindow.backingScaleFactor()
+            // NSWindow maximum: use a very large value to remove the constraint
+            val w = if (size != null) size.width / scale else Double.MAX_VALUE.coerceAtMost(32767.0)
+            val h = if (size != null) size.height / scale else Double.MAX_VALUE.coerceAtMost(32767.0)
+            Arena.ofConfined().use { arena ->
+                val nsSize = allocNSSize(arena, w, h)
+                nsWindow.setContentMaxSize(nsSize)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    override val outerPosition: PhysicalPosition<Int>
+        get() = try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val scale = nsWindow.backingScaleFactor()
+            val frame = nsWindow.frame()
+            // NSWindow.frame origin is in screen coordinates (bottom-left in Cocoa).
+            // Note: Cocoa uses a bottom-left origin. The screen height is needed for
+            // a strict top-left conversion; we return the raw Cocoa bottom-left values
+            // converted to physical pixels — callers that need top-left must adjust.
+            val x = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 0)
+            val y = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 1)
+            PhysicalPosition((x * scale).toInt(), (y * scale).toInt())
+        } catch (_: Throwable) { PhysicalPosition(0, 0) }
+
+    override fun setOuterPosition(position: PhysicalPosition<Int>) {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val scale = nsWindow.backingScaleFactor()
+            Arena.ofConfined().use { arena ->
+                val nsPoint = allocNSPoint(arena,
+                    position.x / scale,
+                    position.y / scale,
+                )
+                nsWindow.setFrameOrigin(nsPoint)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * No-op on AppKit: there is no direct equivalent to Wayland's
+     * `wl_surface.pre_commit` on macOS.
+     */
+    override fun prePresentNotify() { /* no-op on AppKit */ }
+
     /**
      * Installs a [KadreWindowDelegate] on this window.
      *
@@ -257,6 +417,26 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         NSWindow(nsWindowPtr).setDelegate(del.ptr)
         delegate = del
     }
+}
+
+/**
+ * Allocates an NSSize (struct {CGFloat width, CGFloat height}) in the provided arena.
+ */
+private fun allocNSSize(arena: Arena, width: Double, height: Double): MemorySegment {
+    val seg = arena.allocate(16L, 8L)
+    seg.setAtIndex(ValueLayout.JAVA_DOUBLE, 0, width)
+    seg.setAtIndex(ValueLayout.JAVA_DOUBLE, 1, height)
+    return seg
+}
+
+/**
+ * Allocates an NSPoint (struct {CGFloat x, CGFloat y}) in the provided arena.
+ */
+private fun allocNSPoint(arena: Arena, x: Double, y: Double): MemorySegment {
+    val seg = arena.allocate(16L, 8L)
+    seg.setAtIndex(ValueLayout.JAVA_DOUBLE, 0, x)
+    seg.setAtIndex(ValueLayout.JAVA_DOUBLE, 1, y)
+    return seg
 }
 
 /**

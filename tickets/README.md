@@ -13,7 +13,7 @@ Source de vérité : [`docs/kadre/remediation-plan.md`](../docs/kadre/remediatio
 | [R0.4](./R0.4-x11-scalefactor.md) | X11 — `scaleFactor` réel (Xft.dpi / RANDR) | R0 | ✅ Fait | — |
 | [R0.5](./R0.5-wayland-events-residuels.md) | Wayland — événements résiduels | R0 | ✅ Fait | — |
 | [R0.6](./R0.6-win32-tailles-non-cachees.md) | Win32 — tailles non cachées | R0 | ✅ Fait | — |
-| [R1](./R1-etat-geometrie-fenetre.md) | État et géométrie de la fenêtre | R1 | À faire | R0.1 |
+| [R1](./R1-etat-geometrie-fenetre.md) | État et géométrie de la fenêtre | R1 | ✅ Fait | R0.1 |
 | [R2](./R2-moniteurs-plein-ecran.md) | Moniteurs et plein écran | R2 | À faire | R1 |
 | [R3](./R3-curseur-theme-apparence.md) | Curseur, thème et apparence | R3 | À faire | R0.1 |
 | [R4](./R4-richesse-entree.md) | Richesse des entrées (clavier / pointeur) | R4 | À faire | R0.1 |

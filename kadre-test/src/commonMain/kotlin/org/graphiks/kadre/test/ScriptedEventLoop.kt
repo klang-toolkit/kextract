@@ -122,20 +122,41 @@ class ScriptedWindow(
     var redrawRequests: Int = 0
         private set
 
-    /** Titre courant (dernier passé à [setTitle]). */
-    var title: String = "scripted"
-        private set
-
     /** Visibilité courante. */
     var visible: Boolean = true
         private set
 
+    // R1 state fields
+    private var _title: String = "scripted"
+    private var _isResizable: Boolean = true
+    private var _isMinimized: Boolean = false
+    private var _isMaximized: Boolean = false
+    private var _isDecorated: Boolean = true
+    private var _outerPosition: PhysicalPosition<Int> = PhysicalPosition(0, 0)
+
     override fun requestRedraw() { redrawRequests++ }
-    override fun setTitle(title: String) { this.title = title }
+    override fun setTitle(title: String) { _title = title }
+    override val title: String get() = _title
     override val innerSize: PhysicalSize<Int> get() = size
     override val outerSize: PhysicalSize<Int> get() = size
     override fun setVisible(visible: Boolean) { this.visible = visible }
-    override fun close() { /* no-op en mémoire */ }
+    override val isVisible: Boolean get() = visible
+    override fun close() { /* no-op in memory */ }
+
+    // R1 implementations (in-memory)
+    override fun setResizable(resizable: Boolean) { _isResizable = resizable }
+    override val isResizable: Boolean get() = _isResizable
+    override fun setMinimized(minimized: Boolean) { _isMinimized = minimized }
+    override val isMinimized: Boolean get() = _isMinimized
+    override fun setMaximized(maximized: Boolean) { _isMaximized = maximized }
+    override val isMaximized: Boolean get() = _isMaximized
+    override fun setDecorations(decorated: Boolean) { _isDecorated = decorated }
+    override val isDecorated: Boolean get() = _isDecorated
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) { /* no-op in scripted test */ }
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) { /* no-op in scripted test */ }
+    override val outerPosition: PhysicalPosition<Int> get() = _outerPosition
+    override fun setOuterPosition(position: PhysicalPosition<Int>) { _outerPosition = position }
+    override fun prePresentNotify() { /* no-op in scripted test */ }
 }
 
 // ---------------------------------------------------------------------------

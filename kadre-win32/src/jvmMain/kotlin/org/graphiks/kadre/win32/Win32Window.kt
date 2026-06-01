@@ -13,6 +13,7 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
@@ -148,6 +149,135 @@ class Win32Window private constructor(
         handle.invokeExact(hwnd) as Int
     }
 
+    // ── R1: window state & geometry ───────────────────────────────────────────
+
+    override val title: String
+        get() {
+            val handle = getWindowTextW ?: return attrs.title
+            return try {
+                Arena.ofConfined().use { arena ->
+                    val buf = arena.allocate(512L, 2L)
+                    val len = handle.invokeExact(hwnd, buf, 256) as Int
+                    if (len <= 0) return@use ""
+                    val chars = CharArray(len) {
+                        buf.getAtIndex(ValueLayout.JAVA_SHORT, it.toLong()).toInt().toChar()
+                    }
+                    String(chars)
+                }
+            } catch (_: Throwable) { attrs.title }
+        }
+
+    override val isVisible: Boolean
+        get() = try {
+            (isWindowVisible?.invokeExact(hwnd) as? Int ?: 0) != 0
+        } catch (_: Throwable) { false }
+
+    /** Returns the current Win32 GWL_STYLE value, or 0 on failure. */
+    private fun getWindowStyle(): Long = try {
+        getWindowLongPtrW?.invokeExact(hwnd, GWL_STYLE) as? Long ?: 0L
+    } catch (_: Throwable) { 0L }
+
+    /** Applies a new GWL_STYLE value and forces a non-client redraw. */
+    private fun setWindowStyle(style: Long) {
+        try {
+            setWindowLongPtrW?.invokeExact(hwnd, GWL_STYLE, style) as? Long
+            // SWP with no-op move/size forces the frame to redraw immediately.
+            setWindowPos?.invokeExact(
+                hwnd, MemorySegment.NULL, 0, 0, 0, 0,
+                SWP_NOSIZE or SWP_NOZORDER or SWP_NOACTIVATE or 0x0020 /* SWP_FRAMECHANGED */,
+            ) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    override fun setResizable(resizable: Boolean) {
+        val style = getWindowStyle()
+        val newStyle = if (resizable) style or WS_THICKFRAME.toLong()
+                       else style and WS_THICKFRAME.toLong().inv()
+        setWindowStyle(newStyle)
+    }
+
+    override val isResizable: Boolean
+        get() = (getWindowStyle() and WS_THICKFRAME.toLong()) != 0L
+
+    override fun setMinimized(minimized: Boolean) {
+        try {
+            val nCmd = if (minimized) SW_MINIMIZE else SW_RESTORE
+            showWindow?.invokeExact(hwnd, nCmd) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    override val isMinimized: Boolean
+        get() = try {
+            (isIconic?.invokeExact(hwnd) as? Int ?: 0) != 0
+        } catch (_: Throwable) { false }
+
+    override fun setMaximized(maximized: Boolean) {
+        try {
+            val nCmd = if (maximized) SW_MAXIMIZE else SW_RESTORE
+            showWindow?.invokeExact(hwnd, nCmd) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    override val isMaximized: Boolean
+        get() = try {
+            (isZoomed?.invokeExact(hwnd) as? Int ?: 0) != 0
+        } catch (_: Throwable) { false }
+
+    override fun setDecorations(decorated: Boolean) {
+        val style = getWindowStyle()
+        val newStyle = if (decorated) {
+            style or WS_CAPTION.toLong() or WS_SYSMENU.toLong() or
+            WS_MINIMIZEBOX.toLong() or WS_MAXIMIZEBOX.toLong()
+        } else {
+            style and (WS_CAPTION.toLong() or WS_SYSMENU.toLong() or
+            WS_MINIMIZEBOX.toLong() or WS_MAXIMIZEBOX.toLong()).inv()
+        }
+        setWindowStyle(newStyle)
+    }
+
+    override val isDecorated: Boolean
+        get() = (getWindowStyle() and WS_CAPTION.toLong()) != 0L
+
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {
+        // Win32 min/max size is enforced via WM_GETMINMAXINFO in the WndProc.
+        // Store the constraint in a thread-safe field so KadreWndProc can read it.
+        _minSurfaceSize = size
+    }
+
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) {
+        _maxSurfaceSize = size
+    }
+
+    @Volatile internal var _minSurfaceSize: PhysicalSize<Int>? = attrs.minSize
+    @Volatile internal var _maxSurfaceSize: PhysicalSize<Int>? = attrs.maxSize
+
+    override val outerPosition: PhysicalPosition<Int>
+        get() = try {
+            Arena.ofConfined().use { arena ->
+                val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
+                val ok = getWindowRect?.invokeExact(hwnd, rect) as? Int ?: 0
+                if (ok == 0) return@use PhysicalPosition(0, 0)
+                val x = rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_LEFT)
+                val y = rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_TOP)
+                PhysicalPosition(x, y)
+            }
+        } catch (_: Throwable) { PhysicalPosition(0, 0) }
+
+    override fun setOuterPosition(position: PhysicalPosition<Int>) {
+        try {
+            setWindowPos?.invokeExact(
+                hwnd, MemorySegment.NULL,
+                position.x, position.y, 0, 0,
+                SWP_NOSIZE or SWP_NOZORDER or SWP_NOACTIVATE,
+            ) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * No-op on Win32: there is no equivalent to Wayland's `wl_surface.pre_commit`.
+     */
+    override fun prePresentNotify() { /* no-op on Win32 */ }
+
     // ── Companion ─────────────────────────────────────────────────────────────
 
     companion object {
@@ -282,6 +412,15 @@ class Win32Window private constructor(
             // Create the window
             val width = attrs.size?.width ?: 800
             val height = attrs.size?.height ?: 600
+            val posX = attrs.position?.x ?: 100
+            val posY = attrs.position?.y ?: 100
+
+            // Build the base style from attrs.decorations / attrs.resizable.
+            val baseStyle = if (attrs.decorations) {
+                WS_OVERLAPPEDWINDOW and (if (attrs.resizable) Int.MAX_VALUE else WS_THICKFRAME.inv())
+            } else {
+                0x80000000.toInt() // WS_POPUP — borderless, no caption
+            }
 
             val hwnd: MemorySegment = Arena.ofConfined().use { arena ->
                 val titlePtr = arena.allocateWString(attrs.title)
@@ -289,9 +428,9 @@ class Win32Window private constructor(
                     WS_EX_APPWINDOW,        // dwExStyle
                     classNamePtr,           // lpClassName
                     titlePtr,               // lpWindowName
-                    WS_OVERLAPPEDWINDOW,    // dwStyle
-                    100,                    // X
-                    100,                    // Y
+                    baseStyle,              // dwStyle
+                    posX,                   // X
+                    posY,                   // Y
                     width,                  // nWidth
                     height,                 // nHeight
                     MemorySegment.NULL,     // hWndParent
@@ -315,8 +454,9 @@ class Win32Window private constructor(
             // return type, so the result must be captured (as Int) or it throws
             // WrongMethodTypeException ("…)int but found …)void").
             if (attrs.visible) {
+                val showCmd = if (attrs.maximized) SW_MAXIMIZE else SW_SHOW
                 @Suppress("UNUSED_EXPRESSION")
-                showWindow?.let { it.invokeExact(hwnd, SW_SHOW) as Int }
+                showWindow?.let { it.invokeExact(hwnd, showCmd) as Int }
                 updateWindow?.let { it.invokeExact(hwnd) as Int }
             }
 

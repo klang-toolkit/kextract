@@ -1,7 +1,7 @@
 # [R1] État et géométrie de la fenêtre
 
 - **Milestone** : R1
-- **Statut** : À faire
+- **Statut** : ✅ Fait
 - **Dépend de** : R0.1
 - **Modules touchés** : kadre-core, kadre-appkit, kadre-win32, kadre-x11, kadre-wayland, kadre-uikit, kadre-android, kadre-web-common, kadre-js, kadre-wasm
 

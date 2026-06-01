@@ -308,10 +308,6 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         // Kept for API parity with the desktop backends.
     }
 
-    override fun setTitle(title: String) {
-        viewController.title = title
-    }
-
     override val innerSize: PhysicalSize<Int>
         get() {
             val scale = UIScreen.mainScreen.scale
@@ -348,4 +344,91 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         uiWindow.setHidden(true)
         uiWindow.resignKeyWindow()
     }
+
+    // ── R1: window state & geometry — no-ops on iOS ───────────────────────────
+    //
+    // iOS does not support programmatic window resizing, minimization,
+    // maximization, or decoration changes. UIKit manages the full-screen
+    // window lifecycle. All members below are documented no-ops.
+
+    private var _title: String = ""
+
+    /**
+     * Sets the view controller title. On iOS the window has no decoration title bar;
+     * this updates the UIViewController title for navigation controller integration.
+     */
+    override fun setTitle(title: String) {
+        _title = title
+        viewController.title = title
+    }
+
+    override val title: String get() = _title
+
+    /** Returns whether the UIWindow is currently visible. */
+    override val isVisible: Boolean get() = !uiWindow.isHidden()
+
+    /**
+     * iOS does not support programmatic window resizing.
+     * This is a no-op — the system controls the window geometry.
+     */
+    override fun setResizable(resizable: Boolean) { /* no-op: iOS does not support programmatic resizing */ }
+
+    /** iOS windows are not user-resizable. Always returns false. */
+    override val isResizable: Boolean get() = false
+
+    /**
+     * iOS does not support programmatic minimization.
+     * This is a no-op.
+     */
+    override fun setMinimized(minimized: Boolean) { /* no-op: iOS does not support programmatic minimization */ }
+
+    /** iOS does not expose an isMinimized state. Always returns false. */
+    override val isMinimized: Boolean get() = false
+
+    /**
+     * iOS does not support programmatic maximization.
+     * This is a no-op — windows always fill the available screen area.
+     */
+    override fun setMaximized(maximized: Boolean) { /* no-op: iOS windows always fill the screen */ }
+
+    /** iOS windows always fill the screen. Always returns false. */
+    override val isMaximized: Boolean get() = false
+
+    /**
+     * iOS does not have platform window decorations (title bar, resize borders).
+     * This is a no-op.
+     */
+    override fun setDecorations(decorated: Boolean) { /* no-op: iOS has no platform window decorations */ }
+
+    /** iOS windows have no platform decorations. Always returns false. */
+    override val isDecorated: Boolean get() = false
+
+    /**
+     * iOS does not support surface size constraints.
+     * This is a no-op.
+     */
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) { /* no-op: iOS does not support surface size constraints */ }
+
+    /**
+     * iOS does not support surface size constraints.
+     * This is a no-op.
+     */
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) { /* no-op: iOS does not support surface size constraints */ }
+
+    /**
+     * iOS does not expose a global window position.
+     * Returns PhysicalPosition(0, 0) as the window always fills the screen.
+     */
+    override val outerPosition: PhysicalPosition<Int> get() = PhysicalPosition(0, 0)
+
+    /**
+     * iOS does not support programmatic window positioning.
+     * This is a no-op.
+     */
+    override fun setOuterPosition(position: PhysicalPosition<Int>) { /* no-op: iOS does not support programmatic window positioning */ }
+
+    /**
+     * No-op on iOS: there is no Wayland-style pre-commit concept on this platform.
+     */
+    override fun prePresentNotify() { /* no-op on iOS */ }
 }

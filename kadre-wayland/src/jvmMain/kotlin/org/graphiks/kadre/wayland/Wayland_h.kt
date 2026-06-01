@@ -509,6 +509,25 @@ internal val wlProxyMarshalFlagsString: MethodHandle? by lazy {
         ))
 }
 
+/**
+ * wl_proxy_marshal_flags variant with two trailing uint32 arguments and no new_id.
+ * Used for e.g. xdg_toplevel.set_min_size(width, height) and set_max_size(width, height).
+ *
+ * Signature: void wl_proxy_marshal_flags(proxy, opcode, NULL, version, flags, uint1, uint2).
+ */
+internal val wlProxyMarshalFlagsTwoUint: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy*
+            ValueLayout.JAVA_INT,  // opcode
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.JAVA_INT,  // arg1: uint32
+            ValueLayout.JAVA_INT,  // arg2: uint32
+        ))
+}
+
 // ── libc : poll ───────────────────────────────────────────────────────────────
 
 /**

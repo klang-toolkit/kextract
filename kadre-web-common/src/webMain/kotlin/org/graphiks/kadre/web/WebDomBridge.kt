@@ -76,4 +76,12 @@ interface WebDomBridge {
      * Default: 0×0 (test / no-op bridge).
      */
     fun readCanvasPhysicalSize(canvasId: String): Pair<Int, Int> = Pair(0, 0)
+
+    /**
+     * Sets the document title (`document.title`).
+     *
+     * Used by [WebWindow.setTitle] to update the browser tab title.
+     * Default: no-op (test / non-browser bridge).
+     */
+    fun setDocumentTitle(title: String) { /* no-op by default */ }
 }

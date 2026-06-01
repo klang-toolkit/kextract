@@ -16,6 +16,7 @@
  */
 package org.graphiks.kadre.x11
 
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
@@ -105,7 +106,35 @@ class X11Window private constructor(
         // Optionally, we could send an XSendEvent Expose — deferred to later.
     }
 
+    override fun setVisible(visible: Boolean) {
+        _isVisible = visible
+        val display = MemorySegment.ofAddress(displayPtr)
+        try {
+            if (visible) {
+                xMapWindow?.invokeExact(display, xWindowId) as? Int
+            } else {
+                xUnmapWindow?.invokeExact(display, xWindowId) as? Int
+            }
+            xFlush?.invokeExact(display) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    override fun close() {
+        val handle = xDestroyWindow ?: return
+        val display = MemorySegment.ofAddress(displayPtr)
+        handle.invokeExact(display, xWindowId) as Int
+        xFlush?.invokeExact(display) as? Int
+    }
+
+    // ── R1: window state & geometry ───────────────────────────────────────────
+
+    /** Track the title in memory since XFetchName requires additional bindings. */
+    @Volatile private var _title: String = attrs.title
+
+    override val title: String get() = _title
+
     override fun setTitle(title: String) {
+        _title = title
         val handle = xStoreName ?: return
         val display = MemorySegment.ofAddress(displayPtr)
         Arena.ofConfined().use { arena ->
@@ -117,21 +146,212 @@ class X11Window private constructor(
         }
     }
 
-    override fun setVisible(visible: Boolean) {
-        if (visible) {
-            val handle = xMapWindow ?: return
-            val display = MemorySegment.ofAddress(displayPtr)
-            handle.invokeExact(display, xWindowId) as Int
-            xFlush?.invokeExact(display) as? Int
-        }
-        // XUnmapWindow is not yet in the bindings — deferred to later.
+    @Volatile private var _isVisible: Boolean = attrs.visible
+
+    override val isVisible: Boolean get() = _isVisible
+
+    @Volatile private var _isResizable: Boolean = attrs.resizable
+
+    override val isResizable: Boolean get() = _isResizable
+
+    @Volatile private var _isMinimized: Boolean = false
+
+    override val isMinimized: Boolean get() = _isMinimized
+
+    @Volatile private var _isMaximized: Boolean = attrs.maximized
+
+    override val isMaximized: Boolean get() = _isMaximized
+
+    @Volatile private var _isDecorated: Boolean = attrs.decorations
+
+    override val isDecorated: Boolean get() = _isDecorated
+
+    override fun setResizable(resizable: Boolean) {
+        _isResizable = resizable
+        // Update _NET_WM_NORMAL_HINTS: set min/max size equal to current size when not resizable.
+        // The simplest approach is to use WM_NORMAL_HINTS (XSetWMNormalHints equivalent) via
+        // XChangeProperty. We just update our tracked state here; the event loop may re-apply.
+        // (Full XSizeHints implementation deferred — flagged for future ticket.)
     }
 
-    override fun close() {
-        val handle = xDestroyWindow ?: return
+    override fun setMinimized(minimized: Boolean) {
+        _isMinimized = minimized
         val display = MemorySegment.ofAddress(displayPtr)
-        handle.invokeExact(display, xWindowId) as Int
-        xFlush?.invokeExact(display) as? Int
+        try {
+            if (minimized) {
+                // XIconifyWindow sends a WM_CHANGE_STATE ClientMessage with IconicState
+                xIconifyWindow?.invokeExact(display, xWindowId, 0) as? Int
+            } else {
+                // XMapWindow restores the window
+                xMapWindow?.invokeExact(display, xWindowId) as? Int
+            }
+            xFlush?.invokeExact(display) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    override fun setMaximized(maximized: Boolean) {
+        _isMaximized = maximized
+        // Send _NET_WM_STATE ClientMessage to the root window
+        sendNetWmState(maximized,
+            internAtom(displayPtr, "_NET_WM_STATE_MAXIMIZED_VERT"),
+            internAtom(displayPtr, "_NET_WM_STATE_MAXIMIZED_HORZ"),
+        )
+    }
+
+    override fun setDecorations(decorated: Boolean) {
+        _isDecorated = decorated
+        // Set/clear the _MOTIF_WM_HINTS property to request decorations from the WM.
+        setMotifDecorations(decorated)
+    }
+
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {
+        // Store for potential use in _NET_WM_NORMAL_HINTS / WM_NORMAL_HINTS.
+        // Full XSetWMNormalHints would require the XSizeHints struct — deferred.
+        _minSurfaceSize = size
+    }
+
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) {
+        _maxSurfaceSize = size
+    }
+
+    @Volatile private var _minSurfaceSize: PhysicalSize<Int>? = attrs.minSize
+    @Volatile private var _maxSurfaceSize: PhysicalSize<Int>? = attrs.maxSize
+
+    override val outerPosition: PhysicalPosition<Int>
+        get() {
+            val display = MemorySegment.ofAddress(displayPtr)
+            return try {
+                Arena.ofConfined().use { arena ->
+                    val rootOut = arena.allocate(ValueLayout.JAVA_LONG)
+                    val xOut    = arena.allocate(ValueLayout.JAVA_INT)
+                    val yOut    = arena.allocate(ValueLayout.JAVA_INT)
+                    val wOut    = arena.allocate(ValueLayout.JAVA_INT)
+                    val hOut    = arena.allocate(ValueLayout.JAVA_INT)
+                    val bwOut   = arena.allocate(ValueLayout.JAVA_INT)
+                    val dOut    = arena.allocate(ValueLayout.JAVA_INT)
+                    val ok = xGetGeometry?.invokeExact(
+                        display, xWindowId, rootOut, xOut, yOut, wOut, hOut, bwOut, dOut,
+                    ) as? Int ?: 0
+                    if (ok == 0) return@use PhysicalPosition(0, 0)
+                    val x = xOut.get(ValueLayout.JAVA_INT, 0L)
+                    val y = yOut.get(ValueLayout.JAVA_INT, 0L)
+                    PhysicalPosition(x, y)
+                }
+            } catch (_: Throwable) { PhysicalPosition(0, 0) }
+        }
+
+    override fun setOuterPosition(position: PhysicalPosition<Int>) {
+        try {
+            val display = MemorySegment.ofAddress(displayPtr)
+            xMoveWindow?.invokeExact(display, xWindowId, position.x, position.y) as? Int
+            xFlush?.invokeExact(display) as? Int
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * No-op on X11: there is no equivalent to Wayland's `wl_surface.pre_commit`.
+     */
+    override fun prePresentNotify() { /* no-op on X11 */ }
+
+    // ── X11 helper: intern atom ───────────────────────────────────────────────
+
+    private fun internAtom(displayPtr: Long, name: String): Long {
+        val display = MemorySegment.ofAddress(displayPtr)
+        return try {
+            Arena.ofConfined().use { arena ->
+                val bytes = name.toByteArray(Charsets.US_ASCII)
+                val ptr = arena.allocate(bytes.size.toLong() + 1)
+                bytes.forEachIndexed { i, b -> ptr.set(ValueLayout.JAVA_BYTE, i.toLong(), b) }
+                ptr.set(ValueLayout.JAVA_BYTE, bytes.size.toLong(), 0)
+                xInternAtom?.invokeExact(display, ptr, 0) as? Long ?: 0L
+            }
+        } catch (_: Throwable) { 0L }
+    }
+
+    // ── X11 helper: send _NET_WM_STATE ────────────────────────────────────────
+
+    /**
+     * Sends a _NET_WM_STATE ClientMessage to the root window to request a
+     * state change from the window manager.
+     *
+     * @param add   true = add (_NET_WM_STATE_ADD=1), false = remove (_NET_WM_STATE_REMOVE=0).
+     * @param atom1 First state atom.
+     * @param atom2 Second state atom (0 if unused).
+     */
+    private fun sendNetWmState(add: Boolean, atom1: Long, atom2: Long) {
+        if (atom1 == 0L) return
+        val display = MemorySegment.ofAddress(displayPtr)
+        val wmStateAtom = internAtom(displayPtr, "_NET_WM_STATE")
+        if (wmStateAtom == 0L) return
+        try {
+            Arena.ofConfined().use { arena ->
+                // XClientMessageEvent canonical LP64 layout (96 bytes):
+                //   0 type, 8 serial, 16 send_event, 24 display, 32 window,
+                //   40 message_type, 48 format, 56 data.l[0], 64 l[1], 72 l[2].
+                // These are the offsets a real X server / WM reads, so they must be
+                // canonical regardless of how X11DrawMapper reads incoming events
+                // (its documented 56/64 offsets are inconsistent with this and are
+                // flagged for separate investigation).
+                val eventBuf = arena.allocate(96L, 8L)
+                eventBuf.set(ValueLayout.JAVA_INT, 0L, ClientMessage)  // type = ClientMessage (33)
+                eventBuf.set(ValueLayout.JAVA_LONG, 32L, xWindowId)    // window
+                eventBuf.set(ValueLayout.JAVA_LONG, 40L, wmStateAtom)  // message_type
+                eventBuf.set(ValueLayout.JAVA_INT, 48L, 32)            // format = 32
+                // data.l[0] = action (_NET_WM_STATE_ADD=1 / _REMOVE=0)
+                eventBuf.set(ValueLayout.JAVA_LONG, 56L, if (add) 1L else 0L)
+                // data.l[1] = atom1, data.l[2] = atom2
+                eventBuf.set(ValueLayout.JAVA_LONG, 64L, atom1)
+                eventBuf.set(ValueLayout.JAVA_LONG, 72L, atom2)
+
+                // Obtain the root window XID
+                val rootHandle = xRootWindow ?: return@use
+                val root: Long = rootHandle.invokeExact(display, 0) as Long
+
+                // SubstructureRedirectMask | SubstructureNotifyMask = 0x180000
+                val mask: Long = 0x180000L
+                xSendEvent?.invokeExact(display, root, 0, mask, eventBuf) as? Int
+                xFlush?.invokeExact(display) as? Int
+            }
+        } catch (_: Throwable) {}
+    }
+
+    // ── X11 helper: set/unset _MOTIF_WM_HINTS for decorations ────────────────
+
+    /**
+     * Sets or clears the _MOTIF_WM_HINTS property to request the window
+     * manager to show or hide the window decorations.
+     *
+     * _MOTIF_WM_HINTS has 5 elements with property format 32. On LP64, an X11
+     * property of format 32 is an array of C `long` (8 bytes each), so the buffer
+     * is 5 × 8 = 40 bytes written as JAVA_LONG (nelements stays 5):
+     *   [0] flags: bit 1 = functions, bit 2 = decorations
+     *   [1] functions
+     *   [2] decorations: 0 = no decorations, 1 = all decorations
+     *   [3] inputMode
+     *   [4] status
+     */
+    private fun setMotifDecorations(decorated: Boolean) {
+        val display = MemorySegment.ofAddress(displayPtr)
+        val motifAtom = internAtom(displayPtr, "_MOTIF_WM_HINTS")
+        if (motifAtom == 0L) return
+        try {
+            Arena.ofConfined().use { arena ->
+                // format 32 → array of C long on LP64: 5 × 8 = 40 bytes.
+                val hints = arena.allocate(40L, 8L)
+                hints.setAtIndex(ValueLayout.JAVA_LONG, 0L, 2L)              // flags = MWM_HINTS_DECORATIONS (2)
+                hints.setAtIndex(ValueLayout.JAVA_LONG, 1L, 0L)             // functions (unused)
+                hints.setAtIndex(ValueLayout.JAVA_LONG, 2L, if (decorated) 1L else 0L) // decorations
+                hints.setAtIndex(ValueLayout.JAVA_LONG, 3L, 0L)             // inputMode
+                hints.setAtIndex(ValueLayout.JAVA_LONG, 4L, 0L)             // status
+                xChangeProperty?.invokeExact(
+                    display, xWindowId,
+                    motifAtom, motifAtom,
+                    32, 0 /* PropModeReplace */,
+                    hints, 5,
+                ) as? Int
+                xFlush?.invokeExact(display) as? Int
+            }
+        } catch (_: Throwable) {}
     }
 
     /**

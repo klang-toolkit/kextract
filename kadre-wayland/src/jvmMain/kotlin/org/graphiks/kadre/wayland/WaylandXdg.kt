@@ -78,6 +78,55 @@ internal class XdgToplevel private constructor(
     @Suppress("UNUSED_PARAMETER")
     fun onToplevelWmCapabilities(data: MemorySegment, tl: MemorySegment, caps: MemorySegment) { /* no-op */ }
 
+    /** Sets the minimum size via xdg_toplevel.set_min_size(width, height). */
+    fun setMinSize(width: Int, height: Int) {
+        val handle = wlProxyMarshalFlagsTwoUint ?: return
+        runCatching {
+            handle.invokeExact(
+                MemorySegment.ofAddress(xdgToplevelPtr), XDG_TOPLEVEL_SET_MIN_SIZE,
+                MemorySegment.NULL, version, 0, width, height,
+            )
+            Unit
+        }
+    }
+
+    /** Sets the maximum size via xdg_toplevel.set_max_size(width, height). */
+    fun setMaxSize(width: Int, height: Int) {
+        val handle = wlProxyMarshalFlagsTwoUint ?: return
+        runCatching {
+            handle.invokeExact(
+                MemorySegment.ofAddress(xdgToplevelPtr), XDG_TOPLEVEL_SET_MAX_SIZE,
+                MemorySegment.NULL, version, 0, width, height,
+            )
+            Unit
+        }
+    }
+
+    /** Requests that the toplevel be maximized. */
+    fun setMaximized(maximized: Boolean) {
+        val opcode = if (maximized) XDG_TOPLEVEL_SET_MAXIMIZED else XDG_TOPLEVEL_UNSET_MAXIMIZED
+        val handle = wlProxyMarshalFlagsVoid ?: return
+        runCatching {
+            handle.invokeExact(
+                MemorySegment.ofAddress(xdgToplevelPtr), opcode,
+                MemorySegment.NULL, version, 0,
+            )
+            Unit
+        }
+    }
+
+    /** Requests that the toplevel be minimized (set_minimized — compositor may ignore). */
+    fun setMinimized() {
+        val handle = wlProxyMarshalFlagsVoid ?: return
+        runCatching {
+            handle.invokeExact(
+                MemorySegment.ofAddress(xdgToplevelPtr), XDG_TOPLEVEL_SET_MINIMIZED,
+                MemorySegment.NULL, version, 0,
+            )
+            Unit
+        }
+    }
+
     /** Sets the toplevel title via xdg_toplevel.set_title. */
     fun setTitle(title: String) {
         val setTitle = wlProxyMarshalFlagsString ?: return

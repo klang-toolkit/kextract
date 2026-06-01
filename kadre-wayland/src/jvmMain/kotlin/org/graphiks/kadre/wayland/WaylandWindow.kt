@@ -16,6 +16,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
@@ -138,13 +139,10 @@ class WaylandWindow private constructor(
     /**
      * Sets the window title via xdg_toplevel.set_title.
      *
-     * The xdg_toplevel.set_title call requires an xdg_toplevel* pointer created
-     * during xdg_shell negotiation. This implementation is a logged stub;
-     * full support will be provided by WaylandEventLoop (ticket #66).
-     *
      * @param title New window title.
      */
     override fun setTitle(title: String) {
+        _title = title
         xdg?.setTitle(title)
     }
 
@@ -185,6 +183,129 @@ class WaylandWindow private constructor(
             }
         } catch (_: Throwable) {
             // Ignore — proxy already destroyed or library absent
+        }
+    }
+
+    // ── R1: window state & geometry ───────────────────────────────────────────
+
+    @Volatile private var _title: String = attrs.title
+
+    override val title: String get() = _title
+
+    override val isVisible: Boolean get() = xdg != null // true once xdg_shell handshake completes
+
+    @Volatile private var _isResizable: Boolean = attrs.resizable
+
+    override val isResizable: Boolean get() = _isResizable
+
+    @Volatile private var _isMinimized: Boolean = false
+
+    override val isMinimized: Boolean get() = _isMinimized
+
+    @Volatile private var _isMaximized: Boolean = attrs.maximized
+
+    override val isMaximized: Boolean get() = _isMaximized
+
+    @Volatile private var _isDecorated: Boolean = attrs.decorations
+
+    override val isDecorated: Boolean get() = _isDecorated
+
+    override fun setResizable(resizable: Boolean) {
+        _isResizable = resizable
+        // On Wayland, resizability is communicated via set_min_size / set_max_size:
+        // setting min == max prevents the compositor from suggesting a different size.
+        if (!resizable) {
+            val sz = _innerSize
+            xdg?.setMinSize(sz.width, sz.height)
+            xdg?.setMaxSize(sz.width, sz.height)
+        } else {
+            xdg?.setMinSize(0, 0)
+            xdg?.setMaxSize(0, 0)
+        }
+        flushDisplay()
+    }
+
+    override fun setMinimized(minimized: Boolean) {
+        _isMinimized = minimized
+        if (minimized) {
+            xdg?.setMinimized()
+            flushDisplay()
+        }
+        // Restoring from minimized is compositor-driven; no un-minimize request in xdg_shell.
+    }
+
+    override fun setMaximized(maximized: Boolean) {
+        _isMaximized = maximized
+        xdg?.setMaximized(maximized)
+        flushDisplay()
+    }
+
+    override fun setDecorations(decorated: Boolean) {
+        _isDecorated = decorated
+        // Decoration mode is set at creation via zxdg_decoration_manager_v1.
+        // Runtime switching is not yet wired — no-op with a note.
+        // TODO: call zxdg_toplevel_decoration_v1.set_mode at runtime (R3 / future).
+    }
+
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {
+        val w = size?.width ?: 0
+        val h = size?.height ?: 0
+        xdg?.setMinSize(w, h)
+        flushDisplay()
+    }
+
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) {
+        val w = size?.width ?: 0
+        val h = size?.height ?: 0
+        xdg?.setMaxSize(w, h)
+        flushDisplay()
+    }
+
+    /**
+     * On Wayland, global screen positions are not exposed by the protocol.
+     * Returns PhysicalPosition(0, 0) as a documented no-op.
+     */
+    override val outerPosition: PhysicalPosition<Int>
+        get() = PhysicalPosition(0, 0)
+
+    /**
+     * No-op on Wayland: the compositor controls window placement.
+     *
+     * The Wayland protocol intentionally does not allow clients to set their
+     * global screen position. This method is a documented no-op.
+     */
+    override fun setOuterPosition(position: PhysicalPosition<Int>) { /* no-op: Wayland does not expose global positions */ }
+
+    /**
+     * Sends a `wl_surface.commit` to the compositor to signal that the next frame is ready.
+     *
+     * On Wayland this is equivalent to a `pre_commit` hint — the surface commit
+     * is sent immediately without attaching a new buffer, letting the compositor
+     * update its internal state.
+     */
+    override fun prePresentNotify() {
+        if (surfacePtr == 0L) return
+        val handle = wlProxyMarshalFlagsVoid ?: return
+        try {
+            val surfaceSeg = MemorySegment.ofAddress(surfacePtr)
+            handle.invokeExact(
+                surfaceSeg,
+                WL_SURFACE_COMMIT_OPCODE,
+                MemorySegment.NULL,
+                WL_COMPOSITOR_VERSION,
+                0,
+            )
+            flushDisplay()
+        } catch (_: Throwable) {}
+    }
+
+    /** Convenience: flush the Wayland display connection. */
+    private fun flushDisplay() {
+        wlDisplayFlush?.let { flush ->
+            try {
+                val displaySeg = MemorySegment.ofAddress(displayPtr)
+                flush.invokeExact(displaySeg) as Int
+            } catch (_: Throwable) {}
         }
     }
 
@@ -270,6 +391,10 @@ class WaylandWindow private constructor(
                     onClose = { window.onWindowEvent?.invoke(WindowEvent.CloseRequested) },
                 )
                 window.xdg?.setTitle(attrs.title)
+                // Apply R1 attrs
+                if (attrs.maximized) window.xdg?.setMaximized(true)
+                attrs.minSize?.let { window.xdg?.setMinSize(it.width, it.height) }
+                attrs.maxSize?.let { window.xdg?.setMaxSize(it.width, it.height) }
             }
 
             // ── 3. Fallback for a bare surface (no xdg_shell): legacy initial commit ──

@@ -1,7 +1,13 @@
 package org.graphiks.kadre.android
 
 import android.view.SurfaceView
-import org.graphiks.kadre.core.*
+import org.graphiks.kadre.core.PhysicalPosition
+import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.RawDisplayHandle
+import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.Window
+import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowId
 
 /**
  * Android implementation of [Window].
@@ -86,10 +92,6 @@ class AndroidWindow internal constructor(
         needsRedraw = true
     }
 
-    override fun setTitle(title: String) {
-        // No-op: SurfaceViews have no title; the parent Activity handles the title
-    }
-
     override val innerSize: PhysicalSize<Int>
         get() = PhysicalSize(surfaceView.width, surfaceView.height)
 
@@ -106,4 +108,92 @@ class AndroidWindow internal constructor(
     override fun close() {
         // No-op at the library level; closing is up to the app
     }
+
+    // ── R1: window state & geometry — no-ops on Android ───────────────────────
+    //
+    // Android does not support programmatic window resizing, minimization,
+    // maximization, or decoration changes. The Activity lifecycle and the system
+    // UI control these aspects. All members below are documented no-ops.
+
+    /** Android windows always have the full-screen Activity title; tracked for getter parity. */
+    @Volatile private var _title: String = ""
+
+    /**
+     * Sets the title. On Android this is a no-op at the window level; the Activity
+     * title bar is managed via Activity.setTitle() outside kadre's scope.
+     */
+    override fun setTitle(title: String) { _title = title }
+
+    override val title: String get() = _title
+
+    /**
+     * Android windows are always visible while the Activity is in the foreground.
+     * Returns true; calling [setVisible] has no effect.
+     */
+    override val isVisible: Boolean get() = surfaceView.visibility == android.view.View.VISIBLE
+
+    /**
+     * Android does not support programmatic resizing.
+     * This is a no-op — the system controls the window geometry.
+     */
+    override fun setResizable(resizable: Boolean) { /* no-op: Android does not support programmatic resizing */ }
+
+    /** Android windows are not user-resizable. Always returns false. */
+    override val isResizable: Boolean get() = false
+
+    /**
+     * Android does not support programmatic minimization.
+     * This is a no-op — use Activity.moveTaskToBack() if needed.
+     */
+    override fun setMinimized(minimized: Boolean) { /* no-op: Android does not support programmatic minimization */ }
+
+    /** Android does not expose an isMinimized state. Always returns false. */
+    override val isMinimized: Boolean get() = false
+
+    /**
+     * Android does not support programmatic maximization.
+     * This is a no-op — the window always fills the available screen area.
+     */
+    override fun setMaximized(maximized: Boolean) { /* no-op: Android windows always fill the screen */ }
+
+    /** Android windows always fill the screen. Always returns false (not a maximize concept). */
+    override val isMaximized: Boolean get() = false
+
+    /**
+     * Android does not support platform window decorations in the traditional sense.
+     * This is a no-op — the system UI (status bar, navigation bar) is controlled by the Activity.
+     */
+    override fun setDecorations(decorated: Boolean) { /* no-op: Android decorations are managed by the system UI */ }
+
+    /** Android windows have no platform decorations (title bar / resize borders). Always returns false. */
+    override val isDecorated: Boolean get() = false
+
+    /**
+     * Android does not support surface size constraints.
+     * This is a no-op — the surface size is determined by the screen and Activity layout.
+     */
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) { /* no-op: Android does not support surface size constraints */ }
+
+    /**
+     * Android does not support surface size constraints.
+     * This is a no-op — the surface size is determined by the screen and Activity layout.
+     */
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) { /* no-op: Android does not support surface size constraints */ }
+
+    /**
+     * Android does not expose a global window position.
+     * Returns PhysicalPosition(0, 0) as the window always fills the screen.
+     */
+    override val outerPosition: PhysicalPosition<Int> get() = PhysicalPosition(0, 0)
+
+    /**
+     * Android does not support programmatic window positioning.
+     * This is a no-op — the window always fills the Activity area.
+     */
+    override fun setOuterPosition(position: PhysicalPosition<Int>) { /* no-op: Android does not support programmatic window positioning */ }
+
+    /**
+     * No-op on Android: there is no Wayland-style pre-commit concept on this platform.
+     */
+    override fun prePresentNotify() { /* no-op on Android */ }
 }

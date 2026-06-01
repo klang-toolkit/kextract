@@ -11,6 +11,7 @@ package org.graphiks.kadre.samples.pong
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
@@ -56,12 +57,29 @@ class FakeWindow : Window {
     override val rawDisplayHandle: RawDisplayHandle = RawDisplayHandle.Win32(hinstance = 0L)
     var redrawRequested = false
     override fun requestRedraw() { redrawRequested = true }
-    override fun setTitle(title: String) {}
+    private var _title: String = ""
+    override fun setTitle(title: String) { _title = title }
+    override val title: String get() = _title
     override val innerSize = PhysicalSize(800, 600)
     override val outerSize = PhysicalSize(800, 600)
     override val scaleFactor = 1.0
     override fun setVisible(visible: Boolean) {}
+    override val isVisible: Boolean get() = true
     override fun close() {}
+    // R1 no-ops
+    override fun setResizable(resizable: Boolean) {}
+    override val isResizable: Boolean get() = true
+    override fun setMinimized(minimized: Boolean) {}
+    override val isMinimized: Boolean get() = false
+    override fun setMaximized(maximized: Boolean) {}
+    override val isMaximized: Boolean get() = false
+    override fun setDecorations(decorated: Boolean) {}
+    override val isDecorated: Boolean get() = true
+    override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {}
+    override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) {}
+    override val outerPosition: PhysicalPosition<Int> get() = PhysicalPosition(0, 0)
+    override fun setOuterPosition(position: PhysicalPosition<Int>) {}
+    override fun prePresentNotify() {}
 }
 
 /** Fake EventLoop — records the calls. */
