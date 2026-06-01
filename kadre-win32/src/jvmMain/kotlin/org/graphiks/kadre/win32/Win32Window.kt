@@ -24,6 +24,7 @@ import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
+import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 import java.util.concurrent.atomic.AtomicBoolean
@@ -75,21 +76,47 @@ class Win32Window private constructor(
     /**
      * Inner size (render surface) in physical pixels.
      *
-     * On Windows, returns the size configured in the attributes,
-     * or a default of 800 × 600 if not specified.
-     *
-     * TODO GRA-142: use GetClientRect to read the real size.
+     * Calls GetClientRect(hwnd) directly so the value is always fresh,
+     * even between WM_SIZE messages. Falls back to the attributes size
+     * (or 800×600) if the handle is unavailable or the call fails.
      */
     override val innerSize: PhysicalSize<Int>
-        get() = attrs.size ?: PhysicalSize(800, 600)
+        get() = rectToSize(getClientRect) ?: attrs.size ?: PhysicalSize(800, 600)
 
     /**
-     * Outer size (surface + decorations) in physical pixels.
+     * Outer size (window + decorations) in physical pixels.
      *
-     * TODO GRA-142: use GetWindowRect to read the real size.
+     * Calls GetWindowRect(hwnd) directly so the value is always fresh.
+     * Falls back to the attributes size (or 800×600) on failure.
      */
     override val outerSize: PhysicalSize<Int>
-        get() = attrs.size ?: PhysicalSize(800, 600)
+        get() = rectToSize(getWindowRect) ?: attrs.size ?: PhysicalSize(800, 600)
+
+    /**
+     * Calls the given Win32 rect-filling function (GetClientRect or GetWindowRect)
+     * and converts the resulting RECT into a [PhysicalSize].
+     *
+     * Allocates a 16-byte RECT in a confined arena for the duration of the call.
+     *
+     * @return the measured size, or null if the handle is null or the call returns 0.
+     */
+    private fun rectToSize(handle: MethodHandle?): PhysicalSize<Int>? {
+        handle ?: return null
+        return try {
+            Arena.ofConfined().use { arena ->
+                val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
+                val ok = handle.invokeExact(hwnd, rect) as Int
+                if (ok == 0) return@use null
+                val width  = rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_RIGHT)  -
+                             rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_LEFT)
+                val height = rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_BOTTOM) -
+                             rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_TOP)
+                PhysicalSize(width, height)
+            }
+        } catch (_: Throwable) {
+            null
+        }
+    }
 
     /**
      * DPI scale factor of this window.

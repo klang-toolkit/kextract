@@ -606,3 +606,66 @@ internal const val CS_HREDRAW_VREDRAW: Int = 0x0003
 
 /** WM_DESTROY */
 internal const val WM_DESTROY: Int = 0x0002
+
+// ── GetClientRect ─────────────────────────────────────────────────────────────
+
+/**
+ * BOOL GetClientRect(HWND hWnd, LPRECT lpRect);
+ *
+ * Fills [lpRect] with the coordinates of the client area (rendering surface)
+ * of the window in client coordinates (left/top are always 0).
+ * right = width, bottom = height — no decorations included.
+ *
+ * RECT layout (16 bytes): {LONG left, LONG top, LONG right, LONG bottom}
+ */
+internal val getClientRect: MethodHandle? by lazy {
+    user32.downcall(
+        "GetClientRect",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.ADDRESS,    // LPRECT
+        )
+    )
+}
+
+// ── GetWindowRect ─────────────────────────────────────────────────────────────
+
+/**
+ * BOOL GetWindowRect(HWND hWnd, LPRECT lpRect);
+ *
+ * Fills [lpRect] with the bounding rectangle of the window in screen
+ * coordinates — includes title bar, borders, and other decorations.
+ * width  = right  - left
+ * height = bottom - top
+ *
+ * RECT layout (16 bytes): {LONG left, LONG top, LONG right, LONG bottom}
+ */
+internal val getWindowRect: MethodHandle? by lazy {
+    user32.downcall(
+        "GetWindowRect",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.ADDRESS,    // LPRECT
+        )
+    )
+}
+
+/** Size of the RECT structure in bytes (4 × LONG = 4 × 4 bytes). */
+internal const val RECT_SIZE: Long = 16L
+
+/** Byte alignment of RECT (LONG = 4 bytes). */
+internal const val RECT_ALIGN: Long = 4L
+
+/** Byte offset of RECT.left */
+internal const val RECT_OFFSET_LEFT: Long = 0L
+
+/** Byte offset of RECT.top */
+internal const val RECT_OFFSET_TOP: Long = 4L
+
+/** Byte offset of RECT.right */
+internal const val RECT_OFFSET_RIGHT: Long = 8L
+
+/** Byte offset of RECT.bottom */
+internal const val RECT_OFFSET_BOTTOM: Long = 12L
