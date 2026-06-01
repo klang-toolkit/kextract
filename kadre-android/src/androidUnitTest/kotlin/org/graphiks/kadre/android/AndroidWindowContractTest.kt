@@ -1,6 +1,7 @@
 package org.graphiks.kadre.android
 
 import org.graphiks.kadre.core.ActiveEventLoop
+import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import kotlin.test.Test
@@ -134,14 +135,14 @@ class AndroidWindowContractTest {
     // ── rawWindowHandle verification ─────────────────────────────────────
 
     @Test
-    fun `AndroidWindow rawWindowHandle returns Any`() {
+    fun `AndroidWindow rawWindowHandle returns RawWindowHandle`() {
         val method = AndroidWindow::class.java.methods
             .firstOrNull { it.name == "getRawWindowHandle" }
         assertNotNull(method, "AndroidWindow must expose rawWindowHandle")
         assertEquals(
-            Any::class.java,
+            RawWindowHandle::class.java,
             method.returnType,
-            "rawWindowHandle must return Any (type-erased for commonMain)",
+            "rawWindowHandle must return RawWindowHandle (strongly typed since R0.1)",
         )
     }
 
