@@ -1,7 +1,7 @@
 # [R5-MiscWindow] Divers fenêtre (attention, occluded, token, safe area…)
 
 - **Milestone** : R5
-- **Statut** : À faire
+- **Statut** : ✅ Fait
 - **Dépend de** : R3, R4
 - **Modules touchés** : kadre-core, kadre-appkit, kadre-win32, kadre-x11, kadre-wayland, kadre-uikit, kadre-android, kadre-web-common, kadre-js, kadre-wasm
 

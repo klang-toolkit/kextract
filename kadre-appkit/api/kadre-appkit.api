@@ -6,6 +6,8 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun <init> (Lorg/graphiks/kadre/core/WindowAttributes;)V
 	public fun close ()V
 	public fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
+	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)V
+	public fun dragWindow ()V
 	public final fun getDelegate ()Lorg/graphiks/kadre/appkit/KadreWindowDelegate;
 	public fun getFullscreen ()Lorg/graphiks/kadre/core/Fullscreen;
 	public fun getId-1uDr44Y ()J
@@ -24,13 +26,16 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun isVisible ()Z
 	public fun prePresentNotify ()V
 	public fun requestRedraw ()V
+	public fun requestUserAttention (Lorg/graphiks/kadre/core/UserAttentionType;)V
 	public fun resetDeadKeys ()V
 	public fun setBlur (Z)V
+	public fun setContentProtected (Z)V
 	public fun setCursor (Lorg/graphiks/kadre/core/CursorIcon;)V
 	public fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)V
 	public fun setCursorHittest (Z)V
 	public fun setCursorPosition (Lorg/graphiks/kadre/core/PhysicalPosition;)V
 	public fun setCursorVisible (Z)V
+	public fun setCustomCursor (Lorg/graphiks/kadre/core/CustomCursor;)V
 	public fun setDecorations (Z)V
 	public fun setFullscreen (Lorg/graphiks/kadre/core/Fullscreen;)V
 	public fun setImeAllowed (Z)V
@@ -49,6 +54,7 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public final fun setWindowDelegate (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;)V
 	public fun setWindowIcon (Lorg/graphiks/kadre/core/Icon;)V
 	public fun setWindowLevel (Lorg/graphiks/kadre/core/WindowLevel;)V
+	public fun showWindowMenu (Lorg/graphiks/kadre/core/PhysicalPosition;)V
 }
 
 public final class org/graphiks/kadre/appkit/KadreAppDelegate {

@@ -475,6 +475,121 @@ sealed interface WindowEvent {
      */
     data class ThemeChanged(val theme: Theme) : WindowEvent
 
+    // ── R5-DnD: drag & drop ──────────────────────────────────────────────────
+
+    /**
+     * A drag operation entered the window, carrying files at the given position.
+     *
+     * Emitted when the user drags files over the window client area.
+     * Emission requires backend wiring — TODO per backend (AppKit NSDraggingDestination,
+     * Win32 IDropTarget, X11 XDND, Wayland wl_data_device, Web dragenter, UIKit UIDropInteraction).
+     *
+     * @property position Current drag position in physical pixels.
+     * @property paths    List of file paths (or file names on Web where full paths are unavailable).
+     */
+    data class DragEntered(val position: PhysicalPosition<Double>, val paths: List<String>) : WindowEvent
+
+    /**
+     * The drag cursor moved within the window while carrying files.
+     *
+     * Emitted continuously as the user moves the drag cursor over the window.
+     * Default emission: no-op — TODO per backend.
+     *
+     * @property position Current drag position in physical pixels.
+     */
+    data class DragMoved(val position: PhysicalPosition<Double>) : WindowEvent
+
+    /**
+     * Files were dropped onto the window.
+     *
+     * Emitted when the user releases the drag within the window client area.
+     * Default emission: no-op — TODO per backend.
+     *
+     * @property position Drop position in physical pixels.
+     * @property paths    List of dropped file paths (or file names on Web).
+     */
+    data class DragDropped(val position: PhysicalPosition<Double>, val paths: List<String>) : WindowEvent
+
+    /**
+     * The drag cursor left the window without dropping.
+     *
+     * Emitted when the user moves the drag out of the window client area.
+     * Default emission: no-op — TODO per backend.
+     */
+    data object DragLeft : WindowEvent
+
+    // ── R5-Gestures: trackpad & touchscreen gestures ──────────────────────────
+
+    /**
+     * A pinch (zoom) gesture changed state.
+     *
+     * Primarily emitted on macOS (NSGestureRecognizer magnification) and iOS
+     * (UIPinchGestureRecognizer). Other backends: no-op documented.
+     * Default emission: no-op — TODO per backend.
+     *
+     * @property delta Relative scale change (positive = zoom in, negative = zoom out).
+     * @property phase Current phase of the gesture.
+     */
+    data class PinchGesture(val delta: Double, val phase: TouchPhase) : WindowEvent
+
+    /**
+     * A pan (scroll) gesture changed state.
+     *
+     * Emitted on macOS (NSGestureRecognizer pan) and iOS (UIPanGestureRecognizer).
+     * Default emission: no-op — TODO per backend.
+     *
+     * @property delta Displacement vector in physical pixels.
+     * @property phase Current phase of the gesture.
+     */
+    data class PanGesture(val delta: PhysicalPosition<Double>, val phase: TouchPhase) : WindowEvent
+
+    /**
+     * A rotation gesture changed state.
+     *
+     * Emitted on macOS (NSGestureRecognizer rotation) and iOS (UIRotationGestureRecognizer).
+     * Default emission: no-op — TODO per backend.
+     *
+     * @property delta Rotation angle in radians (positive = clockwise).
+     * @property phase Current phase of the gesture.
+     */
+    data class RotationGesture(val delta: Double, val phase: TouchPhase) : WindowEvent
+
+    /**
+     * A double-tap gesture was recognized.
+     *
+     * Emitted on iOS (UITapGestureRecognizer, numberOfTapsRequired = 2) and Web (dblclick).
+     * Default emission: no-op — TODO per backend.
+     */
+    data object DoubleTapGesture : WindowEvent
+
+    /**
+     * A Force Touch / trackpad pressure event (macOS Force Touch trackpads only).
+     *
+     * Availability must be checked at runtime (`NSEvent.isMouseEventType` / device capability).
+     * Default emission: no-op — TODO appkit backend.
+     *
+     * @property pressure Normalized pressure value in `[0.0, 1.0]`.
+     * @property stage    Discrete pressure stage (1 = light click, 2 = force click, etc.).
+     */
+    data class TouchpadPressure(val pressure: Float, val stage: Int) : WindowEvent
+
+    // ── R5-MiscWindow: occluded ───────────────────────────────────────────────
+
+    /**
+     * The window's occlusion state changed.
+     *
+     * Emitted when the window becomes hidden behind other windows ([occluded] = true)
+     * or becomes visible again ([occluded] = false).
+     *
+     * Platform support:
+     * - AppKit: `NSWindowDidChangeOcclusionStateNotification` — TODO.
+     * - Web: Page Visibility API (`visibilitychange`) — TODO.
+     * - Win32 / X11 / Wayland / Android / UIKit: no-op documented.
+     *
+     * @property occluded `true` if the window is now occluded, `false` if it is visible.
+     */
+    data class Occluded(val occluded: Boolean) : WindowEvent
+
     // ── R5-IME: input method ──────────────────────────────────────────────────
 
     /**

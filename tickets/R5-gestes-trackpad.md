@@ -1,7 +1,7 @@
 # [R5-Gestures] Gestes trackpad
 
 - **Milestone** : R5
-- **Statut** : À faire
+- **Statut** : ✅ Fait
 - **Dépend de** : R3, R4
 - **Modules touchés** : kadre-core, kadre-appkit, kadre-uikit, kadre-web-common, kadre-js, kadre-wasm
 

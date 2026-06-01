@@ -186,10 +186,13 @@ class EventsTest {
     // -----------------------------------------------------------------------
 
     /**
-     * Explicitly enumerates the 17 variants without an `else` clause.
+     * Explicitly enumerates the 28 variants without an `else` clause.
      * If a variant is added or removed, this `when` will no longer compile.
      * R4 added: ModifiersChanged.
      * R5-IME added: Ime.
+     * R5-DnD added: DragEntered, DragMoved, DragDropped, DragLeft.
+     * R5-Gestures added: PinchGesture, PanGesture, RotationGesture, DoubleTapGesture, TouchpadPressure.
+     * R5-MiscWindow added: Occluded.
      */
     private fun classerWindowEvent(event: WindowEvent): String = when (event) {
         WindowEvent.CloseRequested        -> "CloseRequested"
@@ -209,6 +212,16 @@ class EventsTest {
         is WindowEvent.ThemeChanged       -> "ThemeChanged"
         is WindowEvent.ModifiersChanged   -> "ModifiersChanged"  // R4
         is WindowEvent.Ime                -> "Ime"               // R5-IME
+        is WindowEvent.DragEntered        -> "DragEntered"       // R5-DnD
+        is WindowEvent.DragMoved          -> "DragMoved"         // R5-DnD
+        is WindowEvent.DragDropped        -> "DragDropped"       // R5-DnD
+        WindowEvent.DragLeft              -> "DragLeft"          // R5-DnD
+        is WindowEvent.PinchGesture       -> "PinchGesture"      // R5-Gestures
+        is WindowEvent.PanGesture         -> "PanGesture"        // R5-Gestures
+        is WindowEvent.RotationGesture    -> "RotationGesture"   // R5-Gestures
+        WindowEvent.DoubleTapGesture      -> "DoubleTapGesture"  // R5-Gestures
+        is WindowEvent.TouchpadPressure   -> "TouchpadPressure"  // R5-Gestures
+        is WindowEvent.Occluded           -> "Occluded"          // R5-MiscWindow
     }
 
     @Test
@@ -366,6 +379,98 @@ class EventsTest {
         val del = event.ime as WindowEvent.Ime.ImeEvent.DeleteSurrounding
         assertEquals(3, del.beforeBytes)
         assertEquals(5, del.afterBytes)
+    }
+
+    // -----------------------------------------------------------------------
+    // WindowEvent — R5-DnD
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `WindowEvent DragEntered keeps position and paths`() {
+        val pos = PhysicalPosition(10.0, 20.0)
+        val paths = listOf("/tmp/foo.txt", "/tmp/bar.png")
+        val event = WindowEvent.DragEntered(pos, paths)
+        assertEquals("DragEntered", classerWindowEvent(event))
+        assertEquals(pos, event.position)
+        assertEquals(paths, event.paths)
+    }
+
+    @Test
+    fun `WindowEvent DragMoved keeps position`() {
+        val pos = PhysicalPosition(50.0, 60.0)
+        val event = WindowEvent.DragMoved(pos)
+        assertEquals("DragMoved", classerWindowEvent(event))
+        assertEquals(pos, event.position)
+    }
+
+    @Test
+    fun `WindowEvent DragDropped keeps position and paths`() {
+        val pos = PhysicalPosition(30.0, 40.0)
+        val paths = listOf("/home/user/doc.pdf")
+        val event = WindowEvent.DragDropped(pos, paths)
+        assertEquals("DragDropped", classerWindowEvent(event))
+        assertEquals(pos, event.position)
+        assertEquals(paths, event.paths)
+    }
+
+    @Test
+    fun `WindowEvent DragLeft is correctly classified`() {
+        assertEquals("DragLeft", classerWindowEvent(WindowEvent.DragLeft))
+    }
+
+    // -----------------------------------------------------------------------
+    // WindowEvent — R5-Gestures
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `WindowEvent PinchGesture keeps delta and phase`() {
+        val event = WindowEvent.PinchGesture(0.5, TouchPhase.Moved)
+        assertEquals("PinchGesture", classerWindowEvent(event))
+        assertEquals(0.5, event.delta)
+        assertEquals(TouchPhase.Moved, event.phase)
+    }
+
+    @Test
+    fun `WindowEvent PanGesture keeps delta and phase`() {
+        val delta = PhysicalPosition(3.0, -1.0)
+        val event = WindowEvent.PanGesture(delta, TouchPhase.Started)
+        assertEquals("PanGesture", classerWindowEvent(event))
+        assertEquals(delta, event.delta)
+        assertEquals(TouchPhase.Started, event.phase)
+    }
+
+    @Test
+    fun `WindowEvent RotationGesture keeps delta and phase`() {
+        val event = WindowEvent.RotationGesture(1.57, TouchPhase.Ended)
+        assertEquals("RotationGesture", classerWindowEvent(event))
+        assertEquals(1.57, event.delta)
+        assertEquals(TouchPhase.Ended, event.phase)
+    }
+
+    @Test
+    fun `WindowEvent DoubleTapGesture is correctly classified`() {
+        assertEquals("DoubleTapGesture", classerWindowEvent(WindowEvent.DoubleTapGesture))
+    }
+
+    @Test
+    fun `WindowEvent TouchpadPressure keeps pressure and stage`() {
+        val event = WindowEvent.TouchpadPressure(0.8f, 2)
+        assertEquals("TouchpadPressure", classerWindowEvent(event))
+        assertEquals(0.8f, event.pressure)
+        assertEquals(2, event.stage)
+    }
+
+    // -----------------------------------------------------------------------
+    // WindowEvent — R5-MiscWindow
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `WindowEvent Occluded keeps the occluded flag`() {
+        val occluded = WindowEvent.Occluded(true)
+        val revealed = WindowEvent.Occluded(false)
+        assertEquals("Occluded", classerWindowEvent(occluded))
+        assertTrue(occluded.occluded)
+        assertFalse(revealed.occluded)
     }
 
     // -----------------------------------------------------------------------

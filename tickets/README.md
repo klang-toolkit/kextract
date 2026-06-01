@@ -18,11 +18,11 @@ Source de vérité : [`docs/kadre/remediation-plan.md`](../docs/kadre/remediatio
 | [R3](./R3-curseur-theme-apparence.md) | Curseur, thème et apparence | R3 | ✅ Fait | R0.1 |
 | [R4](./R4-richesse-entree.md) | Richesse des entrées (clavier / pointeur) | R4 | ✅ Fait | R0.1 |
 | [R5-IME](./R5-ime.md) | Saisie IME | R5 | ✅ Fait | R3, R4 |
-| [R5-DnD](./R5-glisser-deposer.md) | Glisser-déposer | R5 | À faire | R3, R4 |
-| [R5-Gestures](./R5-gestes-trackpad.md) | Gestes trackpad | R5 | À faire | R3, R4 |
-| [R5-CustomCursor](./R5-curseurs-custom.md) | Curseurs personnalisés | R5 | À faire | R3, R4 |
-| [R5-MiscWindow](./R5-divers-fenetre.md) | Divers fenêtre | R5 | À faire | R3, R4 |
-| [R5-Gamepad](./R5-manette.md) | Manette / Gamepad (hors périmètre winit) | R5 | À faire | R3, R4 |
+| [R5-DnD](./R5-glisser-deposer.md) | Glisser-déposer | R5 | ✅ Fait | R3, R4 |
+| [R5-Gestures](./R5-gestes-trackpad.md) | Gestes trackpad | R5 | ✅ Fait | R3, R4 |
+| [R5-CustomCursor](./R5-curseurs-custom.md) | Curseurs personnalisés | R5 | ✅ Fait | R3, R4 |
+| [R5-MiscWindow](./R5-divers-fenetre.md) | Divers fenêtre | R5 | ✅ Fait | R3, R4 |
+| [R5-Gamepad](./R5-manette.md) | Manette / Gamepad (hors périmètre winit) | R5 | ⛔ Hors périmètre | R3, R4 |
 
 ## Séquençage
 

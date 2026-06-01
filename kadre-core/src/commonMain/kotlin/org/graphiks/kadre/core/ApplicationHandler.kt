@@ -90,4 +90,23 @@ interface ApplicationHandler {
      * @param eventLoop Active event loop.
      */
     fun destroySurfaces(eventLoop: ActiveEventLoop): Unit = Unit
+
+    // ── R5-MiscWindow ─────────────────────────────────────────────────────────
+
+    /**
+     * Called when the system notifies the application of a low-memory condition.
+     *
+     * Mobile backends only:
+     * - iOS / UIKit : `applicationDidReceiveMemoryWarning` / `didReceiveMemoryWarning`.
+     * - Android     : `onTrimMemory(TRIM_MEMORY_RUNNING_CRITICAL)`.
+     *
+     * On all other backends this method is never called. Applications should release
+     * any caches or optional resources in response to this callback.
+     *
+     * Default implementation is a no-op. Never throws.
+     * TODO R5-MiscWindow: wire in UIKit and Android backends.
+     *
+     * @param eventLoop Active event loop.
+     */
+    fun memoryWarning(eventLoop: ActiveEventLoop): Unit = Unit
 }

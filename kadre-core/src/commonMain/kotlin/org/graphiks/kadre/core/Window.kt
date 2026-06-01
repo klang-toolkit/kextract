@@ -375,6 +375,101 @@ interface Window {
      */
     fun setImePurpose(purpose: ImePurpose) { }
 
+    // ── R5-CustomCursor ───────────────────────────────────────────────────────
+
+    /**
+     * Applies a previously created custom cursor to this window.
+     *
+     * The [cursor] must have been obtained via [ActiveEventLoop.createCustomCursor].
+     * Default implementation is a no-op — backends will override.
+     * No-op on iOS and Android (platform does not support custom cursors).
+     * Never throws.
+     *
+     * TODO R5-CustomCursor: wire in each backend (AppKit, Win32, X11, Wayland, Web).
+     *
+     * @param cursor Custom cursor handle to apply.
+     */
+    fun setCustomCursor(cursor: CustomCursor) { /* no-op by default, TODO R5-CustomCursor */ }
+
+    // ── R5-MiscWindow ─────────────────────────────────────────────────────────
+
+    /**
+     * Requests the platform to attract the user's attention (taskbar / dock icon).
+     *
+     * Passing null cancels an active attention request.
+     *
+     * Platform behaviour:
+     * - AppKit : `NSApp.requestUserAttention` / `cancelUserAttentionRequest`.
+     * - Win32  : `FlashWindowEx` (FLASHW_TRAY / FLASHW_TIMER).
+     * - Others : no-op documented.
+     *
+     * Default implementation is a no-op. Never throws.
+     * TODO R5-MiscWindow: wire in AppKit and Win32 backends.
+     *
+     * @param requestType Attention level, or null to cancel the current request.
+     */
+    fun requestUserAttention(requestType: UserAttentionType?) { /* no-op by default, TODO R5-MiscWindow */ }
+
+    /**
+     * Enables or disables screen-capture protection for this window.
+     *
+     * When `true`, the window content is excluded from screenshots and screen recordings.
+     * Platform behaviour:
+     * - Win32  : `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`.
+     * - AppKit : `NSWindow.sharingType = NSWindowSharingNone`.
+     * - Others : no-op documented.
+     *
+     * Default implementation is a no-op. Never throws.
+     * TODO R5-MiscWindow: wire in Win32 and AppKit backends.
+     *
+     * @param protected `true` to enable content protection, `false` to disable.
+     */
+    fun setContentProtected(protected: Boolean) { /* no-op by default, TODO R5-MiscWindow */ }
+
+    /**
+     * Shows the platform window menu (system / title-bar context menu) at the given position.
+     *
+     * Platform behaviour:
+     * - Win32  : `TrackPopupMenu(GetSystemMenu(...))`.
+     * - Others : no-op documented.
+     *
+     * Default implementation is a no-op. Never throws.
+     * TODO R5-MiscWindow: wire in Win32 backend.
+     *
+     * @param position Position in physical pixels (window-relative) at which to show the menu.
+     */
+    fun showWindowMenu(position: PhysicalPosition<Int>) { /* no-op by default, TODO R5-MiscWindow */ }
+
+    /**
+     * Initiates a user-driven window drag from the current cursor position.
+     *
+     * Intended to be called from a pointer-pressed event handler to allow dragging
+     * a custom title bar.
+     * Platform behaviour:
+     * - AppKit   : `NSWindow.performWindowDragWithEvent`.
+     * - Wayland  : `xdg_toplevel.move`.
+     * - Others   : no-op documented.
+     *
+     * Default implementation is a no-op. Never throws.
+     * TODO R5-MiscWindow: wire in AppKit and Wayland backends.
+     */
+    fun dragWindow() { /* no-op by default, TODO R5-MiscWindow */ }
+
+    /**
+     * Initiates a user-driven window resize from the current cursor position.
+     *
+     * Must be called from a pointer-pressed event handler.
+     * Platform behaviour:
+     * - Wayland  : `xdg_toplevel.resize` with the matching edge.
+     * - Others   : no-op documented.
+     *
+     * Default implementation is a no-op. Never throws.
+     * TODO R5-MiscWindow: wire in Wayland (and potentially Win32) backend.
+     *
+     * @param direction The window edge / corner to resize from.
+     */
+    fun dragResizeWindow(direction: ResizeDirection) { /* no-op by default, TODO R5-MiscWindow */ }
+
     // ── R4: keyboard ──────────────────────────────────────────────────────────
 
     /**

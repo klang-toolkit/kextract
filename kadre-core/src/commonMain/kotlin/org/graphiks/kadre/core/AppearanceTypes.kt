@@ -131,6 +131,108 @@ enum class WindowLevel {
     AlwaysOnTop,
 }
 
+// ── R5-CustomCursor ───────────────────────────────────────────────────────────
+
+/**
+ * RGBA pixel buffer for a custom cursor image.
+ *
+ * The buffer must contain exactly `width * height * 4` bytes, in row-major order,
+ * starting from the top-left corner.
+ *
+ * @property rgba     Raw RGBA bytes (4 bytes per pixel).
+ * @property width    Image width in pixels.
+ * @property height   Image height in pixels.
+ * @property hotspotX Horizontal hot-spot offset from the left edge (default 0).
+ * @property hotspotY Vertical hot-spot offset from the top edge (default 0).
+ */
+data class CursorImage(
+    val rgba: ByteArray,
+    val width: Int,
+    val height: Int,
+    val hotspotX: Int = 0,
+    val hotspotY: Int = 0,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is CursorImage) return false
+        return width == other.width && height == other.height &&
+            hotspotX == other.hotspotX && hotspotY == other.hotspotY &&
+            rgba.contentEquals(other.rgba)
+    }
+
+    override fun hashCode(): Int {
+        var result = rgba.contentHashCode()
+        result = 31 * result + width
+        result = 31 * result + height
+        result = 31 * result + hotspotX
+        result = 31 * result + hotspotY
+        return result
+    }
+}
+
+/**
+ * Opaque handle to a platform-allocated custom cursor.
+ *
+ * Obtained via [ActiveEventLoop.createCustomCursor]; passed to [Window.setCustomCursor].
+ * The `id` is an opaque platform-specific identifier (e.g. native pointer cast to Long).
+ *
+ * @property id Platform-specific cursor identifier.
+ */
+class CustomCursor internal constructor(internal val id: Long)
+
+// ── R5-MiscWindow ─────────────────────────────────────────────────────────────
+
+/**
+ * Type of user-attention request on the taskbar or dock icon.
+ *
+ * Passed to [Window.requestUserAttention].
+ */
+enum class UserAttentionType {
+    /**
+     * Critical attention — the icon bounces continuously (macOS) or flashes rapidly (Win32).
+     * Used for urgent alerts that require an immediate response.
+     */
+    Critical,
+
+    /**
+     * Informational attention — the icon bounces once (macOS) or flashes once (Win32).
+     * Used for non-blocking notifications.
+     */
+    Informational,
+}
+
+/**
+ * Direction of a programmatic window-resize drag.
+ *
+ * Passed to [Window.dragResizeWindow] to identify which window border
+ * should be dragged.
+ */
+enum class ResizeDirection {
+    /** Resize from the east (right) edge. */
+    East,
+
+    /** Resize from the north (top) edge. */
+    North,
+
+    /** Resize from the north-east corner. */
+    NorthEast,
+
+    /** Resize from the north-west corner. */
+    NorthWest,
+
+    /** Resize from the south (bottom) edge. */
+    South,
+
+    /** Resize from the south-east corner. */
+    SouthEast,
+
+    /** Resize from the south-west corner. */
+    SouthWest,
+
+    /** Resize from the west (left) edge. */
+    West,
+}
+
 /**
  * Window application icon (RGBA pixel data).
  *

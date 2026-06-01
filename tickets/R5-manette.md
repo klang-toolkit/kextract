@@ -1,7 +1,7 @@
 # [R5-Gamepad] Manette / Gamepad
 
 - **Milestone** : R5
-- **Statut** : À faire
+- **Statut** : ⛔ Hors périmètre (winit délègue à gilrs — non implémenté)
 - **Dépend de** : R3, R4
 - **Modules touchés** : kadre-core (surface minimale si intégration), kadre-android, kadre-uikit
 

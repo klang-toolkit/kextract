@@ -124,6 +124,25 @@ interface ActiveEventLoop {
      */
     fun systemTheme(): Theme?
 
+    // ── R5-CustomCursor ───────────────────────────────────────────────────────
+
+    /**
+     * Creates a custom cursor from the provided RGBA pixel data.
+     *
+     * Returns null if the backend does not support custom cursors (iOS, Android)
+     * or if cursor creation failed (e.g. invalid image dimensions).
+     *
+     * Default implementation returns null — backends that support custom cursors
+     * will override this method.
+     * Never throws.
+     *
+     * TODO R5-CustomCursor: wire in AppKit, Win32, X11, Wayland, and Web backends.
+     *
+     * @param image RGBA image data with hot-spot information.
+     * @return An opaque [CustomCursor] handle, or null on unsupported platforms.
+     */
+    fun createCustomCursor(image: CursorImage): CustomCursor? = null
+
     // ── R4: device event filter ───────────────────────────────────────────────
 
     /**
