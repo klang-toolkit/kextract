@@ -186,5 +186,7 @@ class KadreApplicationTest {
         override fun primaryMonitor() = null
         // R3 stub
         override fun systemTheme() = null
+        // R4 stub
+        override fun listenDeviceEvents(mode: org.graphiks.kadre.core.DeviceEvents) = Unit
     }
 }

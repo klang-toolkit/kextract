@@ -98,6 +98,8 @@ class CFRunLoopRedrawObserverTest {
             override fun primaryMonitor() = null
             // R3 stub
             override fun systemTheme() = null
+            // R4 stub
+            override fun listenDeviceEvents(mode: org.graphiks.kadre.core.DeviceEvents) = Unit
         }
         val stubHandler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
