@@ -55,4 +55,25 @@ interface WebDomBridge {
      * @return the final CSS identifier of the canvas (to then pass to [attach]).
      */
     fun ensureCanvas(attrs: WebWindowAttributes): String = attrs.effectiveCanvasId
+
+    /**
+     * Returns the current `window.devicePixelRatio`.
+     *
+     * Used by [WebWindow] to initialize [WebWindow.scaleFactor] synchronously
+     * at window-creation time (before the first [WebWindowEvent.ScaleFactorChanged]).
+     *
+     * Default: 1.0 (test / no-op bridge).
+     */
+    fun readDevicePixelRatio(): Double = 1.0
+
+    /**
+     * Returns the current CSS dimensions of the canvas identified by [canvasId]
+     * in physical pixels (CSS pixels × devicePixelRatio, rounded to nearest Int).
+     *
+     * Used by [WebWindow] to initialize [WebWindow.innerSize] synchronously at
+     * window-creation time (before the first [WebWindowEvent.Resized]).
+     *
+     * Default: 0×0 (test / no-op bridge).
+     */
+    fun readCanvasPhysicalSize(canvasId: String): Pair<Int, Int> = Pair(0, 0)
 }

@@ -105,6 +105,15 @@ private external fun wrapCallback(fn: (Int, Int) -> Unit): JsAny
 @JsFun("() => window")
 private external fun getWindow(): JsEventTarget
 
+@JsFun("() => window.devicePixelRatio || 1")
+private external fun getDevicePixelRatio(): Double
+
+@JsFun("(canvas, dpr) => Math.round(canvas.clientWidth * dpr)")
+private external fun canvasPhysicalWidth(canvas: JsEventTarget, dpr: Double): Int
+
+@JsFun("(canvas, dpr) => Math.round(canvas.clientHeight * dpr)")
+private external fun canvasPhysicalHeight(canvas: JsEventTarget, dpr: Double): Int
+
 /** Wraps a Kotlin `(Double) -> Unit` into a JS-callable closure (see [wrapCallback]). */
 @JsFun("(fn) => fn")
 private external fun wrapDoubleCallback(fn: (Double) -> Unit): JsAny
@@ -204,6 +213,14 @@ private external fun ensureCanvasInDom(
 class WasmJsWebDomBridge : WebDomBridge {
 
     override var onWindowEvent: ((WebWindowEvent) -> Unit)? = null
+
+    override fun readDevicePixelRatio(): Double = getDevicePixelRatio()
+
+    override fun readCanvasPhysicalSize(canvasId: String): Pair<Int, Int> {
+        val canvas = getElementById(canvasId.toJsString()) ?: return Pair(0, 0)
+        val dpr = getDevicePixelRatio()
+        return Pair(canvasPhysicalWidth(canvas, dpr), canvasPhysicalHeight(canvas, dpr))
+    }
 
     override fun ensureCanvas(attrs: WebWindowAttributes): String {
         val id = attrs.effectiveCanvasId

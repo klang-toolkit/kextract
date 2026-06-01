@@ -11,10 +11,11 @@
  * The DOM types (HTMLCanvasElement, etc.) are handled exclusively in
  * `jsMain` via [JsWebDomBridge] and in `wasmJsMain` via `WasmJsWebDomBridge`.
  *
- * ## Temporary stubs
- * [innerSize], [outerSize] and [scaleFactor] return fixed values
- * (800×600, scaleFactor 1.0). They will be wired to a ResizeObserver
- * in ticket #24.
+ * ## Dynamic size and scale
+ * [innerSize], [outerSize] and [scaleFactor] reflect the real canvas dimensions
+ * and `devicePixelRatio`. The values are updated via [updatePhysicalSize] and
+ * [updateScaleFactor], called by [WebEventLoop] when the bridge emits
+ * [WebWindowEvent.Resized] and [WebWindowEvent.ScaleFactorChanged].
  *
  * @param attrs   Window creation attributes (title used as CSS id).
  * @param bridge  DOM bridge used to attach / detach the canvas.
@@ -93,30 +94,61 @@ class WebWindow(
     override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Web
 
+    // -------------------------------------------------------------------------
+    // Dynamic size / scale state — updated by WebEventLoop via updatePhysicalSize
+    // and updateScaleFactor when the bridge emits Resized / ScaleFactorChanged.
+    // -------------------------------------------------------------------------
+
+    /** Current physical size of the canvas in pixels. Default 0×0 until first Resized event. */
+    private var _physicalSize: PhysicalSize<Int> = PhysicalSize(0, 0)
+
+    /** Current device pixel ratio. Default 1.0 until first ScaleFactorChanged event. */
+    private var _scaleFactor: Double = 1.0
+
+    /**
+     * Updates the stored physical size.
+     *
+     * Called by [WebEventLoop] when the bridge fires [WebWindowEvent.Resized].
+     * Dimensions are already in physical pixels (CSS pixels × devicePixelRatio).
+     */
+    internal fun updatePhysicalSize(width: Int, height: Int) {
+        _physicalSize = PhysicalSize(width, height)
+    }
+
+    /**
+     * Updates the stored scale factor.
+     *
+     * Called by [WebEventLoop] when the bridge fires [WebWindowEvent.ScaleFactorChanged].
+     */
+    internal fun updateScaleFactor(factor: Double) {
+        _scaleFactor = factor
+    }
+
     /**
      * Inner size of the window (rendering surface) in physical pixels.
      *
-     * Fixed stub at 800×600 — will be wired to a ResizeObserver in ticket #24.
+     * Reflects the real canvas dimensions as reported by the ResizeObserver.
+     * Returns 0×0 until the first [WebWindowEvent.Resized] event.
      */
     override val innerSize: PhysicalSize<Int>
-        get() = PhysicalSize(800, 600)
+        get() = _physicalSize
 
     /**
      * Outer size of the window in physical pixels.
      *
      * Identical to [innerSize] on the Web side (no native decorations).
-     * Fixed stub at 800×600 — will be updated in ticket #24.
      */
     override val outerSize: PhysicalSize<Int>
-        get() = PhysicalSize(800, 600)
+        get() = _physicalSize
 
     /**
-     * Scale factor between logical and physical pixels.
+     * Scale factor between logical and physical pixels (`window.devicePixelRatio`).
      *
-     * Fixed stub at 1.0 — will be wired to `window.devicePixelRatio` in ticket #24.
+     * Returns 1.0 until the first [WebWindowEvent.ScaleFactorChanged] event,
+     * then reflects the actual device pixel ratio.
      */
     override val scaleFactor: Double
-        get() = 1.0
+        get() = _scaleFactor
 
     /**
      * Requests a redraw of the window via [WebWindowEvent.RedrawRequested].

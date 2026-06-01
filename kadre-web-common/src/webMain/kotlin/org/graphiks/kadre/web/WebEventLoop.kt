@@ -116,7 +116,23 @@ open class WebEventLoop : ActiveEventLoop {
      */
     fun createWindow(attrs: WebWindowAttributes): Window {
         val bridge = createDomBridge()
+        val canvasId = bridge.ensureCanvas(attrs)
+        val window = WebWindow(canvasId, bridge)
+
+        // Initialise synchronously from the current DOM state (before any event fires).
+        val (initW, initH) = bridge.readCanvasPhysicalSize(canvasId)
+        window.updatePhysicalSize(initW, initH)
+        window.updateScaleFactor(bridge.readDevicePixelRatio())
+
         bridge.onWindowEvent = { event ->
+            // Keep WebWindow's cached state in sync with DOM events.
+            when (event) {
+                is WebWindowEvent.Resized ->
+                    window.updatePhysicalSize(event.width, event.height)
+                is WebWindowEvent.ScaleFactorChanged ->
+                    window.updateScaleFactor(event.factor)
+                else -> Unit
+            }
             // Queue the event for dispatch on the next frame
             pendingEvents.add(Pair(windows.firstOrNull()?.id ?: WindowId(0L), event))
             // In Wait mode, wake the loop immediately
@@ -124,8 +140,6 @@ open class WebEventLoop : ActiveEventLoop {
                 scheduleWakeUp()
             }
         }
-        val canvasId = bridge.ensureCanvas(attrs)
-        val window = WebWindow(canvasId, bridge)
         windows.add(window)
         bridge.attach(canvasId)
         return window

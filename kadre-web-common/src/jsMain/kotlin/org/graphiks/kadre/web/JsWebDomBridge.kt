@@ -17,6 +17,7 @@ import org.w3c.dom.Element
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.WheelEvent
+import kotlin.math.roundToInt
 
 /**
  * JS DOM bridge to the Kadre engine.
@@ -36,6 +37,16 @@ import org.w3c.dom.events.WheelEvent
 class JsWebDomBridge : WebDomBridge {
 
     override var onWindowEvent: ((WebWindowEvent) -> Unit)? = null
+
+    override fun readDevicePixelRatio(): Double = window.devicePixelRatio
+
+    override fun readCanvasPhysicalSize(canvasId: String): Pair<Int, Int> {
+        val canvas = document.getElementById(canvasId) ?: return Pair(0, 0)
+        val dpr = readDevicePixelRatio()
+        val w = ((canvas.asDynamic().clientWidth as Double) * dpr).roundToInt()
+        val h = ((canvas.asDynamic().clientHeight as Double) * dpr).roundToInt()
+        return Pair(w, h)
+    }
 
     override fun ensureCanvas(attrs: WebWindowAttributes): String {
         val id = attrs.effectiveCanvasId
