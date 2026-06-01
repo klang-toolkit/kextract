@@ -180,7 +180,7 @@ final class org.graphiks.kadre.uikit/KadreAppDelegate : platform.UIKit/UIApplica
 }
 
 final class org.graphiks.kadre.uikit/KadreMetalView : platform.UIKit/UIView { // org.graphiks.kadre.uikit/KadreMetalView|null[0]
-    constructor <init>(kotlinx.cinterop/CValue<platform.CoreGraphics/CGRect>, kotlin/Function1<org.graphiks.kadre.core/WindowEvent, kotlin/Unit> = ...) // org.graphiks.kadre.uikit/KadreMetalView.<init>|<init>(frame:kotlinx.cinterop.CValue<platform.CoreGraphics.CGRect>;onTouchEvent:kotlin.Function1<org.graphiks.kadre.core.WindowEvent,kotlin.Unit>){}[0]
+    constructor <init>(kotlinx.cinterop/CValue<platform.CoreGraphics/CGRect>, kotlin/Function1<org.graphiks.kadre.core/WindowEvent, kotlin/Unit> = ...) // org.graphiks.kadre.uikit/KadreMetalView.<init>|<init>(frame:kotlinx.cinterop.CValue<platform.CoreGraphics.CGRect>;onEvent:kotlin.Function1<org.graphiks.kadre.core.WindowEvent,kotlin.Unit>){}[0]
 
     final val alignmentRectInsets // org.graphiks.kadre.uikit/KadreMetalView.alignmentRectInsets|{}alignmentRectInsets[0]
         final fun <get-alignmentRectInsets>(): kotlinx.cinterop/CValue<platform.UIKit/UIEdgeInsets> // org.graphiks.kadre.uikit/KadreMetalView.alignmentRectInsets.<get-alignmentRectInsets>|objc:alignmentRectInsets#Accessor[0]

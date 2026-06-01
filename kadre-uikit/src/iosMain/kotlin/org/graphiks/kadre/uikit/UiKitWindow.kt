@@ -11,10 +11,16 @@ import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.ObjCClass
 import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRect
+import platform.CoreGraphics.CGSizeMake
+import platform.Foundation.NSRunLoop
+import platform.Foundation.NSRunLoopCommonModes
+import platform.Foundation.NSSelectorFromString
+import platform.QuartzCore.CADisplayLink
 import platform.QuartzCore.CAMetalLayer
 import platform.UIKit.UIEvent
 import platform.UIKit.UIScreen
@@ -23,6 +29,7 @@ import platform.UIKit.UIView
 import platform.UIKit.UIViewController
 import platform.UIKit.UIViewMeta
 import platform.UIKit.UIWindow
+import platform.darwin.NSObject
 
 /**
  * KadreMetalView : UIView backed by CAMetalLayer.
@@ -30,18 +37,25 @@ import platform.UIKit.UIWindow
  * +layerClass override ensures UIKit uses CAMetalLayer as the backing store
  * from the very first layout pass — no sublayer attachment needed.
  *
- * UIResponder touch callbacks forward all contacts to [onTouchEvent].
+ * UIResponder touch callbacks forward all contacts to [onEvent] as
+ * [WindowEvent.Touch]. Bounds changes (rotation, split-view, status-bar layout)
+ * are detected in [layoutSubviews]: the CAMetalLayer `drawableSize` is updated
+ * and a [WindowEvent.Resized] is emitted when the physical size actually changes.
  */
 @OptIn(ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
 class KadreMetalView(
     frame: CValue<CGRect>,
-    private val onTouchEvent: (WindowEvent) -> Unit = {},
+    private val onEvent: (WindowEvent) -> Unit = {},
 ) : UIView(frame = frame) {
     companion object : UIViewMeta() {
         override fun layerClass(): ObjCClass = CAMetalLayer.`class`()!!
     }
 
     val metalLayer: CAMetalLayer get() = layer as CAMetalLayer
+
+    /** Last emitted physical size, to avoid duplicate Resized events. */
+    private var lastWidth: Int = -1
+    private var lastHeight: Int = -1
 
     override fun touchesBegan(touches: Set<*>, withEvent: UIEvent?) =
         dispatchTouches(touches, TouchPhase.Started)
@@ -55,6 +69,34 @@ class KadreMetalView(
     override fun touchesCancelled(touches: Set<*>, withEvent: UIEvent?) =
         dispatchTouches(touches, TouchPhase.Cancelled)
 
+    /**
+     * Called by UIKit on every layout pass (initial display, device rotation,
+     * split-view resize, safe-area changes).
+     *
+     * Computes the new size in physical pixels, updates the CAMetalLayer
+     * `drawableSize` so the Metal surface follows the new bounds, and emits a
+     * [WindowEvent.Resized] only when the physical size changed.
+     */
+    override fun layoutSubviews() {
+        super.layoutSubviews()
+        val scale = UIScreen.mainScreen.scale
+        val physW = bounds.useContents { size.width * scale }
+        val physH = bounds.useContents { size.height * scale }
+        val w = physW.toInt()
+        val h = physH.toInt()
+        if (w <= 0 || h <= 0) return
+
+        // Keep the Metal drawable in sync with the view bounds (every layout pass).
+        metalLayer.setDrawableSize(CGSizeMake(physW, physH))
+
+        // Emit Resized only on an actual change to mirror winit semantics.
+        if (w != lastWidth || h != lastHeight) {
+            lastWidth = w
+            lastHeight = h
+            onEvent(WindowEvent.Resized(PhysicalSize(w, h)))
+        }
+    }
+
     private fun dispatchTouches(touches: Set<*>, phase: TouchPhase) {
         val scale = UIScreen.mainScreen.scale
         touches.forEach { touch ->
@@ -63,9 +105,22 @@ class KadreMetalView(
             val x = loc.useContents { x * scale }
             val y = loc.useContents { y * scale }
             val id = uiTouch.objcPtr().toLong()
-            onTouchEvent(WindowEvent.Touch(phase, PhysicalPosition(x, y), id))
+            onEvent(WindowEvent.Touch(phase, PhysicalPosition(x, y), id))
         }
     }
+}
+
+/**
+ * Objective-C target for a [CADisplayLink].
+ *
+ * `CADisplayLink` requires a target/selector pair; this NSObject subclass
+ * exposes [onFrame] (an `@ObjCAction`) as that selector and forwards each
+ * vsync tick to the Kotlin lambda.
+ */
+@OptIn(ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
+private class DisplayLinkProxy(private val onFrame: () -> Unit) : NSObject() {
+    @ObjCAction
+    fun handleDisplayLink() = onFrame()
 }
 
 /**
@@ -73,7 +128,8 @@ class KadreMetalView(
  *
  * Creates UIWindow → UIViewController → KadreMetalView (full screen).
  * CAMetalLayer is the view's backing layer (via +layerClass).
- * Touch events are dispatched to [eventLoop].handler.
+ * Touch and resize events are dispatched to [eventLoop].handler, and a
+ * [CADisplayLink] paces [WindowEvent.RedrawRequested] on every screen refresh.
  */
 @OptIn(ExperimentalForeignApi::class)
 internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKitActiveEventLoop) : Window {
@@ -81,6 +137,10 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
     private val uiWindow: UIWindow
     private val viewController: UIViewController
     private val metalView: KadreMetalView
+
+    /** Per-frame redraw driver (vsync-paced). Invalidated on [close]. */
+    private var displayLink: CADisplayLink? = null
+    private val displayLinkProxy = DisplayLinkProxy { emitRedraw() }
 
     override val id: WindowId
 
@@ -113,6 +173,38 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         if (attrs.visible) {
             uiWindow.makeKeyAndVisible()
         }
+
+        // 6. Start the vsync-paced redraw loop.
+        startDisplayLink()
+    }
+
+    /**
+     * Creates and schedules the [CADisplayLink] on the main run loop so
+     * [emitRedraw] fires once per screen refresh.
+     */
+    private fun startDisplayLink() {
+        if (displayLink != null) return
+        val link = CADisplayLink.displayLinkWithTarget(
+            target = displayLinkProxy,
+            selector = NSSelectorFromString("handleDisplayLink"),
+        )
+        link.addToRunLoop(NSRunLoop.mainRunLoop, NSRunLoopCommonModes)
+        displayLink = link
+    }
+
+    /**
+     * Dispatches [WindowEvent.RedrawRequested] for this window each frame.
+     *
+     * Stops and releases the display link once the loop is exiting so no
+     * further frame is emitted after shutdown.
+     */
+    private fun emitRedraw() {
+        if (eventLoop.isExiting) {
+            displayLink?.invalidate()
+            displayLink = null
+            return
+        }
+        eventLoop.handler.windowEvent(eventLoop, id, WindowEvent.RedrawRequested)
     }
 
     override val rawWindowHandle: Any
@@ -125,7 +217,8 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         get() = RawDisplayHandle.UiKit
 
     override fun requestRedraw() {
-        // Redraw signaling — no-op for M3; the CADisplayLink loop (GRA-144+) paces the frames.
+        // No-op: the CADisplayLink paces RedrawRequested on every screen refresh.
+        // Kept for API parity with the desktop backends.
     }
 
     override fun setTitle(title: String) {
@@ -163,6 +256,8 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
     }
 
     override fun close() {
+        displayLink?.invalidate()
+        displayLink = null
         uiWindow.setHidden(true)
         uiWindow.resignKeyWindow()
     }
