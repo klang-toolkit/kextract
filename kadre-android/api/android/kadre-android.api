@@ -24,6 +24,8 @@ public abstract class org/graphiks/kadre/android/KadreActivity : androidx/activi
 	public final fun getKadreWindow ()Lorg/graphiks/kadre/android/AndroidWindow;
 	protected fun onCreate (Landroid/os/Bundle;)V
 	protected fun onDestroy ()V
+	public fun onKeyDown (ILandroid/view/KeyEvent;)Z
+	public fun onKeyUp (ILandroid/view/KeyEvent;)Z
 	protected fun onPause ()V
 	protected fun onResume ()V
 	public fun onTouchEvent (Landroid/view/MotionEvent;)Z

@@ -1,6 +1,7 @@
 package org.graphiks.kadre.android
 
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -8,6 +9,7 @@ import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.TouchPhase
@@ -192,6 +194,44 @@ abstract class KadreActivity : ComponentActivity() {
             val id = event.getPointerId(pointerIndex).toLong()
             handler.windowEvent(eventLoop, window.id, WindowEvent.Touch(phase, location, id))
         }
+    }
+
+    // ── Keyboard (hardware keyboards, game controllers) ───────────────────────
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        // event.repeatCount > 0 ⇒ the key is held down (auto-repeat).
+        if (dispatchKey(keyCode, event, KeyState.Pressed, isRepeat = event.repeatCount > 0)) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (dispatchKey(keyCode, event, KeyState.Released, isRepeat = false)) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
+    /**
+     * Translates an Android key event into a [WindowEvent.KeyboardInput] and
+     * dispatches it to the handler.
+     *
+     * @return `true` if the key was mapped and consumed; `false` for unmapped
+     *   keys (volume, back, media…) so the system keeps its default behavior.
+     */
+    private fun dispatchKey(keyCode: Int, event: KeyEvent, state: KeyState, isRepeat: Boolean): Boolean {
+        val window = eventLoop.pendingWindow
+        if (destroyed || window == null) return false
+        val key = AndroidKeyMapper.fromKeyCode(keyCode)
+        if (key == org.graphiks.kadre.core.Key.Unknown) return false
+        handler.windowEvent(
+            eventLoop,
+            window.id,
+            WindowEvent.KeyboardInput(
+                key = key,
+                state = state,
+                modifiers = AndroidKeyMapper.modifiersFrom(event.metaState),
+                isRepeat = isRepeat,
+            ),
+        )
+        return true
     }
 
     override fun onDestroy() {

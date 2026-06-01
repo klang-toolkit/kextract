@@ -1,5 +1,6 @@
 package org.graphiks.kadre.uikit
 
+import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -23,6 +24,9 @@ import platform.Foundation.NSSelectorFromString
 import platform.QuartzCore.CADisplayLink
 import platform.QuartzCore.CAMetalLayer
 import platform.UIKit.UIEvent
+import platform.UIKit.UIKey
+import platform.UIKit.UIPress
+import platform.UIKit.UIPressesEvent
 import platform.UIKit.UIScreen
 import platform.UIKit.UITouch
 import platform.UIKit.UIView
@@ -68,6 +72,49 @@ class KadreMetalView(
 
     override fun touchesCancelled(touches: Set<*>, withEvent: UIEvent?) =
         dispatchTouches(touches, TouchPhase.Cancelled)
+
+    // ── Hardware keyboard / game controller keys (iOS 13.4+) ──────────────────
+
+    /** The view must be first responder to receive key presses. */
+    override fun canBecomeFirstResponder(): Boolean = true
+
+    override fun pressesBegan(presses: Set<*>, withEvent: UIPressesEvent?) {
+        if (!dispatchPresses(presses, KeyState.Pressed)) super.pressesBegan(presses, withEvent)
+    }
+
+    override fun pressesEnded(presses: Set<*>, withEvent: UIPressesEvent?) {
+        if (!dispatchPresses(presses, KeyState.Released)) super.pressesEnded(presses, withEvent)
+    }
+
+    override fun pressesCancelled(presses: Set<*>, withEvent: UIPressesEvent?) {
+        if (!dispatchPresses(presses, KeyState.Released)) super.pressesCancelled(presses, withEvent)
+    }
+
+    /**
+     * Translates UIPress key data into [WindowEvent.KeyboardInput].
+     *
+     * @return `true` if at least one press mapped to a known key (and was
+     *   consumed); `false` so the caller forwards the event up the chain.
+     */
+    private fun dispatchPresses(presses: Set<*>, state: KeyState): Boolean {
+        var handled = false
+        presses.forEach { element ->
+            val press = element as? UIPress ?: return@forEach
+            val uiKey = press.key ?: return@forEach
+            val key = UiKitKeyMapper.fromHidUsage(uiKey.keyCode)
+            if (key == org.graphiks.kadre.core.Key.Unknown) return@forEach
+            handled = true
+            onEvent(
+                WindowEvent.KeyboardInput(
+                    key = key,
+                    state = state,
+                    modifiers = UiKitKeyMapper.modifiersFrom(uiKey.modifierFlags),
+                    isRepeat = false,
+                )
+            )
+        }
+        return handled
+    }
 
     /**
      * Called by UIKit on every layout pass (initial display, device rotation,
@@ -172,6 +219,9 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         uiWindow.rootViewController = viewController
         if (attrs.visible) {
             uiWindow.makeKeyAndVisible()
+            // Become first responder so hardware-keyboard / controller key
+            // presses reach pressesBegan/Ended.
+            metalView.becomeFirstResponder()
         }
 
         // 6. Start the vsync-paced redraw loop.
