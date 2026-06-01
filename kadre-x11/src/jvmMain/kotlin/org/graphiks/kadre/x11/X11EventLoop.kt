@@ -19,6 +19,7 @@ package org.graphiks.kadre.x11
 
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
@@ -29,7 +30,10 @@ import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.PointerKind
+import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.StartCause
+import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -446,7 +450,7 @@ private fun dispatchEvent(
             val keysym  = keycodeToKeysym(keycode)
             val key     = keysymToKey(keysym)
             val mods    = x11StateToModifiers(state)
-            handler.windowEvent(loop, windowId, WindowEvent.KeyboardInput(key, KeyState.Pressed, mods))
+            handler.windowEvent(loop, windowId, WindowEvent.KeyboardInput(null, key, KeyState.Pressed, mods))
         }
 
         KeyRelease -> {
@@ -455,41 +459,43 @@ private fun dispatchEvent(
             val keysym  = keycodeToKeysym(keycode)
             val key     = keysymToKey(keysym)
             val mods    = x11StateToModifiers(state)
-            handler.windowEvent(loop, windowId, WindowEvent.KeyboardInput(key, KeyState.Released, mods))
+            handler.windowEvent(loop, windowId, WindowEvent.KeyboardInput(null, key, KeyState.Released, mods))
         }
 
         // ── Mouse buttons ─────────────────────────────────────────────────────
         ButtonPress -> {
             val button = eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_BUTTON_OFFSET)
+            val position = xButtonPosition(eventBuf)
             when (button) {
                 X11_BUTTON1 -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseInput(MouseButton.Left, KeyState.Pressed))
+                    pointerButton(MouseButton.Left, KeyState.Pressed, position))
                 X11_BUTTON2 -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseInput(MouseButton.Middle, KeyState.Pressed))
+                    pointerButton(MouseButton.Middle, KeyState.Pressed, position))
                 X11_BUTTON3 -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseInput(MouseButton.Right, KeyState.Pressed))
+                    pointerButton(MouseButton.Right, KeyState.Pressed, position))
                 X11_BUTTON4 -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseWheel(deltaX = 0.0, deltaY = 1.0))
+                    WindowEvent.MouseWheel(null, deltaX = 0.0, deltaY = 1.0, phase = TouchPhase.Moved))
                 X11_BUTTON5 -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseWheel(deltaX = 0.0, deltaY = -1.0))
+                    WindowEvent.MouseWheel(null, deltaX = 0.0, deltaY = -1.0, phase = TouchPhase.Moved))
                 else -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseInput(MouseButton.Other(button), KeyState.Pressed))
+                    pointerButton(MouseButton.Other(button), KeyState.Pressed, position))
             }
         }
 
         ButtonRelease -> {
             val button = eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_BUTTON_OFFSET)
+            val position = xButtonPosition(eventBuf)
             // Do not emit MouseInput Released for scroll wheel events (4 and 5)
             when (button) {
                 X11_BUTTON1 -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseInput(MouseButton.Left, KeyState.Released))
+                    pointerButton(MouseButton.Left, KeyState.Released, position))
                 X11_BUTTON2 -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseInput(MouseButton.Middle, KeyState.Released))
+                    pointerButton(MouseButton.Middle, KeyState.Released, position))
                 X11_BUTTON3 -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseInput(MouseButton.Right, KeyState.Released))
+                    pointerButton(MouseButton.Right, KeyState.Released, position))
                 X11_BUTTON4, X11_BUTTON5 -> { /* scroll wheel — no Released */ }
                 else -> handler.windowEvent(loop, windowId,
-                    WindowEvent.MouseInput(MouseButton.Other(button), KeyState.Released))
+                    pointerButton(MouseButton.Other(button), KeyState.Released, position))
             }
         }
 
@@ -497,16 +503,16 @@ private fun dispatchEvent(
         MotionNotify -> {
             val x = eventBuf.get(ValueLayout.JAVA_INT, XMOTION_X_OFFSET).toDouble()
             val y = eventBuf.get(ValueLayout.JAVA_INT, XMOTION_Y_OFFSET).toDouble()
-            handler.windowEvent(loop, windowId, WindowEvent.PointerMoved(PhysicalPosition(x, y)))
+            handler.windowEvent(loop, windowId, WindowEvent.PointerMoved(null, PhysicalPosition(x, y), primary = true, source = PointerSource.Mouse))
         }
 
         // ── Cursor enter/leave ────────────────────────────────────────────────
         EnterNotify -> {
-            handler.windowEvent(loop, windowId, WindowEvent.PointerEntered)
+            handler.windowEvent(loop, windowId, WindowEvent.PointerEntered(null, xCrossingPosition(eventBuf), primary = true, kind = PointerKind.Mouse))
         }
 
         LeaveNotify -> {
-            handler.windowEvent(loop, windowId, WindowEvent.PointerLeft)
+            handler.windowEvent(loop, windowId, WindowEvent.PointerLeft(null, xCrossingPosition(eventBuf), primary = true, kind = PointerKind.Mouse))
         }
 
         // ── Window destruction ────────────────────────────────────────────────
@@ -526,6 +532,31 @@ private fun dispatchEvent(
         }
     }
 }
+
+private fun pointerButton(
+    button: MouseButton,
+    state: KeyState,
+    position: PhysicalPosition<Double>,
+): WindowEvent.PointerButton =
+    WindowEvent.PointerButton(
+        deviceId = null,
+        state = state,
+        position = position,
+        primary = true,
+        button = ButtonSource.Mouse(button),
+    )
+
+private fun xButtonPosition(eventBuf: MemorySegment): PhysicalPosition<Double> =
+    PhysicalPosition(
+        eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_X_OFFSET).toDouble(),
+        eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_Y_OFFSET).toDouble(),
+    )
+
+private fun xCrossingPosition(eventBuf: MemorySegment): PhysicalPosition<Double> =
+    PhysicalPosition(
+        eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_X_OFFSET).toDouble(),
+        eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_Y_OFFSET).toDouble(),
+    )
 
 // ── Dispatch modes ──────────────────────────────────────────────────────────
 

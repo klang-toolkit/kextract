@@ -19,6 +19,7 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun getScaleFactor ()D
 	public fun getTheme ()Lorg/graphiks/kadre/core/Theme;
 	public fun getTitle ()Ljava/lang/String;
+	public fun inputCapabilities ()Lorg/graphiks/kadre/core/InputCapabilities;
 	public fun isDecorated ()Z
 	public fun isMaximized ()Z
 	public fun isMinimized ()Z

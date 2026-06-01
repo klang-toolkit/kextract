@@ -52,17 +52,25 @@ class HelloApp : ApplicationHandler {
             is WindowEvent.KeyboardInput ->
                 println("[HelloWindow] KeyboardInput ${event.state} key=${event.key} mods=${event.modifiers.bits} repeat=${event.isRepeat}")
             is WindowEvent.PointerMoved ->
-                println("[HelloWindow] PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
-            WindowEvent.PointerEntered ->
-                println("[HelloWindow] PointerEntered")
-            WindowEvent.PointerLeft ->
-                println("[HelloWindow] PointerLeft")
-            is WindowEvent.MouseInput ->
-                println("[HelloWindow] MouseInput ${event.state} button=${event.button}")
+                println("[HelloWindow] PointerMoved ${event.source} (${event.position.x.toInt()}, ${event.position.y.toInt()})")
+            is WindowEvent.PointerEntered ->
+                println("[HelloWindow] PointerEntered ${event.kind} @ (${event.position.x.toInt()}, ${event.position.y.toInt()})")
+            is WindowEvent.PointerLeft ->
+                println("[HelloWindow] PointerLeft ${event.kind}")
+            is WindowEvent.PointerButton ->
+                println("[HelloWindow] PointerButton ${event.state} button=${event.button} @ (${event.position.x.toInt()}, ${event.position.y.toInt()})")
             is WindowEvent.MouseWheel ->
                 println("[HelloWindow] MouseWheel dx=${event.deltaX} dy=${event.deltaY}")
-            is WindowEvent.Touch ->
-                println("[HelloWindow] Touch ${event.phase} id=${event.id} @ (${event.location.x.toInt()}, ${event.location.y.toInt()})")
+            is WindowEvent.PinchGesture ->
+                println("[HelloWindow] PinchGesture delta=${event.delta} phase=${event.phase}")
+            is WindowEvent.PanGesture ->
+                println("[HelloWindow] PanGesture delta=(${event.delta.x}, ${event.delta.y}) phase=${event.phase}")
+            is WindowEvent.RotationGesture ->
+                println("[HelloWindow] RotationGesture deltaDegrees=${event.deltaDegrees} phase=${event.phase}")
+            is WindowEvent.DoubleTapGesture ->
+                println("[HelloWindow] DoubleTapGesture device=${event.deviceId}")
+            is WindowEvent.TouchpadPressure ->
+                println("[HelloWindow] TouchpadPressure pressure=${event.pressure} stage=${event.stage}")
             WindowEvent.RedrawRequested ->
                 Unit // no-op: no renderer in this sample
             WindowEvent.Destroyed ->

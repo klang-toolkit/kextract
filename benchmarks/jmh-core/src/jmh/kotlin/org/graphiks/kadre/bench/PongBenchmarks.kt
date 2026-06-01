@@ -32,8 +32,8 @@ open class PongBenchmarks {
 
     private val initial = GameState.INITIAL
     private val ai = PongAi()
-    private val keyDown = WindowEvent.KeyboardInput(Key.ArrowUp, KeyState.Pressed, Modifiers.NONE)
-    private val keyUp = WindowEvent.KeyboardInput(Key.ArrowUp, KeyState.Released, Modifiers.NONE)
+    private val keyDown = WindowEvent.KeyboardInput(null, Key.ArrowUp, KeyState.Pressed, Modifiers.NONE)
+    private val keyUp = WindowEvent.KeyboardInput(null, Key.ArrowUp, KeyState.Released, Modifiers.NONE)
 
     // ── Tick physique ────────────────────────────────────────────────────────
 

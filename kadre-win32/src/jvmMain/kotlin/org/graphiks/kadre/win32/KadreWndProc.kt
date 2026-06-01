@@ -39,10 +39,14 @@ package org.graphiks.kadre.win32
 import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyLocation
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.ButtonSource
+import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.Modifiers
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.PointerKind
+import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
 import java.lang.foreign.MemorySegment
@@ -195,8 +199,19 @@ object KadreWndProc {
                 val location = win32KeyLocation(vkCode, lParam)
                 // R4: text via ToUnicode (if available)
                 val text     = if (!isRepeat) win32KeyText(vkCode, scanCode) else null
-                emit(hwnd, WindowEvent.KeyboardInput(key, KeyState.Pressed, mods, isRepeat,
-                    text = text, location = location, scanCode = scanCode))
+                emit(
+                    hwnd,
+                    WindowEvent.KeyboardInput(
+                        deviceId = null,
+                        key = key,
+                        state = KeyState.Pressed,
+                        modifiers = mods,
+                        isRepeat = isRepeat,
+                        text = text,
+                        location = location,
+                        scanCode = scanCode,
+                    ),
+                )
                 // R4: ModifiersChanged on modifier key press
                 if (isModifierVk(vkCode)) emit(hwnd, WindowEvent.ModifiersChanged(mods))
                 0L
@@ -209,8 +224,19 @@ object KadreWndProc {
                 val mods     = currentModifiers()
                 val scanCode = ((lParam ushr 16) and 0xFF).toInt()
                 val location = win32KeyLocation(vkCode, lParam)
-                emit(hwnd, WindowEvent.KeyboardInput(key, KeyState.Released, mods, isRepeat = false,
-                    text = null, location = location, scanCode = scanCode))
+                emit(
+                    hwnd,
+                    WindowEvent.KeyboardInput(
+                        deviceId = null,
+                        key = key,
+                        state = KeyState.Released,
+                        modifiers = mods,
+                        isRepeat = false,
+                        text = null,
+                        location = location,
+                        scanCode = scanCode,
+                    ),
+                )
                 // R4: ModifiersChanged on modifier key release
                 if (isModifierVk(vkCode)) emit(hwnd, WindowEvent.ModifiersChanged(mods))
                 0L
@@ -219,12 +245,11 @@ object KadreWndProc {
             // ── Cursor movement ───────────────────────────────────────────────
             WM_MOUSEMOVE.toUInt() -> {
                 // First move after the cursor entered the client area → PointerEntered.
+                val position = mousePosition(lParam)
                 if (insideWindows.add(hwnd)) {
-                    emit(hwnd, WindowEvent.PointerEntered)
+                    emit(hwnd, WindowEvent.PointerEntered(null, position, primary = true, kind = PointerKind.Mouse))
                 }
-                val x = (lParam and 0xFFFF).toDouble()
-                val y = ((lParam ushr 16) and 0xFFFF).toDouble()
-                emit(hwnd, WindowEvent.PointerMoved(PhysicalPosition(x, y)))
+                emit(hwnd, WindowEvent.PointerMoved(null, position, primary = true, source = PointerSource.Mouse))
                 // Arm TrackMouseEvent to detect WM_MOUSELEAVE
                 armMouseLeaveTracking(hwnd)
                 0L
@@ -235,33 +260,33 @@ object KadreWndProc {
                 // WM_MOUSELEAVE tracking is automatically disarmed after receipt.
                 // It will be re-armed on the next WM_MOUSEMOVE if the cursor returns.
                 insideWindows.remove(hwnd)
-                emit(hwnd, WindowEvent.PointerLeft)
+                emit(hwnd, WindowEvent.PointerLeft(null, position = null, primary = true, kind = PointerKind.Mouse))
                 0L
             }
 
             // ── Mouse buttons ─────────────────────────────────────────────────
             WM_LBUTTONDOWN.toUInt() -> {
-                emit(hwnd, WindowEvent.MouseInput(MouseButton.Left, KeyState.Pressed))
+                emit(hwnd, pointerButton(MouseButton.Left, KeyState.Pressed, lParam))
                 0L
             }
             WM_LBUTTONUP.toUInt() -> {
-                emit(hwnd, WindowEvent.MouseInput(MouseButton.Left, KeyState.Released))
+                emit(hwnd, pointerButton(MouseButton.Left, KeyState.Released, lParam))
                 0L
             }
             WM_RBUTTONDOWN.toUInt() -> {
-                emit(hwnd, WindowEvent.MouseInput(MouseButton.Right, KeyState.Pressed))
+                emit(hwnd, pointerButton(MouseButton.Right, KeyState.Pressed, lParam))
                 0L
             }
             WM_RBUTTONUP.toUInt() -> {
-                emit(hwnd, WindowEvent.MouseInput(MouseButton.Right, KeyState.Released))
+                emit(hwnd, pointerButton(MouseButton.Right, KeyState.Released, lParam))
                 0L
             }
             WM_MBUTTONDOWN.toUInt() -> {
-                emit(hwnd, WindowEvent.MouseInput(MouseButton.Middle, KeyState.Pressed))
+                emit(hwnd, pointerButton(MouseButton.Middle, KeyState.Pressed, lParam))
                 0L
             }
             WM_MBUTTONUP.toUInt() -> {
-                emit(hwnd, WindowEvent.MouseInput(MouseButton.Middle, KeyState.Released))
+                emit(hwnd, pointerButton(MouseButton.Middle, KeyState.Released, lParam))
                 0L
             }
 
@@ -270,14 +295,14 @@ object KadreWndProc {
                 // HIWORD(wParam) = X button number (XBUTTON1 = 1, XBUTTON2 = 2)
                 val xButton = ((wParam ushr 16) and 0xFFFF).toInt()
                 val button = MouseButton.Other(xButton)
-                emit(hwnd, WindowEvent.MouseInput(button, KeyState.Pressed))
+                emit(hwnd, pointerButton(button, KeyState.Pressed, lParam))
                 // WM_XBUTTONDOWN must return TRUE (non-zero) per the Win32 docs
                 1L
             }
             WM_XBUTTONUP.toUInt() -> {
                 val xButton = ((wParam ushr 16) and 0xFFFF).toInt()
                 val button = MouseButton.Other(xButton)
-                emit(hwnd, WindowEvent.MouseInput(button, KeyState.Released))
+                emit(hwnd, pointerButton(button, KeyState.Released, lParam))
                 // WM_XBUTTONUP must return TRUE (non-zero) per the Win32 docs
                 1L
             }
@@ -287,7 +312,7 @@ object KadreWndProc {
                 // wParam: HIWORD = signed delta (multiple of WHEEL_DELTA = 120)
                 val rawDelta = ((wParam ushr 16) and 0xFFFF).toShort().toInt()
                 val deltaY   = rawDelta.toDouble() / WHEEL_DELTA
-                emit(hwnd, WindowEvent.MouseWheel(deltaX = 0.0, deltaY = deltaY))
+                emit(hwnd, WindowEvent.MouseWheel(null, deltaX = 0.0, deltaY = deltaY, phase = TouchPhase.Moved))
                 0L
             }
 
@@ -488,7 +513,7 @@ object KadreWndProc {
 
     /**
      * Handles a WM_TOUCH message: reads every contact via GetTouchInputInfo,
-     * emits a [WindowEvent.Touch] per contact, then releases the touch handle.
+     * emits pointer events per contact, then releases the touch handle.
      *
      * On macOS/Linux (getTouchInputInfo null) this is a no-op — no event is
      * emitted and the message is silently consumed.
@@ -515,7 +540,7 @@ object KadreWndProc {
                 ) as Int
                 if (ok != 0) {
                     for (i in 0 until cInputs) {
-                        emit(hwnd, decodeTouchInput(buffer, i))
+                        decodeTouchInput(buffer, i).forEach { event -> emit(hwnd, event) }
                     }
                 }
             }
@@ -528,7 +553,7 @@ object KadreWndProc {
 
     /**
      * Decodes the TOUCHINPUT at [index] in a buffer of contiguous TOUCHINPUT
-     * structures into a [WindowEvent.Touch].
+     * structures into one or more pointer events.
      *
      * Pure function (no native call) so it can be unit-tested with a synthetic
      * buffer on any platform.
@@ -546,7 +571,7 @@ object KadreWndProc {
      * @param buffer Native (or heap) segment holding one or more TOUCHINPUT structs.
      * @param index  Zero-based index of the contact to decode.
      */
-    internal fun decodeTouchInput(buffer: MemorySegment, index: Int): WindowEvent.Touch {
+    internal fun decodeTouchInput(buffer: MemorySegment, index: Int): List<WindowEvent> {
         val base = index.toLong() * TOUCHINPUT_SIZE
         val rawX = buffer.get(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_X)
         val rawY = buffer.get(ValueLayout.JAVA_INT, base + TOUCHINPUT_OFFSET_Y)
@@ -564,6 +589,37 @@ object KadreWndProc {
             rawX.toDouble() / TOUCH_COORD_SCALE,
             rawY.toDouble() / TOUCH_COORD_SCALE,
         )
-        return WindowEvent.Touch(phase, location, id)
+        val fingerId = FingerId(id)
+        return when (phase) {
+            TouchPhase.Started -> listOf(
+                WindowEvent.PointerEntered(null, location, primary = true, kind = PointerKind.Touch),
+                WindowEvent.PointerButton(null, KeyState.Pressed, location, primary = true, ButtonSource.Touch(fingerId)),
+            )
+            TouchPhase.Moved -> listOf(
+                WindowEvent.PointerMoved(null, location, primary = true, source = PointerSource.Touch(fingerId)),
+            )
+            TouchPhase.Ended -> listOf(
+                WindowEvent.PointerButton(null, KeyState.Released, location, primary = true, ButtonSource.Touch(fingerId)),
+                WindowEvent.PointerLeft(null, location, primary = true, kind = PointerKind.Touch),
+            )
+            TouchPhase.Cancelled -> listOf(
+                WindowEvent.PointerLeft(null, location, primary = true, kind = PointerKind.Touch),
+            )
+        }
     }
+
+    private fun pointerButton(button: MouseButton, state: KeyState, lParam: Long): WindowEvent.PointerButton =
+        WindowEvent.PointerButton(
+            deviceId = null,
+            state = state,
+            position = mousePosition(lParam),
+            primary = true,
+            button = ButtonSource.Mouse(button),
+        )
+
+    private fun mousePosition(lParam: Long): PhysicalPosition<Double> =
+        PhysicalPosition(
+            x = (lParam and 0xFFFF).toShort().toDouble(),
+            y = ((lParam ushr 16) and 0xFFFF).toShort().toDouble(),
+        )
 }

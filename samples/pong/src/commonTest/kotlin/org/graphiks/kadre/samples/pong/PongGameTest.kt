@@ -12,6 +12,7 @@ import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
@@ -105,6 +106,7 @@ class FakeWindow : Window {
     override fun setTransparent(transparent: Boolean) {}
     override fun setBlur(blur: Boolean) {}
     override fun setWindowIcon(icon: Icon?) {}
+    override fun resetDeadKeys() {}
 }
 
 /** Fake EventLoop — records the calls. */
@@ -119,8 +121,8 @@ class FakeEventLoop : ActiveEventLoop {
         return win
     }
 
-    override fun setControlFlow(newFlow: ControlFlow) {
-        _controlFlow = newFlow
+    override fun setControlFlow(controlFlow: ControlFlow) {
+        _controlFlow = controlFlow
     }
 
     override val controlFlow: ControlFlow get() = _controlFlow
@@ -141,6 +143,9 @@ class FakeEventLoop : ActiveEventLoop {
 
     // R3 stub
     override fun systemTheme(): Theme? = null
+
+    // R4 stub
+    override fun listenDeviceEvents(mode: DeviceEvents) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +305,7 @@ class PongGameTest {
             eventLoop,
             WindowId(1L),
             WindowEvent.KeyboardInput(
+                deviceId = null,
                 key = org.graphiks.kadre.core.Key.ArrowUp,
                 state = org.graphiks.kadre.core.KeyState.Pressed,
                 modifiers = org.graphiks.kadre.core.Modifiers.NONE,
@@ -315,7 +321,7 @@ class PongGameTest {
     @Test
     fun `unknown event is ignored`() {
         val (game, renderer, eventLoop) = makeGame()
-        game.windowEvent(eventLoop, WindowId(1L), "unknownEvent")
+        game.windowEvent(eventLoop, WindowId(1L), WindowEvent.Moved(PhysicalPosition(12, 34)))
         assertEquals(0, renderer.drawCount)
         assertFalse(eventLoop.exited)
     }

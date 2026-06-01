@@ -11,11 +11,17 @@ import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.Modifiers
 import org.graphiks.kadre.core.MouseButton
+import org.graphiks.kadre.core.ButtonSource
+import org.graphiks.kadre.core.FingerId
+import org.graphiks.kadre.core.PhysicalPosition
+import org.graphiks.kadre.core.PointerKind
+import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 // ============================================================================
@@ -339,30 +345,48 @@ class WaylandMouseMapperTest {
     // ── mapWaylandPointerButton ───────────────────────────────────────────────
 
     @Test
-    fun `mapWaylandPointerButton BTN_LEFT pressed returns MouseInput Left Pressed`() {
-        val event = mapWaylandPointerButton(button = BTN_LEFT, state = WL_POINTER_BUTTON_STATE_PRESSED)
-        assertEquals(MouseButton.Left, event.button)
+    fun `mapWaylandPointerButton BTN_LEFT pressed returns PointerButton Left Pressed`() {
+        val event = mapWaylandPointerButton(
+            button = BTN_LEFT,
+            state = WL_POINTER_BUTTON_STATE_PRESSED,
+            position = PhysicalPosition(12.0, 34.0),
+        )
+        assertEquals(ButtonSource.Mouse(MouseButton.Left), event.button)
         assertEquals(KeyState.Pressed, event.state)
+        assertEquals(12.0, event.position.x)
+        assertEquals(34.0, event.position.y)
     }
 
     @Test
-    fun `mapWaylandPointerButton BTN_RIGHT released returns MouseInput Right Released`() {
-        val event = mapWaylandPointerButton(button = BTN_RIGHT, state = WL_POINTER_BUTTON_STATE_RELEASED)
-        assertEquals(MouseButton.Right, event.button)
+    fun `mapWaylandPointerButton BTN_RIGHT released returns PointerButton Right Released`() {
+        val event = mapWaylandPointerButton(
+            button = BTN_RIGHT,
+            state = WL_POINTER_BUTTON_STATE_RELEASED,
+            position = PhysicalPosition(12.0, 34.0),
+        )
+        assertEquals(ButtonSource.Mouse(MouseButton.Right), event.button)
         assertEquals(KeyState.Released, event.state)
     }
 
     @Test
-    fun `mapWaylandPointerButton BTN_MIDDLE pressed returns MouseInput Middle Pressed`() {
-        val event = mapWaylandPointerButton(button = BTN_MIDDLE, state = WL_POINTER_BUTTON_STATE_PRESSED)
-        assertEquals(MouseButton.Middle, event.button)
+    fun `mapWaylandPointerButton BTN_MIDDLE pressed returns PointerButton Middle Pressed`() {
+        val event = mapWaylandPointerButton(
+            button = BTN_MIDDLE,
+            state = WL_POINTER_BUTTON_STATE_PRESSED,
+            position = PhysicalPosition(12.0, 34.0),
+        )
+        assertEquals(ButtonSource.Mouse(MouseButton.Middle), event.button)
         assertEquals(KeyState.Pressed, event.state)
     }
 
     @Test
-    fun `mapWaylandPointerButton returns WindowEvent_MouseInput`() {
-        val event = mapWaylandPointerButton(button = BTN_LEFT, state = WL_POINTER_BUTTON_STATE_PRESSED)
-        assertTrue(event is WindowEvent.MouseInput)
+    fun `mapWaylandPointerButton returns WindowEvent_PointerButton`() {
+        val event = mapWaylandPointerButton(
+            button = BTN_LEFT,
+            state = WL_POINTER_BUTTON_STATE_PRESSED,
+            position = PhysicalPosition(12.0, 34.0),
+        )
+        assertIs<WindowEvent.PointerButton>(event)
     }
 
     // ── mapWaylandPointerAxis ─────────────────────────────────────────────────
@@ -406,71 +430,83 @@ class WaylandTouchMapperTest {
     // ── mapWaylandTouchDown ───────────────────────────────────────────────────
 
     @Test
-    fun `mapWaylandTouchDown produces Touch with Started phase`() {
-        val event = mapWaylandTouchDown(id = 0, xFixed = 256, yFixed = 512)
-        assertTrue(event is WindowEvent.Touch)
-        assertEquals(TouchPhase.Started, event.phase)
+    fun `mapWaylandTouchDown produces enter and press`() {
+        val events = mapWaylandTouchDown(id = 0, xFixed = 256, yFixed = 512)
+        assertIs<WindowEvent.PointerEntered>(events[0])
+        assertIs<WindowEvent.PointerButton>(events[1]).also { event ->
+            assertEquals(KeyState.Pressed, event.state)
+            assertEquals(ButtonSource.Touch(FingerId(0L)), event.button)
+        }
     }
 
     @Test
     fun `mapWaylandTouchDown converts wl_fixed coordinates correctly`() {
         // x = 10.0 → wl_fixed = 10 * 256 = 2560; y = 20.0 → 5120
-        val event = mapWaylandTouchDown(id = 1, xFixed = 2560, yFixed = 5120)
-        assertEquals(10.0, event.location.x)
-        assertEquals(20.0, event.location.y)
+        val event = assertIs<WindowEvent.PointerButton>(mapWaylandTouchDown(id = 1, xFixed = 2560, yFixed = 5120)[1])
+        assertEquals(10.0, event.position.x)
+        assertEquals(20.0, event.position.y)
     }
 
     @Test
-    fun `mapWaylandTouchDown preserves touch id`() {
-        val event = mapWaylandTouchDown(id = 3, xFixed = 0, yFixed = 0)
-        assertEquals(3L, event.id)
+    fun `mapWaylandTouchDown preserves finger id`() {
+        val event = assertIs<WindowEvent.PointerButton>(mapWaylandTouchDown(id = 3, xFixed = 0, yFixed = 0)[1])
+        assertEquals(ButtonSource.Touch(FingerId(3L)), event.button)
     }
 
     // ── mapWaylandTouchUp ─────────────────────────────────────────────────────
 
     @Test
-    fun `mapWaylandTouchUp produces Touch with Ended phase`() {
-        val event = mapWaylandTouchUp(id = 0)
-        assertTrue(event is WindowEvent.Touch)
-        assertEquals(TouchPhase.Ended, event.phase)
+    fun `mapWaylandTouchUp produces release and leave`() {
+        val events = mapWaylandTouchUp(id = 0, location = PhysicalPosition(1.0, 2.0))
+        assertIs<WindowEvent.PointerButton>(events[0]).also { event ->
+            assertEquals(KeyState.Released, event.state)
+            assertEquals(ButtonSource.Touch(FingerId(0L)), event.button)
+        }
+        assertIs<WindowEvent.PointerLeft>(events[1]).also { event ->
+            assertEquals(PointerKind.Touch, event.kind)
+        }
     }
 
     @Test
-    fun `mapWaylandTouchUp preserves touch id`() {
-        val event = mapWaylandTouchUp(id = 5)
-        assertEquals(5L, event.id)
+    fun `mapWaylandTouchUp preserves finger id`() {
+        val event = assertIs<WindowEvent.PointerButton>(mapWaylandTouchUp(id = 5, location = PhysicalPosition(1.0, 2.0))[0])
+        assertEquals(ButtonSource.Touch(FingerId(5L)), event.button)
     }
 
     // ── mapWaylandTouchMotion ─────────────────────────────────────────────────
 
     @Test
-    fun `mapWaylandTouchMotion produces Touch with Moved phase`() {
+    fun `mapWaylandTouchMotion produces PointerMoved`() {
         val event = mapWaylandTouchMotion(id = 0, xFixed = 256, yFixed = 256)
-        assertTrue(event is WindowEvent.Touch)
-        assertEquals(TouchPhase.Moved, event.phase)
+        assertIs<WindowEvent.PointerMoved>(event)
+        assertEquals(PointerSource.Touch(FingerId(0L)), event.source)
     }
 
     @Test
     fun `mapWaylandTouchMotion converts wl_fixed coordinates correctly`() {
         // x = 5.0 → 1280; y = 7.5 → 1920
         val event = mapWaylandTouchMotion(id = 2, xFixed = 1280, yFixed = 1920)
-        assertEquals(5.0, event.location.x)
-        assertEquals(7.5, event.location.y)
+        assertEquals(5.0, event.position.x)
+        assertEquals(7.5, event.position.y)
     }
 
     // ── mapWaylandTouchCancel ─────────────────────────────────────────────────
 
     @Test
-    fun `mapWaylandTouchCancel produces Touch with Cancelled phase`() {
-        val event = mapWaylandTouchCancel(id = 0)
-        assertTrue(event is WindowEvent.Touch)
-        assertEquals(TouchPhase.Cancelled, event.phase)
+    fun `mapWaylandTouchCancel produces release and leave`() {
+        val events = mapWaylandTouchCancel(id = 0, location = PhysicalPosition(1.0, 2.0))
+        assertIs<WindowEvent.PointerButton>(events[0]).also { event ->
+            assertEquals(KeyState.Released, event.state)
+        }
+        assertIs<WindowEvent.PointerLeft>(events[1]).also { event ->
+            assertEquals(PointerKind.Touch, event.kind)
+        }
     }
 
     @Test
-    fun `mapWaylandTouchCancel preserves touch id`() {
-        val event = mapWaylandTouchCancel(id = 7)
-        assertEquals(7L, event.id)
+    fun `mapWaylandTouchCancel preserves finger id`() {
+        val event = assertIs<WindowEvent.PointerButton>(mapWaylandTouchCancel(id = 7, location = PhysicalPosition(1.0, 2.0))[0])
+        assertEquals(ButtonSource.Touch(FingerId(7L)), event.button)
     }
 }
 

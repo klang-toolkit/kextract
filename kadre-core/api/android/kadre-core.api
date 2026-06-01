@@ -38,6 +38,61 @@ public final class org/graphiks/kadre/core/ApplicationHandler$DefaultImpls {
 	public static fun suspended (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;)V
 }
 
+public abstract interface class org/graphiks/kadre/core/ButtonSource {
+}
+
+public final class org/graphiks/kadre/core/ButtonSource$Mouse : org/graphiks/kadre/core/ButtonSource {
+	public fun <init> (Lorg/graphiks/kadre/core/MouseButton;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/MouseButton;
+	public final fun copy (Lorg/graphiks/kadre/core/MouseButton;)Lorg/graphiks/kadre/core/ButtonSource$Mouse;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/ButtonSource$Mouse;Lorg/graphiks/kadre/core/MouseButton;ILjava/lang/Object;)Lorg/graphiks/kadre/core/ButtonSource$Mouse;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getButton ()Lorg/graphiks/kadre/core/MouseButton;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/ButtonSource$TabletTool : org/graphiks/kadre/core/ButtonSource {
+	public fun <init> (Lorg/graphiks/kadre/core/TabletToolKind;Lorg/graphiks/kadre/core/TabletToolButton;Lorg/graphiks/kadre/core/TabletToolData;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/TabletToolKind;Lorg/graphiks/kadre/core/TabletToolButton;Lorg/graphiks/kadre/core/TabletToolData;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/TabletToolKind;
+	public final fun component2 ()Lorg/graphiks/kadre/core/TabletToolButton;
+	public final fun component3 ()Lorg/graphiks/kadre/core/TabletToolData;
+	public final fun copy (Lorg/graphiks/kadre/core/TabletToolKind;Lorg/graphiks/kadre/core/TabletToolButton;Lorg/graphiks/kadre/core/TabletToolData;)Lorg/graphiks/kadre/core/ButtonSource$TabletTool;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/ButtonSource$TabletTool;Lorg/graphiks/kadre/core/TabletToolKind;Lorg/graphiks/kadre/core/TabletToolButton;Lorg/graphiks/kadre/core/TabletToolData;ILjava/lang/Object;)Lorg/graphiks/kadre/core/ButtonSource$TabletTool;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getButton ()Lorg/graphiks/kadre/core/TabletToolButton;
+	public final fun getData ()Lorg/graphiks/kadre/core/TabletToolData;
+	public final fun getKind ()Lorg/graphiks/kadre/core/TabletToolKind;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/ButtonSource$Touch : org/graphiks/kadre/core/ButtonSource {
+	public synthetic fun <init> (JLorg/graphiks/kadre/core/TouchForce;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (JLorg/graphiks/kadre/core/TouchForce;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-RFNoJCg ()J
+	public final fun component2 ()Lorg/graphiks/kadre/core/TouchForce;
+	public final fun copy-ws08vPg (JLorg/graphiks/kadre/core/TouchForce;)Lorg/graphiks/kadre/core/ButtonSource$Touch;
+	public static synthetic fun copy-ws08vPg$default (Lorg/graphiks/kadre/core/ButtonSource$Touch;JLorg/graphiks/kadre/core/TouchForce;ILjava/lang/Object;)Lorg/graphiks/kadre/core/ButtonSource$Touch;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFingerId-RFNoJCg ()J
+	public final fun getForce ()Lorg/graphiks/kadre/core/TouchForce;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/ButtonSource$Unknown : org/graphiks/kadre/core/ButtonSource {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lorg/graphiks/kadre/core/ButtonSource$Unknown;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/ButtonSource$Unknown;IILjava/lang/Object;)Lorg/graphiks/kadre/core/ButtonSource$Unknown;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract class org/graphiks/kadre/core/ControlFlow {
 }
 
@@ -216,6 +271,20 @@ public abstract interface class org/graphiks/kadre/core/EventLoopProxy {
 	public abstract fun wakeUp ()V
 }
 
+public final class org/graphiks/kadre/core/FingerId {
+	public static final synthetic fun box-impl (J)Lorg/graphiks/kadre/core/FingerId;
+	public static fun constructor-impl (J)J
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (JLjava/lang/Object;)Z
+	public static final fun equals-impl0 (JJ)Z
+	public final fun getValue ()J
+	public fun hashCode ()I
+	public static fun hashCode-impl (J)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (J)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()J
+}
+
 public final class org/graphiks/kadre/core/FrameTimingTracer {
 	public static final field INSTANCE Lorg/graphiks/kadre/core/FrameTimingTracer;
 	public final fun flush ()V
@@ -281,6 +350,35 @@ public final class org/graphiks/kadre/core/ImePurpose : java/lang/Enum {
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/ImePurpose;
 	public static fun values ()[Lorg/graphiks/kadre/core/ImePurpose;
+}
+
+public final class org/graphiks/kadre/core/InputCapabilities {
+	public fun <init> ()V
+	public fun <init> (ZZZZZZZZZ)V
+	public synthetic fun <init> (ZZZZZZZZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun component2 ()Z
+	public final fun component3 ()Z
+	public final fun component4 ()Z
+	public final fun component5 ()Z
+	public final fun component6 ()Z
+	public final fun component7 ()Z
+	public final fun component8 ()Z
+	public final fun component9 ()Z
+	public final fun copy (ZZZZZZZZZ)Lorg/graphiks/kadre/core/InputCapabilities;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/InputCapabilities;ZZZZZZZZZILjava/lang/Object;)Lorg/graphiks/kadre/core/InputCapabilities;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceIds ()Z
+	public final fun getDoubleTapGesture ()Z
+	public final fun getPanGesture ()Z
+	public final fun getPinchGesture ()Z
+	public final fun getRotationGesture ()Z
+	public final fun getTabletTool ()Z
+	public final fun getTouch ()Z
+	public final fun getTouchForce ()Z
+	public final fun getTouchpadPressure ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/Key : java/lang/Enum {
@@ -498,6 +596,61 @@ public final class org/graphiks/kadre/core/PhysicalSize {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/graphiks/kadre/core/PointerKind : java/lang/Enum {
+	public static final field Mouse Lorg/graphiks/kadre/core/PointerKind;
+	public static final field TabletTool Lorg/graphiks/kadre/core/PointerKind;
+	public static final field Touch Lorg/graphiks/kadre/core/PointerKind;
+	public static final field Unknown Lorg/graphiks/kadre/core/PointerKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/PointerKind;
+	public static fun values ()[Lorg/graphiks/kadre/core/PointerKind;
+}
+
+public abstract interface class org/graphiks/kadre/core/PointerSource {
+}
+
+public final class org/graphiks/kadre/core/PointerSource$Mouse : org/graphiks/kadre/core/PointerSource {
+	public static final field INSTANCE Lorg/graphiks/kadre/core/PointerSource$Mouse;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/PointerSource$TabletTool : org/graphiks/kadre/core/PointerSource {
+	public fun <init> (Lorg/graphiks/kadre/core/TabletToolKind;Lorg/graphiks/kadre/core/TabletToolData;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/TabletToolKind;Lorg/graphiks/kadre/core/TabletToolData;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/TabletToolKind;
+	public final fun component2 ()Lorg/graphiks/kadre/core/TabletToolData;
+	public final fun copy (Lorg/graphiks/kadre/core/TabletToolKind;Lorg/graphiks/kadre/core/TabletToolData;)Lorg/graphiks/kadre/core/PointerSource$TabletTool;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/PointerSource$TabletTool;Lorg/graphiks/kadre/core/TabletToolKind;Lorg/graphiks/kadre/core/TabletToolData;ILjava/lang/Object;)Lorg/graphiks/kadre/core/PointerSource$TabletTool;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()Lorg/graphiks/kadre/core/TabletToolData;
+	public final fun getKind ()Lorg/graphiks/kadre/core/TabletToolKind;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/PointerSource$Touch : org/graphiks/kadre/core/PointerSource {
+	public synthetic fun <init> (JLorg/graphiks/kadre/core/TouchForce;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (JLorg/graphiks/kadre/core/TouchForce;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-RFNoJCg ()J
+	public final fun component2 ()Lorg/graphiks/kadre/core/TouchForce;
+	public final fun copy-ws08vPg (JLorg/graphiks/kadre/core/TouchForce;)Lorg/graphiks/kadre/core/PointerSource$Touch;
+	public static synthetic fun copy-ws08vPg$default (Lorg/graphiks/kadre/core/PointerSource$Touch;JLorg/graphiks/kadre/core/TouchForce;ILjava/lang/Object;)Lorg/graphiks/kadre/core/PointerSource$Touch;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFingerId-RFNoJCg ()J
+	public final fun getForce ()Lorg/graphiks/kadre/core/TouchForce;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/PointerSource$Unknown : org/graphiks/kadre/core/PointerSource {
+	public static final field INSTANCE Lorg/graphiks/kadre/core/PointerSource$Unknown;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public abstract interface class org/graphiks/kadre/core/RawDisplayHandle {
 }
 
@@ -710,12 +863,79 @@ public final class org/graphiks/kadre/core/StartCause$WaitCancelled : org/graphi
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class org/graphiks/kadre/core/TabletToolButton : java/lang/Enum {
+	public static final field Barrel Lorg/graphiks/kadre/core/TabletToolButton;
+	public static final field Eraser Lorg/graphiks/kadre/core/TabletToolButton;
+	public static final field SecondaryBarrel Lorg/graphiks/kadre/core/TabletToolButton;
+	public static final field Tip Lorg/graphiks/kadre/core/TabletToolButton;
+	public static final field Unknown Lorg/graphiks/kadre/core/TabletToolButton;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/TabletToolButton;
+	public static fun values ()[Lorg/graphiks/kadre/core/TabletToolButton;
+}
+
+public final class org/graphiks/kadre/core/TabletToolData {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/Float;Ljava/lang/Float;Ljava/lang/Float;Ljava/lang/Float;)V
+	public synthetic fun <init> (Ljava/lang/Float;Ljava/lang/Float;Ljava/lang/Float;Ljava/lang/Float;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/Float;
+	public final fun component2 ()Ljava/lang/Float;
+	public final fun component3 ()Ljava/lang/Float;
+	public final fun component4 ()Ljava/lang/Float;
+	public final fun copy (Ljava/lang/Float;Ljava/lang/Float;Ljava/lang/Float;Ljava/lang/Float;)Lorg/graphiks/kadre/core/TabletToolData;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/TabletToolData;Ljava/lang/Float;Ljava/lang/Float;Ljava/lang/Float;Ljava/lang/Float;ILjava/lang/Object;)Lorg/graphiks/kadre/core/TabletToolData;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPressure ()Ljava/lang/Float;
+	public final fun getTiltX ()Ljava/lang/Float;
+	public final fun getTiltY ()Ljava/lang/Float;
+	public final fun getTwistDegrees ()Ljava/lang/Float;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/TabletToolKind : java/lang/Enum {
+	public static final field Cursor Lorg/graphiks/kadre/core/TabletToolKind;
+	public static final field Eraser Lorg/graphiks/kadre/core/TabletToolKind;
+	public static final field Pen Lorg/graphiks/kadre/core/TabletToolKind;
+	public static final field Unknown Lorg/graphiks/kadre/core/TabletToolKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/TabletToolKind;
+	public static fun values ()[Lorg/graphiks/kadre/core/TabletToolKind;
+}
+
 public final class org/graphiks/kadre/core/Theme : java/lang/Enum {
 	public static final field Dark Lorg/graphiks/kadre/core/Theme;
 	public static final field Light Lorg/graphiks/kadre/core/Theme;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/Theme;
 	public static fun values ()[Lorg/graphiks/kadre/core/Theme;
+}
+
+public abstract interface class org/graphiks/kadre/core/TouchForce {
+}
+
+public final class org/graphiks/kadre/core/TouchForce$Calibrated : org/graphiks/kadre/core/TouchForce {
+	public fun <init> (DD)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun copy (DD)Lorg/graphiks/kadre/core/TouchForce$Calibrated;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/TouchForce$Calibrated;DDILjava/lang/Object;)Lorg/graphiks/kadre/core/TouchForce$Calibrated;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getForce ()D
+	public final fun getMaxPossibleForce ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/TouchForce$Normalized : org/graphiks/kadre/core/TouchForce {
+	public fun <init> (D)V
+	public final fun component1 ()D
+	public final fun copy (D)Lorg/graphiks/kadre/core/TouchForce$Normalized;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/TouchForce$Normalized;DILjava/lang/Object;)Lorg/graphiks/kadre/core/TouchForce$Normalized;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/TouchPhase : java/lang/Enum {
@@ -766,6 +986,7 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun getScaleFactor ()D
 	public abstract fun getTheme ()Lorg/graphiks/kadre/core/Theme;
 	public abstract fun getTitle ()Ljava/lang/String;
+	public fun inputCapabilities ()Lorg/graphiks/kadre/core/InputCapabilities;
 	public abstract fun isDecorated ()Z
 	public abstract fun isMaximized ()Z
 	public abstract fun isMinimized ()Z
@@ -806,6 +1027,7 @@ public abstract interface class org/graphiks/kadre/core/Window {
 public final class org/graphiks/kadre/core/Window$DefaultImpls {
 	public static fun dragResizeWindow (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/ResizeDirection;)V
 	public static fun dragWindow (Lorg/graphiks/kadre/core/Window;)V
+	public static fun inputCapabilities (Lorg/graphiks/kadre/core/Window;)Lorg/graphiks/kadre/core/InputCapabilities;
 	public static fun requestUserAttention (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/UserAttentionType;)V
 	public static fun setContentProtected (Lorg/graphiks/kadre/core/Window;Z)V
 	public static fun setCustomCursor (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/CustomCursor;)V
@@ -878,8 +1100,12 @@ public final class org/graphiks/kadre/core/WindowEvent$Destroyed : org/graphiks/
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$DoubleTapGesture : org/graphiks/kadre/core/WindowEvent {
-	public static final field INSTANCE Lorg/graphiks/kadre/core/WindowEvent$DoubleTapGesture;
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun copy-Bd9ltnw (Lorg/graphiks/kadre/core/DeviceId;)Lorg/graphiks/kadre/core/WindowEvent$DoubleTapGesture;
+	public static synthetic fun copy-Bd9ltnw$default (Lorg/graphiks/kadre/core/WindowEvent$DoubleTapGesture;Lorg/graphiks/kadre/core/DeviceId;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$DoubleTapGesture;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -1005,18 +1231,21 @@ public final class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Preedit : or
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$KeyboardInput : org/graphiks/kadre/core/WindowEvent {
-	public synthetic fun <init> (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public synthetic fun <init> (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Lorg/graphiks/kadre/core/Key;
-	public final fun component2 ()Lorg/graphiks/kadre/core/KeyState;
-	public final fun component3-yizPXk8 ()I
-	public final fun component4 ()Z
-	public final fun component5 ()Ljava/lang/String;
-	public final fun component6 ()Lorg/graphiks/kadre/core/KeyLocation;
-	public final fun component7 ()Ljava/lang/Integer;
-	public final fun copy-AD0OCrI (Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
-	public static synthetic fun copy-AD0OCrI$default (Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()Lorg/graphiks/kadre/core/Key;
+	public final fun component3 ()Lorg/graphiks/kadre/core/KeyState;
+	public final fun component4-yizPXk8 ()I
+	public final fun component5 ()Z
+	public final fun component6 ()Z
+	public final fun component7 ()Ljava/lang/String;
+	public final fun component8 ()Lorg/graphiks/kadre/core/KeyLocation;
+	public final fun component9 ()Ljava/lang/Integer;
+	public final fun copy-ACKXCmQ (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
+	public static synthetic fun copy-ACKXCmQ$default (Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public final fun getKey ()Lorg/graphiks/kadre/core/Key;
 	public final fun getLocation ()Lorg/graphiks/kadre/core/KeyLocation;
 	public final fun getModifiers-yizPXk8 ()I
@@ -1025,6 +1254,7 @@ public final class org/graphiks/kadre/core/WindowEvent$KeyboardInput : org/graph
 	public final fun getText ()Ljava/lang/String;
 	public fun hashCode ()I
 	public final fun isRepeat ()Z
+	public final fun isSynthetic ()Z
 	public fun toString ()Ljava/lang/String;
 }
 
@@ -1039,28 +1269,19 @@ public final class org/graphiks/kadre/core/WindowEvent$ModifiersChanged : org/gr
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/graphiks/kadre/core/WindowEvent$MouseInput : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (Lorg/graphiks/kadre/core/MouseButton;Lorg/graphiks/kadre/core/KeyState;)V
-	public final fun component1 ()Lorg/graphiks/kadre/core/MouseButton;
-	public final fun component2 ()Lorg/graphiks/kadre/core/KeyState;
-	public final fun copy (Lorg/graphiks/kadre/core/MouseButton;Lorg/graphiks/kadre/core/KeyState;)Lorg/graphiks/kadre/core/WindowEvent$MouseInput;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$MouseInput;Lorg/graphiks/kadre/core/MouseButton;Lorg/graphiks/kadre/core/KeyState;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$MouseInput;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getButton ()Lorg/graphiks/kadre/core/MouseButton;
-	public final fun getState ()Lorg/graphiks/kadre/core/KeyState;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
 public final class org/graphiks/kadre/core/WindowEvent$MouseWheel : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (DD)V
-	public final fun component1 ()D
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;DDLorg/graphiks/kadre/core/TouchPhase;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public final fun component2 ()D
-	public final fun copy (DD)Lorg/graphiks/kadre/core/WindowEvent$MouseWheel;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$MouseWheel;DDILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$MouseWheel;
+	public final fun component3 ()D
+	public final fun component4 ()Lorg/graphiks/kadre/core/TouchPhase;
+	public final fun copy-_E-g0jI (Lorg/graphiks/kadre/core/DeviceId;DDLorg/graphiks/kadre/core/TouchPhase;)Lorg/graphiks/kadre/core/WindowEvent$MouseWheel;
+	public static synthetic fun copy-_E-g0jI$default (Lorg/graphiks/kadre/core/WindowEvent$MouseWheel;Lorg/graphiks/kadre/core/DeviceId;DDLorg/graphiks/kadre/core/TouchPhase;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$MouseWheel;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDeltaX ()D
 	public final fun getDeltaY ()D
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun getPhase ()Lorg/graphiks/kadre/core/TouchPhase;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -1088,52 +1309,101 @@ public final class org/graphiks/kadre/core/WindowEvent$Occluded : org/graphiks/k
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$PanGesture : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/TouchPhase;)V
-	public final fun component1 ()Lorg/graphiks/kadre/core/PhysicalPosition;
-	public final fun component2 ()Lorg/graphiks/kadre/core/TouchPhase;
-	public final fun copy (Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/TouchPhase;)Lorg/graphiks/kadre/core/WindowEvent$PanGesture;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$PanGesture;Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/TouchPhase;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PanGesture;
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/TouchPhase;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun component3 ()Lorg/graphiks/kadre/core/TouchPhase;
+	public final fun copy-hWNbkOI (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/TouchPhase;)Lorg/graphiks/kadre/core/WindowEvent$PanGesture;
+	public static synthetic fun copy-hWNbkOI$default (Lorg/graphiks/kadre/core/WindowEvent$PanGesture;Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/TouchPhase;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PanGesture;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDelta ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public final fun getPhase ()Lorg/graphiks/kadre/core/TouchPhase;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$PinchGesture : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (DLorg/graphiks/kadre/core/TouchPhase;)V
-	public final fun component1 ()D
-	public final fun component2 ()Lorg/graphiks/kadre/core/TouchPhase;
-	public final fun copy (DLorg/graphiks/kadre/core/TouchPhase;)Lorg/graphiks/kadre/core/WindowEvent$PinchGesture;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$PinchGesture;DLorg/graphiks/kadre/core/TouchPhase;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PinchGesture;
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;DLorg/graphiks/kadre/core/TouchPhase;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()D
+	public final fun component3 ()Lorg/graphiks/kadre/core/TouchPhase;
+	public final fun copy-hWNbkOI (Lorg/graphiks/kadre/core/DeviceId;DLorg/graphiks/kadre/core/TouchPhase;)Lorg/graphiks/kadre/core/WindowEvent$PinchGesture;
+	public static synthetic fun copy-hWNbkOI$default (Lorg/graphiks/kadre/core/WindowEvent$PinchGesture;Lorg/graphiks/kadre/core/DeviceId;DLorg/graphiks/kadre/core/TouchPhase;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PinchGesture;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDelta ()D
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public final fun getPhase ()Lorg/graphiks/kadre/core/TouchPhase;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/graphiks/kadre/core/WindowEvent$PointerEntered : org/graphiks/kadre/core/WindowEvent {
-	public static final field INSTANCE Lorg/graphiks/kadre/core/WindowEvent$PointerEntered;
+public final class org/graphiks/kadre/core/WindowEvent$PointerButton : org/graphiks/kadre/core/WindowEvent {
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/KeyState;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/ButtonSource;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()Lorg/graphiks/kadre/core/KeyState;
+	public final fun component3 ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun component4 ()Z
+	public final fun component5 ()Lorg/graphiks/kadre/core/ButtonSource;
+	public final fun copy-T3DVnPA (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/KeyState;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/ButtonSource;)Lorg/graphiks/kadre/core/WindowEvent$PointerButton;
+	public static synthetic fun copy-T3DVnPA$default (Lorg/graphiks/kadre/core/WindowEvent$PointerButton;Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/KeyState;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/ButtonSource;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PointerButton;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getButton ()Lorg/graphiks/kadre/core/ButtonSource;
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun getPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun getPrimary ()Z
+	public final fun getState ()Lorg/graphiks/kadre/core/KeyState;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/WindowEvent$PointerEntered : org/graphiks/kadre/core/WindowEvent {
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerKind;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun component3 ()Z
+	public final fun component4 ()Lorg/graphiks/kadre/core/PointerKind;
+	public final fun copy-_E-g0jI (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerKind;)Lorg/graphiks/kadre/core/WindowEvent$PointerEntered;
+	public static synthetic fun copy-_E-g0jI$default (Lorg/graphiks/kadre/core/WindowEvent$PointerEntered;Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerKind;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PointerEntered;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun getKind ()Lorg/graphiks/kadre/core/PointerKind;
+	public final fun getPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun getPrimary ()Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$PointerLeft : org/graphiks/kadre/core/WindowEvent {
-	public static final field INSTANCE Lorg/graphiks/kadre/core/WindowEvent$PointerLeft;
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerKind;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun component3 ()Z
+	public final fun component4 ()Lorg/graphiks/kadre/core/PointerKind;
+	public final fun copy-_E-g0jI (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerKind;)Lorg/graphiks/kadre/core/WindowEvent$PointerLeft;
+	public static synthetic fun copy-_E-g0jI$default (Lorg/graphiks/kadre/core/WindowEvent$PointerLeft;Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerKind;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PointerLeft;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun getKind ()Lorg/graphiks/kadre/core/PointerKind;
+	public final fun getPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun getPrimary ()Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$PointerMoved : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (Lorg/graphiks/kadre/core/PhysicalPosition;)V
-	public final fun component1 ()Lorg/graphiks/kadre/core/PhysicalPosition;
-	public final fun copy (Lorg/graphiks/kadre/core/PhysicalPosition;)Lorg/graphiks/kadre/core/WindowEvent$PointerMoved;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$PointerMoved;Lorg/graphiks/kadre/core/PhysicalPosition;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PointerMoved;
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerSource;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun component3 ()Z
+	public final fun component4 ()Lorg/graphiks/kadre/core/PointerSource;
+	public final fun copy-_E-g0jI (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerSource;)Lorg/graphiks/kadre/core/WindowEvent$PointerMoved;
+	public static synthetic fun copy-_E-g0jI$default (Lorg/graphiks/kadre/core/WindowEvent$PointerMoved;Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/PhysicalPosition;ZLorg/graphiks/kadre/core/PointerSource;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$PointerMoved;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public final fun getPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public final fun getPrimary ()Z
+	public final fun getSource ()Lorg/graphiks/kadre/core/PointerSource;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -1157,13 +1427,15 @@ public final class org/graphiks/kadre/core/WindowEvent$Resized : org/graphiks/ka
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$RotationGesture : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (DLorg/graphiks/kadre/core/TouchPhase;)V
-	public final fun component1 ()D
-	public final fun component2 ()Lorg/graphiks/kadre/core/TouchPhase;
-	public final fun copy (DLorg/graphiks/kadre/core/TouchPhase;)Lorg/graphiks/kadre/core/WindowEvent$RotationGesture;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$RotationGesture;DLorg/graphiks/kadre/core/TouchPhase;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$RotationGesture;
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;FLorg/graphiks/kadre/core/TouchPhase;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()F
+	public final fun component3 ()Lorg/graphiks/kadre/core/TouchPhase;
+	public final fun copy-hWNbkOI (Lorg/graphiks/kadre/core/DeviceId;FLorg/graphiks/kadre/core/TouchPhase;)Lorg/graphiks/kadre/core/WindowEvent$RotationGesture;
+	public static synthetic fun copy-hWNbkOI$default (Lorg/graphiks/kadre/core/WindowEvent$RotationGesture;Lorg/graphiks/kadre/core/DeviceId;FLorg/graphiks/kadre/core/TouchPhase;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$RotationGesture;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getDelta ()D
+	public final fun getDeltaDegrees ()F
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public final fun getPhase ()Lorg/graphiks/kadre/core/TouchPhase;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -1191,30 +1463,17 @@ public final class org/graphiks/kadre/core/WindowEvent$ThemeChanged : org/graphi
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/graphiks/kadre/core/WindowEvent$Touch : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (Lorg/graphiks/kadre/core/TouchPhase;Lorg/graphiks/kadre/core/PhysicalPosition;J)V
-	public final fun component1 ()Lorg/graphiks/kadre/core/TouchPhase;
-	public final fun component2 ()Lorg/graphiks/kadre/core/PhysicalPosition;
-	public final fun component3 ()J
-	public final fun copy (Lorg/graphiks/kadre/core/TouchPhase;Lorg/graphiks/kadre/core/PhysicalPosition;J)Lorg/graphiks/kadre/core/WindowEvent$Touch;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$Touch;Lorg/graphiks/kadre/core/TouchPhase;Lorg/graphiks/kadre/core/PhysicalPosition;JILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$Touch;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getId ()J
-	public final fun getLocation ()Lorg/graphiks/kadre/core/PhysicalPosition;
-	public final fun getPhase ()Lorg/graphiks/kadre/core/TouchPhase;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
 public final class org/graphiks/kadre/core/WindowEvent$TouchpadPressure : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (FI)V
-	public final fun component1 ()F
-	public final fun component2 ()I
-	public final fun copy (FI)Lorg/graphiks/kadre/core/WindowEvent$TouchpadPressure;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$TouchpadPressure;FIILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$TouchpadPressure;
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;FJLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun component2 ()F
+	public final fun component3 ()J
+	public final fun copy-hWNbkOI (Lorg/graphiks/kadre/core/DeviceId;FJ)Lorg/graphiks/kadre/core/WindowEvent$TouchpadPressure;
+	public static synthetic fun copy-hWNbkOI$default (Lorg/graphiks/kadre/core/WindowEvent$TouchpadPressure;Lorg/graphiks/kadre/core/DeviceId;FJILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$TouchpadPressure;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public final fun getPressure ()F
-	public final fun getStage ()I
+	public final fun getStage ()J
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

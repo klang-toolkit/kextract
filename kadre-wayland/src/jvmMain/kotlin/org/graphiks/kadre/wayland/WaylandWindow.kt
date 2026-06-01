@@ -23,6 +23,7 @@ import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Theme
@@ -79,6 +80,9 @@ class WaylandWindow private constructor(
 
     override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Wayland(display = displayPtr)
+
+    override fun inputCapabilities(): InputCapabilities =
+        InputCapabilities()
 
     /**
      * Current inner size in physical pixels.

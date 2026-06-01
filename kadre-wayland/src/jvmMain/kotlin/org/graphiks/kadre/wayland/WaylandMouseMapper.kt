@@ -5,7 +5,7 @@
  *  - wl_pointer.enter  → [WindowEvent.PointerEntered]
  *  - wl_pointer.leave  → [WindowEvent.PointerLeft]
  *  - wl_pointer.motion → [WindowEvent.PointerMoved]
- *  - wl_pointer.button → [WindowEvent.MouseInput]
+ *  - wl_pointer.button → [WindowEvent.PointerButton]
  *  - wl_pointer.axis   → [WindowEvent.MouseWheel]
  *
  * ## wl_fixed coordinates
@@ -28,8 +28,11 @@
 package org.graphiks.kadre.wayland
 
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
+import org.graphiks.kadre.core.PointerSource
+import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
 
 // ---------------------------------------------------------------------------
@@ -122,23 +125,30 @@ fun waylandButtonStateToKeyState(state: Int): KeyState = when (state) {
  */
 fun mapWaylandPointerMotion(xFixed: Int, yFixed: Int): WindowEvent.PointerMoved =
     WindowEvent.PointerMoved(
+        deviceId = null,
         position = PhysicalPosition(
             x = wlFixedToDouble(xFixed),
             y = wlFixedToDouble(yFixed),
-        )
+        ),
+        primary = true,
+        source = PointerSource.Mouse,
     )
 
 /**
- * Builds a [WindowEvent.MouseInput] from a wl_pointer.button event.
+ * Builds a [WindowEvent.PointerButton] from a wl_pointer.button event.
  *
  * @param button Linux evdev button code (BTN_LEFT, BTN_RIGHT, etc.).
  * @param state  wl_pointer_button_state value (0 = released, 1 = pressed).
- * @return The corresponding mouse input event.
+ * @param position Last known pointer position from wl_pointer.enter/motion.
+ * @return The corresponding pointer button event.
  */
-fun mapWaylandPointerButton(button: Int, state: Int): WindowEvent.MouseInput =
-    WindowEvent.MouseInput(
-        button = linuxButtonToMouseButton(button),
-        state  = waylandButtonStateToKeyState(state),
+fun mapWaylandPointerButton(button: Int, state: Int, position: PhysicalPosition<Double>): WindowEvent.PointerButton =
+    WindowEvent.PointerButton(
+        deviceId = null,
+        state = waylandButtonStateToKeyState(state),
+        position = position,
+        primary = true,
+        button = ButtonSource.Mouse(linuxButtonToMouseButton(button)),
     )
 
 /**
@@ -151,8 +161,8 @@ fun mapWaylandPointerButton(button: Int, state: Int): WindowEvent.MouseInput =
 fun mapWaylandPointerAxis(axis: Int, valueFixed: Int): WindowEvent.MouseWheel {
     val value = wlFixedToDouble(valueFixed)
     return when (axis) {
-        WL_POINTER_AXIS_VERTICAL_SCROLL   -> WindowEvent.MouseWheel(deltaX = 0.0, deltaY = value)
-        WL_POINTER_AXIS_HORIZONTAL_SCROLL -> WindowEvent.MouseWheel(deltaX = value, deltaY = 0.0)
-        else                               -> WindowEvent.MouseWheel(deltaX = 0.0, deltaY = 0.0)
+        WL_POINTER_AXIS_VERTICAL_SCROLL   -> WindowEvent.MouseWheel(null, deltaX = 0.0, deltaY = value, phase = TouchPhase.Moved)
+        WL_POINTER_AXIS_HORIZONTAL_SCROLL -> WindowEvent.MouseWheel(null, deltaX = value, deltaY = 0.0, phase = TouchPhase.Moved)
+        else                               -> WindowEvent.MouseWheel(null, deltaX = 0.0, deltaY = 0.0, phase = TouchPhase.Moved)
     }
 }

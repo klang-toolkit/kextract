@@ -228,10 +228,12 @@ object X11KeyMapper {
         // R4: scanCode = X11 hardware keycode (independent of layout)
         // R4: text = null (TODO: XLookupString / Xutf8LookupString not yet wired as FFM binding)
         return WindowEvent.KeyboardInput(
+            deviceId = null,
             key = key,
             state = keyState,
             modifiers = modifiers,
             isRepeat = isRepeat,
+            isSynthetic = false,
             text = null,          // TODO(R4-x11-text): wire XLookupString / Xutf8LookupString
             scanCode = keycode,   // X11 hardware keycode is the scan code equivalent
         )

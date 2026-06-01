@@ -9,6 +9,7 @@ package org.graphiks.kadre.test
 
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MouseButton
@@ -77,9 +78,9 @@ class ScriptedEventLoopTest {
 
         assertEquals(3, handler.received.size)
         assertTrue(handler.received[0] is WindowEvent.PointerMoved)
-        assertTrue(handler.received[1] is WindowEvent.MouseInput)
-        val click = handler.received[1] as WindowEvent.MouseInput
-        assertEquals(MouseButton.Left, click.button)
+        assertTrue(handler.received[1] is WindowEvent.PointerButton)
+        val click = handler.received[1] as WindowEvent.PointerButton
+        assertEquals(ButtonSource.Mouse(MouseButton.Left), click.button)
     }
 
     @Test

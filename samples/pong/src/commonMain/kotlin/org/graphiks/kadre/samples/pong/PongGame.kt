@@ -89,12 +89,19 @@ class PongGame(
                 eventLoop.exit()
             }
             is WindowEvent.KeyboardInput -> inputAdapter.onKey(event)
-            is WindowEvent.Touch -> {
+            is WindowEvent.PointerButton -> {
                 val win = window
                 if (win != null) {
-                    inputAdapter.onTouch(event, win.innerSize)
+                    inputAdapter.onPointerButton(event, win.innerSize)
                 }
             }
+            is WindowEvent.PointerMoved -> {
+                val win = window
+                if (win != null) {
+                    inputAdapter.onPointerMoved(event, win.innerSize)
+                }
+            }
+            is WindowEvent.PointerLeft -> inputAdapter.onPointerLeft(event)
             else -> Unit
         }
     }
@@ -128,4 +135,3 @@ class PongGame(
         renderer = null
     }
 }
-

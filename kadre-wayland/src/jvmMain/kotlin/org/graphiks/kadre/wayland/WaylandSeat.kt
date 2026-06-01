@@ -33,6 +33,8 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.PhysicalPosition
+import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.WindowEvent
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
@@ -162,12 +164,15 @@ private class WlKeyboardListener(
 private class WlPointerListener(
     private val onEvent: (WindowEvent) -> Unit,
 ) {
+    private var lastPosition: PhysicalPosition<Double> = PhysicalPosition(0.0, 0.0)
+
     @Suppress("UNUSED_PARAMETER")
     fun onEnter(
         data: MemorySegment, pointer: MemorySegment,
         serial: Int, surface: MemorySegment, xFixed: Int, yFixed: Int,
     ) {
-        onEvent(WindowEvent.PointerEntered)
+        lastPosition = PhysicalPosition(wlFixedToDouble(xFixed), wlFixedToDouble(yFixed))
+        onEvent(WindowEvent.PointerEntered(null, lastPosition, primary = true, kind = PointerKind.Mouse))
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -175,7 +180,7 @@ private class WlPointerListener(
         data: MemorySegment, pointer: MemorySegment,
         serial: Int, surface: MemorySegment,
     ) {
-        onEvent(WindowEvent.PointerLeft)
+        onEvent(WindowEvent.PointerLeft(null, lastPosition, primary = true, kind = PointerKind.Mouse))
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -183,7 +188,9 @@ private class WlPointerListener(
         data: MemorySegment, pointer: MemorySegment,
         time: Int, xFixed: Int, yFixed: Int,
     ) {
-        onEvent(mapWaylandPointerMotion(xFixed, yFixed))
+        val event = mapWaylandPointerMotion(xFixed, yFixed)
+        lastPosition = event.position
+        onEvent(event)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -191,7 +198,7 @@ private class WlPointerListener(
         data: MemorySegment, pointer: MemorySegment,
         serial: Int, time: Int, button: Int, state: Int,
     ) {
-        onEvent(mapWaylandPointerButton(button, state))
+        onEvent(mapWaylandPointerButton(button, state, lastPosition))
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -206,7 +213,7 @@ private class WlPointerListener(
 // ── wl_touch listener ─────────────────────────────────────────────────────────
 
 /**
- * wl_touch listener that emits [WindowEvent.Touch] events.
+ * wl_touch listener that emits pointer events.
  *
  * wl_touch_listener vtable order:
  *   0: down, 1: up, 2: motion, 3: frame, 4: cancel.
@@ -228,7 +235,7 @@ private class WlTouchListener(
         val x = wlFixedToDouble(xFixed)
         val y = wlFixedToDouble(yFixed)
         lastPositions[id] = x to y
-        onEvent(mapWaylandTouchDown(id, xFixed, yFixed))
+        mapWaylandTouchDown(id, xFixed, yFixed).forEach(onEvent)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -237,14 +244,8 @@ private class WlTouchListener(
         serial: Int, time: Int, id: Int,
     ) {
         val (lx, ly) = lastPositions.remove(id) ?: (0.0 to 0.0)
-        // Build the Ended event with the last known location (wl_touch.up has no coords).
-        onEvent(
-            org.graphiks.kadre.core.WindowEvent.Touch(
-                phase    = org.graphiks.kadre.core.TouchPhase.Ended,
-                location = org.graphiks.kadre.core.PhysicalPosition(lx, ly),
-                id       = id.toLong(),
-            )
-        )
+        // Build terminal events with the last known location (wl_touch.up has no coords).
+        mapWaylandTouchUp(id, PhysicalPosition(lx, ly)).forEach(onEvent)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -265,7 +266,8 @@ private class WlTouchListener(
     fun onCancel(data: MemorySegment, touch: MemorySegment) {
         // Cancel ALL active contacts.
         for (id in lastPositions.keys.toList()) {
-            onEvent(mapWaylandTouchCancel(id))
+            val (lx, ly) = lastPositions[id] ?: (0.0 to 0.0)
+            mapWaylandTouchCancel(id, PhysicalPosition(lx, ly)).forEach(onEvent)
         }
         lastPositions.clear()
     }

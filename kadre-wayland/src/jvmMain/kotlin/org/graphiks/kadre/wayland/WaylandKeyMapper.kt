@@ -166,6 +166,7 @@ fun mapWaylandKeyEvent(
     state: Int,
     modifiers: Modifiers = Modifiers.NONE,
 ): WindowEvent.KeyboardInput = WindowEvent.KeyboardInput(
+    deviceId  = null,
     key       = linuxKeycodeToKey(keycode),
     state     = waylandKeyStateToKeyState(state),
     modifiers = modifiers,

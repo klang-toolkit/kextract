@@ -51,8 +51,8 @@ class HelloWindowWebApp : ApplicationHandler {
                 println("[HelloWindowWeb] PointerEntered")
             is WindowEvent.PointerLeft ->
                 println("[HelloWindowWeb] PointerLeft")
-            is WindowEvent.MouseInput ->
-                println("[HelloWindowWeb] MouseInput ${event.state} button=${event.button}")
+            is WindowEvent.PointerButton ->
+                println("[HelloWindowWeb] PointerButton ${event.state} button=${event.button}")
             is WindowEvent.MouseWheel ->
                 println("[HelloWindowWeb] MouseWheel dx=${event.deltaX} dy=${event.deltaY}")
             is WindowEvent.RedrawRequested ->

@@ -22,13 +22,10 @@
  * Refactored eventLoop from static → scoped instance.
  *
  * ## Touch events — intentionally not mapped
- * [WindowEvent.Touch] is **not** emitted on AppKit. macOS exposes no
+ * Direct touch pointer events are **not** emitted on AppKit. macOS exposes no
  * touchscreen API; the only touch source is the trackpad (`NSTouch` via
  * `touchesBeganWithEvent:`), which reports *indirect* contacts in a normalized
- * 0..1 space with no relation to window/client pixels. Mapping those to
- * [WindowEvent.Touch] (which carries physical-pixel locations from a direct
- * touchscreen) would be misleading, so it is left out. Touch is supported on
- * the touchscreen-capable backends (Web and Win32 via WM_TOUCH).
+ * 0..1 space with no relation to window/client pixels.
  */
 package org.graphiks.kadre.appkit
 
@@ -36,6 +33,7 @@ import org.graphiks.kadre.appkit.bindings.NSApplication
 import org.graphiks.kadre.appkit.bindings.NSApplicationActivationPolicy
 import org.graphiks.kadre.appkit.bindings.NSEvent
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
+import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.Key
@@ -43,6 +41,9 @@ import org.graphiks.kadre.core.KeyLocation
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
+import org.graphiks.kadre.core.PointerKind
+import org.graphiks.kadre.core.PointerSource
+import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
@@ -252,10 +253,12 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                     loop,
                     appKitWindow.id,
                     WindowEvent.KeyboardInput(
+                        deviceId = DeviceId(0L),
                         key = key,
                         state = state,
                         modifiers = modifiers,
                         isRepeat = isRepeat,
+                        isSynthetic = false,
                         text = text,
                         location = location,
                         scanCode = keyCode.toInt(),
@@ -320,25 +323,6 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
 
             val appKitWindow = loop.windows[eventWindow.address()] ?: return
 
-            // ── Pointer enter/exit ────────────────────────────────────────────────────
-            if (isMouseEntered) {
-                loop.handler.windowEvent(loop, appKitWindow.id, WindowEvent.PointerEntered)
-                return
-            }
-            if (isMouseExited) {
-                loop.handler.windowEvent(loop, appKitWindow.id, WindowEvent.PointerLeft)
-                return
-            }
-
-            // ── Scroll wheel ──────────────────────────────────────────────────────────
-            if (isScrollWheel) {
-                val nsEvent = NSEvent(event)
-                val deltaX = nsEvent.scrollingDeltaX()
-                val deltaY = nsEvent.scrollingDeltaY()
-                loop.handler.windowEvent(loop, appKitWindow.id, WindowEvent.MouseWheel(deltaX, deltaY))
-                return
-            }
-
             // ── Pointer position (shared for move and click) ───────────────────────────
             // locationInWindow returns NSPoint (struct { CGFloat x, y })
             val locPt = NSEvent(event).locationInWindow()
@@ -353,9 +337,55 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
             val physY = (contentHeightPoints - locY) * scale
             val position = PhysicalPosition(physX, physY)
 
+            // ── Pointer enter/exit ────────────────────────────────────────────────────
+            if (isMouseEntered) {
+                loop.handler.windowEvent(
+                    loop,
+                    appKitWindow.id,
+                    WindowEvent.PointerEntered(
+                        deviceId = DeviceId(0L),
+                        position = position,
+                        primary = true,
+                        kind = PointerKind.Mouse,
+                    ),
+                )
+                return
+            }
+            if (isMouseExited) {
+                loop.handler.windowEvent(
+                    loop,
+                    appKitWindow.id,
+                    WindowEvent.PointerLeft(
+                        deviceId = DeviceId(0L),
+                        position = position,
+                        primary = true,
+                        kind = PointerKind.Mouse,
+                    ),
+                )
+                return
+            }
+
+            // ── Scroll wheel ──────────────────────────────────────────────────────────
+            if (isScrollWheel) {
+                val nsEvent = NSEvent(event)
+                val deltaX = nsEvent.scrollingDeltaX()
+                val deltaY = nsEvent.scrollingDeltaY()
+                loop.handler.windowEvent(loop, appKitWindow.id, WindowEvent.MouseWheel(DeviceId(0L), deltaX, deltaY, TouchPhase.Moved))
+                return
+            }
+
             // ── Mouse move / drag ─────────────────────────────────────────────────────
             if (isMouseMoved || isLeftDragged || isRightDragged || isOtherDragged) {
-                loop.handler.windowEvent(loop, appKitWindow.id, WindowEvent.PointerMoved(position))
+                loop.handler.windowEvent(
+                    loop,
+                    appKitWindow.id,
+                    WindowEvent.PointerMoved(
+                        deviceId = DeviceId(0L),
+                        position = position,
+                        primary = true,
+                        source = PointerSource.Mouse,
+                    ),
+                )
                 return
             }
 
@@ -371,7 +401,7 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
             }
             val state = if (isLeftDown || isRightDown || isOtherDown) KeyState.Pressed else KeyState.Released
 
-            // GRA-156: dispatch raw DeviceEvent.Button BEFORE window-scoped WindowEvent.MouseInput
+            // GRA-156: dispatch raw DeviceEvent.Button BEFORE window-scoped pointer button.
             val rawButton = when {
                 isLeftDown || isLeftUp   -> 0
                 isRightDown || isRightUp -> 1
@@ -379,7 +409,17 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
             }
             loop.handler.deviceEvent(loop, DeviceId(0L), DeviceEvent.Button(rawButton, state))
 
-            loop.handler.windowEvent(loop, appKitWindow.id, WindowEvent.MouseInput(button, state))
+            loop.handler.windowEvent(
+                loop,
+                appKitWindow.id,
+                WindowEvent.PointerButton(
+                    deviceId = DeviceId(0L),
+                    state = state,
+                    position = position,
+                    primary = true,
+                    button = ButtonSource.Mouse(button),
+                ),
+            )
         }
 
         private fun callSuperSendEvent(self: MemorySegment, sel: MemorySegment, event: MemorySegment) {

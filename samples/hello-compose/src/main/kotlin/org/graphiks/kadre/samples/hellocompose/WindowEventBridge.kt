@@ -6,6 +6,7 @@
 package org.graphiks.kadre.samples.hellocompose
 
 import androidx.compose.ui.input.pointer.PointerButton
+import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.Key as KadreKey
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.Modifiers
@@ -24,9 +25,11 @@ internal fun ComposeWindowRenderer.applyWindowEvent(event: WindowEvent, window: 
     when (event) {
         is WindowEvent.RedrawRequested -> renderFrame()
         is WindowEvent.PointerMoved -> onPointerMoved(event.position.x, event.position.y)
-        is WindowEvent.MouseInput ->
-            mapButton(event.button)?.let { (bit, button) ->
-                onPointerButton(bit, event.state == KeyState.Pressed, button)
+        is WindowEvent.PointerButton ->
+            (event.button as? ButtonSource.Mouse)?.let { source ->
+                mapButton(source.button)?.let { (bit, button) ->
+                    onPointerButton(bit, event.state == KeyState.Pressed, button)
+                }
             }
         is WindowEvent.MouseWheel -> onScroll(event.deltaX, event.deltaY)
         is WindowEvent.PointerEntered -> onPointerEnter()

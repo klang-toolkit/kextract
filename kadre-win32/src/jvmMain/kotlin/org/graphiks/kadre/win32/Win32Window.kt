@@ -20,6 +20,7 @@ import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Theme
@@ -73,6 +74,9 @@ class Win32Window private constructor(
 
     override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Win32(hinstance = hInstance.address())
+
+    override fun inputCapabilities(): InputCapabilities =
+        InputCapabilities(touch = true)
 
     /**
      * Redraw flag — set by [requestRedraw], consumed by the message loop.

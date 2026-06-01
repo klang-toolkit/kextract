@@ -1,9 +1,11 @@
 package org.graphiks.kadre.samples.pong
 
+import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.PhysicalSize
-import org.graphiks.kadre.core.TouchPhase
+import org.graphiks.kadre.core.PointerKind
+import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.WindowEvent
 
 /**
@@ -33,15 +35,30 @@ class InputAdapter {
      * Upper half → UP, lower half → DOWN.
      * Touch ended/cancelled → NONE.
      */
-    fun onTouch(event: WindowEvent.Touch, screenSize: PhysicalSize<Int>) {
-        playerInput = when (event.phase) {
-            TouchPhase.Started, TouchPhase.Moved -> {
-                if (event.location.x > screenSize.width / 2.0) {
-                    if (event.location.y < screenSize.height / 2.0) PaddleInput.UP
-                    else PaddleInput.DOWN
-                } else playerInput
-            }
-            TouchPhase.Ended, TouchPhase.Cancelled -> PaddleInput.NONE
+    fun onPointerButton(event: WindowEvent.PointerButton, screenSize: PhysicalSize<Int>) {
+        val isTouch = event.button is ButtonSource.Touch
+        if (!isTouch) return
+        playerInput = when (event.state) {
+            KeyState.Pressed -> paddleInputFor(event.position.x, event.position.y, screenSize)
+            KeyState.Released -> PaddleInput.NONE
         }
     }
+
+    fun onPointerMoved(event: WindowEvent.PointerMoved, screenSize: PhysicalSize<Int>) {
+        if (event.source !is PointerSource.Touch) return
+        playerInput = paddleInputFor(event.position.x, event.position.y, screenSize)
+    }
+
+    fun onPointerLeft(event: WindowEvent.PointerLeft) {
+        if (event.kind == PointerKind.Touch) {
+            playerInput = PaddleInput.NONE
+        }
+    }
+
+    private fun paddleInputFor(x: Double, y: Double, screenSize: PhysicalSize<Int>): PaddleInput =
+        if (x > screenSize.width / 2.0) {
+            if (y < screenSize.height / 2.0) PaddleInput.UP else PaddleInput.DOWN
+        } else {
+            playerInput
+        }
 }

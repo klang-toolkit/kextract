@@ -1,13 +1,18 @@
 package org.graphiks.kadre.uikit
 
+import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.PointerKind
+import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Theme
@@ -52,7 +57,7 @@ import platform.darwin.NSObject
  * from the very first layout pass — no sublayer attachment needed.
  *
  * UIResponder touch callbacks forward all contacts to [onEvent] as
- * [WindowEvent.Touch]. Bounds changes (rotation, split-view, status-bar layout)
+ * touch pointer events. Bounds changes (rotation, split-view, status-bar layout)
  * are detected in [layoutSubviews]: the CAMetalLayer `drawableSize` is updated
  * and a [WindowEvent.Resized] is emitted when the physical size actually changes.
  * Display-scale changes (e.g. moving to an external screen) update
@@ -72,6 +77,7 @@ class KadreMetalView(
     /** Last emitted physical size, to avoid duplicate Resized events. */
     private var lastWidth: Int = -1
     private var lastHeight: Int = -1
+    private var primaryFingerId: FingerId? = null
 
     /**
      * Last emitted scale factor. Initialized to the main screen scale to match
@@ -130,6 +136,7 @@ class KadreMetalView(
             val scanCode: Int = uiKey.keyCode.toInt()
             onEvent(
                 WindowEvent.KeyboardInput(
+                    deviceId = null,
                     key = key,
                     state = state,
                     modifiers = UiKitKeyMapper.modifiersFrom(uiKey.modifierFlags),
@@ -204,8 +211,29 @@ class KadreMetalView(
             val loc = uiTouch.locationInView(this)
             val x = loc.useContents { x * scale }
             val y = loc.useContents { y * scale }
-            val id = uiTouch.objcPtr().toLong()
-            onEvent(WindowEvent.Touch(phase, PhysicalPosition(x, y), id))
+            val location = PhysicalPosition(x, y)
+            val fingerId = FingerId(uiTouch.objcPtr().toLong())
+            if (phase == TouchPhase.Started && primaryFingerId == null) {
+                primaryFingerId = fingerId
+            }
+            val primary = primaryFingerId == fingerId
+            when (phase) {
+                TouchPhase.Started -> {
+                    onEvent(WindowEvent.PointerEntered(null, location, primary, PointerKind.Touch))
+                    onEvent(WindowEvent.PointerButton(null, KeyState.Pressed, location, primary, ButtonSource.Touch(fingerId)))
+                }
+                TouchPhase.Moved -> onEvent(WindowEvent.PointerMoved(null, location, primary, source = PointerSource.Touch(fingerId)))
+                TouchPhase.Ended -> {
+                    onEvent(WindowEvent.PointerButton(null, KeyState.Released, location, primary, ButtonSource.Touch(fingerId)))
+                    onEvent(WindowEvent.PointerLeft(null, location, primary, PointerKind.Touch))
+                    if (primary) primaryFingerId = null
+                }
+                TouchPhase.Cancelled -> {
+                    onEvent(WindowEvent.PointerButton(null, KeyState.Released, location, primary, ButtonSource.Touch(fingerId)))
+                    onEvent(WindowEvent.PointerLeft(null, location, primary, PointerKind.Touch))
+                    if (primary) primaryFingerId = null
+                }
+            }
         }
     }
 }
@@ -318,6 +346,9 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
 
     override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.UiKit
+
+    override fun inputCapabilities(): InputCapabilities =
+        InputCapabilities(touch = true)
 
     override fun requestRedraw() {
         // No-op: the CADisplayLink paces RedrawRequested on every screen refresh.

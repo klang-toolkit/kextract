@@ -6,14 +6,12 @@
  * - [DeviceEvent]: raw device events (absolute motion, button, key)
  *
  * It also defines the support types used by these events:
- * [Key], [KeyState], [KeyLocation], [Modifiers], [MouseButton], [TouchPhase]
- * and [ImePurpose].
+ * [Key], [KeyState], [KeyLocation], [Modifiers], [MouseButton], [PointerSource],
+ * [ButtonSource], [TouchPhase] and [ImePurpose].
  *
- * ## Pointer model decision (R4)
- * We KEEP the existing [WindowEvent.MouseInput] + [WindowEvent.Touch] model (Option A).
- * We do NOT migrate to a unified PointerButton / PointerSource model (winit Option B).
- * Rationale: no breaking change, all existing call sites remain valid, the unified model
- * would require a major version bump with no clear gain for current consumers.
+ * ## Pointer model decision (incubation)
+ * Kadre is still incubating, so the window input API intentionally uses a breaking
+ * unified pointer model close to winit instead of keeping legacy MouseInput/Touch events.
  *
  * ## Scope
  * All declarations are 100% commonMain (no native dependency).
@@ -218,6 +216,88 @@ sealed interface MouseButton {
 }
 
 /**
+ * Identifier of a touch contact for the lifetime of the interaction.
+ */
+@JvmInline
+value class FingerId(val value: Long)
+
+/**
+ * Coarse pointer source type.
+ */
+enum class PointerKind {
+    Mouse,
+    Touch,
+    TabletTool,
+    Unknown,
+}
+
+/**
+ * Tablet/stylus tool kind.
+ */
+enum class TabletToolKind {
+    Pen,
+    Eraser,
+    Cursor,
+    Unknown,
+}
+
+/**
+ * Tablet/stylus button kind.
+ */
+enum class TabletToolButton {
+    Tip,
+    Barrel,
+    SecondaryBarrel,
+    Eraser,
+    Unknown,
+}
+
+/**
+ * Optional tablet tool data exposed by backends that support it.
+ */
+data class TabletToolData(
+    val pressure: Float? = null,
+    val tiltX: Float? = null,
+    val tiltY: Float? = null,
+    val twistDegrees: Float? = null,
+)
+
+/**
+ * Touch pressure/force value.
+ */
+sealed interface TouchForce {
+    data class Calibrated(val force: Double, val maxPossibleForce: Double) : TouchForce
+    data class Normalized(val value: Double) : TouchForce
+}
+
+/**
+ * Source of a pointer motion event.
+ */
+sealed interface PointerSource {
+    data object Mouse : PointerSource
+    data class Touch(val fingerId: FingerId, val force: TouchForce? = null) : PointerSource
+    data class TabletTool(
+        val kind: TabletToolKind,
+        val data: TabletToolData = TabletToolData(),
+    ) : PointerSource
+    data object Unknown : PointerSource
+}
+
+/**
+ * Source of a pointer button event.
+ */
+sealed interface ButtonSource {
+    data class Mouse(val button: MouseButton) : ButtonSource
+    data class Touch(val fingerId: FingerId, val force: TouchForce? = null) : ButtonSource
+    data class TabletTool(
+        val kind: TabletToolKind,
+        val button: TabletToolButton,
+        val data: TabletToolData = TabletToolData(),
+    ) : ButtonSource
+    data class Unknown(val code: Int) : ButtonSource
+}
+
+/**
  * Physical location of a keyboard key.
  *
  * Distinguishes between keys that appear in multiple locations on the keyboard
@@ -296,12 +376,11 @@ enum class ImePurpose {
  *         is WindowEvent.ScaleFactorChanged -> updateDpi(event.factor)
  *         is WindowEvent.Focused        -> handleFocus(event.gained)
  *         is WindowEvent.KeyboardInput  -> handleKeyboard(event.key, event.state, event.modifiers)
- *         is WindowEvent.PointerMoved   -> handlePointer(event.position)
- *         WindowEvent.PointerEntered    -> handleEnter()
- *         WindowEvent.PointerLeft       -> handleLeave()
- *         is WindowEvent.MouseInput     -> handleMouse(event.button, event.state)
+ *         is WindowEvent.PointerMoved   -> handlePointer(event.position, event.source)
+ *         is WindowEvent.PointerEntered -> handleEnter(event.position, event.kind)
+ *         is WindowEvent.PointerLeft    -> handleLeave(event.position, event.kind)
+ *         is WindowEvent.PointerButton  -> handlePointerButton(event.button, event.state)
  *         is WindowEvent.MouseWheel     -> handleWheel(event.deltaX, event.deltaY)
- *         is WindowEvent.Touch          -> handleTouch(event.phase, event.location, event.id)
  *         WindowEvent.RedrawRequested   -> redraw()
  *         WindowEvent.Destroyed         -> releaseResources()
  *         is WindowEvent.ThemeChanged   -> applyTheme(event.theme)
@@ -364,10 +443,12 @@ sealed interface WindowEvent {
      *   independent of the active keyboard layout. Null if the backend does not expose it.
      */
     data class KeyboardInput(
+        val deviceId: DeviceId?,
         val key: Key,
         val state: KeyState,
         val modifiers: Modifiers,
         val isRepeat: Boolean = false,
+        val isSynthetic: Boolean = false,
         // ── R4 additions (with defaults to keep all existing call sites valid) ──
         val text: String? = null,
         val location: KeyLocation = KeyLocation.Standard,
@@ -380,25 +461,46 @@ sealed interface WindowEvent {
      * @property position Current pointer position in physical pixels (floating point
      *   for the sub-pixel precision of tablets and trackpads).
      */
-    data class PointerMoved(val position: PhysicalPosition<Double>) : WindowEvent
+    data class PointerMoved(
+        val deviceId: DeviceId?,
+        val position: PhysicalPosition<Double>,
+        val primary: Boolean,
+        val source: PointerSource,
+    ) : WindowEvent
 
     /**
      * The pointer just entered the window's client area.
      */
-    data object PointerEntered : WindowEvent
+    data class PointerEntered(
+        val deviceId: DeviceId?,
+        val position: PhysicalPosition<Double>,
+        val primary: Boolean,
+        val kind: PointerKind,
+    ) : WindowEvent
 
     /**
      * The pointer just left the window's client area.
      */
-    data object PointerLeft : WindowEvent
+    data class PointerLeft(
+        val deviceId: DeviceId?,
+        val position: PhysicalPosition<Double>?,
+        val primary: Boolean,
+        val kind: PointerKind,
+    ) : WindowEvent
 
     /**
-     * A mouse button has been pressed or released.
+     * A pointer button has been pressed or released.
      *
-     * @property button Button involved.
+     * @property button Pointer button source.
      * @property state  Button state ([KeyState.Pressed] or [KeyState.Released]).
      */
-    data class MouseInput(val button: MouseButton, val state: KeyState) : WindowEvent
+    data class PointerButton(
+        val deviceId: DeviceId?,
+        val state: KeyState,
+        val position: PhysicalPosition<Double>,
+        val primary: Boolean,
+        val button: ButtonSource,
+    ) : WindowEvent
 
     /**
      * The mouse wheel (or trackpad) produced a scroll.
@@ -406,26 +508,11 @@ sealed interface WindowEvent {
      * @property deltaX Horizontal scroll (positive towards the right).
      * @property deltaY Vertical scroll (positive towards the bottom).
      */
-    data class MouseWheel(val deltaX: Double, val deltaY: Double) : WindowEvent
-
-    /**
-     * A touch contact changed state.
-     *
-     * ### Platform support
-     * Emitted by the touchscreen-capable backends: Web (DOM touch events) and
-     * Win32 (`WM_TOUCH`). **Not** emitted on AppKit/macOS, which has no
-     * touchscreen API — its only touch source is the trackpad (indirect touch),
-     * intentionally left unmapped. X11/Wayland touch support is out of scope for now.
-     *
-     * @property phase    Contact phase.
-     * @property location Contact position in physical pixels.
-     * @property id       Unique contact identifier (stable between [TouchPhase.Started] and
-     *   [TouchPhase.Ended]/[TouchPhase.Cancelled]).
-     */
-    data class Touch(
+    data class MouseWheel(
+        val deviceId: DeviceId?,
+        val deltaX: Double,
+        val deltaY: Double,
         val phase: TouchPhase,
-        val location: PhysicalPosition<Double>,
-        val id: Long,
     ) : WindowEvent
 
     /**
@@ -521,57 +608,45 @@ sealed interface WindowEvent {
     // ── R5-Gestures: trackpad & touchscreen gestures ──────────────────────────
 
     /**
-     * A pinch (zoom) gesture changed state.
-     *
-     * Primarily emitted on macOS (NSGestureRecognizer magnification) and iOS
-     * (UIPinchGestureRecognizer). Other backends: no-op documented.
-     * Default emission: no-op — TODO per backend.
-     *
-     * @property delta Relative scale change (positive = zoom in, negative = zoom out).
-     * @property phase Current phase of the gesture.
+     * Two-finger pinch gesture, usually used for magnification.
      */
-    data class PinchGesture(val delta: Double, val phase: TouchPhase) : WindowEvent
+    data class PinchGesture(
+        val deviceId: DeviceId?,
+        val delta: Double,
+        val phase: TouchPhase,
+    ) : WindowEvent
 
     /**
-     * A pan (scroll) gesture changed state.
-     *
-     * Emitted on macOS (NSGestureRecognizer pan) and iOS (UIPanGestureRecognizer).
-     * Default emission: no-op — TODO per backend.
-     *
-     * @property delta Displacement vector in physical pixels.
-     * @property phase Current phase of the gesture.
+     * N-finger pan gesture.
      */
-    data class PanGesture(val delta: PhysicalPosition<Double>, val phase: TouchPhase) : WindowEvent
+    data class PanGesture(
+        val deviceId: DeviceId?,
+        val delta: PhysicalPosition<Float>,
+        val phase: TouchPhase,
+    ) : WindowEvent
 
     /**
-     * A rotation gesture changed state.
-     *
-     * Emitted on macOS (NSGestureRecognizer rotation) and iOS (UIRotationGestureRecognizer).
-     * Default emission: no-op — TODO per backend.
-     *
-     * @property delta Rotation angle in radians (positive = clockwise).
-     * @property phase Current phase of the gesture.
+     * Two-finger rotation gesture. Delta is in degrees.
      */
-    data class RotationGesture(val delta: Double, val phase: TouchPhase) : WindowEvent
+    data class RotationGesture(
+        val deviceId: DeviceId?,
+        val deltaDegrees: Float,
+        val phase: TouchPhase,
+    ) : WindowEvent
 
     /**
-     * A double-tap gesture was recognized.
-     *
-     * Emitted on iOS (UITapGestureRecognizer, numberOfTapsRequired = 2) and Web (dblclick).
-     * Default emission: no-op — TODO per backend.
+     * Double-tap gesture.
      */
-    data object DoubleTapGesture : WindowEvent
+    data class DoubleTapGesture(val deviceId: DeviceId?) : WindowEvent
 
     /**
-     * A Force Touch / trackpad pressure event (macOS Force Touch trackpads only).
-     *
-     * Availability must be checked at runtime (`NSEvent.isMouseEventType` / device capability).
-     * Default emission: no-op — TODO appkit backend.
-     *
-     * @property pressure Normalized pressure value in `[0.0, 1.0]`.
-     * @property stage    Discrete pressure stage (1 = light click, 2 = force click, etc.).
+     * Trackpad pressure event.
      */
-    data class TouchpadPressure(val pressure: Float, val stage: Int) : WindowEvent
+    data class TouchpadPressure(
+        val deviceId: DeviceId?,
+        val pressure: Float,
+        val stage: Long,
+    ) : WindowEvent
 
     // ── R5-MiscWindow: occluded ───────────────────────────────────────────────
 

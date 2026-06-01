@@ -6,6 +6,7 @@ import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -93,6 +94,9 @@ class AndroidWindow internal constructor(
 
     override val rawDisplayHandle: RawDisplayHandle
         get() = RawDisplayHandle.Android
+
+    override fun inputCapabilities(): InputCapabilities =
+        InputCapabilities(deviceIds = true, touch = true, touchForce = true)
 
     @Volatile
     internal var needsRedraw: Boolean = false

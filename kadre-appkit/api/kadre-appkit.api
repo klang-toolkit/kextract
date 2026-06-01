@@ -19,6 +19,7 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun getScaleFactor ()D
 	public fun getTheme ()Lorg/graphiks/kadre/core/Theme;
 	public fun getTitle ()Ljava/lang/String;
+	public fun inputCapabilities ()Lorg/graphiks/kadre/core/InputCapabilities;
 	public fun isDecorated ()Z
 	public fun isMaximized ()Z
 	public fun isMinimized ()Z

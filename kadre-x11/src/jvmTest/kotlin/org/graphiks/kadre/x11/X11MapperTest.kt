@@ -14,6 +14,8 @@ import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.Modifiers
 import org.graphiks.kadre.core.MouseButton
+import org.graphiks.kadre.core.ButtonSource
+import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.WindowEvent
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
@@ -263,43 +265,43 @@ class X11KeyMapperTest {
 class X11MouseMapperTest {
 
     @Test
-    fun `ButtonPress button 1 returns MouseInput Left Pressed`() {
+    fun `ButtonPress button 1 returns PointerButton Left Pressed`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonPress)
                 .setInt(68L, 1)   // button = Left
 
             val event = X11MouseMapper.fromXEvent(seg, ButtonPress)
-            assertIs<WindowEvent.MouseInput>(event)
-            assertEquals(MouseButton.Left,   event.button)
+            assertIs<WindowEvent.PointerButton>(event)
+            assertEquals(ButtonSource.Mouse(MouseButton.Left), event.button)
             assertEquals(KeyState.Pressed,   event.state)
         }
     }
 
     @Test
-    fun `ButtonRelease button 3 returns MouseInput Right Released`() {
+    fun `ButtonRelease button 3 returns PointerButton Right Released`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonRelease)
                 .setInt(68L, 3)   // button = Right
 
             val event = X11MouseMapper.fromXEvent(seg, ButtonRelease)
-            assertIs<WindowEvent.MouseInput>(event)
-            assertEquals(MouseButton.Right,   event.button)
+            assertIs<WindowEvent.PointerButton>(event)
+            assertEquals(ButtonSource.Mouse(MouseButton.Right), event.button)
             assertEquals(KeyState.Released,   event.state)
         }
     }
 
     @Test
-    fun `ButtonPress button 2 returns MouseInput Middle Pressed`() {
+    fun `ButtonPress button 2 returns PointerButton Middle Pressed`() {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena)
                 .setType(ButtonPress)
                 .setInt(68L, 2)
 
             val event = X11MouseMapper.fromXEvent(seg, ButtonPress)
-            assertIs<WindowEvent.MouseInput>(event)
-            assertEquals(MouseButton.Middle, event.button)
+            assertIs<WindowEvent.PointerButton>(event)
+            assertEquals(ButtonSource.Mouse(MouseButton.Middle), event.button)
         }
     }
 
@@ -391,7 +393,8 @@ class X11MouseMapperTest {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena).setType(EnterNotify)
             val event = X11MouseMapper.fromXEvent(seg, EnterNotify)
-            assertEquals(WindowEvent.PointerEntered, event)
+            assertIs<WindowEvent.PointerEntered>(event)
+            assertEquals(PointerKind.Mouse, event.kind)
         }
     }
 
@@ -400,7 +403,8 @@ class X11MouseMapperTest {
         Arena.ofConfined().use { arena ->
             val seg = xEventSegment(arena).setType(LeaveNotify)
             val event = X11MouseMapper.fromXEvent(seg, LeaveNotify)
-            assertEquals(WindowEvent.PointerLeft, event)
+            assertIs<WindowEvent.PointerLeft>(event)
+            assertEquals(PointerKind.Mouse, event.kind)
         }
     }
 

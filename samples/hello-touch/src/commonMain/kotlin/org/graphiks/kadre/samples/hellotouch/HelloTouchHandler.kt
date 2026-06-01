@@ -3,6 +3,8 @@ package org.graphiks.kadre.samples.hellotouch
 import org.graphiks.kadre.ActiveEventLoop
 import org.graphiks.kadre.ApplicationHandler
 import org.graphiks.kadre.WindowId
+import org.graphiks.kadre.core.ButtonSource
+import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.WindowEvent
 
 /**
@@ -24,8 +26,14 @@ class HelloTouchHandler : ApplicationHandler {
     }
 
     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
-        if (event is WindowEvent.Touch) {
-            println("[HelloTouch] Touch ${event.phase} id=${event.id} @ (${event.location.x.toInt()}, ${event.location.y.toInt()})")
+        when (event) {
+            is WindowEvent.PointerMoved -> if (event.source is PointerSource.Touch) {
+                println("[HelloTouch] Touch move @ (${event.position.x.toInt()}, ${event.position.y.toInt()})")
+            }
+            is WindowEvent.PointerButton -> if (event.button is ButtonSource.Touch) {
+                println("[HelloTouch] Touch ${event.state} @ (${event.position.x.toInt()}, ${event.position.y.toInt()})")
+            }
+            else -> Unit
         }
     }
 
