@@ -41,6 +41,18 @@ import platform.UIKit.UIResponder
  * applicationWillTerminate     → destroySurfaces (if not already called)
  * ```
  *
+ * ## Two parallel signalling channels
+ * Each activation callback drives **two** things on purpose:
+ * 1. an app-level [ApplicationHandler] lifecycle call (`resumed` / `suspended` /
+ *    `destroySurfaces`) — coarse, process-scoped;
+ * 2. a per-window [WindowEvent] (`Focused` / `Destroyed`) via
+ *    [UIKitActiveEventLoop.dispatchWindowFocused] / [dispatchWindowsDestroyed].
+ *
+ * The [WindowEvent] channel exists for parity with the desktop/winit backends so
+ * that a consumer which only switches on [WindowEvent] still observes focus and
+ * destruction. On the single-window AppDelegate model, app activation and window
+ * focus coincide, so both are emitted from the same callback.
+ *
  * ## M3 decision
  * AppDelegate-only (no `UISceneDelegate`) — avoids `UISceneConfiguration`/Info.plist.
  * Scene-based considered post-V1 if iOS multi-window is required.
@@ -80,8 +92,11 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
      * Triggers [ApplicationHandler.resumed].
      */
     override fun applicationDidBecomeActive(application: UIApplication) {
-        println("[KadreAppDelegate] applicationDidBecomeActive → resumed")
-        eventLoop?.let { it.handler.resumed(it) }
+        println("[KadreAppDelegate] applicationDidBecomeActive → resumed + Focused(true)")
+        eventLoop?.let {
+            it.handler.resumed(it)
+            it.dispatchWindowFocused(gained = true)
+        }
     }
 
     /**
@@ -90,8 +105,12 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
      * Triggers [ApplicationHandler.suspended].
      */
     override fun applicationWillResignActive(application: UIApplication) {
-        println("[KadreAppDelegate] applicationWillResignActive → suspended")
-        eventLoop?.let { it.handler.suspended(it) }
+        println("[KadreAppDelegate] applicationWillResignActive → Focused(false) + suspended")
+        eventLoop?.let {
+            // Lose window focus before the app-level suspend.
+            it.dispatchWindowFocused(gained = false)
+            it.handler.suspended(it)
+        }
     }
 
     // ── Background / Foreground ───────────────────────────────────────────
@@ -131,8 +150,12 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
      * [applicationDidEnterBackground]) then cleans up the registry.
      */
     override fun applicationWillTerminate(application: UIApplication) {
-        println("[KadreAppDelegate] applicationWillTerminate → destroySurfaces")
-        eventLoop?.let { it.handler.destroySurfaces(it) }
+        println("[KadreAppDelegate] applicationWillTerminate → Destroyed + destroySurfaces")
+        eventLoop?.let {
+            // Per-window terminal event before the app-level surface teardown.
+            it.dispatchWindowsDestroyed()
+            it.handler.destroySurfaces(it)
+        }
         eventLoop = null
         KadreRegistry.handler = null
     }

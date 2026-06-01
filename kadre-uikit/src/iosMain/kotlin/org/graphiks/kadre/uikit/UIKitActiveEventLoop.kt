@@ -14,7 +14,35 @@ internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : 
     private var _controlFlow: ControlFlow = ControlFlow.Wait
     private var _isExiting = false
 
-    override fun createWindow(attributes: WindowAttributes): Window = UiKitWindow(attributes, this)
+    /** Windows created by this loop, used to scope app-level lifecycle events. */
+    private val windows = mutableListOf<UiKitWindow>()
+
+    override fun createWindow(attributes: WindowAttributes): Window =
+        UiKitWindow(attributes, this).also { windows.add(it) }
+
+    /**
+     * Emits [WindowEvent.Focused] for every window.
+     *
+     * Driven by [KadreAppDelegate] from the app activation callbacks. This is the
+     * per-window counterpart of the app-level [ApplicationHandler.resumed] /
+     * [ApplicationHandler.suspended] lifecycle: on iOS, app focus *is* window
+     * focus (single-window AppDelegate model), but both are emitted so consumers
+     * that switch on [WindowEvent] (desktop/winit parity) also receive focus.
+     */
+    internal fun dispatchWindowFocused(gained: Boolean) {
+        windows.forEach { handler.windowEvent(this, it.id, WindowEvent.Focused(gained)) }
+    }
+
+    /**
+     * Emits [WindowEvent.Destroyed] for every window, then forgets them.
+     *
+     * Driven by [KadreAppDelegate] on termination — the per-window counterpart of
+     * the app-level [ApplicationHandler.destroySurfaces].
+     */
+    internal fun dispatchWindowsDestroyed() {
+        windows.forEach { handler.windowEvent(this, it.id, WindowEvent.Destroyed) }
+        windows.clear()
+    }
 
     override fun setControlFlow(controlFlow: ControlFlow) { _controlFlow = controlFlow }
     override val controlFlow: ControlFlow get() = _controlFlow

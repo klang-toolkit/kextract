@@ -22,6 +22,7 @@ public abstract class org/graphiks/kadre/android/KadreActivity : androidx/activi
 	public abstract fun createHandler ()Lorg/graphiks/kadre/core/ApplicationHandler;
 	public final fun getHandler ()Lorg/graphiks/kadre/core/ApplicationHandler;
 	public final fun getKadreWindow ()Lorg/graphiks/kadre/android/AndroidWindow;
+	public fun onConfigurationChanged (Landroid/content/res/Configuration;)V
 	protected fun onCreate (Landroid/os/Bundle;)V
 	protected fun onDestroy ()V
 	public fun onKeyDown (ILandroid/view/KeyEvent;)Z
@@ -29,5 +30,6 @@ public abstract class org/graphiks/kadre/android/KadreActivity : androidx/activi
 	protected fun onPause ()V
 	protected fun onResume ()V
 	public fun onTouchEvent (Landroid/view/MotionEvent;)Z
+	public fun onWindowFocusChanged (Z)V
 }
 

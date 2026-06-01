@@ -29,6 +29,7 @@ import platform.UIKit.UIPress
 import platform.UIKit.UIPressesEvent
 import platform.UIKit.UIScreen
 import platform.UIKit.UITouch
+import platform.UIKit.UITraitCollection
 import platform.UIKit.UIView
 import platform.UIKit.UIViewController
 import platform.UIKit.UIViewMeta
@@ -45,6 +46,8 @@ import platform.darwin.NSObject
  * [WindowEvent.Touch]. Bounds changes (rotation, split-view, status-bar layout)
  * are detected in [layoutSubviews]: the CAMetalLayer `drawableSize` is updated
  * and a [WindowEvent.Resized] is emitted when the physical size actually changes.
+ * Display-scale changes (e.g. moving to an external screen) update
+ * `contentsScale` and emit [WindowEvent.ScaleFactorChanged].
  */
 @OptIn(ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
 class KadreMetalView(
@@ -60,6 +63,13 @@ class KadreMetalView(
     /** Last emitted physical size, to avoid duplicate Resized events. */
     private var lastWidth: Int = -1
     private var lastHeight: Int = -1
+
+    /**
+     * Last emitted scale factor. Initialized to the main screen scale to match
+     * the `contentsScale` set at window creation, so no spurious
+     * ScaleFactorChanged is emitted on the first layout pass.
+     */
+    private var lastScale: Double = UIScreen.mainScreen.scale
 
     override fun touchesBegan(touches: Set<*>, withEvent: UIEvent?) =
         dispatchTouches(touches, TouchPhase.Started)
@@ -126,7 +136,8 @@ class KadreMetalView(
      */
     override fun layoutSubviews() {
         super.layoutSubviews()
-        val scale = UIScreen.mainScreen.scale
+        syncScaleIfChanged()
+        val scale = currentScale()
         val physW = bounds.useContents { size.width * scale }
         val physH = bounds.useContents { size.height * scale }
         val w = physW.toInt()
@@ -141,6 +152,32 @@ class KadreMetalView(
             lastWidth = w
             lastHeight = h
             onEvent(WindowEvent.Resized(PhysicalSize(w, h)))
+        }
+    }
+
+    /**
+     * Detects a change of `displayScale` (moving to a screen with a different
+     * pixel ratio, e.g. an external display). `displayScale` is a UITraitCollection
+     * trait, so this fires when it changes.
+     */
+    override fun traitCollectionDidChange(previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        syncScaleIfChanged()
+    }
+
+    /** Effective scale of the view's screen, falling back to the main screen. */
+    private fun currentScale(): Double = window?.screen?.scale ?: UIScreen.mainScreen.scale
+
+    /**
+     * Updates `CAMetalLayer.contentsScale` and emits [WindowEvent.ScaleFactorChanged]
+     * when the effective scale factor changes.
+     */
+    private fun syncScaleIfChanged() {
+        val scale = currentScale()
+        if (scale > 0.0 && scale != lastScale) {
+            lastScale = scale
+            metalLayer.setContentsScale(scale)
+            onEvent(WindowEvent.ScaleFactorChanged(scale))
         }
     }
 
