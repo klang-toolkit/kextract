@@ -65,6 +65,7 @@ nav:
   - Sprint Review: kadre/sprint-review.md
   - Post-mortem M2: kadre/postmortem-m2.md
   - Specs: kadre/specs.md
+  - Remediation Plan: kadre/remediation-plan.md
   - API Stability: kadre/api-stability.md
   - Performance: kadre/performance.md
   - Release Process: kadre/release-process.md
@@ -96,6 +97,7 @@ plugins:
             Sprint Review: Sprint Review
             Post-mortem M2: Post-mortem M2
             Specs: Spécifications
+            Remediation Plan: Plan de correction
             API Stability: Stabilité API
             Performance: Performance
             Release Process: Processus de release
