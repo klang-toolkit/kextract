@@ -21,6 +21,7 @@ import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import java.lang.foreign.MemorySegment
 
@@ -53,6 +54,16 @@ class WaylandWindow private constructor(
 
     /** Unique identifier based on the address of the wl_surface. */
     override val id: WindowId = WindowId(surfacePtr)
+
+    /**
+     * Sink for compositor-driven window events (Resized, CloseRequested), set by
+     * [WaylandEventLoop] right after creation so the loop can enqueue and dispatch them.
+     */
+    @Volatile
+    internal var onWindowEvent: ((WindowEvent) -> Unit)? = null
+
+    /** The xdg_shell decoration (real toplevel), or null if xdg_shell is unavailable. */
+    private var xdg: XdgToplevel? = null
 
     override val rawWindowHandle: Any
         get() = RawWindowHandle.Wayland(surface = surfacePtr, display = displayPtr)
@@ -90,13 +101,16 @@ class WaylandWindow private constructor(
     override val scaleFactor: Double = 1.0
 
     /**
-     * Requests a redraw by committing the Wayland surface.
+     * Requests a redraw.
      *
-     * On Wayland, rendering is triggered by wl_surface.commit (opcode 6).
-     * If the bindings are not available (non-Linux), the call is ignored.
+     * When the window is an xdg_toplevel, redraws are driven by frame callbacks (see
+     * [armFrameCallback]) and the actual surface commit is performed by the renderer's
+     * present (eglSwapBuffers). Committing here as well would flood the compositor with empty
+     * commits and consume frame callbacks on non-displaying frames, so this is a no-op in that
+     * case. Only the bare-surface fallback (no xdg_shell) commits directly.
      */
     override fun requestRedraw() {
-        if (surfacePtr == 0L) return
+        if (surfacePtr == 0L || xdg != null) return
         val handle = wlProxyMarshalFlagsVoid ?: return
         try {
             val surfaceSeg = MemorySegment.ofAddress(surfacePtr)
@@ -127,7 +141,7 @@ class WaylandWindow private constructor(
      * @param title New window title.
      */
     override fun setTitle(title: String) {
-        // Stub: xdg_toplevel requires full xdg_shell negotiation (ticket #66)
+        xdg?.setTitle(title)
     }
 
     /**
@@ -153,6 +167,9 @@ class WaylandWindow private constructor(
      * calls wl_proxy_destroy directly on the surface.
      */
     override fun close() {
+        // Tear down xdg_toplevel/xdg_surface first (reverse creation order).
+        xdg?.destroy()
+        xdg = null
         if (surfacePtr == 0L) return
         val handle = wlProxyDestroy ?: return
         try {
@@ -201,6 +218,7 @@ class WaylandWindow private constructor(
             compositor: Long,
             xdgWmBase: Long,
             attrs: WindowAttributes,
+            decorationManager: Long = 0L,
         ): WaylandWindow? {
             // The bindings are null on non-Wayland platforms — return null.
             val createSurface = wlCompositorCreateSurface ?: return null
@@ -232,8 +250,26 @@ class WaylandWindow private constructor(
 
             val window = WaylandWindow(display, compositor, xdgWmBase, surface, attrs)
 
-            // ── 2. Initial commit (makes the surface visible to the compositor) ──
-            if (attrs.visible && surface != 0L) {
+            // ── 2. xdg_shell handshake → real mapped toplevel + configure/close events ──
+            if (surface != 0L && xdgWmBase != 0L && WaylandXdgLib.loaded) {
+                window.xdg = XdgToplevel.create(
+                    displayPtr = display,
+                    wmBasePtr = xdgWmBase,
+                    surfacePtr = surface,
+                    decorationManagerPtr = decorationManager,
+                    onResized = { w, h ->
+                        window._innerSize = PhysicalSize(w, h)
+                        window.onWindowEvent?.invoke(WindowEvent.Resized(PhysicalSize(w, h)))
+                        // Repaint once at the new size (on-demand rendering).
+                        window.onWindowEvent?.invoke(WindowEvent.RedrawRequested)
+                    },
+                    onClose = { window.onWindowEvent?.invoke(WindowEvent.CloseRequested) },
+                )
+                window.xdg?.setTitle(attrs.title)
+            }
+
+            // ── 3. Fallback for a bare surface (no xdg_shell): legacy initial commit ──
+            if (window.xdg == null && attrs.visible && surface != 0L) {
                 window.requestRedraw()
             }
 

@@ -473,6 +473,42 @@ internal val wlProxyMarshalFlagsVoid: MethodHandle? by lazy {
         ))
 }
 
+/**
+ * wl_proxy_marshal_flags variant with a single trailing uint32 argument and no new_id,
+ * e.g. xdg_surface.ack_configure(serial) (opcode 4) and xdg_wm_base.pong(serial) (opcode 3).
+ *
+ * Signature: void wl_proxy_marshal_flags(proxy, opcode, NULL, version, flags, uint).
+ */
+internal val wlProxyMarshalFlagsUint: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy*
+            ValueLayout.JAVA_INT,  // opcode
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.JAVA_INT,  // arg: uint32
+        ))
+}
+
+/**
+ * wl_proxy_marshal_flags variant with a single trailing string (const char*) argument and no
+ * new_id, e.g. xdg_toplevel.set_title(title) (opcode 2) / set_app_id (opcode 3).
+ *
+ * Signature: void wl_proxy_marshal_flags(proxy, opcode, NULL, version, flags, const char*).
+ */
+internal val wlProxyMarshalFlagsString: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy*
+            ValueLayout.JAVA_INT,  // opcode
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.ADDRESS,   // arg: const char*
+        ))
+}
+
 // ── libc : poll ───────────────────────────────────────────────────────────────
 
 /**

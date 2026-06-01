@@ -1,3 +1,6 @@
 [submodule "third_party/winit"]
 	path = third_party/winit
 	url = https://github.com/rust-windowing/winit.git
+[submodule "third_party/kextract"]
+	path = third_party/kextract
+	url = https://github.com/klang-toolkit/kextract.git

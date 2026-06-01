@@ -1,0 +1,89 @@
+diff --git a/src/main/kotlin/org/graphiks/kextract/kotlin/builders/KotlinHeaderBuilder.kt b/src/main/kotlin/org/graphiks/kextract/kotlin/builders/KotlinHeaderBuilder.kt
+index d807b6a..10e017c 100644
+--- a/src/main/kotlin/org/graphiks/kextract/kotlin/builders/KotlinHeaderBuilder.kt
++++ b/src/main/kotlin/org/graphiks/kextract/kotlin/builders/KotlinHeaderBuilder.kt
+@@ -82,15 +82,27 @@ class KotlinHeaderBuilder(private val builder: SourceBuilder, private val toplev
+     fun visitVariable(decl: Declaration.Variable) {
+         val name = toplevel.javaName(decl.name())
+         val type = TypeMapper.map(decl.type())
++        val varLookupExpr = if (toplevel.hasLookup) "LOOKUP" else "SymbolLookup.loaderLookup()"
+ 
+         // KDoc
+         builder.appendLine("/**")
+         builder.appendLine(" * {@snippet lang=c : ${decl.name()} ${decl.type()}")
+         builder.appendLine(" */")
+ 
+-        // Variable Layout, Segment and Handle (toplevel properties)
++        if (isAggregateGlobal(decl.type())) {
++            // Struct/union/array-typed global: a whole aggregate cannot be read or written
++            // through a scalar VarHandle (its layout is a GroupLayout, not a ValueLayout).
++            // Expose the symbol's address (its MemorySegment) read-only instead — this is what
++            // callers pass by reference, e.g. &wl_interface to wl_proxy_marshal_flags.
++            builder.appendLine(
++                "val ${name}: MemorySegment = $varLookupExpr.find(\"${toplevel.lookupName(decl)}\").orElseThrow()"
++            )
++            builder.appendLine()
++            return
++        }
++
++        // Scalar global: Layout, Segment and VarHandle (toplevel properties)
+         builder.appendLine("private val ${name}_LAYOUT: ValueLayout = ${layoutString(decl.type())}")
+-        val varLookupExpr = if (toplevel.hasLookup) "LOOKUP" else "SymbolLookup.loaderLookup()"
+         builder.appendLine(
+             "private val ${name}_SEGMENT: MemorySegment = $varLookupExpr.find(\"${toplevel.lookupName(decl)}\").orElseThrow()"
+         )
+@@ -106,6 +118,27 @@ class KotlinHeaderBuilder(private val builder: SourceBuilder, private val toplev
+         builder.appendLine()
+     }
+ 
++    /**
++     * True when a global variable's type is an aggregate (struct/union/array) rather than a
++     * scalar. Typedef / qualifier indirections are unwrapped; pointers stay scalar (a pointer
++     * global is a plain ADDRESS value). Aggregate globals are exposed as their address segment
++     * because a scalar VarHandle cannot get/set a whole record.
++     */
++    private fun isAggregateGlobal(type: Type): Boolean = when (type) {
++        is Type.Declared -> type.tree().kind().let {
++            it == Declaration.Scoped.Kind.STRUCT || it == Declaration.Scoped.Kind.UNION
++        }
++        is Type.Array -> true
++        is Type.Delegated -> when (type.kind()) {
++            // Transparent wrappers — unwrap and re-test. POINTER/SIGNED/UNSIGNED are scalar.
++            Type.Delegated.Kind.TYPEDEF,
++            Type.Delegated.Kind.VOLATILE,
++            Type.Delegated.Kind.ATOMIC -> isAggregateGlobal(type.type())
++            else -> false
++        }
++        else -> false
++    }
++
+     fun visitConstant(decl: Declaration.Constant) {
+         val name = toplevel.javaName(decl.name())
+         val value = decl.value()
+diff --git a/src/main/kotlin/org/graphiks/kextract/kotlin/builders/KotlinStructBuilder.kt b/src/main/kotlin/org/graphiks/kextract/kotlin/builders/KotlinStructBuilder.kt
+index 31234ef..2e86faa 100644
+--- a/src/main/kotlin/org/graphiks/kextract/kotlin/builders/KotlinStructBuilder.kt
++++ b/src/main/kotlin/org/graphiks/kextract/kotlin/builders/KotlinStructBuilder.kt
+@@ -55,17 +55,18 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
+         builder.appendLine("    allocator.allocate(MemoryLayout.sequenceLayout(elementCount, layout))")
+         builder.appendLine()
+ 
+-        // asSlice
++        // asSlice — byteSize() is a Java method (no getter convention), so it must be
++        // invoked with parentheses; Kotlin will not expose it as a `.byteSize` property.
+         builder.appendLine("fun asSlice(array: MemorySegment, index: Long): MemorySegment =")
+-        builder.appendLine("    array.asSlice(layout.byteSize * index)")
++        builder.appendLine("    array.asSlice(layout.byteSize() * index)")
+         builder.appendLine()
+ 
+         // reinterpret
+         builder.appendLine("fun reinterpret(addr: MemorySegment): MemorySegment =")
+-        builder.appendLine("    addr.reinterpret(layout.byteSize)")
++        builder.appendLine("    addr.reinterpret(layout.byteSize())")
+         builder.appendLine()
+         builder.appendLine("fun reinterpret(addr: MemorySegment, elementCount: Long): MemorySegment =")
+-        builder.appendLine("    addr.reinterpret(layout.byteSize * elementCount)")
++        builder.appendLine("    addr.reinterpret(layout.byteSize() * elementCount)")
+         builder.appendLine()
+ 
+         builder.unindent()
