@@ -35,7 +35,7 @@ class HelloApp : ApplicationHandler {
         println("[HelloWindow] window created id=${window?.id?.value}")
     }
 
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
             WindowEvent.CloseRequested -> {
                 println("[HelloWindow] CloseRequested — exiting")

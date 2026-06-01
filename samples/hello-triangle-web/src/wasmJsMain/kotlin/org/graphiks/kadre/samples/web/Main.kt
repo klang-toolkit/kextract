@@ -15,7 +15,7 @@ import org.graphiks.kadre.EventLoop
 import org.graphiks.kadre.WindowAttributes
 import org.graphiks.kadre.WindowId
 import org.graphiks.kadre.core.RawWindowHandle
-import org.graphiks.kadre.web.WebWindowEvent
+import org.graphiks.kadre.core.WindowEvent
 import io.ygdrasil.webgpu.CanvasSurface
 import io.ygdrasil.webgpu.ColorTargetState
 import io.ygdrasil.webgpu.FragmentState
@@ -239,23 +239,23 @@ class HelloTriangleWebApp : ApplicationHandler {
     /**
      * Web window events.
      *
-     * - [WebWindowEvent.RedrawRequested]: renders an RGB triangle frame
-     * - [WebWindowEvent.Resized]: reconfigures the surface (preparation for #21)
-     * - [WebWindowEvent.CloseRequested]: releases resources and exits
+     * - [WindowEvent.RedrawRequested]: renders an RGB triangle frame
+     * - [WindowEvent.Resized]: reconfigures the surface (preparation for #21)
+     * - [WindowEvent.CloseRequested]: releases resources and exits
      */
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
-            is WebWindowEvent.RedrawRequested -> renderFrame()
-            is WebWindowEvent.Resized -> {
-                println("[hello-triangle-web] Resized → ${event.width}×${event.height} (CSS px)")
+            is WindowEvent.RedrawRequested -> renderFrame()
+            is WindowEvent.Resized -> {
+                println("[hello-triangle-web] Resized → ${event.size.width}×${event.size.height} (CSS px)")
                 // Update the drawing buffer in physical pixels then reconfigure
                 // the swap chain to the new resolution (#21).
-                syncCanvasBackingStore(event.width, event.height)
+                syncCanvasBackingStore(event.size.width, event.size.height)
                 val s = surface
                 val d = device
                 if (s != null && d != null) configureSurface(s, d)
             }
-            is WebWindowEvent.CloseRequested -> {
+            is WindowEvent.CloseRequested -> {
                 println("[hello-triangle-web] CloseRequested — libération des ressources")
                 releaseResources()
                 eventLoop.exit()

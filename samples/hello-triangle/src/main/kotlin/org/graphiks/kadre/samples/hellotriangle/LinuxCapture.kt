@@ -25,6 +25,7 @@ import org.graphiks.kadre.PhysicalSize
 import org.graphiks.kadre.WindowAttributes
 import org.graphiks.kadre.WindowId
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.WindowEvent
 import io.ygdrasil.webgpu.WGPU
 import io.ygdrasil.webgpu.WGPUInstanceBackend
 import io.ygdrasil.webgpu.WGPULowLevelApi
@@ -87,7 +88,7 @@ internal fun captureLinux(path: String) {
             }
         }
 
-        override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+        override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
             // No event to handle: the capture is done in canCreateSurfaces.
         }
     }

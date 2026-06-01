@@ -11,17 +11,17 @@ public abstract interface class org/graphiks/kadre/core/ApplicationHandler {
 	public fun aboutToWait (Lorg/graphiks/kadre/core/ActiveEventLoop;)V
 	public abstract fun canCreateSurfaces (Lorg/graphiks/kadre/core/ActiveEventLoop;)V
 	public fun destroySurfaces (Lorg/graphiks/kadre/core/ActiveEventLoop;)V
-	public fun deviceEvent-z3ZO6k8 (Lorg/graphiks/kadre/core/ActiveEventLoop;JLjava/lang/Object;)V
+	public fun deviceEvent-z3ZO6k8 (Lorg/graphiks/kadre/core/ActiveEventLoop;JLorg/graphiks/kadre/core/DeviceEvent;)V
 	public fun newEvents (Lorg/graphiks/kadre/core/ActiveEventLoop;Lorg/graphiks/kadre/core/StartCause;)V
 	public fun resumed (Lorg/graphiks/kadre/core/ActiveEventLoop;)V
 	public fun suspended (Lorg/graphiks/kadre/core/ActiveEventLoop;)V
-	public abstract fun windowEvent-eDwKhTo (Lorg/graphiks/kadre/core/ActiveEventLoop;JLjava/lang/Object;)V
+	public abstract fun windowEvent-eDwKhTo (Lorg/graphiks/kadre/core/ActiveEventLoop;JLorg/graphiks/kadre/core/WindowEvent;)V
 }
 
 public final class org/graphiks/kadre/core/ApplicationHandler$DefaultImpls {
 	public static fun aboutToWait (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;)V
 	public static fun destroySurfaces (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;)V
-	public static fun deviceEvent-z3ZO6k8 (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;JLjava/lang/Object;)V
+	public static fun deviceEvent-z3ZO6k8 (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;JLorg/graphiks/kadre/core/DeviceEvent;)V
 	public static fun newEvents (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;Lorg/graphiks/kadre/core/StartCause;)V
 	public static fun resumed (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;)V
 	public static fun suspended (Lorg/graphiks/kadre/core/ApplicationHandler;Lorg/graphiks/kadre/core/ActiveEventLoop;)V
@@ -544,8 +544,8 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun getId-1uDr44Y ()J
 	public abstract fun getInnerSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public abstract fun getOuterSize ()Lorg/graphiks/kadre/core/PhysicalSize;
-	public abstract fun getRawDisplayHandle ()Ljava/lang/Object;
-	public abstract fun getRawWindowHandle ()Ljava/lang/Object;
+	public abstract fun getRawDisplayHandle ()Lorg/graphiks/kadre/core/RawDisplayHandle;
+	public abstract fun getRawWindowHandle ()Lorg/graphiks/kadre/core/RawWindowHandle;
 	public abstract fun getScaleFactor ()D
 	public abstract fun requestRedraw ()V
 	public abstract fun setTitle (Ljava/lang/String;)V

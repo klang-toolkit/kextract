@@ -64,7 +64,7 @@ class HelloApp : ApplicationHandler {
      *
      * Logs the event and initiates close on `CloseRequested`.
      */
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         println("[HelloApp] windowEvent($windowId) → $event")
 
         if (event is WindowEvent.CloseRequested) {

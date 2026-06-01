@@ -78,7 +78,7 @@ class PongGame(
     override fun windowEvent(
         eventLoop: ActiveEventLoop,
         windowId: WindowId,
-        event: Any
+        event: WindowEvent,
     ) {
         when (event) {
             is WindowEvent.RedrawRequested -> renderer?.draw(state)

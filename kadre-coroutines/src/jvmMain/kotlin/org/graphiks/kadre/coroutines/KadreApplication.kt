@@ -91,8 +91,8 @@ private class CoroutineApplicationHandler(
         loop?.exit()
     }
 
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
-        if (event is WindowEvent) windows[windowId.value]?.mutableEvents?.tryEmit(event)
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
+        windows[windowId.value]?.mutableEvents?.tryEmit(event)
     }
 
     override fun aboutToWait(eventLoop: ActiveEventLoop) {

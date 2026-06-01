@@ -13,7 +13,7 @@ import org.graphiks.kadre.ApplicationHandler
 import org.graphiks.kadre.EventLoop
 import org.graphiks.kadre.WindowAttributes
 import org.graphiks.kadre.WindowId
-import org.graphiks.kadre.web.WebWindowEvent
+import org.graphiks.kadre.core.WindowEvent
 
 /**
  * Hello Window Web demonstration handler (JS/IR).
@@ -33,29 +33,29 @@ class HelloWindowWebApp : ApplicationHandler {
         println("[HelloWindowWeb] window created id=${window.id.value}")
     }
 
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
-            is WebWindowEvent.CloseRequested -> {
+            is WindowEvent.CloseRequested -> {
                 println("[HelloWindowWeb] CloseRequested — exiting")
                 eventLoop.exit()
             }
-            is WebWindowEvent.Resized ->
-                println("[HelloWindowWeb] Resized → ${event.width}×${event.height}")
-            is WebWindowEvent.Focused ->
+            is WindowEvent.Resized ->
+                println("[HelloWindowWeb] Resized → ${event.size.width}×${event.size.height}")
+            is WindowEvent.Focused ->
                 println("[HelloWindowWeb] Focused gained=${event.gained}")
-            is WebWindowEvent.KeyboardInput ->
+            is WindowEvent.KeyboardInput ->
                 println("[HelloWindowWeb] KeyboardInput ${event.state} key=${event.key} mods=${event.modifiers.bits} repeat=${event.isRepeat}")
-            is WebWindowEvent.PointerMoved ->
-                println("[HelloWindowWeb] PointerMoved (${event.x.toInt()}, ${event.y.toInt()})")
-            is WebWindowEvent.PointerEntered ->
+            is WindowEvent.PointerMoved ->
+                println("[HelloWindowWeb] PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
+            is WindowEvent.PointerEntered ->
                 println("[HelloWindowWeb] PointerEntered")
-            is WebWindowEvent.PointerLeft ->
+            is WindowEvent.PointerLeft ->
                 println("[HelloWindowWeb] PointerLeft")
-            is WebWindowEvent.MouseInput ->
+            is WindowEvent.MouseInput ->
                 println("[HelloWindowWeb] MouseInput ${event.state} button=${event.button}")
-            is WebWindowEvent.MouseWheel ->
+            is WindowEvent.MouseWheel ->
                 println("[HelloWindowWeb] MouseWheel dx=${event.deltaX} dy=${event.deltaY}")
-            is WebWindowEvent.RedrawRequested ->
+            is WindowEvent.RedrawRequested ->
                 Unit // no-op: no renderer in this sample
             else ->
                 println("[HelloWindowWeb] event: $event")

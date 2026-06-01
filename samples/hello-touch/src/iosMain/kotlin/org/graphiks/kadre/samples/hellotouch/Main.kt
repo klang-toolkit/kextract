@@ -36,7 +36,7 @@ private class IosHelloTouchHandler : ApplicationHandler {
         println("[HelloTouch] window created id=${window?.id?.value}")
     }
 
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         if (event is WindowEvent.Touch) {
             println("[HelloTouch] Touch ${event.phase} id=${event.id} @ (${event.location.x.toInt()}, ${event.location.y.toInt()})")
         }

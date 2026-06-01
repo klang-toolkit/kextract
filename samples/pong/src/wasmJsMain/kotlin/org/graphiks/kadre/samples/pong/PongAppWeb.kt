@@ -3,16 +3,11 @@
  *
  * ARCHITECTURE NOTE
  * -----------------
- * The commonMain [PongGame] filters `WindowEvent.*` (kadre-core), but the
- * Kadre Web backend dispatches `WebWindowEvent.*` (kadre-web-common).
- * The two hierarchies are not unified → PongGame's `when` matches
- * no event on Web, so rendering is never triggered.
+ * The Kadre Web backend maps DOM events → canonical [WindowEvent] (kadre-core)
+ * via WebWindowEvent.toWindowEvent() before dispatch, so this handler receives
+ * the same [WindowEvent] types as any other platform.
  *
- * This file works around that gap by rewriting a dedicated Web
- * [ApplicationHandler] that filters `WebWindowEvent.*` directly. A backend follow-up should
- * unify the hierarchies (or expose a commonMain mapping).
- *
- * Otherwise, the logic is identical to the commonMain [PongGame]: GameState, PongAi,
+ * The logic is identical to the commonMain [PongGame]: GameState, PongAi,
  * aboutToWait → tick → draw loop.
  */
 package org.graphiks.kadre.samples.pong
@@ -24,10 +19,10 @@ import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.web.WebEventLoop
-import org.graphiks.kadre.web.WebKey
-import org.graphiks.kadre.web.WebKeyState
+import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.web.WebWindowAttributes
-import org.graphiks.kadre.web.WebWindowEvent
 import kotlin.js.unsafeCast
 import kotlin.math.min
 
@@ -66,28 +61,28 @@ class PongAppWeb : ApplicationHandler {
         eventLoop.setControlFlow(ControlFlow.Poll)
     }
 
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
-            is WebWindowEvent.RedrawRequested -> renderer?.draw(state)
-            is WebWindowEvent.Resized -> renderer?.resize(event.width, event.height)
-            is WebWindowEvent.CloseRequested -> {
+            is WindowEvent.RedrawRequested -> renderer?.draw(state)
+            is WindowEvent.Resized -> renderer?.resize(event.size.width, event.size.height)
+            is WindowEvent.CloseRequested -> {
                 renderer?.release()
                 renderer = null
                 eventLoop.exit()
             }
-            is WebWindowEvent.KeyboardInput -> onKey(event)
+            is WindowEvent.KeyboardInput -> onKey(event)
             else -> { /* PointerMoved/Entered/Left/MouseInput/MouseWheel/Focused ignored */ }
         }
     }
 
-    private fun onKey(event: WebWindowEvent.KeyboardInput) {
+    private fun onKey(event: WindowEvent.KeyboardInput) {
         // Debug log: confirms the arrival of keyboard events on the handler side.
         println("[pong-web] key ${event.key} ${event.state}")
         playerInput = when {
-            event.key == WebKey.ArrowUp && event.state == WebKeyState.Pressed -> PaddleInput.UP
-            event.key == WebKey.ArrowDown && event.state == WebKeyState.Pressed -> PaddleInput.DOWN
-            event.key == WebKey.ArrowUp && event.state == WebKeyState.Released && playerInput == PaddleInput.UP -> PaddleInput.NONE
-            event.key == WebKey.ArrowDown && event.state == WebKeyState.Released && playerInput == PaddleInput.DOWN -> PaddleInput.NONE
+            event.key == Key.ArrowUp && event.state == KeyState.Pressed -> PaddleInput.UP
+            event.key == Key.ArrowDown && event.state == KeyState.Pressed -> PaddleInput.DOWN
+            event.key == Key.ArrowUp && event.state == KeyState.Released && playerInput == PaddleInput.UP -> PaddleInput.NONE
+            event.key == Key.ArrowDown && event.state == KeyState.Released && playerInput == PaddleInput.DOWN -> PaddleInput.NONE
             else -> playerInput
         }
     }

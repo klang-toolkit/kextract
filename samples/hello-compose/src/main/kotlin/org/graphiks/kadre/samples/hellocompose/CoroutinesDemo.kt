@@ -15,6 +15,7 @@ import org.graphiks.kadre.ActiveEventLoop
 import org.graphiks.kadre.ApplicationHandler
 import org.graphiks.kadre.EventLoop
 import org.graphiks.kadre.WindowId
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.coroutines.EventLoopDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -43,7 +44,7 @@ private class CoroutinesDemoApp : ApplicationHandler {
         }
     }
 
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
 
     override fun aboutToWait(eventLoop: ActiveEventLoop) {
         // Drain ready coroutine work and let the dispatcher choose how to wait (Wait/WaitUntil/Poll).

@@ -31,8 +31,8 @@ private class RecordingHandler(
         eventLoop.createWindow(org.graphiks.kadre.core.WindowAttributes())
     }
 
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
-        if (event is WindowEvent) received += event
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
+        received += event
         if (exitOnClose && event is WindowEvent.CloseRequested) eventLoop.exit()
     }
 }

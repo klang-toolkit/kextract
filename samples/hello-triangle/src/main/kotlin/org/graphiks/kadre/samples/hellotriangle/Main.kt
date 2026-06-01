@@ -299,7 +299,7 @@ class HelloTriangleApp : ApplicationHandler {
      * - [WindowEvent.ScaleFactorChanged]: reconfigures the surface from innerSize (GRA-139)
      * - [WindowEvent.CloseRequested]: releases resources and exits
      */
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
             is WindowEvent.RedrawRequested -> renderFrame()
             is WindowEvent.Resized -> {

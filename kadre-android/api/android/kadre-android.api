@@ -9,8 +9,8 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun getId-1uDr44Y ()J
 	public fun getInnerSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public fun getOuterSize ()Lorg/graphiks/kadre/core/PhysicalSize;
-	public fun getRawDisplayHandle ()Ljava/lang/Object;
-	public fun getRawWindowHandle ()Ljava/lang/Object;
+	public fun getRawDisplayHandle ()Lorg/graphiks/kadre/core/RawDisplayHandle;
+	public fun getRawWindowHandle ()Lorg/graphiks/kadre/core/RawWindowHandle;
 	public fun getScaleFactor ()D
 	public fun requestRedraw ()V
 	public fun setTitle (Ljava/lang/String;)V

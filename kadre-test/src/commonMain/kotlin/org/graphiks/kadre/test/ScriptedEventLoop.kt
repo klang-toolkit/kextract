@@ -27,6 +27,7 @@ import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.Key
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.Modifiers
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.PhysicalPosition
@@ -59,10 +60,10 @@ sealed interface Callback {
     data class NewEvents(val cause: StartCause) : Callback
 
     /** [ApplicationHandler.windowEvent] invoqué. */
-    data class WindowEventCb(val windowId: WindowId, val event: Any) : Callback
+    data class WindowEventCb(val windowId: WindowId, val event: WindowEvent) : Callback
 
     /** [ApplicationHandler.deviceEvent] invoqué. */
-    data class DeviceEventCb(val deviceId: DeviceId, val event: Any) : Callback
+    data class DeviceEventCb(val deviceId: DeviceId, val event: DeviceEvent) : Callback
 
     /** [ApplicationHandler.aboutToWait] invoqué. */
     data object AboutToWait : Callback
@@ -86,7 +87,7 @@ sealed interface ScriptedEvent {
     data class Window(val windowId: WindowId, val event: WindowEvent) : ScriptedEvent
 
     /** Dispatche un événement périphérique vers [ApplicationHandler.deviceEvent]. */
-    data class Device(val deviceId: DeviceId, val event: Any) : ScriptedEvent
+    data class Device(val deviceId: DeviceId, val event: DeviceEvent) : ScriptedEvent
 
     /**
      * Simule une frame : [ApplicationHandler.newEvents] (Poll) →
@@ -114,8 +115,8 @@ class ScriptedWindow(
     override val scaleFactor: Double = 1.0,
 ) : Window {
 
-    override val rawWindowHandle: Any = RawWindowHandle.Web(canvasElementId = "scripted-window")
-    override val rawDisplayHandle: Any = RawDisplayHandle.Web
+    override val rawWindowHandle: RawWindowHandle = RawWindowHandle.Web(canvasElementId = "scripted-window")
+    override val rawDisplayHandle: RawDisplayHandle = RawDisplayHandle.Web
 
     /** Nombre d'appels à [requestRedraw] — utile pour asserter le rendu continu. */
     var redrawRequests: Int = 0

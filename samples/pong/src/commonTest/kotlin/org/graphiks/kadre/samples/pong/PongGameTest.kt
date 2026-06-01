@@ -12,6 +12,7 @@ import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -51,8 +52,8 @@ class FakeRenderer : PongRendererInterface {
 class FakeWindow : Window {
     override val id = WindowId(1L)
     // Win32 stub — satisfies the `handle is RawWindowHandle` check in PongGame
-    override val rawWindowHandle: Any = RawWindowHandle.Win32(hwnd = 0L, hinstance = 0L)
-    override val rawDisplayHandle: Any = Unit
+    override val rawWindowHandle: RawWindowHandle = RawWindowHandle.Win32(hwnd = 0L, hinstance = 0L)
+    override val rawDisplayHandle: RawDisplayHandle = RawDisplayHandle.Win32(hinstance = 0L)
     var redrawRequested = false
     override fun requestRedraw() { redrawRequested = true }
     override fun setTitle(title: String) {}

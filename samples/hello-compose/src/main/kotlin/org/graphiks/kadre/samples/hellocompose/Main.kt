@@ -176,7 +176,7 @@ private class CaptureApp(private val capturePath: String) : ApplicationHandler {
         eventLoop.exit()
     }
 
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) = Unit
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
 }
 
 /**
