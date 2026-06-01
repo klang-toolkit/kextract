@@ -20,6 +20,62 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [1.1.0] — 2026-06-01 (winit parity R0–R5)
+
+Post-1.0.0 remediation rounds delivering winit API parity (PRs #167–#184).
+
+### Breaking changes
+
+- **`ApplicationHandler.windowEvent`** — parameter `event` changed from erased `Any` to sealed `WindowEvent`. All overrides must update their signature. (R0.1, PR #167)
+- **`ApplicationHandler.deviceEvent`** — parameter `event` changed from erased `Any` to sealed `DeviceEvent`. (R0.1, PR #168)
+- **`Window.rawWindowHandle`** — return type changed from `Any` to `RawWindowHandle`. (R0.1, PR #169)
+- **`Window.rawDisplayHandle`** — return type changed from `Any` to `RawDisplayHandle`. (R0.1, PR #170)
+
+### Added
+
+#### R1 — Window state, monitors & fullscreen (PRs #171–#175)
+
+- `Window`: `setMinimized`, `setMaximized`, `isMinimized`, `isMaximized`, `setDecorations`, `setWindowLevel`, `setAlwaysOnTop`, `setFullscreen`, `fullscreen`, `requestInnerSize`, `outerSize`, `outerPosition`, `setOuterPosition`
+- `ActiveEventLoop`: `availableMonitors`, `primaryMonitor`
+- `MonitorHandle`, `VideoMode` types
+- `WindowEvent.Occluded` event
+
+#### R2 — Window icon (PRs #176–#177)
+
+- `Window.setWindowIcon(Icon?)` — set or clear the window icon
+- `Icon` sealed type: `Icon.Rgba(rgba: ByteArray, width: Int, height: Int)`
+
+#### R3 — Cursor, theme & appearance (PRs #178–#180)
+
+- `Window`: `setCursorIcon`, `setCursorVisible`, `setCursorGrab`, `setTheme`, `setTransparent`, `setBlur`, `createCustomCursor`, `setCustomCursor`
+- `CursorIcon` enum, `CursorGrabMode` enum, `WindowTheme` enum
+- `WindowEvent.ThemeChanged(theme: WindowTheme)`
+
+#### R4 — Input richness (PR #181)
+
+- `KeyboardInput`: added `text: String?`, `scanCode: Int`, `location: KeyLocation`
+- `KeyLocation` enum (Standard / Left / Right / Numpad)
+- `WindowEvent.ModifiersChanged(modifiers: Modifiers)` — modifier state snapshot
+- `DeviceEvent.MouseWheel(deltaX: Double, deltaY: Double)` — raw device wheel
+- `DeviceEvent.MouseMotion`, `DeviceEvent.Button`, `DeviceEvent.Key`, `DeviceEvent.Motion` variants
+
+#### R5 — Advanced events, IME & misc window (PRs #182–#184)
+
+- `WindowEvent`: `DragEntered`, `DragMoved`, `DragDropped`, `DragLeft` (DnD)
+- `WindowEvent`: `PinchGesture`, `PanGesture`, `RotationGesture`, `DoubleTapGesture`
+- IME API: `Window.setImeAllowed`, `Window.setImeCursorArea`, `Window.setImePurpose`; `ImePurpose` enum
+- IME events: `WindowEvent.Ime` (Enabled / Preedit / Commit / DeleteSurrounding / Disabled)
+- Misc window: `Window.requestUserAttention`, `Window.setContentProtected`, `Window.showWindowMenu`, `Window.dragWindow`, `Window.dragResizeWindow`
+- `WindowEvent.MemoryWarning`
+
+### Notes
+
+- All additive changes (R1–R5) are backward-compatible at the source level (new `sealed` variants require an `else` branch in exhaustive `when` expressions).
+- ABI dumps (`*.api` / `*.klib.api`) regenerated and committed after each round (`./gradlew updateKotlinAbi`).
+- Many R5 additions are defined but not yet emitted by any backend, and several methods are no-op on some platforms — see [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md) for details.
+
+---
+
 ## [1.0.0] — 2026-05-31
 
 First stable release of **Kadre** — the Kotlin Multiplatform windowing and event-loop library, formerly developed under the Koreos name. The project is now published as `org.graphiks.kadre` (package `org.graphiks.kadre`).

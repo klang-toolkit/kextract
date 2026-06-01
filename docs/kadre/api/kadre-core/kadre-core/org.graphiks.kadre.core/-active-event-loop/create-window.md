@@ -5,11 +5,11 @@
 [common]\
 abstract fun [createWindow](create-window.md)(attributes: [WindowAttributes](../-window-attributes/index.md)): [Window](../-window/index.md)
 
-Crée une nouvelle fenêtre avec les attributs spécifiés.
+Creates a new window with the specified attributes.
 
 #### Return
 
-La fenêtre créée.
+The created window.
 
 #### Parameters
 
@@ -17,4 +17,4 @@ common
 
 | | |
 |---|---|
-| attributes | Paramètres de configuration de la fenêtre à créer. |
+| attributes | Configuration parameters of the window to create. |

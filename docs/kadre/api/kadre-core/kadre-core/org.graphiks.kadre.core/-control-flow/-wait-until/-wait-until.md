@@ -11,4 +11,4 @@ common
 
 | | |
 |---|---|
-| instant | Instant cible exprimé en millisecondes depuis l'époque Unix. |
+| instant | Target instant expressed in milliseconds since the Unix epoch. |

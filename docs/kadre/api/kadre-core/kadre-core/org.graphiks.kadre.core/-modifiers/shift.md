@@ -5,4 +5,4 @@
 [common]\
 val [shift](shift.md): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)
 
-`true` si la touche Majuscule est enfoncée.
+`true` if the Shift key is pressed.

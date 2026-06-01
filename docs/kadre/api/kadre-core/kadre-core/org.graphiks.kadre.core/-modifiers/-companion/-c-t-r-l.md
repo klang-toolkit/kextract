@@ -5,4 +5,4 @@
 [common]\
 val [CTRL](-c-t-r-l.md): [Modifiers](../index.md)
 
-Seul le modificateur Contrôle est actif.
+Only the Control modifier is active.

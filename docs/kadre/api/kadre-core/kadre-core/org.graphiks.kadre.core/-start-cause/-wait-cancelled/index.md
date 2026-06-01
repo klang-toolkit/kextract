@@ -4,7 +4,7 @@
 
 data class [WaitCancelled](index.md)(val requestedResume: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)? = null) : [StartCause](../index.md)
 
-L'attente a été annulée avant l'instant prévu.
+The wait was cancelled before the planned instant.
 
 #### Parameters
 
@@ -12,7 +12,7 @@ common
 
 | | |
 |---|---|
-| requestedResume | Instant cible original, ou null s'il n'était pas défini. |
+| requestedResume | Original target instant, or null if it was not set. |
 
 ## Constructors
 

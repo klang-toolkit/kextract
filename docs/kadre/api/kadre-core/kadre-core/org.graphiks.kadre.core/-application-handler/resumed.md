@@ -5,7 +5,7 @@
 [common]\
 open fun [resumed](resumed.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md))
 
-Appelé lorsque l'application reprend son exécution après une suspension.
+Called when the application resumes execution after a suspension.
 
 #### Parameters
 
@@ -13,4 +13,4 @@ common
 
 | | |
 |---|---|
-| eventLoop | Boucle d'événements active. |
+| eventLoop | Active event loop. |

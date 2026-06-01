@@ -7,9 +7,9 @@
 
 value class [WindowId](index.md)(val value: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html))
 
-Identifiant unique d'une fenêtre.
+Unique identifier of a window.
 
-Encapsule un entier long opaque assigné par la plateforme.
+Wraps an opaque long integer assigned by the platform.
 
 ## Constructors
 

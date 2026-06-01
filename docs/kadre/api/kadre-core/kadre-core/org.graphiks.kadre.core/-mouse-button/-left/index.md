@@ -5,4 +5,4 @@
 [common]\
 data object [Left](index.md) : [MouseButton](../index.md)
 
-Bouton gauche (bouton principal).
+Left button (primary button).

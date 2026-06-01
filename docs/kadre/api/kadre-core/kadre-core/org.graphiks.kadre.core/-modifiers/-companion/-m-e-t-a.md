@@ -5,4 +5,4 @@
 [common]\
 val [META](-m-e-t-a.md): [Modifiers](../index.md)
 
-Seul le modificateur Meta est actif.
+Only the Meta modifier is active.

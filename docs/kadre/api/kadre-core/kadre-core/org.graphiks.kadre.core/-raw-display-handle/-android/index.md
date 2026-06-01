@@ -5,6 +5,6 @@
 [common]\
 data object [Android](index.md) : [RawDisplayHandle](../index.md)
 
-Handle d'affichage Android.
+Android display handle.
 
-Sur Android, le display est géré par le système ; aucun pointeur supplémentaire n'est nécessaire à ce niveau d'abstraction.
+On Android, the display is managed by the system; no additional pointer is needed at this level of abstraction.

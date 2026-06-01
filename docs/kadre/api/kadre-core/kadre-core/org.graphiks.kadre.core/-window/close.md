@@ -5,6 +5,6 @@
 [common]\
 abstract fun [close](close.md)()
 
-Ferme la fenêtre.
+Closes the window.
 
-Une fois fermée, la fenêtre n'émet plus d'événements et son identifiant devient invalide.
+Once closed, the window no longer emits events and its identifier becomes invalid.

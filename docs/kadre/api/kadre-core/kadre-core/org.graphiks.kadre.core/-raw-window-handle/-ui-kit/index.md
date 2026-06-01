@@ -5,7 +5,7 @@
 [common]\
 data class [UiKit](index.md)(val uiView: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html), val uiViewController: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)?) : [RawWindowHandle](../index.md)
 
-Handle de fenêtre UIKit (iOS / tvOS).
+UIKit window handle (iOS / tvOS).
 
 ## Constructors
 
@@ -17,5 +17,5 @@ Handle de fenêtre UIKit (iOS / tvOS).
 
 | Name | Summary |
 |---|---|
-| [uiView](ui-view.md) | [common]<br>val [uiView](ui-view.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)<br>Pointeur vers l'instance `UIView` (cast vers `UIView*` au point d'usage). |
-| [uiViewController](ui-view-controller.md) | [common]<br>val [uiViewController](ui-view-controller.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)?<br>Pointeur optionnel vers l'instance `UIViewController`                             (cast vers `UIViewController*` au point d'usage), ou `null`                             si aucun contrôleur n'est associé. |
+| [uiView](ui-view.md) | [common]<br>val [uiView](ui-view.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)<br>Pointer to the `UIView` instance (cast to `UIView*` at the point of use). |
+| [uiViewController](ui-view-controller.md) | [common]<br>val [uiViewController](ui-view-controller.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)?<br>Optional pointer to the `UIViewController` instance                             (cast to `UIViewController*` at the point of use), or `null`                             if no controller is associated. |

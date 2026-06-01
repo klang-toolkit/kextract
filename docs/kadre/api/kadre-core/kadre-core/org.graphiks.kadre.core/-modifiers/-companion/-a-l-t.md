@@ -5,4 +5,4 @@
 [common]\
 val [ALT](-a-l-t.md): [Modifiers](../index.md)
 
-Seul le modificateur Alt est actif.
+Only the Alt modifier is active.

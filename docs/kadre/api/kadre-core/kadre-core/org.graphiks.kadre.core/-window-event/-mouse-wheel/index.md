@@ -5,7 +5,7 @@
 [common]\
 data class [MouseWheel](index.md)(val deltaX: [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html), val deltaY: [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)) : [WindowEvent](../index.md)
 
-La molette de souris (ou le pavé tactile) a produit un défilement.
+The mouse wheel (or trackpad) produced a scroll.
 
 ## Constructors
 
@@ -17,5 +17,5 @@ La molette de souris (ou le pavé tactile) a produit un défilement.
 
 | Name | Summary |
 |---|---|
-| [deltaX](delta-x.md) | [common]<br>val [deltaX](delta-x.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Défilement horizontal (positif vers la droite). |
-| [deltaY](delta-y.md) | [common]<br>val [deltaY](delta-y.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Défilement vertical (positif vers le bas). |
+| [deltaX](delta-x.md) | [common]<br>val [deltaX](delta-x.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Horizontal scroll (positive towards the right). |
+| [deltaY](delta-y.md) | [common]<br>val [deltaY](delta-y.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Vertical scroll (positive towards the bottom). |

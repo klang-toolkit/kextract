@@ -7,9 +7,9 @@
 
 value class [DeviceId](index.md)(val value: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html))
 
-Identifiant unique d'un périphérique d'entrée.
+Unique identifier of an input device.
 
-Encapsule un entier long opaque assigné par la plateforme.
+Wraps an opaque long integer assigned by the platform.
 
 ## Constructors
 

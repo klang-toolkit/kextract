@@ -5,4 +5,4 @@
 [common]\
 data object [PointerEntered](index.md) : [WindowEvent](../index.md)
 
-Le pointeur vient d'entrer dans la zone cliente de la fenêtre.
+The pointer just entered the window's client area.

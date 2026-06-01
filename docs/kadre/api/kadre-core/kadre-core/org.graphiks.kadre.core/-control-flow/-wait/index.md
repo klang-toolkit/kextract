@@ -5,4 +5,4 @@
 [common]\
 object [Wait](index.md) : [ControlFlow](../index.md)
 
-Attend indéfiniment jusqu'au prochain événement.
+Waits indefinitely until the next event.

@@ -11,5 +11,5 @@ common
 
 | | |
 |---|---|
-| requestedResume | Instant cible original. |
-| start | Instant auquel la reprise a effectivement eu lieu. |
+| requestedResume | Original target instant. |
+| start | Instant at which the resumption actually occurred. |

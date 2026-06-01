@@ -5,7 +5,7 @@
 [common]\
 data class [PointerMoved](index.md)(val position: [PhysicalPosition](../../-physical-position/index.md)&lt;[Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)&gt;) : [WindowEvent](../index.md)
 
-Le pointeur s'est déplacé au-dessus de la fenêtre.
+The pointer moved over the window.
 
 ## Constructors
 
@@ -17,4 +17,4 @@ Le pointeur s'est déplacé au-dessus de la fenêtre.
 
 | Name | Summary |
 |---|---|
-| [position](position.md) | [common]<br>val [position](position.md): [PhysicalPosition](../../-physical-position/index.md)&lt;[Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)&gt;<br>Position courante du pointeur en pixels physiques (virgule flottante pour la précision sub-pixel des tablettes et trackpads). |
+| [position](position.md) | [common]<br>val [position](position.md): [PhysicalPosition](../../-physical-position/index.md)&lt;[Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)&gt;<br>Current pointer position in physical pixels (floating point for the sub-pixel precision of tablets and trackpads). |

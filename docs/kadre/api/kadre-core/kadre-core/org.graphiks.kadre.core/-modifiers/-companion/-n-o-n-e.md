@@ -5,4 +5,4 @@
 [common]\
 val [NONE](-n-o-n-e.md): [Modifiers](../index.md)
 
-Aucun modificateur actif.
+No active modifier.

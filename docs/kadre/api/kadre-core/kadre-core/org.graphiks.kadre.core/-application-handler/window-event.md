@@ -3,13 +3,11 @@
 # windowEvent
 
 [common]\
-abstract fun [windowEvent](window-event.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md), windowId: [WindowId](../-window-id/index.md), event: [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html))
+abstract fun [windowEvent](window-event.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md), windowId: [WindowId](../-window-id/index.md), event: [WindowEvent](../-window-event/index.md))
 
-Appelé lorsqu'un événement de fenêtre est reçu.
+Called when a window event is received.
 
-Obligatoire — aucune implémentation par défaut.
-
-Les types d'événements de fenêtre seront définis dans GRA-123.
+Mandatory — no default implementation.
 
 #### Parameters
 
@@ -17,6 +15,6 @@ common
 
 | | |
 |---|---|
-| eventLoop | Boucle d'événements active. |
-| windowId | Identifiant de la fenêtre ayant émis l'événement. |
-| event | Événement reçu (type Any en attente de GRA-123). |
+| eventLoop | Active event loop. |
+| windowId | Identifier of the window that emitted the event. |
+| event | Received window event. |

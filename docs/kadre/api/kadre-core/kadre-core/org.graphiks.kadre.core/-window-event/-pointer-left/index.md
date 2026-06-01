@@ -5,4 +5,4 @@
 [common]\
 data object [PointerLeft](index.md) : [WindowEvent](../index.md)
 
-Le pointeur vient de quitter la zone cliente de la fenêtre.
+The pointer just left the window's client area.

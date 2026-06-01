@@ -5,7 +5,7 @@
 [common]\
 data class [Moved](index.md)(val position: [PhysicalPosition](../../-physical-position/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;) : [WindowEvent](../index.md)
 
-La fenêtre a été déplacée.
+The window has been moved.
 
 ## Constructors
 
@@ -17,4 +17,4 @@ La fenêtre a été déplacée.
 
 | Name | Summary |
 |---|---|
-| [position](position.md) | [common]<br>val [position](position.md): [PhysicalPosition](../../-physical-position/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;<br>Nouvelle position du coin supérieur gauche en pixels physiques. |
+| [position](position.md) | [common]<br>val [position](position.md): [PhysicalPosition](../../-physical-position/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;<br>New position of the top-left corner in physical pixels. |

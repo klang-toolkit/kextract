@@ -5,4 +5,4 @@
 [common]\
 val [SHIFT](-s-h-i-f-t.md): [Modifiers](../index.md)
 
-Seul le modificateur Majuscule est actif.
+Only the Shift modifier is active.

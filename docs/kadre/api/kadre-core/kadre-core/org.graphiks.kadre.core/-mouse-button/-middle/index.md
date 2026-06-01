@@ -5,4 +5,4 @@
 [common]\
 data object [Middle](index.md) : [MouseButton](../index.md)
 
-Bouton du milieu (molette ou bouton central).
+Middle button (wheel or center button).

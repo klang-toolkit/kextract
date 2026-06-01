@@ -5,4 +5,4 @@
 [common]\
 abstract val [controlFlow](control-flow.md): [ControlFlow](../-control-flow/index.md)
 
-Retourne le comportement d'attente actuellement configuré.
+Returns the currently configured waiting behavior.

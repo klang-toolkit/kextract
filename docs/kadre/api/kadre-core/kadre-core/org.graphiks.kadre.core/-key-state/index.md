@@ -5,22 +5,22 @@
 [common]\
 enum [KeyState](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[KeyState](index.md)&gt; 
 
-État d'une touche ou d'un bouton.
+State of a key or a button.
 
 ## Entries
 
 | | |
 |---|---|
-| [Pressed](-pressed/index.md) | [common]<br>[Pressed](-pressed/index.md)<br>La touche vient d'être enfoncée. |
-| [Released](-released/index.md) | [common]<br>[Released](-released/index.md)<br>La touche vient d'être relâchée. |
+| [Pressed](-pressed/index.md) | [common]<br>[Pressed](-pressed/index.md)<br>The key has just been pressed. |
+| [Released](-released/index.md) | [common]<br>[Released](-released/index.md)<br>The key has just been released. |
 
 ## Properties
 
 | Name | Summary |
 |---|---|
 | [entries](entries.md) | [common]<br>val [entries](entries.md): [EnumEntries](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.enums/-enum-entries/index.html)&lt;[KeyState](index.md)&gt; |
-| [name](../-touch-phase/-cancelled/index.md#-372974862%2FProperties%2F-287879124) | [common]<br>expect val [name](../-touch-phase/-cancelled/index.md#-372974862%2FProperties%2F-287879124): [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html) |
-| [ordinal](../-touch-phase/-cancelled/index.md#-739389684%2FProperties%2F-287879124) | [common]<br>expect val [ordinal](../-touch-phase/-cancelled/index.md#-739389684%2FProperties%2F-287879124): [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html) |
+| [name](../-ime-purpose/-terminal/index.md#-372974862%2FProperties%2F-959609056) | [common]<br>expect val [name](../-ime-purpose/-terminal/index.md#-372974862%2FProperties%2F-959609056): [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html) |
+| [ordinal](../-ime-purpose/-terminal/index.md#-739389684%2FProperties%2F-959609056) | [common]<br>expect val [ordinal](../-ime-purpose/-terminal/index.md#-739389684%2FProperties%2F-959609056): [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html) |
 
 ## Functions
 

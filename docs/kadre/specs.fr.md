@@ -602,6 +602,125 @@ Sinon → fallback X11 ou erreur finale.
 
 ---
 
+### 3.6 État & géométrie de fenêtre
+
+`Window` expose un contrôle complet de l'état et de la géométrie sur tous les backends :
+
+| Propriété / Méthode | Description |
+|---------------------|-------------|
+| `innerSize` | Taille de la surface de rendu (px physiques, sans décorations) |
+| `outerSize` | Taille totale incluant les décorations (px physiques) |
+| `scaleFactor` | Ratio logique → physique |
+| `outerPosition` / `setOuterPosition()` | Position du cadre fenêtre à l'écran |
+| `setMinSurfaceSize()` / `setMaxSurfaceSize()` | Contraintes de taille |
+| `isResizable` / `setResizable()` | Redimensionnement utilisateur |
+| `isMinimized` / `setMinimized()` | Minimiser / restaurer |
+| `isMaximized` / `setMaximized()` | Maximiser / restaurer |
+| `isDecorated` / `setDecorations()` | Décorations plateforme (barre de titre, bordures) |
+| `prePresentNotify()` | Hint au compositeur avant présentation de frame (optimisation Wayland, no-op ailleurs) |
+
+### 3.7 Énumération des moniteurs & plein écran
+
+Les données de moniteur sont disponibles depuis `ActiveEventLoop` :
+
+```kotlin
+val monitors = eventLoop.availableMonitors()   // List<MonitorHandle>
+val primary  = eventLoop.primaryMonitor()       // MonitorHandle?
+```
+
+Chaque `MonitorHandle` fournit : `id`, `name?`, `position`, `scaleFactor`, `currentVideoMode?`, `videoModes`.  
+`VideoMode` contient `size`, `bitDepth?`, `refreshRateMilliHz?`.
+
+Le plein écran se configure par fenêtre : `window.setFullscreen(Fullscreen.Borderless())` / `Fullscreen.Exclusive(monitor, videoMode)` / `null`.
+
+**Matrice plateforme — moniteurs & plein écran :**
+
+| Backend | `availableMonitors` | `primaryMonitor` | Plein écran `Borderless` | Plein écran `Exclusive` |
+|---------|---------------------|-----------------|--------------------------|-------------------------|
+| appkit | réel (CGDirectDisplay) | réel | réel | réel |
+| win32 | réel (HMONITOR/EnumDisplayMonitors) | réel | réel | partiel — stub `ChangeDisplaySettingsExW` (cf. DEFERRED.md) |
+| x11 | réel (XRandR) | réel | réel | réel |
+| wayland | réel (wl_output) | réel | réel | no-op → fallback Borderless |
+| web | synthétique (1 moniteur = screen) | synthétique | réel (API fullscreen) | no-op → fallback Borderless |
+| android | synthétique (1 moniteur = display) | synthétique | réel (FLAG_FULLSCREEN) | no-op → fallback Borderless |
+| uikit | synthétique (1 moniteur = screen) | synthétique | réel (UIScreen bounds) | no-op → fallback Borderless |
+
+### 3.8 Curseur, thème & apparence
+
+**Matrice plateforme — curseur :**
+
+| Fonctionnalité | appkit | win32 | x11 | wayland | web | android | uikit |
+|----------------|--------|-------|-----|---------|-----|---------|-------|
+| `setCursor(CursorIcon)` | réel | réel | réel | no-op (libwayland-cursor TODO) | réel (CSS cursor) | no-op | no-op |
+| `setCursorVisible()` | réel | partiel (`ShowCursor` non rééquilibré — DEFERRED.md) | no-op (XCreatePixmapCursor TODO) | no-op | réel (CSS) | no-op | no-op |
+| `setCursorGrab(Confined)` | réel | réel | réel | no-op (pointer-constraints TODO) | réel (Pointer Lock API) | no-op | no-op |
+| `setCursorGrab(Locked)` | réel | réel | réel | no-op | réel | no-op | no-op |
+| `setCursorPosition()` | partiel (CGWarpMouseCursorPosition, cast scalaire) | réel | réel | no-op | no-op | no-op | no-op |
+| `setCursorHittest()` | réel | réel | réel | réel | no-op | no-op | no-op |
+| `setCustomCursor()` | no-op (TODO R5) | no-op (TODO R5) | no-op (TODO R5) | no-op (TODO R5) | no-op (TODO R5) | no-op | no-op |
+
+**Matrice plateforme — thème :**
+
+| Fonctionnalité | appkit | win32 | x11 | wayland | web | android | uikit |
+|----------------|--------|-------|-----|---------|-----|---------|-------|
+| `systemTheme()` | réel (NSApp.effectiveAppearance) | réel (registre AppsUseLightTheme) | toujours null (pas de standard) | toujours null (portail TODO) | réel (matchMedia) | réel (UiModeManager) | réel (UITraitCollection) |
+| `setTheme(theme?)` | réel (NSAppearance par fenêtre) | réel | no-op | no-op | no-op | no-op | no-op |
+| Événement `ThemeChanged` | réel | réel | non émis | non émis | non émis | non émis | non émis |
+
+**Matrice plateforme — apparence :**
+
+| Fonctionnalité | appkit | win32 | x11 | wayland | web | android | uikit |
+|----------------|--------|-------|-----|---------|-----|---------|-------|
+| `setWindowLevel()` | réel | réel | réel | réel (xdg layer) | no-op | no-op | no-op |
+| `setTransparent()` | réel | réel | réel | réel | no-op | no-op | no-op |
+| `setBlur()` | réel (NSVisualEffectView) | réel (DwmEnableBlurBehind) | no-op | no-op | no-op | no-op | no-op |
+| `setWindowIcon()` | partiel (stub — DEFERRED.md) | partiel (stub WM_SETICON — DEFERRED.md) | réel (_NET_WM_ICON) | no-op | no-op | no-op | no-op |
+
+### 3.9 Richesse clavier (R4)
+
+`KeyboardInput` porte des champs supplémentaires avec valeurs par défaut rétro-compatibles :
+
+- `text: String?` — texte Unicode produit par la touche (null si absent ou si le backend ne l'expose pas).
+- `location: KeyLocation` — Standard / Left / Right / Numpad.
+- `scanCode: Int?` — code physique indépendant du layout.
+- `isRepeat: Boolean` — indicateur de répétition automatique.
+
+`ModifiersChanged(modifiers: Modifiers)` est émis lors d'un changement de touche modificatrice.  
+**État d'émission** : AppKit, Win32, Web — réel. X11, Wayland, Android, UIKit — TODO (cf. DEFERRED.md).
+
+`DeviceEvent.MouseWheel(deltaX, deltaY)` est dispatché en parallèle de `WindowEvent.MouseWheel` selon le filtre `ActiveEventLoop.listenDeviceEvents(DeviceEvents.Always/WhenFocused/Never)`.
+
+### 3.10 Événements avancés : IME, DnD, gestes, Occluded
+
+> **Note :** l'API est entièrement définie en `commonMain`. L'émission backend est **reportée** pour tous les éléments de cette section. Voir [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).
+
+#### IME
+
+Opt-in par fenêtre avec `window.setImeAllowed(true)`. Positionnement de la fenêtre candidate avec `setImeCursorArea(position, size)`. Indication du type de saisie avec `setImePurpose(ImePurpose.Normal/Password/Terminal)`.
+
+Cycle de vie des events : `Ime(Enabled)` → `Ime(Preedit(text, cursorRange?))` (répété) → `Ime(Commit(text))` → `Ime(Disabled)`. `Ime(DeleteSurrounding(beforeBytes, afterBytes))` peut survenir à tout moment.
+
+#### Drag & drop
+
+`DragEntered(position, paths)` → `DragMoved(position)` → `DragDropped(position, paths)` ou `DragLeft`.  
+`paths` contient les chemins de fichiers (ou noms de fichiers sur Web où les chemins complets ne sont pas disponibles).
+
+#### Gestes
+
+`PinchGesture(delta, phase)`, `PanGesture(delta: PhysicalPosition<Double>, phase)`, `RotationGesture(delta radians, phase)` — principalement macOS/iOS.  
+`DoubleTapGesture` — iOS et Web.  
+`TouchpadPressure(pressure: Float, stage: Int)` — trackpads Force Touch macOS uniquement.
+
+`phase` utilise `TouchPhase` (Started/Moved/Ended/Cancelled).
+
+#### Occluded
+
+`Occluded(occluded: Boolean)` — émis lorsque la fenêtre est masquée derrière d'autres fenêtres ou redevient visible.  
+Prévu : AppKit (`NSWindowDidChangeOcclusionStateNotification`) et Web (Page Visibility API).  
+Win32/X11/Wayland/Android/UIKit : no-op documenté.
+
+---
+
 ## 4. Architecture du sample Pong
 
 ### 4.1 Structure
@@ -791,9 +910,23 @@ gantt
 - Pas de multi-fenêtre Web (un canvas par instance lib)
 - Pas de multi-touch X11 sans XInput2 — à activer si présent
 - Wayland nécessite `xdg_shell` v3+ (compositors >=2020)
-- Pas de gamepad input (futur)
-- Pas d'IME / composition (futur)
+- Pas de gamepad input (hors périmètre — winit délègue à `gilrs`)
 - Pong : pas d'audio, pas de réseau, IA basique
+
+Plusieurs éléments d'API ont été **volontairement reportés** à des jalons futurs ; tous sont tracés par des commentaires `TODO` dans le code.  
+Voir la liste de référence : [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md)
+
+Points résiduels clés :
+
+- **Events IME** (Enabled/Preedit/Commit/DeleteSurrounding/Disabled) : API définie, aucun backend n'émet encore.
+- **Events DnD** (DragEntered/Moved/Dropped/Left) : API définie, tous les backends = no-op.
+- **Events gestes** (Pinch/Pan/Rotation/DoubleTap/TouchpadPressure) : API définie, tous les backends = no-op.
+- **Event Occluded** : API définie ; AppKit et Web prévoient de l'émettre.
+- **ModifiersChanged** : émis sur AppKit/Win32/Web ; non câblé sur X11/Wayland/Android/UIKit.
+- **Curseurs custom** (`createCustomCursor` / `setCustomCursor`) : no-op sur tous les backends (impl interface par défaut).
+- **Méthodes fenêtre diverses** (`requestUserAttention`, `setContentProtected`, `showWindowMenu`, `dragWindow`, `dragResizeWindow`) : no-op partout.
+- **Modèle clavier fermé** : `Key` reste un enum fermé (~70 touches) ; le modèle ouvert winit (`Character`/`Named`/`Dead` + 200+ `KeyCode`) n'est pas reproduit. `text`/`scanCode`/`location` ont été ajoutés en R4 mais la divergence de modèle subsiste.
+- **Stylet / tablette** : non supporté (MouseInput + Touch conservés au lieu du modèle unifié PointerButton/PointerKind).
 
 ---
 
@@ -801,9 +934,14 @@ gantt
 
 ### Mapping winit → Kadre
 
+#### Handles natifs & modules
+
 | winit (Rust) | Kadre |
-|--------------|------------------|
-| `RawWindowHandle::Web` | `RawWindowHandle.Web(canvasElementId: String)` |
+|--------------|-------|
+| `RawWindowHandle::AppKit` | `RawWindowHandle.AppKit(nsView, nsWindow, nsLayer)` |
+| `RawWindowHandle::UiKit` | `RawWindowHandle.UiKit(uiView, uiViewController?)` |
+| `RawWindowHandle::AndroidNdk` | `RawWindowHandle.Android(surface: Any)` |
+| `RawWindowHandle::Web` | `RawWindowHandle.Web(canvasElementId?, canvasElement?)` |
 | `RawWindowHandle::Win32` | `RawWindowHandle.Win32(hwnd, hinstance)` |
 | `RawWindowHandle::Xlib` | `RawWindowHandle.Xlib(window, display)` |
 | `RawWindowHandle::Wayland` | `RawWindowHandle.Wayland(surface, display)` |
@@ -811,6 +949,106 @@ gantt
 | `winit-win32` crate | `kadre-win32` |
 | `winit-x11` crate | `kadre-x11` |
 | `winit-wayland` crate | `kadre-wayland` |
+
+#### Moniteurs & plein écran
+
+| winit (Rust) | Kadre |
+|--------------|-------|
+| `MonitorHandle` | `MonitorHandle` (interface : `id`, `name?`, `position`, `scaleFactor`, `currentVideoMode?`, `videoModes`) |
+| `VideoMode` | `VideoMode(size, bitDepth?, refreshRateMilliHz?)` |
+| `Fullscreen::Borderless(monitor?)` | `Fullscreen.Borderless(monitor: MonitorHandle? = null)` |
+| `Fullscreen::Exclusive(monitor, videoMode)` | `Fullscreen.Exclusive(monitor, videoMode)` — fallback Borderless sur Wayland/Web/Android/UIKit |
+| `EventLoop::available_monitors()` | `ActiveEventLoop.availableMonitors(): List<MonitorHandle>` |
+| `EventLoop::primary_monitor()` | `ActiveEventLoop.primaryMonitor(): MonitorHandle?` |
+| `Window::current_monitor()` | `Window.currentMonitor(): MonitorHandle?` |
+| `Window::fullscreen()` / `set_fullscreen()` | `Window.fullscreen` / `Window.setFullscreen(fullscreen: Fullscreen?)` |
+
+#### Curseur, thème & apparence
+
+| winit (Rust) | Kadre |
+|--------------|-------|
+| `CursorIcon` (enum) | `CursorIcon` (enum : Default, Pointer, Text, Crosshair, Move, ResizeN/S/E/W/NE/NW/SE/SW, NotAllowed, Grab, Grabbing, Wait, Progress, EwResize, NsResize, NeswResize, NwseResize, ColResize, RowResize) |
+| `CursorGrabMode` (None/Confined/Locked) | `CursorGrabMode` (None/Confined/Locked) |
+| `Theme` (Light/Dark) | `Theme` (Light/Dark) |
+| `WindowLevel` (AlwaysOnBottom/Normal/AlwaysOnTop) | `WindowLevel` (AlwaysOnBottom/Normal/AlwaysOnTop) |
+| `Icon` (RGBA) | `Icon(rgba, width, height)` |
+| `CustomCursor` / `CursorImage` | `CustomCursor` (handle opaque) / `CursorImage(rgba, width, height, hotspotX, hotspotY)` — tous backends no-op (cf. DEFERRED.md) |
+| `Window::set_cursor()` | `Window.setCursor(cursor: CursorIcon)` |
+| `Window::set_cursor_visible()` | `Window.setCursorVisible(visible: Boolean)` |
+| `Window::set_cursor_grab()` | `Window.setCursorGrab(mode: CursorGrabMode)` |
+| `Window::set_cursor_position()` | `Window.setCursorPosition(position: PhysicalPosition<Int>)` |
+| `Window::set_cursor_hittest()` | `Window.setCursorHittest(hittest: Boolean)` |
+| `Window::theme()` / `set_theme()` | `Window.theme` / `Window.setTheme(theme: Theme?)` |
+| `Window::set_window_level()` | `Window.setWindowLevel(level: WindowLevel)` |
+| `Window::set_transparent()` | `Window.setTransparent(transparent: Boolean)` |
+| `Window::set_blur()` | `Window.setBlur(blur: Boolean)` |
+| `Window::set_window_icon()` | `Window.setWindowIcon(icon: Icon?)` |
+| `ActiveEventLoop::system_theme()` | `ActiveEventLoop.systemTheme(): Theme?` |
+| `ActiveEventLoop::create_custom_cursor()` | `ActiveEventLoop.createCustomCursor(image: CursorImage): CustomCursor?` — no-op (cf. DEFERRED.md) |
+| `Window::set_custom_cursor()` | `Window.setCustomCursor(cursor: CustomCursor)` — no-op (cf. DEFERRED.md) |
+
+#### Richesse clavier (R4)
+
+| winit (Rust) | Kadre |
+|--------------|-------|
+| `KeyLocation` (Standard/Left/Right/Numpad) | `KeyLocation` (Standard/Left/Right/Numpad) |
+| `KeyEvent::text` | `KeyboardInput.text: String?` |
+| `KeyEvent::physical_key` (scan code) | `KeyboardInput.scanCode: Int?` |
+| `KeyEvent::location` | `KeyboardInput.location: KeyLocation` |
+| `KeyEvent::repeat` | `KeyboardInput.isRepeat: Boolean` |
+| `Modifiers` | `Modifiers` (bitfield : SHIFT=0x1, CTRL=0x2, ALT=0x4, META=0x8) |
+| `WindowEvent::ModifiersChanged` | `WindowEvent.ModifiersChanged(modifiers: Modifiers)` |
+| `DeviceEvent::MouseWheel` | `DeviceEvent.MouseWheel(deltaX, deltaY)` |
+| Filtre `DeviceEvents` | `DeviceEvents` (Always/WhenFocused/Never) + `ActiveEventLoop.listenDeviceEvents()` |
+| `Window::reset_dead_keys()` | `Window.resetDeadKeys()` |
+
+#### IME (R5-IME)
+
+| winit (Rust) | Kadre |
+|--------------|-------|
+| `ImePurpose` (Normal/Password/Terminal) | `ImePurpose` (Normal/Password/Terminal) |
+| `Window::set_ime_allowed()` | `Window.setImeAllowed(allowed: Boolean)` — no-op, backends TODO |
+| `Window::set_ime_cursor_area()` | `Window.setImeCursorArea(position, size)` — no-op, backends TODO |
+| `Window::set_ime_purpose()` | `Window.setImePurpose(purpose: ImePurpose)` — no-op, backends TODO |
+| `WindowEvent::Ime(Enabled/Preedit/Commit/DeleteSurrounding/Disabled)` | `WindowEvent.Ime(ImeEvent.*)` — non émis (cf. DEFERRED.md) |
+
+#### Drag & drop (R5-DnD)
+
+| winit (Rust) | Kadre |
+|--------------|-------|
+| `WindowEvent::DroppedFile` / `HoveredFile` / `HoveredFileCancelled` | `WindowEvent.DragEntered/DragMoved/DragDropped/DragLeft` — non émis (cf. DEFERRED.md) |
+
+#### Gestes (R5-Gestures)
+
+| winit (Rust) | Kadre |
+|--------------|-------|
+| `WindowEvent::PinchGesture` | `WindowEvent.PinchGesture(delta, phase)` — non émis |
+| `WindowEvent::PanGesture` | `WindowEvent.PanGesture(delta, phase)` — non émis |
+| `WindowEvent::RotationGesture` | `WindowEvent.RotationGesture(delta, phase)` — non émis |
+| `WindowEvent::DoubleTapGesture` | `WindowEvent.DoubleTapGesture` — non émis |
+| `WindowEvent::TouchpadPressure` | `WindowEvent.TouchpadPressure(pressure, stage)` — non émis |
+
+#### Fenêtre divers (R5-MiscWindow)
+
+| winit (Rust) | Kadre |
+|--------------|-------|
+| `WindowEvent::Occluded` | `WindowEvent.Occluded(occluded: Boolean)` — non émis (cf. DEFERRED.md) |
+| `Window::request_user_attention()` | `Window.requestUserAttention(requestType: UserAttentionType?)` — no-op (cf. DEFERRED.md) |
+| `Window::set_content_protected()` | `Window.setContentProtected(protected: Boolean)` — no-op (cf. DEFERRED.md) |
+| `Window::drag_window()` | `Window.dragWindow()` — no-op (cf. DEFERRED.md) |
+| `Window::drag_resize_window()` | `Window.dragResizeWindow(direction: ResizeDirection)` — no-op (cf. DEFERRED.md) |
+| `Window::show_window_menu()` | `Window.showWindowMenu(position: PhysicalPosition<Int>)` — no-op (cf. DEFERRED.md) |
+
+#### WindowAttributes (ajouts R3)
+
+| Attribut winit (Rust) | Champ `WindowAttributes` |
+|-----------------------|--------------------------|
+| `with_cursor()` | `cursor: CursorIcon = CursorIcon.Default` |
+| `with_theme()` | `preferredTheme: Theme? = null` |
+| `with_transparent()` | `transparent: Boolean = false` |
+| `with_blur()` | `blur: Boolean = false` |
+| `with_window_level()` | `windowLevel: WindowLevel = WindowLevel.Normal` |
+| `with_window_icon()` | `windowIcon: Icon? = null` |
 
 ### Références externes additionnelles
 

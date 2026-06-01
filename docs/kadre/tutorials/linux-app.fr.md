@@ -127,7 +127,7 @@ class MyAppHandler : ApplicationHandler {
     }
 
     // Appelé pour chaque événement de fenêtre
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
             // Dessin : déclenché lors de l'exposition de la fenêtre (Expose / frame callback)
             WindowEvent.RedrawRequested -> {

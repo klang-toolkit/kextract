@@ -5,6 +5,6 @@
 [common]\
 data object [AppKit](index.md) : [RawDisplayHandle](../index.md)
 
-Handle d'affichage AppKit (macOS).
+AppKit display handle (macOS).
 
-Sur macOS, le display est implicitement géré par AppKit ; aucun pointeur supplémentaire n'est nécessaire.
+On macOS, the display is implicitly managed by AppKit; no additional pointer is needed.

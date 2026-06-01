@@ -54,7 +54,7 @@ import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
-import org.graphiks.kadre.web.WebWindowEvent
+import org.graphiks.kadre.core.WindowEvent
 
 class MyWebHandler : ApplicationHandler {
 
@@ -71,40 +71,40 @@ class MyWebHandler : ApplicationHandler {
     }
 
     // Appelé pour chaque événement de fenêtre (événements DOM traduits)
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
             // Redessin : déclenché par requestAnimationFrame
-            WebWindowEvent.RedrawRequested -> {
+            WindowEvent.RedrawRequested -> {
                 // Placez ici l'appel à votre renderer (wgpu4k, WebGL, WebGPU, etc.)
             }
 
             // Clôture de page / navigation hors de la page
-            WebWindowEvent.CloseRequested -> {
+            WindowEvent.CloseRequested -> {
                 eventLoop.exit()
             }
 
             // Redimensionnement du canvas
-            is WebWindowEvent.Resized ->
-                println("Resized → ${event.width}×${event.height}")
+            is WindowEvent.Resized ->
+                println("Resized → ${event.size.width}×${event.size.height}")
 
             // Déplacement du pointeur (PointerEvent DOM unifié — souris, stylet, tactile)
-            is WebWindowEvent.PointerMoved ->
-                println("PointerMoved (${event.x.toInt()}, ${event.y.toInt()})")
+            is WindowEvent.PointerMoved ->
+                println("PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
 
             // Clic souris / appui tactile
-            is WebWindowEvent.MouseInput ->
+            is WindowEvent.MouseInput ->
                 println("MouseInput ${event.state} button=${event.button}")
 
             // Défilement (molette ou pinch-to-zoom)
-            is WebWindowEvent.MouseWheel ->
+            is WindowEvent.MouseWheel ->
                 println("Wheel Δx=${event.deltaX} Δy=${event.deltaY}")
 
             // Entrées clavier
-            is WebWindowEvent.KeyboardInput ->
+            is WindowEvent.KeyboardInput ->
                 println("Key ${event.state} key=${event.key} repeat=${event.isRepeat}")
 
             // Focus / perte de focus
-            is WebWindowEvent.Focused ->
+            is WindowEvent.Focused ->
                 println("Focused: ${event.gained}")
 
             else -> Unit
@@ -278,7 +278,7 @@ fun main() {
 | Boucle d'événements | Non-bloquante — `requestAnimationFrame`, pas de thread dédié |
 | Canvas cible | Identifié par `WindowAttributes.title` comme id CSS |
 | DOM au démarrage | Le `<canvas>` doit exister avant le chargement du bundle JS |
-| Événements pointeur | `WebWindowEvent.PointerMoved` / `MouseInput` — basé sur `PointerEvent` DOM |
+| Événements pointeur | `WindowEvent.PointerMoved` / `MouseInput` — basé sur `PointerEvent` DOM |
 | DPI haute densité | Lire `window.devicePixelRatio` et ajuster `canvas.width`/`canvas.height` |
 | Scroll tactile | Ajouter `touch-action: none` sur le canvas pour éviter les conflits |
 | Variante Wasm | `kadre-wasm` + `WasmJsWebEventLoop` — API identique, meilleure performance CPU |

@@ -11,4 +11,4 @@ common
 
 | | |
 |---|---|
-| requestedResume | Instant cible original. |
+| requestedResume | Original target instant. |

@@ -12,9 +12,9 @@ actual fun [runApp](run-app.md)(handler: [ApplicationHandler](../-application-ha
 [iosArm64, iosSimulatorArm64, iosX64]\
 actual fun [runApp](run-app.md)(handler: ApplicationHandler)
 
-Démarre la boucle d'événements et délègue les rappels au gestionnaire fourni.
+Starts the event loop and delegates callbacks to the provided handler.
 
-Cette méthode est bloquante — elle ne retourne qu'à la fermeture de l'application.
+This method is blocking — it only returns when the application closes.
 
 #### Parameters
 
@@ -22,44 +22,111 @@ common
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
 
 android
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
 
 iosArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
 
 iosSimulatorArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
 
 iosX64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
+
+js
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
 
 jvm
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
+
+wasmJs
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+[js]\
+actual fun [runApp](run-app.md)(handler: ApplicationHandler)
+
+Starts the browser-side event loop (JS/IR).
+
+#### Parameters
+
+common
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+android
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+iosArm64
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+iosSimulatorArm64
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+iosX64
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+js
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+jvm
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+wasmJs
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
 
 [jvm]\
 actual fun [runApp](run-app.md)(handler: [ApplicationHandler](../-application-handler/index.md))
 
-Démarre la boucle d'événements AppKit et délègue les rappels au gestionnaire fourni.
+Starts the event loop and delegates callbacks to the provided handler.
 
-Bloquant — ne retourne qu'à la fermeture de l'application.
+Blocking — only returns when the application closes.
 
 #### Parameters
 
@@ -67,34 +134,107 @@ common
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
 
 android
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
 
 iosArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
 
 iosSimulatorArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
 
 iosX64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
+
+js
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
 
 jvm
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application's lifecycle and events. |
+
+wasmJs
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+#### Throws
+
+| | |
+|---|---|
+| [UnsupportedOperationException](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-unsupported-operation-exception/index.html) | if the OS is not supported or if the corresponding backend cannot be found on the classpath. |
+
+[wasmJs]\
+actual fun [runApp](run-app.md)(handler: ApplicationHandler)
+
+Starts the browser-side event loop (wasmJs).
+
+#### Parameters
+
+common
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+android
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+iosArm64
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+iosSimulatorArm64
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+iosX64
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+js
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+jvm
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |
+
+wasmJs
+
+| | |
+|---|---|
+| handler | Handler for the application's lifecycle and events. |

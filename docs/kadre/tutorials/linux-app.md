@@ -127,7 +127,7 @@ class MyAppHandler : ApplicationHandler {
     }
 
     // Called for each window event
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
             // Draw: triggered on window exposure (Expose / frame callback)
             WindowEvent.RedrawRequested -> {

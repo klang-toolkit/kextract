@@ -4,7 +4,7 @@
 
 data class [WaitUntil](index.md)(val instant: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)) : [ControlFlow](../index.md)
 
-Attend jusqu'à un instant précis (en millisecondes depuis l'époque Unix) ou jusqu'au prochain événement.
+Waits until a specific instant (in milliseconds since the Unix epoch) or until the next event.
 
 #### Parameters
 
@@ -12,7 +12,7 @@ common
 
 | | |
 |---|---|
-| instant | Instant cible exprimé en millisecondes depuis l'époque Unix. |
+| instant | Target instant expressed in milliseconds since the Unix epoch. |
 
 ## Constructors
 

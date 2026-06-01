@@ -5,7 +5,7 @@
 [common]\
 data class [AppKit](index.md)(val nsView: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html), val nsWindow: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html), val nsLayer: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html) = 0) : [RawWindowHandle](../index.md)
 
-Handle de fenêtre AppKit (macOS).
+AppKit window handle (macOS).
 
 ## Constructors
 
@@ -17,6 +17,6 @@ Handle de fenêtre AppKit (macOS).
 
 | Name | Summary |
 |---|---|
-| [nsLayer](ns-layer.md) | [common]<br>val [nsLayer](ns-layer.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)<br>Pointeur vers l'instance `CAMetalLayer` attachée au `NSView`.                     Exposé directement pour éviter de passer par `[nsView layer]`                     qui peut retourner la couche générique créée par AppKit si                     l'ordre `setLayer`/`setWantsLayer` n'est pas respecté. |
-| [nsView](ns-view.md) | [common]<br>val [nsView](ns-view.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)<br>Pointeur vers l'instance `NSView` (cast vers `NSView*` au point d'usage). |
-| [nsWindow](ns-window.md) | [common]<br>val [nsWindow](ns-window.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)<br>Pointeur vers l'instance `NSWindow` (cast vers `NSWindow*` au point d'usage). |
+| [nsLayer](ns-layer.md) | [common]<br>val [nsLayer](ns-layer.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)<br>Pointer to the `CAMetalLayer` instance attached to the `NSView`.                     Exposed directly to avoid going through `[nsView layer]`,                     which may return the generic layer created by AppKit if                     the `setLayer`/`setWantsLayer` order is not respected. |
+| [nsView](ns-view.md) | [common]<br>val [nsView](ns-view.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)<br>Pointer to the `NSView` instance (cast to `NSView*` at the point of use). |
+| [nsWindow](ns-window.md) | [common]<br>val [nsWindow](ns-window.md): [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)<br>Pointer to the `NSWindow` instance (cast to `NSWindow*` at the point of use). |

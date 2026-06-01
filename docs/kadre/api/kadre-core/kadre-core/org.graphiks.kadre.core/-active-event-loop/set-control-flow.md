@@ -5,7 +5,7 @@
 [common]\
 abstract fun [setControlFlow](set-control-flow.md)(controlFlow: [ControlFlow](../-control-flow/index.md))
 
-Définit le comportement d'attente de la boucle d'événements après la fin de l'itération courante.
+Sets the waiting behavior of the event loop after the end of the current iteration.
 
 #### Parameters
 
@@ -13,4 +13,4 @@ common
 
 | | |
 |---|---|
-| controlFlow | Nouveau comportement d'attente. |
+| controlFlow | New waiting behavior. |

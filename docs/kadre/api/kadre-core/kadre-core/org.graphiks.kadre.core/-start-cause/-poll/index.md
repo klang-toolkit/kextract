@@ -5,4 +5,4 @@
 [common]\
 object [Poll](index.md) : [StartCause](../index.md)
 
-La boucle d'événements a été interrogée (mode Poll).
+The event loop has been polled (Poll mode).

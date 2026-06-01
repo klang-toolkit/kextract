@@ -54,7 +54,7 @@ import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
-import org.graphiks.kadre.web.WebWindowEvent
+import org.graphiks.kadre.core.WindowEvent
 
 class MyWebHandler : ApplicationHandler {
 
@@ -71,40 +71,40 @@ class MyWebHandler : ApplicationHandler {
     }
 
     // Called for each window event (translated DOM events)
-    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: Any) {
+    override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         when (event) {
             // Redraw: triggered by requestAnimationFrame
-            WebWindowEvent.RedrawRequested -> {
+            WindowEvent.RedrawRequested -> {
                 // Place your renderer call here (wgpu4k, WebGL, WebGPU, etc.)
             }
 
             // Page close / navigation away
-            WebWindowEvent.CloseRequested -> {
+            WindowEvent.CloseRequested -> {
                 eventLoop.exit()
             }
 
             // Canvas resize
-            is WebWindowEvent.Resized ->
-                println("Resized → ${event.width}×${event.height}")
+            is WindowEvent.Resized ->
+                println("Resized → ${event.size.width}×${event.size.height}")
 
             // Pointer movement (unified DOM PointerEvent — mouse, stylus, touch)
-            is WebWindowEvent.PointerMoved ->
-                println("PointerMoved (${event.x.toInt()}, ${event.y.toInt()})")
+            is WindowEvent.PointerMoved ->
+                println("PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
 
             // Mouse click / touch press
-            is WebWindowEvent.MouseInput ->
+            is WindowEvent.MouseInput ->
                 println("MouseInput ${event.state} button=${event.button}")
 
             // Scroll (wheel or pinch-to-zoom)
-            is WebWindowEvent.MouseWheel ->
+            is WindowEvent.MouseWheel ->
                 println("Wheel Δx=${event.deltaX} Δy=${event.deltaY}")
 
             // Keyboard input
-            is WebWindowEvent.KeyboardInput ->
+            is WindowEvent.KeyboardInput ->
                 println("Key ${event.state} key=${event.key} repeat=${event.isRepeat}")
 
             // Focus / focus lost
-            is WebWindowEvent.Focused ->
+            is WindowEvent.Focused ->
                 println("Focused: ${event.gained}")
 
             else -> Unit
@@ -277,7 +277,7 @@ fun main() {
 | Event loop | Non-blocking — `requestAnimationFrame`, no dedicated thread |
 | Target canvas | Identified by `WindowAttributes.title` as CSS id |
 | DOM at startup | The `<canvas>` must exist before the JS bundle loads |
-| Pointer events | `WebWindowEvent.PointerMoved` / `MouseInput` — based on DOM `PointerEvent` |
+| Pointer events | `WindowEvent.PointerMoved` / `MouseInput` — based on DOM `PointerEvent` |
 | High density DPI | Read `window.devicePixelRatio` and adjust `canvas.width`/`canvas.height` |
 | Touch scroll | Add `touch-action: none` on the canvas to avoid conflicts |
 | Wasm variant | `kadre-wasm` + `WasmJsWebEventLoop` — identical API, better CPU performance |

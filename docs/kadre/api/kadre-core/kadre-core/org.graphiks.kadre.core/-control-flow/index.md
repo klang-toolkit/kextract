@@ -4,9 +4,9 @@
 
 sealed class [ControlFlow](index.md)
 
-Contrôle du flux d'exécution de la boucle d'événements.
+Control of the event loop's execution flow.
 
-Permet à l'application de dicter le comportement d'attente entre les itérations de la boucle d'événements.
+Allows the application to dictate the waiting behavior between iterations of the event loop.
 
 #### Inheritors
 
@@ -20,6 +20,6 @@ Permet à l'application de dicter le comportement d'attente entre les itération
 
 | Name | Summary |
 |---|---|
-| [Poll](-poll/index.md) | [common]<br>object [Poll](-poll/index.md) : [ControlFlow](index.md)<br>Retourne immédiatement sans attendre d'événement. |
-| [Wait](-wait/index.md) | [common]<br>object [Wait](-wait/index.md) : [ControlFlow](index.md)<br>Attend indéfiniment jusqu'au prochain événement. |
-| [WaitUntil](-wait-until/index.md) | [common]<br>data class [WaitUntil](-wait-until/index.md)(val instant: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)) : [ControlFlow](index.md)<br>Attend jusqu'à un instant précis (en millisecondes depuis l'époque Unix) ou jusqu'au prochain événement. |
+| [Poll](-poll/index.md) | [common]<br>object [Poll](-poll/index.md) : [ControlFlow](index.md)<br>Returns immediately without waiting for an event. |
+| [Wait](-wait/index.md) | [common]<br>object [Wait](-wait/index.md) : [ControlFlow](index.md)<br>Waits indefinitely until the next event. |
+| [WaitUntil](-wait-until/index.md) | [common]<br>data class [WaitUntil](-wait-until/index.md)(val instant: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)) : [ControlFlow](index.md)<br>Waits until a specific instant (in milliseconds since the Unix epoch) or until the next event. |

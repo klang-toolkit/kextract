@@ -3,9 +3,9 @@
 # deviceEvent
 
 [common]\
-open fun [deviceEvent](device-event.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md), deviceId: [DeviceId](../-device-id/index.md), event: [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html))
+open fun [deviceEvent](device-event.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md), deviceId: [DeviceId](../-device-id/index.md), event: [DeviceEvent](../-device-event/index.md))
 
-Appelé lorsqu'un événement de périphérique d'entrée est reçu.
+Called when an input device event is received.
 
 #### Parameters
 
@@ -13,6 +13,6 @@ common
 
 | | |
 |---|---|
-| eventLoop | Boucle d'événements active. |
-| deviceId | Identifiant du périphérique ayant émis l'événement. |
-| event | Événement reçu (type Any en attente de GRA-123). |
+| eventLoop | Active event loop. |
+| deviceId | Identifier of the device that emitted the event. |
+| event | Received device event. |

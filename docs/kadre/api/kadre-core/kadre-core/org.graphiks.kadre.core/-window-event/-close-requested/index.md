@@ -5,6 +5,6 @@
 [common]\
 data object [CloseRequested](index.md) : [WindowEvent](../index.md)
 
-L'utilisateur a demandé la fermeture de la fenêtre (bouton ×, Alt+F4, ⌘W, etc.).
+The user requested closing the window (× button, Alt+F4, ⌘W, etc.).
 
-L'application reste libre d'ignorer ou de différer la fermeture.
+The application remains free to ignore or defer the close.

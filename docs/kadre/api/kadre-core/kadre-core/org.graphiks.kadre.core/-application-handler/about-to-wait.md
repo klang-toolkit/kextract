@@ -5,7 +5,7 @@
 [common]\
 open fun [aboutToWait](about-to-wait.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md))
 
-Appelé lorsque tous les événements de l'itération courante ont été distribués et que la boucle est sur le point de se mettre en attente.
+Called when all events of the current iteration have been dispatched and the loop is about to go into a waiting state.
 
 #### Parameters
 
@@ -13,4 +13,4 @@ common
 
 | | |
 |---|---|
-| eventLoop | Boucle d'événements active. |
+| eventLoop | Active event loop. |

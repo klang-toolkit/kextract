@@ -5,6 +5,6 @@
 [common]\
 data object [RedrawRequested](index.md) : [WindowEvent](../index.md)
 
-La fenêtre doit être redessinée.
+The window must be redrawn.
 
-Émis par la plateforme (vsync, invalidation de région, etc.).
+Emitted by the platform (vsync, region invalidation, etc.).

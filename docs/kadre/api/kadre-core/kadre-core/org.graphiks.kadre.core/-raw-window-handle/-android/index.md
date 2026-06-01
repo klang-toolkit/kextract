@@ -5,7 +5,7 @@
 [common]\
 data class [Android](index.md)(val surface: [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html)) : [RawWindowHandle](../index.md)
 
-Handle de fenêtre Android.
+Android window handle.
 
 ## Constructors
 
@@ -17,4 +17,4 @@ Handle de fenêtre Android.
 
 | Name | Summary |
 |---|---|
-| [surface](surface.md) | [common]<br>val [surface](surface.md): [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html)<br>Instance de la surface native. Au runtime, ce paramètre est                    obligatoirement une instance de `android.view.Surface` ; le type                    est déclaré [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html) afin de ne pas introduire d'import Android dans                    commonMain — le consommateur effectue le cast explicite. |
+| [surface](surface.md) | [common]<br>val [surface](surface.md): [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html)<br>Instance of the native surface. At runtime, this parameter is                    necessarily an instance of `android.view.Surface`; the type                    is declared [Any](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-any/index.html) so as not to introduce an Android import into                    commonMain — the consumer performs the explicit cast. |

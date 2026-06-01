@@ -5,7 +5,7 @@
 [common]\
 data class [PointerMotion](index.md)(val dx: [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html), val dy: [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)) : [DeviceEvent](../index.md)
 
-Mouvement brut du pointeur (delta, non limité aux bords de l'écran).
+Raw pointer motion (delta, not limited to the screen edges).
 
 ## Constructors
 
@@ -17,5 +17,5 @@ Mouvement brut du pointeur (delta, non limité aux bords de l'écran).
 
 | Name | Summary |
 |---|---|
-| [dx](dx.md) | [common]<br>val [dx](dx.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Déplacement horizontal en pixels bruts. |
-| [dy](dy.md) | [common]<br>val [dy](dy.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Déplacement vertical en pixels bruts. |
+| [dx](dx.md) | [common]<br>val [dx](dx.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Horizontal displacement in raw pixels. |
+| [dy](dy.md) | [common]<br>val [dy](dy.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Vertical displacement in raw pixels. |

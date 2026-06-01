@@ -5,8 +5,8 @@
 [common]\
 operator fun [plus](plus.md)(other: [Modifiers](index.md)): [Modifiers](index.md)
 
-Combine ces modificateurs avec [other](plus.md).
+Combines these modifiers with [other](plus.md).
 
 #### Return
 
-Nouvel ensemble contenant les modificateurs des deux opérandes.
+New set containing the modifiers of both operands.

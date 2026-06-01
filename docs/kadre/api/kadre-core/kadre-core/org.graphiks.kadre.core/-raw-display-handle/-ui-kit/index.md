@@ -5,6 +5,6 @@
 [common]\
 data object [UiKit](index.md) : [RawDisplayHandle](../index.md)
 
-Handle d'affichage UIKit (iOS / tvOS).
+UIKit display handle (iOS / tvOS).
 
-Sur iOS, le display est implicitement géré par UIKit ; aucun pointeur supplémentaire n'est nécessaire.
+On iOS, the display is implicitly managed by UIKit; no additional pointer is needed.

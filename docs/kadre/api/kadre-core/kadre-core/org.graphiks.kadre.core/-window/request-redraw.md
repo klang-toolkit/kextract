@@ -5,4 +5,4 @@
 [common]\
 abstract fun [requestRedraw](request-redraw.md)()
 
-Demande un rafraîchissement (redraw) de la fenêtre à la prochaine itération.
+Requests a redraw of the window at the next iteration.

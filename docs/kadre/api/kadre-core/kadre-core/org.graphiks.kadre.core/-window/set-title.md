@@ -5,7 +5,7 @@
 [common]\
 abstract fun [setTitle](set-title.md)(title: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html))
 
-Définit le titre affiché dans la barre de titre de la fenêtre.
+Sets the title shown in the window's title bar.
 
 #### Parameters
 
@@ -13,4 +13,4 @@ common
 
 | | |
 |---|---|
-| title | Nouveau titre de la fenêtre. |
+| title | New title of the window. |

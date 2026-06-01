@@ -5,7 +5,7 @@
 [common]\
 data class [Focused](index.md)(val gained: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)) : [WindowEvent](../index.md)
 
-La fenêtre a gagné ou perdu le focus clavier.
+The window gained or lost keyboard focus.
 
 ## Constructors
 
@@ -17,4 +17,4 @@ La fenêtre a gagné ou perdu le focus clavier.
 
 | Name | Summary |
 |---|---|
-| [gained](gained.md) | [common]<br>val [gained](gained.md): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)<br>`true` si la fenêtre vient de gagner le focus, `false` si elle l'a perdu. |
+| [gained](gained.md) | [common]<br>val [gained](gained.md): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)<br>`true` if the window just gained focus, `false` if it lost it. |

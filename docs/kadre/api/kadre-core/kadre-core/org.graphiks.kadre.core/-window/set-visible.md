@@ -5,7 +5,7 @@
 [common]\
 abstract fun [setVisible](set-visible.md)(visible: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html))
 
-Rend la fenêtre visible ou invisible.
+Makes the window visible or invisible.
 
 #### Parameters
 
@@ -13,4 +13,4 @@ common
 
 | | |
 |---|---|
-| visible | true pour afficher la fenêtre, false pour la masquer. |
+| visible | true to show the window, false to hide it. |

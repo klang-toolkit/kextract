@@ -5,7 +5,7 @@
 [common]\
 data class [Other](index.md)(val button: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)) : [MouseButton](../index.md)
 
-Bouton supplémentaire identifié par son index numérique.
+Additional button identified by its numeric index.
 
 ## Constructors
 
@@ -17,4 +17,4 @@ Bouton supplémentaire identifié par son index numérique.
 
 | Name | Summary |
 |---|---|
-| [button](button.md) | [common]<br>val [button](button.md): [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)<br>Indice du bouton (spécifique à la plateforme, commence à 4). |
+| [button](button.md) | [common]<br>val [button](button.md): [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)<br>Button index (platform-specific, starts at 4). |

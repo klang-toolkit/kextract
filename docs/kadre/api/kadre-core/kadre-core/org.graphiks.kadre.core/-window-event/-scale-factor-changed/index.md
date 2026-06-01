@@ -5,7 +5,7 @@
 [common]\
 data class [ScaleFactorChanged](index.md)(val factor: [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)) : [WindowEvent](../index.md)
 
-Le facteur d'échelle DPI de la fenêtre a changé (ex. déplacement vers un autre moniteur).
+The window's DPI scale factor changed (e.g. moved to another monitor).
 
 ## Constructors
 
@@ -17,4 +17,4 @@ Le facteur d'échelle DPI de la fenêtre a changé (ex. déplacement vers un aut
 
 | Name | Summary |
 |---|---|
-| [factor](factor.md) | [common]<br>val [factor](factor.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>Nouveau facteur d'échelle (ex. `2.0` sur un écran Retina). |
+| [factor](factor.md) | [common]<br>val [factor](factor.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)<br>New scale factor (e.g. `2.0` on a Retina screen). |

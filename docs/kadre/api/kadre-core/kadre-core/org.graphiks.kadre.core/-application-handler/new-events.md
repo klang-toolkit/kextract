@@ -5,7 +5,7 @@
 [common]\
 open fun [newEvents](new-events.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md), startCause: [StartCause](../-start-cause/index.md))
 
-Appelé au début de chaque itération de la boucle d'événements, avant la distribution des événements accumulés.
+Called at the start of each event loop iteration, before the accumulated events are dispatched.
 
 #### Parameters
 
@@ -13,5 +13,5 @@ common
 
 | | |
 |---|---|
-| eventLoop | Boucle d'événements active. |
-| startCause | Cause ayant déclenché cette nouvelle itération. |
+| eventLoop | Active event loop. |
+| startCause | Cause that triggered this new iteration. |

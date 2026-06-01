@@ -5,4 +5,4 @@
 [common]\
 abstract val [scaleFactor](scale-factor.md): [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)
 
-Retourne le facteur d'échelle entre les pixels logiques et physiques pour cette fenêtre.
+Returns the scale factor between logical and physical pixels for this window.

@@ -5,8 +5,8 @@
 [common]\
 abstract fun [createProxy](create-proxy.md)(): [EventLoopProxy](../-event-loop-proxy/index.md)
 
-Crée un proxy thread-safe vers cette boucle d'événements.
+Creates a thread-safe proxy to this event loop.
 
 #### Return
 
-Un [EventLoopProxy](../-event-loop-proxy/index.md) utilisable depuis n'importe quel fil d'exécution.
+An [EventLoopProxy](../-event-loop-proxy/index.md) usable from any thread.

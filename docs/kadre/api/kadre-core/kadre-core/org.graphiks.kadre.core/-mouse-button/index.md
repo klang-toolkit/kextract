@@ -4,9 +4,9 @@
 
 sealed interface [MouseButton](index.md)
 
-Bouton de souris.
+Mouse button.
 
-Les trois boutons principaux disposent d'objets nommés ; les boutons supplémentaires sont représentés par [Other](-other/index.md).
+The three main buttons have named objects; additional buttons are represented by [Other](-other/index.md).
 
 #### Inheritors
 
@@ -21,7 +21,7 @@ Les trois boutons principaux disposent d'objets nommés ; les boutons supplémen
 
 | Name | Summary |
 |---|---|
-| [Left](-left/index.md) | [common]<br>data object [Left](-left/index.md) : [MouseButton](index.md)<br>Bouton gauche (bouton principal). |
-| [Middle](-middle/index.md) | [common]<br>data object [Middle](-middle/index.md) : [MouseButton](index.md)<br>Bouton du milieu (molette ou bouton central). |
-| [Other](-other/index.md) | [common]<br>data class [Other](-other/index.md)(val button: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)) : [MouseButton](index.md)<br>Bouton supplémentaire identifié par son index numérique. |
-| [Right](-right/index.md) | [common]<br>data object [Right](-right/index.md) : [MouseButton](index.md)<br>Bouton droit (bouton secondaire / menu contextuel). |
+| [Left](-left/index.md) | [common]<br>data object [Left](-left/index.md) : [MouseButton](index.md)<br>Left button (primary button). |
+| [Middle](-middle/index.md) | [common]<br>data object [Middle](-middle/index.md) : [MouseButton](index.md)<br>Middle button (wheel or center button). |
+| [Other](-other/index.md) | [common]<br>data class [Other](-other/index.md)(val button: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)) : [MouseButton](index.md)<br>Additional button identified by its numeric index. |
+| [Right](-right/index.md) | [common]<br>data object [Right](-right/index.md) : [MouseButton](index.md)<br>Right button (secondary button / context menu). |

@@ -5,6 +5,6 @@
 [common]\
 abstract fun [exit](exit.md)()
 
-Demande l'arrêt de la boucle d'événements.
+Requests shutdown of the event loop.
 
-La boucle ne s'arrête pas immédiatement ; elle termine l'itération courante avant de s'arrêter.
+The loop does not stop immediately; it finishes the current iteration before stopping.

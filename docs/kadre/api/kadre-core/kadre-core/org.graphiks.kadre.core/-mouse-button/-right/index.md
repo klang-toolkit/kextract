@@ -5,4 +5,4 @@
 [common]\
 data object [Right](index.md) : [MouseButton](../index.md)
 
-Bouton droit (bouton secondaire / menu contextuel).
+Right button (secondary button / context menu).

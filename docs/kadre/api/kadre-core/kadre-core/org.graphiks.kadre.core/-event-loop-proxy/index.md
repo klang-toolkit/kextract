@@ -5,12 +5,12 @@
 [common]\
 interface [EventLoopProxy](index.md)
 
-Proxy thread-safe vers la boucle d'événements principale.
+Thread-safe proxy to the main event loop.
 
-Permet à des fils d'exécution secondaires de réveiller la boucle d'événements sans y avoir accès directement.
+Allows secondary threads to wake up the event loop without having direct access to it.
 
 ## Functions
 
 | Name | Summary |
 |---|---|
-| [wakeUp](wake-up.md) | [common]<br>abstract fun [wakeUp](wake-up.md)()<br>Réveille la boucle d'événements si elle est en attente. |
+| [wakeUp](wake-up.md) | [common]<br>abstract fun [wakeUp](wake-up.md)()<br>Wakes up the event loop if it is waiting. |

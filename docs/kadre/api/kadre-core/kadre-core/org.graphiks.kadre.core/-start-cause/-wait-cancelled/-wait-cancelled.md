@@ -11,4 +11,4 @@ common
 
 | | |
 |---|---|
-| requestedResume | Instant cible original, ou null s'il n'était pas défini. |
+| requestedResume | Original target instant, or null if it was not set. |

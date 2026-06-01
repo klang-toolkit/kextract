@@ -5,9 +5,9 @@
 [common]\
 expect fun [runApp](run-app.md)(handler: [ApplicationHandler](../-application-handler/index.md))
 
-Démarre la boucle d'événements et délègue les rappels au gestionnaire fourni.
+Starts the event loop and delegates callbacks to the provided handler.
 
-Cette méthode est bloquante : elle ne retourne qu'une fois la boucle terminée (via [ActiveEventLoop.exit](../-active-event-loop/exit.md) ou fermeture de toutes les fenêtres selon la plateforme).
+This method is blocking: it returns only once the loop has ended (via [ActiveEventLoop.exit](../-active-event-loop/exit.md) or closing all windows depending on the platform).
 
 #### Parameters
 
@@ -15,37 +15,49 @@ common
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 android
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosSimulatorArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosX64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
+
+js
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
 
 jvm
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
+
+wasmJs
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
 
 [android, iosArm64, iosSimulatorArm64, iosX64]\
 [android]\
@@ -54,7 +66,7 @@ actual fun [runApp](run-app.md)(handler: [ApplicationHandler](../-application-ha
 [iosArm64, iosSimulatorArm64, iosX64]\
 actual fun [runApp](run-app.md)(handler: ApplicationHandler)
 
-Démarre la boucle d'événements et délègue les rappels au gestionnaire fourni.
+Starts the event loop and delegates callbacks to the provided handler.
 
 #### Parameters
 
@@ -62,44 +74,55 @@ common
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 android
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosSimulatorArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosX64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
+
+js
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
 
 jvm
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
-[jvm]\
-actual fun [runApp](run-app.md)(handler: [ApplicationHandler](../-application-handler/index.md))
+wasmJs
 
-Démarre la boucle d'événements AppKit et délègue les rappels au gestionnaire fourni.
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
 
-Bloquant — ne retourne qu'à la fermeture de l'application.
+[js, wasmJs]\
+[js, wasmJs]\
+actual fun [runApp](run-app.md)(handler: ApplicationHandler)
+
+Starts the event loop and delegates callbacks to the provided handler.
 
 #### Parameters
 
@@ -107,40 +130,119 @@ common
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 android
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosSimulatorArm64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
 
 iosX64
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
+
+js
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
 
 jvm
 
 | | |
 |---|---|
-| handler | Gestionnaire du cycle de vie et des événements de l'application. |
+| handler | Handler for the application lifecycle and events. |
+
+wasmJs
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
 
 #### Throws
 
 | | |
 |---|---|
-| [UnsupportedOperationException](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-unsupported-operation-exception/index.html) | si kadre-appkit n'est pas sur le classpath. |
+| [UnsupportedOperationException](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-unsupported-operation-exception/index.html) | Always — complete implementation in #24. |
+| [UnsupportedOperationException](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-unsupported-operation-exception/index.html) | if kadre-appkit is not on the classpath. |
+| [UnsupportedOperationException](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-unsupported-operation-exception/index.html) | Always — complete implementation in #24. |
+
+[jvm]\
+actual fun [runApp](run-app.md)(handler: [ApplicationHandler](../-application-handler/index.md))
+
+Starts the AppKit event loop and delegates callbacks to the provided handler.
+
+Blocking — returns only once the application closes.
+
+#### Parameters
+
+common
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
+
+android
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
+
+iosArm64
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
+
+iosSimulatorArm64
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
+
+iosX64
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
+
+js
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
+
+jvm
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
+
+wasmJs
+
+| | |
+|---|---|
+| handler | Handler for the application lifecycle and events. |
+
+#### Throws
+
+| | |
+|---|---|
+| [UnsupportedOperationException](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-unsupported-operation-exception/index.html) | Always — complete implementation in #24. |
+| [UnsupportedOperationException](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-unsupported-operation-exception/index.html) | if kadre-appkit is not on the classpath. |
+| [UnsupportedOperationException](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-unsupported-operation-exception/index.html) | Always — complete implementation in #24. |

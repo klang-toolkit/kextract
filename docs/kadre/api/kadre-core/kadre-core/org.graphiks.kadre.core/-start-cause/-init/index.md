@@ -5,4 +5,4 @@
 [common]\
 object [Init](index.md) : [StartCause](../index.md)
 
-La boucle d'événements vient d'être initialisée.
+The event loop has just been initialized.

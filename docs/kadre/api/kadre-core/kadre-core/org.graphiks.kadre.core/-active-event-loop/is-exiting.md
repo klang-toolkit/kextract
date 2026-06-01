@@ -5,8 +5,8 @@
 [common]\
 abstract val [isExiting](is-exiting.md): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)
 
-Indique si une demande d'arrêt a été émise.
+Indicates whether a shutdown request has been issued.
 
 #### Return
 
-true si [exit](exit.md) a été appelé et que la boucle va s'arrêter.
+true if [exit](exit.md) has been called and the loop is going to stop.

@@ -5,4 +5,4 @@
 [common]\
 abstract val [id](id.md): [WindowId](../-window-id/index.md)
 
-Identifiant unique de la fenêtre.
+Unique identifier of the window.

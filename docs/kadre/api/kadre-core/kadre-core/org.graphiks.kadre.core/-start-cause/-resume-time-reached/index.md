@@ -4,7 +4,7 @@
 
 data class [ResumeTimeReached](index.md)(val requestedResume: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html), val start: [Long](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-long/index.html)) : [StartCause](../index.md)
 
-L'instant cible d'attente a été atteint.
+The target wait instant has been reached.
 
 #### Parameters
 
@@ -12,8 +12,8 @@ common
 
 | | |
 |---|---|
-| requestedResume | Instant cible original. |
-| start | Instant auquel la reprise a effectivement eu lieu. |
+| requestedResume | Original target instant. |
+| start | Instant at which the resumption actually occurred. |
 
 ## Constructors
 

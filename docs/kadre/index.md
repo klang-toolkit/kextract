@@ -20,6 +20,47 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 - [Sprint Review](./sprint-review.md) — metrics, deliverables, retrospective
 - [Technical specifications](./specs.md) — architecture, API, diagrams
 
+## Features
+
+- **Window state & geometry** — size constraints, min/max, resizable, minimized, maximized, decorations, outer position, pre-present notify
+- **Monitor enumeration** — `availableMonitors()` / `primaryMonitor()` with `VideoMode` data
+- **Fullscreen** — `Fullscreen.Borderless` (all backends) and `Fullscreen.Exclusive` (desktop; falls back to borderless on Wayland/Web/mobile)
+- **Cursor** — 25 `CursorIcon` shapes, visibility, grab (Confined/Locked), warp, hit-testing; custom RGBA cursors (`CursorImage` / `CustomCursor`, wiring TODO)
+- **Theme & appearance** — `Theme` (Light/Dark), per-window theme override, `ThemeChanged` event, `WindowLevel`, transparency, blur, window icon
+- **Keyboard richness** — `text`, `location` (`KeyLocation`), `scanCode`, `isRepeat` on `KeyboardInput`; `ModifiersChanged`; dead-key reset
+- **Device events** — `DeviceEvent.MouseWheel`; filter via `listenDeviceEvents(DeviceEvents.Always/WhenFocused/Never)`
+- **IME** — `setImeAllowed`, `setImeCursorArea`, `setImePurpose(ImePurpose)`; full `ImeEvent` lifecycle (Enabled/Preedit/Commit/DeleteSurrounding/Disabled) — API defined, emission TODO
+- **Drag & drop** — `DragEntered/Moved/Dropped/Left` events — API defined, emission TODO
+- **Gestures** — Pinch, Pan, Rotation, DoubleTap, TouchpadPressure — API defined, emission TODO
+- **Occluded** — visibility state change event — API defined, emission TODO
+- **Misc window** — user attention, content protection, window menu, drag/resize-window — API defined, all no-op (see [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md))
+
+## Platform capability matrix
+
+| Feature | macOS (appkit) | Windows (win32) | Linux X11 | Linux Wayland | Web (JS/Wasm) | Android | iOS (uikit) |
+|---------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Window create / title / size | real | real | real | real | real | real | real |
+| Monitor enumeration | real | real | real | real | synthetic | synthetic | synthetic |
+| Fullscreen Borderless | real | real | real | real | real | real | real |
+| Fullscreen Exclusive | real | partial | real | no-op | no-op | no-op | no-op |
+| CursorIcon | real | real | real | no-op* | real (CSS) | no-op | no-op |
+| CursorGrab Confined/Locked | real | real | real | no-op* | real | no-op | no-op |
+| CursorVisible | real | partial* | no-op* | no-op | real | no-op | no-op |
+| CursorPosition (warp) | partial* | real | real | no-op | no-op | no-op | no-op |
+| systemTheme() | real | real | null | null | real | real | real |
+| setTheme() per-window | real | real | no-op | no-op | no-op | no-op | no-op |
+| ThemeChanged event | real | real | — | — | — | — | — |
+| setBlur() | real | real | no-op | no-op | no-op | no-op | no-op |
+| setWindowIcon() | partial* | partial* | real | no-op | no-op | no-op | no-op |
+| ModifiersChanged event | real | real | TODO | TODO | real | TODO | TODO |
+| IME (setImeAllowed etc.) | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| DnD events | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| Gesture events | TODO | TODO | — | — | TODO | — | TODO |
+| Occluded event | TODO | — | — | — | TODO | — | — |
+| Custom cursors | TODO | TODO | TODO | TODO | TODO | no-op | no-op |
+
+`real` = implemented. `partial*` / `no-op*` = partial or documented no-op, see [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md). `TODO` = API defined, backend wiring pending. `—` = not applicable on this platform.
+
 ## Platforms
 
 | Platform | Backend |
@@ -34,3 +75,5 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 ## Status
 
 **Released** — `org.graphiks.kadre:kadre:1.0.0` on Maven Central.
+
+Residual deferred items (API defined, backend wiring pending): IME emission, DnD emission, gesture emission, Occluded emission, custom cursors. Full list: [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).

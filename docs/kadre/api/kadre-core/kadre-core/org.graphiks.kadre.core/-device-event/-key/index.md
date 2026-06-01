@@ -5,7 +5,7 @@
 [common]\
 data class [Key](index.md)(val scancode: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html), val state: [KeyState](../../-key-state/index.md)) : [DeviceEvent](../index.md)
 
-Une touche physique du clavier a changé d'état (identifiée par scancode).
+A physical keyboard key changed state (identified by scancode).
 
 ## Constructors
 
@@ -17,5 +17,5 @@ Une touche physique du clavier a changé d'état (identifiée par scancode).
 
 | Name | Summary |
 |---|---|
-| [scancode](scancode.md) | [common]<br>val [scancode](scancode.md): [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)<br>Code physique de la touche (indépendant de la disposition clavier). |
-| [state](state.md) | [common]<br>val [state](state.md): [KeyState](../../-key-state/index.md)<br>État de la touche ([KeyState.Pressed](../../-key-state/-pressed/index.md) ou [KeyState.Released](../../-key-state/-released/index.md)). |
+| [scancode](scancode.md) | [common]<br>val [scancode](scancode.md): [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)<br>Physical key code (independent of the keyboard layout). |
+| [state](state.md) | [common]<br>val [state](state.md): [KeyState](../../-key-state/index.md)<br>Key state ([KeyState.Pressed](../../-key-state/-pressed/index.md) or [KeyState.Released](../../-key-state/-released/index.md)). |

@@ -1,8 +1,8 @@
 # Kadre — Plan projet
 
-> Statut : **Canonique**
+> Statut : **Historique — 1.0.0 livré** (voir §12 pour la parité winit post-1.0.0)
 > Auteur : équipe Kadre
-> Dernière mise à jour : 2026-05-31
+> Dernière mise à jour : 2026-06-01
 
 ---
 
@@ -350,3 +350,22 @@ Un reviewer a soulevé la question (legitimement) du choix JDK 25 vs JDK 22/21 p
 
 - [Spécifications techniques](./specs.md)
 - [Sprint review](./sprint-review.md)
+
+---
+
+## 12. Parité winit — R0–R5 (post-1.0.0, livré 2026-06)
+
+> Le plan 1.0.0 ci-dessus est complet et historique. Cette section documente les rounds de remédiation R0–R5 (PRs #167–#184).
+
+Après la 1.0.0, une analyse des écarts avec l'API complète de winit a été conduite. Six rounds de remédiation ont été livrés :
+
+| Round | Périmètre | PRs |
+|-------|-----------|-----|
+| **R0** | Sûreté des types d'événements — `event: Any` → `event: WindowEvent` / `event: DeviceEvent` ; `rawWindowHandle`/`rawDisplayHandle` → typés (`RawWindowHandle`/`RawDisplayHandle`). **Breaking change.** | #167–#170 |
+| **R1** | État fenêtre/moniteurs/plein écran — `setMinimized`, `setMaximized`, `setFullscreen`, `MonitorHandle`, `VideoMode`, `setDecorations`, `setWindowLevel`, `setAlwaysOnTop`, etc. | #171–#175 |
+| **R2** | Icône de fenêtre — `setWindowIcon(Icon?)` + type scellé `Icon` (bitmap RGBA) | #176–#177 |
+| **R3** | Curseur, thème & apparence — `setCursorIcon`, `setCursorVisible`, `setCursorGrab`, `setTheme`, `setTransparent`, `setBlur`, `WindowTheme` | #178–#180 |
+| **R4** | Richesse des entrées — `KeyboardInput.text`, `scanCode`, `location`, événement `ModifiersChanged`, événement device `MouseWheel`, variants `DeviceEvent` | #181 |
+| **R5** | Events avancés & divers — événements DnD, gestes, API IME (`ImePurpose`, `setIme*`), `requestUserAttention`, `setContentProtected`, `showWindowMenu`, `dragWindow`, `dragResizeWindow`, `memoryWarning`, événement `Occluded` | #182–#184 |
+
+Les éléments volontairement reportés (implémentations no-op, événements non émis, backends natifs partiels) sont suivis dans [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).

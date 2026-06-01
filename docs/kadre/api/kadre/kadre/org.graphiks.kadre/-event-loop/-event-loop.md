@@ -2,9 +2,9 @@
 
 # EventLoop
 
-[common, android, iosArm64, iosSimulatorArm64, iosX64, jvm]\
+[common, android, iosArm64, iosSimulatorArm64, iosX64, js, jvm, wasmJs]\
 [common]\
 expect constructor()
 
-[android, iosArm64, iosSimulatorArm64, iosX64, jvm]\
+[android, iosArm64, iosSimulatorArm64, iosX64, js, jvm, wasmJs]\
 actual constructor()

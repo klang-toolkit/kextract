@@ -5,11 +5,11 @@
 [common]\
 abstract fun [canCreateSurfaces](can-create-surfaces.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md))
 
-Appelé lorsque la plateforme autorise la création de surfaces de rendu.
+Called when the platform allows the creation of rendering surfaces.
 
-Obligatoire — aucune implémentation par défaut.
+Mandatory — no default implementation.
 
-C'est le moment idéal pour créer les fenêtres et initialiser le pipeline de rendu.
+This is the ideal moment to create windows and initialize the rendering pipeline.
 
 #### Parameters
 
@@ -17,4 +17,4 @@ common
 
 | | |
 |---|---|
-| eventLoop | Boucle d'événements active, permettant de créer des fenêtres. |
+| eventLoop | Active event loop, allowing windows to be created. |

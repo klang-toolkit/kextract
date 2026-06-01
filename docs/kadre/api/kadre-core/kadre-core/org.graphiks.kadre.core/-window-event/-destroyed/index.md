@@ -5,6 +5,6 @@
 [common]\
 data object [Destroyed](index.md) : [WindowEvent](../index.md)
 
-La fenêtre a été détruite et ses ressources natives libérées.
+The window has been destroyed and its native resources released.
 
-Aucun autre événement ne sera émis pour cette fenêtre après [Destroyed](index.md).
+No further event will be emitted for this window after [Destroyed](index.md).

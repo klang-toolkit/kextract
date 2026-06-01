@@ -5,7 +5,7 @@
 [common]\
 data class [Resized](index.md)(val size: [PhysicalSize](../../-physical-size/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;) : [WindowEvent](../index.md)
 
-La fenêtre a été redimensionnée.
+The window has been resized.
 
 ## Constructors
 
@@ -17,4 +17,4 @@ La fenêtre a été redimensionnée.
 
 | Name | Summary |
 |---|---|
-| [size](size.md) | [common]<br>val [size](size.md): [PhysicalSize](../../-physical-size/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;<br>Nouvelle taille en pixels physiques. |
+| [size](size.md) | [common]<br>val [size](size.md): [PhysicalSize](../../-physical-size/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;<br>New size in physical pixels. |

@@ -5,7 +5,7 @@
 [common]\
 open fun [suspended](suspended.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md))
 
-Appelé lorsque l'application est sur le point d'être suspendue.
+Called when the application is about to be suspended.
 
 #### Parameters
 
@@ -13,4 +13,4 @@ common
 
 | | |
 |---|---|
-| eventLoop | Boucle d'événements active. |
+| eventLoop | Active event loop. |

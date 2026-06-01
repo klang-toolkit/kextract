@@ -5,4 +5,4 @@
 [common]\
 object [Poll](index.md) : [ControlFlow](../index.md)
 
-Retourne immédiatement sans attendre d'événement.
+Returns immediately without waiting for an event.

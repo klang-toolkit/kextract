@@ -11,4 +11,4 @@ common
 
 | | |
 |---|---|
-| start | Instant auquel la reprise a effectivement eu lieu. |
+| start | Instant at which the resumption actually occurred. |

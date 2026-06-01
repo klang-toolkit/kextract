@@ -51,3 +51,26 @@ Si `checkKotlinAbi` échoue en CI, c'est qu'un changement d'API publique a été
 introduit. Vérifier qu'il est intentionnel (selon le ticket), puis lancer
 `./gradlew updateKotlinAbi` et commiter les `api/` modifiés avec un message
 `chore(api): update ABI baseline for #ID`.
+
+---
+
+## Remédiation parité winit — R0–R5 (2026-06)
+
+### R0.1 — Breaking change (types d'événements)
+
+Deux signatures dans `ApplicationHandler` sont passées d'un type effacé `Any` à des types scellés concrets :
+
+| Méthode | Avant | Après |
+|---------|-------|-------|
+| `windowEvent(eventLoop, windowId, event)` | `event: Any` | `event: WindowEvent` |
+| `deviceEvent(eventLoop, deviceId, event)` | `event: Any` | `event: DeviceEvent` |
+
+De même, `Window.rawWindowHandle` et `Window.rawDisplayHandle` sont passés de `Any` à `RawWindowHandle` et `RawDisplayHandle` respectivement. Ce sont des **breaking changes** : tout code utilisant `event as SomeType` ou `handle as SomeHandle` doit être mis à jour pour utiliser le filtrage de type sur la hiérarchie scellée.
+
+Les dumps ABI ont été régénérés (`updateKotlinAbi`) et commités dans le cadre de R0.1 (PRs #167–#170).
+
+### R1–R5 — Croissance additive
+
+Tous les rounds suivants (R1 : état fenêtre/moniteurs/plein écran ; R2 : icône de fenêtre ; R3 : curseur/thème/apparence ; R4 : richesse clavier/ModifiersChanged/MouseWheel device ; R5 : DnD/gestes/curseurs custom/divers fenêtre/IME) n'ont ajouté que de **nouveaux variants scellés et de nouvelles méthodes d'interface** — aucune signature existante n'a été supprimée ou modifiée. Chaque ajout a nécessité de lancer `./gradlew updateKotlinAbi` et de commiter les fichiers `api/` mis à jour (PRs #171–#184).
+
+Pour la liste complète des éléments volontairement reportés (implémentations no-op, événements non émis, backends natifs partiels), voir [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).

@@ -5,9 +5,9 @@
 [common]\
 open fun [destroySurfaces](destroy-surfaces.md)(eventLoop: [ActiveEventLoop](../-active-event-loop/index.md))
 
-Appelé lorsque la plateforme demande la destruction des surfaces de rendu.
+Called when the platform requests the destruction of rendering surfaces.
 
-C'est le moment idéal pour libérer les ressources graphiques liées aux surfaces avant leur invalidation.
+This is the ideal moment to release the graphics resources tied to the surfaces before they are invalidated.
 
 #### Parameters
 
@@ -15,4 +15,4 @@ common
 
 | | |
 |---|---|
-| eventLoop | Boucle d'événements active. |
+| eventLoop | Active event loop. |
