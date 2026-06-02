@@ -310,6 +310,207 @@ data class KeyboardValidationResult(val failures: List<String>) {
     val passed: Boolean get() = failures.isEmpty()
 }
 
+enum class KeyboardProofStatus {
+    Done,
+    Partial,
+}
+
+enum class KeyboardProofCoverageKind {
+    ApiTable,
+    CommonContract,
+    BackendRuntime,
+}
+
+data class KeyboardProofGatePolicy(
+    val acceptedDoneFidelityByBackend: Map<KeyboardBackend, Set<KeyboardEventFidelity>> = defaultAcceptedDoneFidelityByBackend,
+) {
+    fun acceptsDoneProof(backend: KeyboardBackend, fidelity: KeyboardEventFidelity): Boolean =
+        fidelity in acceptedDoneFidelityByBackend[backend].orEmpty()
+
+    fun acceptedDoneFor(backend: KeyboardBackend): Set<KeyboardEventFidelity> =
+        acceptedDoneFidelityByBackend[backend].orEmpty()
+
+    companion object {
+        val defaultAcceptedDoneFidelityByBackend: Map<KeyboardBackend, Set<KeyboardEventFidelity>> = mapOf(
+            KeyboardBackend.Web to setOf(KeyboardEventFidelity.RealOsEvent),
+            KeyboardBackend.Android to setOf(KeyboardEventFidelity.RealOsEvent, KeyboardEventFidelity.NativeMessage, KeyboardEventFidelity.NativeFixture),
+            KeyboardBackend.Win32 to setOf(KeyboardEventFidelity.RealOsEvent, KeyboardEventFidelity.NativeMessage),
+            KeyboardBackend.X11 to setOf(KeyboardEventFidelity.RealOsEvent, KeyboardEventFidelity.NativeMessage, KeyboardEventFidelity.NativeFixture),
+            KeyboardBackend.Wayland to setOf(KeyboardEventFidelity.RealOsEvent, KeyboardEventFidelity.NativeMessage, KeyboardEventFidelity.NativeFixture),
+            KeyboardBackend.AppKit to setOf(KeyboardEventFidelity.RealOsEvent, KeyboardEventFidelity.NativeMessage, KeyboardEventFidelity.NativeFixture),
+            KeyboardBackend.UIKit to setOf(KeyboardEventFidelity.RealOsEvent, KeyboardEventFidelity.NativeMessage, KeyboardEventFidelity.NativeFixture),
+        )
+    }
+}
+
+data class KeyboardProofReport(
+    val target: String,
+    val status: KeyboardProofStatus,
+    val entries: List<KeyboardProofEntry>,
+    val gaps: List<String> = emptyList(),
+    val pullRequest: String? = null,
+    val commit: String? = null,
+) {
+    fun validate(policy: KeyboardProofGatePolicy = KeyboardProofGatePolicy()): KeyboardProofGateResult {
+        val failures = mutableListOf<String>()
+        if (target.isBlank()) {
+            failures += "Keyboard proof report requires a target"
+        }
+        if (status == KeyboardProofStatus.Partial && gaps.isEmpty()) {
+            failures += "Partial keyboard proof report '$target' must list remaining gaps"
+        }
+        if (status == KeyboardProofStatus.Done && gaps.isNotEmpty()) {
+            failures += "Done keyboard proof report '$target' cannot list remaining gaps"
+        }
+        entries.forEachIndexed { index, entry ->
+            failures += entry.validate(index, status, policy)
+        }
+        if (status == KeyboardProofStatus.Done && entries.none { it.isAcceptedBackendRuntimeProof(policy) }) {
+            failures += "Done keyboard proof report '$target' requires at least one accepted BackendRuntime proof"
+        }
+
+        return KeyboardProofGateResult(failures)
+    }
+
+    fun toJsonString(): String = buildString {
+        append("{")
+        appendJsonField("target", target)
+        append(",")
+        appendJsonField("status", status.name)
+        append(",\"entries\":[")
+        entries.forEachIndexed { index, entry ->
+            if (index > 0) append(",")
+            append(entry.toJsonString())
+        }
+        append("],")
+        appendJsonArrayField("gaps", gaps)
+        pullRequest?.let {
+            append(",")
+            appendJsonField("pullRequest", it)
+        }
+        commit?.let {
+            append(",")
+            appendJsonField("commit", it)
+        }
+        append("}")
+    }
+}
+
+data class KeyboardProofEntry(
+    val scenario: String,
+    val backend: KeyboardBackend,
+    val scope: KeyboardValidationScope,
+    val fidelity: KeyboardEventFidelity,
+    val coverageKind: KeyboardProofCoverageKind,
+    val nativeInput: String? = null,
+    val mapper: String? = null,
+    val observedEventCount: Int = 0,
+    val gaps: List<String> = emptyList(),
+) {
+    fun validate(
+        index: Int,
+        reportStatus: KeyboardProofStatus,
+        policy: KeyboardProofGatePolicy = KeyboardProofGatePolicy(),
+    ): List<String> {
+        val failures = mutableListOf<String>()
+        val prefix = "proof[$index] '$scenario'"
+        if (scenario.isBlank()) {
+            failures += "proof[$index] requires a scenario"
+        }
+        if (reportStatus == KeyboardProofStatus.Done && gaps.isNotEmpty()) {
+            failures += "$prefix cannot list remaining gaps in a Done report"
+        }
+        if (backend == KeyboardBackend.Common && scope == KeyboardValidationScope.BackendRuntime) {
+            failures += "$prefix targets Common but BackendRuntime requires a concrete backend"
+        }
+        if (scope == KeyboardValidationScope.BackendRuntime || coverageKind == KeyboardProofCoverageKind.BackendRuntime) {
+            if (scope != KeyboardValidationScope.BackendRuntime) {
+                failures += "$prefix has BackendRuntime coverage but scope is $scope"
+            }
+            if (coverageKind != KeyboardProofCoverageKind.BackendRuntime) {
+                failures += "$prefix has BackendRuntime scope but coverage is $coverageKind"
+            }
+            if (fidelity == KeyboardEventFidelity.KadreEvent) {
+                failures += "$prefix uses L4 KadreEvent, not a backend runtime proof"
+            }
+            if (reportStatus == KeyboardProofStatus.Done && !policy.acceptsDoneProof(backend, fidelity)) {
+                failures += "$prefix uses $fidelity for $backend, expected one of ${policy.acceptedDoneFor(backend)}"
+            }
+            if (nativeInput.isNullOrBlank()) {
+                failures += "$prefix must record a native input or fixture"
+            }
+            if (mapper.isNullOrBlank()) {
+                failures += "$prefix must record the mapper/runtime traversed"
+            }
+            if (observedEventCount <= 0) {
+                failures += "$prefix must record at least one observed Kadre event"
+            }
+        }
+
+        return failures
+    }
+
+    fun isAcceptedBackendRuntimeProof(policy: KeyboardProofGatePolicy): Boolean =
+        scope == KeyboardValidationScope.BackendRuntime &&
+            coverageKind == KeyboardProofCoverageKind.BackendRuntime &&
+            backend != KeyboardBackend.Common &&
+            fidelity != KeyboardEventFidelity.KadreEvent &&
+            policy.acceptsDoneProof(backend, fidelity) &&
+            !nativeInput.isNullOrBlank() &&
+            !mapper.isNullOrBlank() &&
+            observedEventCount > 0 &&
+            gaps.isEmpty()
+
+    fun toJsonString(): String = buildString {
+        append("{")
+        appendJsonField("scenario", scenario)
+        append(",")
+        appendJsonField("backend", backend.name)
+        append(",")
+        appendJsonField("scope", scope.name)
+        append(",")
+        appendJsonField("fidelity", fidelity.name)
+        append(",")
+        appendJsonField("coverageKind", coverageKind.name)
+        nativeInput?.let {
+            append(",")
+            appendJsonField("nativeInput", it)
+        }
+        mapper?.let {
+            append(",")
+            appendJsonField("mapper", it)
+        }
+        append(",\"observedEventCount\":")
+        append(observedEventCount)
+        append(",")
+        appendJsonArrayField("gaps", gaps)
+        append("}")
+    }
+}
+
+data class KeyboardProofGateResult(val failures: List<String>) {
+    val passed: Boolean get() = failures.isEmpty()
+}
+
+fun KeyboardScenario.proofEntry(
+    evidence: List<KeyboardEventEvidence>,
+    coverageKind: KeyboardProofCoverageKind = when (scope) {
+        KeyboardValidationScope.BackendRuntime -> KeyboardProofCoverageKind.BackendRuntime
+        KeyboardValidationScope.CommonContract -> KeyboardProofCoverageKind.CommonContract
+    },
+    gaps: List<String> = emptyList(),
+): KeyboardProofEntry = KeyboardProofEntry(
+    scenario = name,
+    backend = backend,
+    scope = scope,
+    fidelity = fidelity,
+    coverageKind = coverageKind,
+    nativeInput = evidence.mapNotNull { it.nativeInput?.description }.distinct().joinToString().takeIf { it.isNotBlank() },
+    mapper = evidence.mapNotNull { it.source }.distinct().joinToString().takeIf { it.isNotBlank() },
+    observedEventCount = evidence.size,
+    gaps = gaps,
+)
+
 data class ExpectedKeyEvent(
     val label: String,
     val physicalKey: PhysicalKey? = null,
@@ -354,6 +555,40 @@ data class ExpectedKeyEvent(
         nativeKey?.let { expect(actual.native.nativeKey == it, "nativeKey expected $it, got ${actual.native.nativeKey}") }
 
         return failures
+    }
+}
+
+private fun StringBuilder.appendJsonField(name: String, value: String) {
+    append("\"")
+    append(name)
+    append("\":\"")
+    append(value.jsonEscaped())
+    append("\"")
+}
+
+private fun StringBuilder.appendJsonArrayField(name: String, values: List<String>) {
+    append("\"")
+    append(name)
+    append("\":[")
+    values.forEachIndexed { index, value ->
+        if (index > 0) append(",")
+        append("\"")
+        append(value.jsonEscaped())
+        append("\"")
+    }
+    append("]")
+}
+
+private fun String.jsonEscaped(): String = buildString {
+    for (char in this@jsonEscaped) {
+        when (char) {
+            '\\' -> append("\\\\")
+            '"' -> append("\\\"")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            '\t' -> append("\\t")
+            else -> append(char)
+        }
     }
 }
 

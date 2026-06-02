@@ -649,6 +649,219 @@ class NativeKeyboardSimulationTest {
         assertTrue(result.passed, result.failures.joinToString())
     }
 
+    @Test
+    fun doneProofReportRejectsL4OnlyBackendRuntimeProof() {
+        val report = KeyboardProofReport(
+            target = "web runtime parity",
+            status = KeyboardProofStatus.Done,
+            entries = listOf(
+                KeyboardProofEntry(
+                    scenario = "raw key event",
+                    backend = KeyboardBackend.Web,
+                    scope = KeyboardValidationScope.BackendRuntime,
+                    fidelity = KeyboardEventFidelity.KadreEvent,
+                    coverageKind = KeyboardProofCoverageKind.BackendRuntime,
+                    observedEventCount = 1,
+                )
+            ),
+        )
+
+        val result = report.validate()
+
+        assertFalse(result.passed)
+        assertTrue(result.failures.any { it.contains("uses L4 KadreEvent") })
+        assertTrue(result.failures.any { it.contains("requires at least one accepted BackendRuntime proof") })
+    }
+
+    @Test
+    fun doneProofReportRejectsWebBackendWithoutL1Proof() {
+        val report = KeyboardProofReport(
+            target = "web runtime parity",
+            status = KeyboardProofStatus.Done,
+            entries = listOf(
+                KeyboardProofEntry(
+                    scenario = "dom fixture key a",
+                    backend = KeyboardBackend.Web,
+                    scope = KeyboardValidationScope.BackendRuntime,
+                    fidelity = KeyboardEventFidelity.NativeMessage,
+                    coverageKind = KeyboardProofCoverageKind.BackendRuntime,
+                    nativeInput = "DOM KeyboardEvent fixture",
+                    mapper = "kadre-web-dom-keyboard",
+                    observedEventCount = 1,
+                )
+            ),
+        )
+
+        val result = report.validate()
+
+        assertFalse(result.passed)
+        assertTrue(result.failures.any { it.contains("uses NativeMessage for Web") })
+    }
+
+    @Test
+    fun doneProofReportAcceptsWin32NativeMessageRuntimeProof() {
+        val scenario = nativeKeyboardScenario(
+            name = "win32 keydown arrow down",
+            backend = KeyboardBackend.Win32,
+            fidelity = KeyboardEventFidelity.NativeMessage,
+            scope = KeyboardValidationScope.BackendRuntime,
+        ) {
+            expectKeyPress(
+                label = "arrow down",
+                physicalKey = PhysicalKey.Code(KeyCode.ArrowDown),
+                logicalKey = LogicalKey.Named(NamedKey.ArrowDown),
+            )
+        }
+        val adapter = NativeKeyboardInputAdapter<Win32KeyboardMessageInput>(
+            backend = KeyboardBackend.Win32,
+            acceptedFidelities = setOf(KeyboardEventFidelity.NativeMessage),
+            mapperName = "win32-message-runtime",
+        )
+        val input = Win32KeyboardMessageInput(
+            message = 0x0100u,
+            wParam = 0x28u,
+            lParam = 0x01500001u,
+            virtualKey = 0x28,
+            scanCode = 0xE050,
+            extended = true,
+        )
+        val evidence = listOf(
+            adapter.evidenceFor(
+                input,
+                keyEvent(
+                    physicalKey = PhysicalKey.Code(KeyCode.ArrowDown),
+                    logicalKey = LogicalKey.Named(NamedKey.ArrowDown),
+                    native = NativeKeyInfo(
+                        nativeCode = NativeKeyCode.Win32(scanCode = 0xE050, virtualKey = 0x28),
+                        nativeKey = NativeLogicalKey.Win32(virtualKey = 0x28),
+                    ),
+                )
+            )
+        )
+        val report = KeyboardProofReport(
+            target = "win32 arrow runtime parity",
+            status = KeyboardProofStatus.Done,
+            entries = listOf(scenario.proofEntry(evidence)),
+            pullRequest = "https://github.com/ygdrasil-io/poc-koreos/pull/example",
+            commit = "abcdef0",
+        )
+
+        val result = report.validate()
+
+        assertTrue(result.passed, result.failures.joinToString())
+    }
+
+    @Test
+    fun partialProofReportAllowsMissingBackendRuntimeProofWithExplicitGaps() {
+        val report = KeyboardProofReport(
+            target = "web runtime parity",
+            status = KeyboardProofStatus.Partial,
+            entries = listOf(
+                KeyboardProofEntry(
+                    scenario = "key table coverage",
+                    backend = KeyboardBackend.Common,
+                    scope = KeyboardValidationScope.CommonContract,
+                    fidelity = KeyboardEventFidelity.KadreEvent,
+                    coverageKind = KeyboardProofCoverageKind.ApiTable,
+                    observedEventCount = 0,
+                    gaps = listOf("backend runtime proof not wired"),
+                )
+            ),
+            gaps = listOf("Web L1 Playwright still required"),
+        )
+
+        val result = report.validate()
+
+        assertTrue(result.passed, result.failures.joinToString())
+    }
+
+    @Test
+    fun partialProofReportAllowsProvisionalBackendRuntimeProofWithExplicitGaps() {
+        val report = KeyboardProofReport(
+            target = "web runtime parity",
+            status = KeyboardProofStatus.Partial,
+            entries = listOf(
+                KeyboardProofEntry(
+                    scenario = "dom fixture key a",
+                    backend = KeyboardBackend.Web,
+                    scope = KeyboardValidationScope.BackendRuntime,
+                    fidelity = KeyboardEventFidelity.NativeMessage,
+                    coverageKind = KeyboardProofCoverageKind.BackendRuntime,
+                    nativeInput = "DOM KeyboardEvent fixture",
+                    mapper = "kadre-web-dom-keyboard",
+                    observedEventCount = 1,
+                    gaps = listOf("L1 Playwright proof still required for Done"),
+                )
+            ),
+            gaps = listOf("Web L1 Playwright still required"),
+        )
+
+        val result = report.validate()
+
+        assertTrue(result.passed, result.failures.joinToString())
+    }
+
+    @Test
+    fun doneProofReportRejectsRemainingGaps() {
+        val report = KeyboardProofReport(
+            target = "win32 arrow runtime parity",
+            status = KeyboardProofStatus.Done,
+            entries = listOf(
+                KeyboardProofEntry(
+                    scenario = "win32 keydown arrow down",
+                    backend = KeyboardBackend.Win32,
+                    scope = KeyboardValidationScope.BackendRuntime,
+                    fidelity = KeyboardEventFidelity.NativeMessage,
+                    coverageKind = KeyboardProofCoverageKind.BackendRuntime,
+                    nativeInput = "Win32 keyboard message(message=256, virtualKey=40, scanCode=57424)",
+                    mapper = "win32-message-runtime",
+                    observedEventCount = 1,
+                    gaps = listOf("WM_CHAR not covered"),
+                )
+            ),
+            gaps = listOf("dead keys not covered"),
+        )
+
+        val result = report.validate()
+
+        assertFalse(result.passed)
+        assertTrue(result.failures.any { it.contains("cannot list remaining gaps") })
+        assertTrue(result.failures.any { it.contains("Done keyboard proof report") })
+    }
+
+    @Test
+    fun proofReportJsonDistinguishesCoverageKindsAndNativeProofFields() {
+        val report = KeyboardProofReport(
+            target = "win32 arrow runtime parity",
+            status = KeyboardProofStatus.Partial,
+            entries = listOf(
+                KeyboardProofEntry(
+                    scenario = "win32 keydown arrow down",
+                    backend = KeyboardBackend.Win32,
+                    scope = KeyboardValidationScope.BackendRuntime,
+                    fidelity = KeyboardEventFidelity.NativeMessage,
+                    coverageKind = KeyboardProofCoverageKind.BackendRuntime,
+                    nativeInput = "Win32 keyboard message(message=256, virtualKey=40, scanCode=57424)",
+                    mapper = "win32-message-runtime",
+                    observedEventCount = 1,
+                    gaps = listOf("WM_CHAR not covered"),
+                )
+            ),
+            gaps = listOf("WM_CHAR not covered"),
+            pullRequest = "https://github.com/ygdrasil-io/poc-koreos/pull/example",
+            commit = "abcdef0",
+        )
+
+        val json = report.toJsonString()
+
+        assertTrue(json.contains("\"target\":\"win32 arrow runtime parity\""))
+        assertTrue(json.contains("\"coverageKind\":\"BackendRuntime\""))
+        assertTrue(json.contains("\"fidelity\":\"NativeMessage\""))
+        assertTrue(json.contains("\"nativeInput\":\"Win32 keyboard message"))
+        assertTrue(json.contains("\"mapper\":\"win32-message-runtime\""))
+        assertTrue(json.contains("\"gaps\":[\"WM_CHAR not covered\"]"))
+    }
+
     private fun keyEvent(
         physicalKey: PhysicalKey,
         logicalKey: LogicalKey,
