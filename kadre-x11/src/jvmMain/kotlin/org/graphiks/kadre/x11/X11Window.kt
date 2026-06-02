@@ -289,7 +289,7 @@ class X11Window private constructor(
         enumerateX11Monitors(displayPtr, screen, scaleFactor)
 
     override fun primaryMonitor(): MonitorHandle? =
-        availableMonitors().firstOrNull()
+        primaryX11Monitor(displayPtr, screen, scaleFactor)
 
     /** In-memory fullscreen state (R2). */
     @Volatile private var _fullscreen: Fullscreen? = attrs.fullscreen

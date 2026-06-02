@@ -28,6 +28,7 @@ internal class X11MonitorHandle(
     override val id: Long,
     override val name: String?,
     override val position: PhysicalPosition<Int>,
+    var isPrimary: Boolean,
     override val scaleFactor: Double,
     override val currentVideoMode: VideoMode?,
     override val videoModes: List<VideoMode>,
@@ -81,6 +82,14 @@ private val xrrGetCrtcInfo: MethodHandle? by lazy {
 private val xrrFreeCrtcInfo: MethodHandle? by lazy {
     libXrandr.downcallX("XRRFreeCrtcInfo", FunctionDescriptor.ofVoid(
         ValueLayout.ADDRESS,    // XRRCrtcInfo*
+    ))
+}
+
+private val xrrGetOutputPrimary: MethodHandle? by lazy {
+    libXrandr.downcallX("XRRGetOutputPrimary", FunctionDescriptor.of(
+        ValueLayout.JAVA_LONG,  // RROutput
+        ValueLayout.ADDRESS,    // Display*
+        ValueLayout.JAVA_LONG,  // Window (root)
     ))
 }
 
@@ -139,6 +148,28 @@ internal fun enumerateX11Monitors(
     return listOf(syntheticMonitor(display, screen, scaleFactor))
 }
 
+/**
+ * Returns the XRandR primary monitor when available.
+ *
+ * If XRandR does not expose a primary output, or if the primary output cannot be
+ * mapped back to an enumerated monitor, this keeps the legacy fallback and
+ * returns the first enumerated monitor.
+ */
+internal fun primaryX11Monitor(
+    displayPtr: Long,
+    screen: Int,
+    scaleFactor: Double,
+): X11MonitorHandle? {
+    val monitors = enumerateX11Monitors(displayPtr, screen, scaleFactor)
+    if (monitors.isEmpty()) return null
+    return selectPrimaryMonitor(monitors)
+}
+
+internal fun selectPrimaryMonitor(
+    monitors: List<X11MonitorHandle>,
+): X11MonitorHandle? =
+    monitors.firstOrNull { it.isPrimary } ?: monitors.firstOrNull()
+
 // ── RANDR ─────────────────────────────────────────────────────────────────────
 
 // XRRScreenResources offsets (opaque struct — we read only the field we need):
@@ -165,21 +196,30 @@ private const val RR_SCREEN_CRTCS_OFFSET: Long = 24L
 //   [20] unsigned int height (4)
 //   [24] (mode/rotation/etc — 8 bytes)
 //   [32] int noutput (4)
+//   [40] RROutput* outputs (8)
 private const val RR_CRTC_TIMESTAMP_OFFSET: Long = 0L
 private const val RR_CRTC_X_OFFSET: Long = 8L
 private const val RR_CRTC_Y_OFFSET: Long = 12L
 private const val RR_CRTC_WIDTH_OFFSET: Long = 16L
 private const val RR_CRTC_HEIGHT_OFFSET: Long = 20L
+private const val RR_CRTC_NOUTPUT_OFFSET: Long = 32L
+private const val RR_CRTC_OUTPUTS_OFFSET: Long = 40L
 
 private fun tryRandr(display: MemorySegment, screen: Int, scale: Double): List<X11MonitorHandle>? {
     val getRes    = xrrGetScreenResources ?: return null
     val freeRes   = xrrFreeScreenResources
     val getCrtc   = xrrGetCrtcInfo ?: return null
     val freeCrtc  = xrrFreeCrtcInfo
+    val getPrimary = xrrGetOutputPrimary
     val rootMH    = xRootWindow ?: return null
 
     return try {
         val root: Long = rootMH.invokeExact(display, screen) as Long
+        val primaryOutput = try {
+            getPrimary?.invokeExact(display, root) as? Long ?: 0L
+        } catch (_: Throwable) {
+            0L
+        }
         val resSeg = getRes.invokeExact(display, root) as MemorySegment
         if (resSeg == MemorySegment.NULL || resSeg.address() == 0L) return null
 
@@ -195,24 +235,37 @@ private fun tryRandr(display: MemorySegment, screen: Int, scale: Double): List<X
             val crtcSeg = getCrtc.invokeExact(display, resSeg, crtcId) as MemorySegment
             if (crtcSeg == MemorySegment.NULL || crtcSeg.address() == 0L) continue
 
-            val crtc = crtcSeg.reinterpret(32L)
+            val crtc = crtcSeg.reinterpret(48L)
             val x = crtc.get(ValueLayout.JAVA_INT, RR_CRTC_X_OFFSET)
             val y = crtc.get(ValueLayout.JAVA_INT, RR_CRTC_Y_OFFSET)
             val w = crtc.get(ValueLayout.JAVA_INT, RR_CRTC_WIDTH_OFFSET)
             val h = crtc.get(ValueLayout.JAVA_INT, RR_CRTC_HEIGHT_OFFSET)
+            val noutput = crtc.get(ValueLayout.JAVA_INT, RR_CRTC_NOUTPUT_OFFSET)
+            val outputsPtr = crtc.get(ValueLayout.ADDRESS, RR_CRTC_OUTPUTS_OFFSET)
+            val firstOutput = if (noutput > 0 && outputsPtr != MemorySegment.NULL && outputsPtr.address() != 0L) {
+                outputsPtr.reinterpret(noutput.toLong() * 8L)
+                    .get(ValueLayout.JAVA_LONG, 0L)
+            } else {
+                0L
+            }
 
             try { freeCrtc?.invokeExact(crtcSeg) } catch (_: Throwable) {}
 
-            if (w <= 0 || h <= 0) continue
+            if (w <= 0 || h <= 0 || noutput <= 0) continue
 
             monitors.add(X11MonitorHandle(
                 id             = crtcId,
                 name           = null,
                 position       = PhysicalPosition(x, y),
+                isPrimary      = firstOutput != 0L && firstOutput == primaryOutput,
                 scaleFactor    = scale,
                 currentVideoMode = VideoMode(PhysicalSize(w, h), null, null),
                 videoModes     = emptyList(),
             ))
+        }
+
+        if (monitors.none { it.isPrimary }) {
+            monitors.firstOrNull()?.isPrimary = true
         }
 
         try { freeRes?.invokeExact(resSeg) } catch (_: Throwable) {}
@@ -253,6 +306,7 @@ private fun tryXinerama(display: MemorySegment, scale: Double): List<X11MonitorH
                         id               = i.toLong(),
                         name             = null,
                         position         = PhysicalPosition(x, y),
+                        isPrimary        = false,
                         scaleFactor      = scale,
                         currentVideoMode = VideoMode(PhysicalSize(w, h), null, null),
                         videoModes       = emptyList(),
@@ -277,6 +331,7 @@ private fun syntheticMonitor(display: MemorySegment, screen: Int, scale: Double)
         id               = 0L,
         name             = null,
         position         = PhysicalPosition(0, 0),
+        isPrimary        = true,
         scaleFactor      = scale,
         currentVideoMode = VideoMode(PhysicalSize(w, h), null, null),
         videoModes       = emptyList(),

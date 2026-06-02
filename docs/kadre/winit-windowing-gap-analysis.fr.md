@@ -40,7 +40,7 @@ Statuts autorises par le test commun: `implemented`, `unsupported-platform`, `de
 | Apparence et etat fenetre | `setWindowLevel`, `requestUserAttention`, `setTheme`, `theme`, `setTransparent`, `setBlur`, `setWindowIcon`, `setContentProtected` | deferred | API commune presente, mais plusieurs methodes restent no-op ou partielles selon backend; content protection AppKit est implemente dans cet increment. |
 | `Window.reset_dead_keys()` | `resetDeadKeys()` | implemented | API commune presente avec implementations ou no-op best-effort documentes par plateforme. |
 | `Window.available_monitors()` | `Window.availableMonitors()` | implemented | Methode Window-level presente; fallback commun `emptyList()` quand inconnu; overrides desktop ou synthetiques quand l'enumeration backend est disponible. |
-| `Window.primary_monitor()` | `Window.primaryMonitor()` | implemented | Nullable comme winit; fallback commun `null` quand inconnu; overrides quand le backend connait un primaire. Wayland retourne `null` par absence de concept primaire. |
+| `Window.primary_monitor()` | `Window.primaryMonitor()` | implemented | Nullable comme winit; fallback commun `null` quand inconnu; overrides quand le backend connait un primaire. X11 utilise le primaire XRandR quand disponible; Wayland retourne `null` par absence de concept primaire. |
 | Cursor grab/position/hittest | `setCursor`, `setCursorVisible`, `setCursorGrab`, `setCursorPosition`, `setCursorHittest` | deferred | winit retourne `Result`; Kadre retourne `Unit` et documente des no-op. |
 | `Window.drag_window()` | `Window.dragWindow()` | deferred | winit fallible; Kadre no-op `Unit` par defaut. |
 | `Window.drag_resize_window()` | `Window.dragResizeWindow()` | deferred | winit fallible; Kadre no-op `Unit` par defaut. |
@@ -63,7 +63,6 @@ Priorites probables pour une suite:
 1. Ajouter une representation nullable ou inconnue pour `isVisible` et `isMinimized`, ou documenter formellement le choix Kadre d'un bool par defaut backend.
 2. Convertir les operations cursor/drag critiques vers des result types Kadre existants, sans exceptions pour les limitations attendues.
 3. Faire progresser les backends non desktop vers une enumeration multi-ecran reelle si la plateforme expose plus qu'un moniteur synthetique.
-4. Modeliser le primaire XRandR/X11 au lieu d'utiliser le premier moniteur enumere.
-5. Rendre `ownedDisplayHandle` non nullable quand chaque backend peut produire un handle fiable, ou documenter la divergence.
-6. Reporter `request_ime_update` / `ime_capabilities` vers un ticket IME dedie.
-7. Faire progresser les backends desktop un par un pour les setters deja exposes: focus, content protection, resize increments, attention utilisateur, window level, theme et icon.
+4. Rendre `ownedDisplayHandle` non nullable quand chaque backend peut produire un handle fiable, ou documenter la divergence.
+5. Reporter `request_ime_update` / `ime_capabilities` vers un ticket IME dedie.
+6. Faire progresser les backends desktop un par un pour les setters deja exposes: focus, content protection, resize increments, attention utilisateur, window level, theme et icon.

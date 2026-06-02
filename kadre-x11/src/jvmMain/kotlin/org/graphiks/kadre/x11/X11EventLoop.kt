@@ -225,9 +225,12 @@ class X11EventLoop internal constructor(
     }
 
     /**
-     * Returns the first monitor (primary/leftmost) or the synthetic monitor.
+     * Returns the XRandR primary monitor, or the first/synthetic fallback.
      */
-    override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+    override fun primaryMonitor(): MonitorHandle? {
+        val scale = windows.values.firstOrNull()?.scaleFactor ?: 1.0
+        return primaryX11Monitor(displayPtr, screen, scale)
+    }
 
     // ── R3: system theme ──────────────────────────────────────────────────────
 
