@@ -3,7 +3,7 @@
 # ResizeDirection
 
 [common]\
-enum [ResizeDirection](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[ResizeDirection](index.md)&gt; 
+enum [ResizeDirection](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[ResizeDirection](index.md)&gt;
 
 Direction of a programmatic window-resize drag.
 

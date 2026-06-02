@@ -3,7 +3,7 @@
 # DeviceEvents
 
 [common]\
-enum [DeviceEvents](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[DeviceEvents](index.md)&gt; 
+enum [DeviceEvents](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[DeviceEvents](index.md)&gt;
 
 Controls which raw [DeviceEvent](../-device-event/index.md)s the event loop dispatches to the application.
 

@@ -49,8 +49,8 @@ class HelloApp : ApplicationHandler {
                 println("[HelloWindow] ScaleFactorChanged → ${event.factor}")
             is WindowEvent.Focused ->
                 println("[HelloWindow] Focused gained=${event.gained}")
-            is WindowEvent.KeyboardInput ->
-                println("[HelloWindow] KeyboardInput ${event.state} key=${event.key} mods=${event.modifiers.bits} repeat=${event.isRepeat}")
+            is WindowEvent.KeyInput ->
+                println("[HelloWindow] KeyInput ${event.event.state} physical=${event.event.physicalKey} logical=${event.event.logicalKey} mods=${event.event.modifiers.bits} repeat=${event.event.repeat}")
             is WindowEvent.PointerMoved ->
                 println("[HelloWindow] PointerMoved ${event.source} (${event.position.x.toInt()}, ${event.position.y.toInt()})")
             is WindowEvent.PointerEntered ->

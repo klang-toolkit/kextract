@@ -7,9 +7,11 @@ package org.graphiks.kadre.samples.hellocompose
 
 import androidx.compose.ui.input.pointer.PointerButton
 import org.graphiks.kadre.core.ButtonSource
-import org.graphiks.kadre.core.Key as KadreKey
+import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyState
-import org.graphiks.kadre.core.Modifiers
+import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.LogicalKey
+import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowEvent
@@ -34,7 +36,7 @@ internal fun ComposeWindowRenderer.applyWindowEvent(event: WindowEvent, window: 
         is WindowEvent.MouseWheel -> onScroll(event.deltaX, event.deltaY)
         is WindowEvent.PointerEntered -> onPointerEnter()
         is WindowEvent.PointerLeft -> onPointerExit()
-        is WindowEvent.KeyboardInput -> keys.forward(event, this)
+        is WindowEvent.KeyInput -> keys.forward(event, this)
         is WindowEvent.Resized -> resize(event.size.width, event.size.height, window.scaleFactor)
         is WindowEvent.ScaleFactorChanged -> {
             val inner = window.innerSize
@@ -65,21 +67,22 @@ class KeyForwarder {
     private var disabled = false
     private val source: Component? by lazy { runCatching { object : Component() {} }.getOrNull() }
 
-    fun forward(event: WindowEvent.KeyboardInput, renderer: ComposeWindowRenderer) {
+    fun forward(event: WindowEvent.KeyInput, renderer: ComposeWindowRenderer) {
         if (disabled) return
         val src = source ?: run { disabled = true; return }
 
-        val mods = awtModifiers(event.modifiers)
-        val vk = toAwtKeyCode(event.key)
+        val key = event.event
+        val mods = awtModifiers(key.modifiers)
+        val vk = toAwtKeyCode(key.physicalKey)
         val now = System.currentTimeMillis()
 
         runCatching {
-            if (event.state == KeyState.Pressed) {
+            if (key.state == KeyState.Pressed) {
                 if (vk != AwtKeyEvent.VK_UNDEFINED) {
                     renderer.sendKey(AwtKeyEvent(src, AwtKeyEvent.KEY_PRESSED, now, mods, vk, AwtKeyEvent.CHAR_UNDEFINED))
                 }
-                val ch = typedChar(event.key, event.modifiers.shift)
-                if (ch != null && !event.modifiers.ctrl && !event.modifiers.meta) {
+                val ch = typedChar(key.logicalKey, key.physicalKey, key.modifiers.shift)
+                if (ch != null && !key.modifiers.ctrl && !key.modifiers.meta) {
                     renderer.sendKey(AwtKeyEvent(src, AwtKeyEvent.KEY_TYPED, now, mods, AwtKeyEvent.VK_UNDEFINED, ch))
                 }
             } else if (vk != AwtKeyEvent.VK_UNDEFINED) {
@@ -92,7 +95,7 @@ class KeyForwarder {
     }
 }
 
-private fun awtModifiers(m: Modifiers): Int {
+private fun awtModifiers(m: KeyboardModifiers): Int {
     var mask = 0
     if (m.shift) mask = mask or InputEvent.SHIFT_DOWN_MASK
     if (m.ctrl) mask = mask or InputEvent.CTRL_DOWN_MASK
@@ -101,32 +104,39 @@ private fun awtModifiers(m: Modifiers): Int {
     return mask
 }
 
-private fun toAwtKeyCode(key: KadreKey): Int = when (key) {
-    in KadreKey.A..KadreKey.Z -> AwtKeyEvent.VK_A + (key.ordinal - KadreKey.A.ordinal)
-    in KadreKey.Digit0..KadreKey.Digit9 -> AwtKeyEvent.VK_0 + (key.ordinal - KadreKey.Digit0.ordinal)
-    in KadreKey.F1..KadreKey.F12 -> AwtKeyEvent.VK_F1 + (key.ordinal - KadreKey.F1.ordinal)
-    KadreKey.Space -> AwtKeyEvent.VK_SPACE
-    KadreKey.Enter -> AwtKeyEvent.VK_ENTER
-    KadreKey.Escape -> AwtKeyEvent.VK_ESCAPE
-    KadreKey.Backspace -> AwtKeyEvent.VK_BACK_SPACE
-    KadreKey.Tab -> AwtKeyEvent.VK_TAB
-    KadreKey.ArrowUp -> AwtKeyEvent.VK_UP
-    KadreKey.ArrowDown -> AwtKeyEvent.VK_DOWN
-    KadreKey.ArrowLeft -> AwtKeyEvent.VK_LEFT
-    KadreKey.ArrowRight -> AwtKeyEvent.VK_RIGHT
-    KadreKey.ShiftLeft, KadreKey.ShiftRight -> AwtKeyEvent.VK_SHIFT
-    KadreKey.ControlLeft, KadreKey.ControlRight -> AwtKeyEvent.VK_CONTROL
-    KadreKey.AltLeft, KadreKey.AltRight -> AwtKeyEvent.VK_ALT
-    KadreKey.MetaLeft, KadreKey.MetaRight -> AwtKeyEvent.VK_META
-    else -> AwtKeyEvent.VK_UNDEFINED
+private fun toAwtKeyCode(physicalKey: PhysicalKey): Int {
+    val key = (physicalKey as? PhysicalKey.Code)?.code ?: return AwtKeyEvent.VK_UNDEFINED
+    return when (key) {
+        in KeyCode.KeyA..KeyCode.KeyZ -> AwtKeyEvent.VK_A + (key.ordinal - KeyCode.KeyA.ordinal)
+        in KeyCode.Digit0..KeyCode.Digit9 -> AwtKeyEvent.VK_0 + (key.ordinal - KeyCode.Digit0.ordinal)
+        in KeyCode.F1..KeyCode.F12 -> AwtKeyEvent.VK_F1 + (key.ordinal - KeyCode.F1.ordinal)
+        KeyCode.Space -> AwtKeyEvent.VK_SPACE
+        KeyCode.Enter -> AwtKeyEvent.VK_ENTER
+        KeyCode.Escape -> AwtKeyEvent.VK_ESCAPE
+        KeyCode.Backspace -> AwtKeyEvent.VK_BACK_SPACE
+        KeyCode.Tab -> AwtKeyEvent.VK_TAB
+        KeyCode.ArrowUp -> AwtKeyEvent.VK_UP
+        KeyCode.ArrowDown -> AwtKeyEvent.VK_DOWN
+        KeyCode.ArrowLeft -> AwtKeyEvent.VK_LEFT
+        KeyCode.ArrowRight -> AwtKeyEvent.VK_RIGHT
+        KeyCode.ShiftLeft, KeyCode.ShiftRight -> AwtKeyEvent.VK_SHIFT
+        KeyCode.ControlLeft, KeyCode.ControlRight -> AwtKeyEvent.VK_CONTROL
+        KeyCode.AltLeft, KeyCode.AltRight -> AwtKeyEvent.VK_ALT
+        KeyCode.MetaLeft, KeyCode.MetaRight -> AwtKeyEvent.VK_META
+        else -> AwtKeyEvent.VK_UNDEFINED
+    }
 }
 
-private fun typedChar(key: KadreKey, shift: Boolean): Char? = when {
-    key in KadreKey.A..KadreKey.Z -> {
-        val upper = 'A' + (key.ordinal - KadreKey.A.ordinal)
-        if (shift) upper else upper.lowercaseChar()
+private fun typedChar(logicalKey: LogicalKey, physicalKey: PhysicalKey, shift: Boolean): Char? {
+    (logicalKey as? LogicalKey.Character)?.text?.singleOrNull()?.let { return it }
+    val key = (physicalKey as? PhysicalKey.Code)?.code ?: return null
+    return when {
+        key in KeyCode.KeyA..KeyCode.KeyZ -> {
+            val upper = 'A' + (key.ordinal - KeyCode.KeyA.ordinal)
+            if (shift) upper else upper.lowercaseChar()
+        }
+        key in KeyCode.Digit0..KeyCode.Digit9 -> '0' + (key.ordinal - KeyCode.Digit0.ordinal)
+        key == KeyCode.Space -> ' '
+        else -> null
     }
-    key in KadreKey.Digit0..KadreKey.Digit9 -> '0' + (key.ordinal - KadreKey.Digit0.ordinal)
-    key == KadreKey.Space -> ' '
-    else -> null
 }

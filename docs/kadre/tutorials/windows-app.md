@@ -109,8 +109,8 @@ class MyAppHandler : ApplicationHandler {
                 println("PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
 
             // Keyboard input
-            is WindowEvent.KeyboardInput ->
-                println("Key ${event.state} key=${event.key} repeat=${event.isRepeat}")
+            is WindowEvent.KeyInput ->
+                println("Key ${event.event.state} physical=${event.event.physicalKey} logical=${event.event.logicalKey} repeat=${event.event.repeat}")
 
             // Window destroyed: release GPU resources here
             WindowEvent.Destroyed -> window = null

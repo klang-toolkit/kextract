@@ -29,13 +29,12 @@ On décrit une séquence d'événements, puis on l'exécute sur un handler. La m
 ```kotlin
 import org.graphiks.kadre.test.scriptedTest
 import org.graphiks.kadre.test.Callback
-import org.graphiks.kadre.core.Key
 
 val trace = scriptedTest {
     canCreateSurfaces()
-    keyPress(Key.ArrowUp)
+    physicalKeyPress(KeyCode.ArrowUp)
     tick(16)            // simule une frame : newEvents → RedrawRequested → aboutToWait
-    keyRelease(Key.ArrowUp)
+    physicalKeyRelease(KeyCode.ArrowUp)
     closeRequested()
 }.run(MonHandler())
 
@@ -48,7 +47,7 @@ assertEquals(Callback.Suspended, trace.last())
 | Verbe | Effet |
 |-------|-------|
 | `canCreateSurfaces()` | invoque `handler.canCreateSurfaces` |
-| `keyPress(key, modifiers)` / `keyRelease(key, modifiers)` | `WindowEvent.KeyboardInput` |
+| `physicalKeyPress(code, modifiers)` / `physicalKeyRelease(code, modifiers)` | `WindowEvent.KeyInput` |
 | `pointerMove(x, y)` | `WindowEvent.PointerMoved` |
 | `mouseInput(button, state)` | `WindowEvent.MouseInput` |
 | `resized(w, h)` | `WindowEvent.Resized` |

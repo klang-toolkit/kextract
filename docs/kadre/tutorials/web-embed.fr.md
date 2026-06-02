@@ -100,8 +100,8 @@ class MyWebHandler : ApplicationHandler {
                 println("Wheel Δx=${event.deltaX} Δy=${event.deltaY}")
 
             // Entrées clavier
-            is WindowEvent.KeyboardInput ->
-                println("Key ${event.state} key=${event.key} repeat=${event.isRepeat}")
+            is WebWindowEvent.KeyInput ->
+                println("Key ${event.event.state} physical=${event.event.physicalKey} logical=${event.event.logicalKey} repeat=${event.event.repeat}")
 
             // Focus / perte de focus
             is WindowEvent.Focused ->

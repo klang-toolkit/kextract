@@ -18,7 +18,7 @@ fun onWindowEvent(event: WindowEvent) {
         is WindowEvent.Moved          -> move(event.position)
         is WindowEvent.ScaleFactorChanged -> updateDpi(event.factor)
         is WindowEvent.Focused        -> handleFocus(event.gained)
-        is WindowEvent.KeyboardInput  -> handleKeyboard(event.key, event.state, event.modifiers)
+        is WindowEvent.KeyInput       -> handleKeyboard(event.event)
         is WindowEvent.PointerMoved   -> handlePointer(event.position)
         WindowEvent.PointerEntered    -> handleEnter()
         WindowEvent.PointerLeft       -> handleLeave()
@@ -43,16 +43,16 @@ fun onWindowEvent(event: WindowEvent) {
 | [Moved](-moved/index.md) |
 | [ScaleFactorChanged](-scale-factor-changed/index.md) |
 | [Focused](-focused/index.md) |
-| [KeyboardInput](-keyboard-input/index.md) |
+| [KeyInput](-key-input/index.md) |
 | [PointerMoved](-pointer-moved/index.md) |
 | [PointerEntered](-pointer-entered/index.md) |
 | [PointerLeft](-pointer-left/index.md) |
 | [MouseInput](-mouse-input/index.md) |
 | [MouseWheel](-mouse-wheel/index.md) |
 | [Touch](-touch/index.md) |
+| [ModifiersChanged](-modifiers-changed/index.md) |
 | [RedrawRequested](-redraw-requested/index.md) |
 | [Destroyed](-destroyed/index.md) |
-| [ModifiersChanged](-modifiers-changed/index.md) |
 | [ThemeChanged](-theme-changed/index.md) |
 | [DragEntered](-drag-entered/index.md) |
 | [DragMoved](-drag-moved/index.md) |
@@ -79,8 +79,8 @@ fun onWindowEvent(event: WindowEvent) {
 | [DragMoved](-drag-moved/index.md) | [common]<br>data class [DragMoved](-drag-moved/index.md)(val position: [PhysicalPosition](../-physical-position/index.md)&lt;[Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)&gt;) : [WindowEvent](index.md)<br>The drag cursor moved within the window while carrying files. |
 | [Focused](-focused/index.md) | [common]<br>data class [Focused](-focused/index.md)(val gained: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)) : [WindowEvent](index.md)<br>The window gained or lost keyboard focus. |
 | [Ime](-ime/index.md) | [common]<br>data class [Ime](-ime/index.md)(val ime: [WindowEvent.Ime.ImeEvent](-ime/-ime-event/index.md)) : [WindowEvent](index.md)<br>An IME (Input Method Editor) event occurred on this window. |
-| [KeyboardInput](-keyboard-input/index.md) | [common]<br>data class [KeyboardInput](-keyboard-input/index.md)(val key: [Key](../-key/index.md), val state: [KeyState](../-key-state/index.md), val modifiers: [Modifiers](../-modifiers/index.md), val isRepeat: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false, val text: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, val location: [KeyLocation](../-key-location/index.md) = KeyLocation.Standard, val scanCode: [Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)? = null) : [WindowEvent](index.md)<br>A keyboard event occurred while the window had focus. |
-| [ModifiersChanged](-modifiers-changed/index.md) | [common]<br>data class [ModifiersChanged](-modifiers-changed/index.md)(val modifiers: [Modifiers](../-modifiers/index.md)) : [WindowEvent](index.md)<br>The set of active keyboard modifiers changed. |
+| [KeyInput](-key-input/index.md) | [common]<br>data class [KeyInput](-key-input/index.md)(val event: [KeyEvent](../-key-event/index.md)) : [WindowEvent](index.md)<br>A keyboard event occurred while the window had focus. |
+| [ModifiersChanged](-modifiers-changed/index.md) | [common]<br>data class [ModifiersChanged](-modifiers-changed/index.md)(val state: [KeyboardModifierState](../-keyboard-modifier-state/index.md)) : [WindowEvent](index.md)<br>The logical or physical keyboard modifier state changed. |
 | [MouseInput](-mouse-input/index.md) | [common]<br>data class [MouseInput](-mouse-input/index.md)(val button: [MouseButton](../-mouse-button/index.md), val state: [KeyState](../-key-state/index.md)) : [WindowEvent](index.md)<br>A mouse button has been pressed or released. |
 | [MouseWheel](-mouse-wheel/index.md) | [common]<br>data class [MouseWheel](-mouse-wheel/index.md)(val deltaX: [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html), val deltaY: [Double](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-double/index.html)) : [WindowEvent](index.md)<br>The mouse wheel (or trackpad) produced a scroll. |
 | [Moved](-moved/index.md) | [common]<br>data class [Moved](-moved/index.md)(val position: [PhysicalPosition](../-physical-position/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;) : [WindowEvent](index.md)<br>The window has been moved. |

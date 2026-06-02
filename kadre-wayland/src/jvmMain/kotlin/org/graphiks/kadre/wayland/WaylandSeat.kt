@@ -10,7 +10,7 @@
  * |-------------|---------------|----------------------------------------------|
  * | wl_keyboard | enter         | Focused(true)                                |
  * | wl_keyboard | leave         | Focused(false)                               |
- * | wl_keyboard | key           | KeyboardInput (via WaylandKeyMapper)         |
+ * | wl_keyboard | key           | KeyInput (via WaylandKeyMapper)              |
  * | wl_pointer  | enter         | PointerEntered                               |
  * | wl_pointer  | leave         | PointerLeft                                  |
  * | wl_pointer  | motion        | PointerMoved (via WaylandMouseMapper)        |
@@ -100,7 +100,7 @@ private class WlOutputListener(
 // ── wl_keyboard listener ──────────────────────────────────────────────────────
 
 /**
- * wl_keyboard listener that emits [WindowEvent.Focused] and [WindowEvent.KeyboardInput].
+ * wl_keyboard listener that emits [WindowEvent.Focused] and [WindowEvent.KeyInput].
  *
  * wl_keyboard_listener vtable order:
  *   0: keymap, 1: enter, 2: leave, 3: key, 4: modifiers, 5: repeat_info.

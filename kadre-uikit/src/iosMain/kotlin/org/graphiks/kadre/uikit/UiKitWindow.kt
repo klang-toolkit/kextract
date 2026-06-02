@@ -1,14 +1,17 @@
 package org.graphiks.kadre.uikit
 
 import org.graphiks.kadre.core.ButtonSource
+import org.graphiks.kadre.core.KeyEvent
+import org.graphiks.kadre.core.KeyPlatform
+import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.InputCapabilities
-import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.NativeKeyInfo
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
@@ -23,7 +26,9 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
-import platform.UIKit.UIUserInterfaceStyle
+import org.graphiks.kadre.core.location
+import org.graphiks.kadre.core.defaultLogicalKey
+import org.graphiks.kadre.core.defaultText
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCAction
@@ -44,6 +49,7 @@ import platform.UIKit.UIPressesEvent
 import platform.UIKit.UIScreen
 import platform.UIKit.UITouch
 import platform.UIKit.UITraitCollection
+import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
 import platform.UIKit.UIViewController
 import platform.UIKit.UIViewMeta
@@ -116,7 +122,7 @@ class KadreMetalView(
     }
 
     /**
-     * Translates UIPress key data into [WindowEvent.KeyboardInput].
+     * Translates UIPress key data into [WindowEvent.KeyInput].
      *
      * @return `true` if at least one press mapped to a known key (and was
      *   consumed); `false` so the caller forwards the event up the chain.
@@ -126,8 +132,12 @@ class KadreMetalView(
         presses.forEach { element ->
             val press = element as? UIPress ?: return@forEach
             val uiKey = press.key ?: return@forEach
-            val key = UiKitKeyMapper.fromHidUsage(uiKey.keyCode)
-            if (key == org.graphiks.kadre.core.Key.Unknown) return@forEach
+            val mappedCode = UiKitKeyMapper.keyCode(uiKey.keyCode) ?: return@forEach
+            val native = NativeKeyInfo(
+                platform = KeyPlatform.UIKit,
+                scanCode = uiKey.keyCode,
+            )
+            val logicalKey = mappedCode.defaultLogicalKey()
             handled = true
             // R4: UIKey.characters is the text produced by the key (may be nil/empty)
             val characters = uiKey.characters
@@ -135,14 +145,18 @@ class KadreMetalView(
             // R4: UIKey.keyCode maps to HID usage (same as what the mapper uses)
             val scanCode: Int = uiKey.keyCode.toInt()
             onEvent(
-                WindowEvent.KeyboardInput(
-                    deviceId = null,
-                    key = key,
-                    state = state,
-                    modifiers = UiKitKeyMapper.modifiersFrom(uiKey.modifierFlags),
-                    isRepeat = false,
-                    text = text,
-                    scanCode = scanCode,
+WindowEvent.KeyInput(
+                    KeyEvent(
+                        physicalKey = UiKitKeyMapper.physicalKey(uiKey.keyCode),
+                        logicalKey = logicalKey,
+                        state = state,
+                        modifiers = UiKitKeyMapper.modifiersFrom(uiKey.modifierFlags),
+                        location = UiKitKeyMapper.physicalKey(uiKey.keyCode).location(),
+                        repeat = false,
+                        text = text ?: mappedCode.defaultText(),
+                        keyWithoutModifiers = logicalKey,
+                        native = native,
+                    ),
                 )
             )
         }

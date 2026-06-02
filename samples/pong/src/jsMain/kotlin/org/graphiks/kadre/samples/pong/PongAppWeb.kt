@@ -18,10 +18,11 @@ import org.graphiks.kadre.WindowId
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Window
-import org.graphiks.kadre.web.WebEventLoop
-import org.graphiks.kadre.core.Key
-import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.WindowEvent
+import org.graphiks.kadre.web.WebEventLoop
+import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.web.WebWindowAttributes
 import kotlin.js.unsafeCast
 import kotlin.math.min
@@ -70,19 +71,19 @@ class PongAppWeb : ApplicationHandler {
                 renderer = null
                 eventLoop.exit()
             }
-            is WindowEvent.KeyboardInput -> onKey(event)
+            is WindowEvent.KeyInput -> onKey(event)
             else -> { /* PointerMoved/Entered/Left/MouseInput/MouseWheel/Focused ignored */ }
         }
     }
 
-    private fun onKey(event: WindowEvent.KeyboardInput) {
+    private fun onKey(event: WindowEvent.KeyInput) {
         // Debug log: confirms the arrival of keyboard events on the handler side.
-        println("[pong-web] key ${event.key} ${event.state}")
+        println("[pong-web] key ${event.event.physicalKey} ${event.event.state}")
         playerInput = when {
-            event.key == Key.ArrowUp && event.state == KeyState.Pressed -> PaddleInput.UP
-            event.key == Key.ArrowDown && event.state == KeyState.Pressed -> PaddleInput.DOWN
-            event.key == Key.ArrowUp && event.state == KeyState.Released && playerInput == PaddleInput.UP -> PaddleInput.NONE
-            event.key == Key.ArrowDown && event.state == KeyState.Released && playerInput == PaddleInput.DOWN -> PaddleInput.NONE
+            event.event.physicalKey == PhysicalKey.Code(KeyCode.ArrowUp) && event.event.state == KeyState.Pressed -> PaddleInput.UP
+            event.event.physicalKey == PhysicalKey.Code(KeyCode.ArrowDown) && event.event.state == KeyState.Pressed -> PaddleInput.DOWN
+            event.event.physicalKey == PhysicalKey.Code(KeyCode.ArrowUp) && event.event.state == KeyState.Released && playerInput == PaddleInput.UP -> PaddleInput.NONE
+            event.event.physicalKey == PhysicalKey.Code(KeyCode.ArrowDown) && event.event.state == KeyState.Released && playerInput == PaddleInput.DOWN -> PaddleInput.NONE
             else -> playerInput
         }
     }

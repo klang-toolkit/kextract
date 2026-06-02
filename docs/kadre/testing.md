@@ -29,13 +29,12 @@ returns the **ordered trace** of invoked callbacks.
 ```kotlin
 import org.graphiks.kadre.test.scriptedTest
 import org.graphiks.kadre.test.Callback
-import org.graphiks.kadre.core.Key
 
 val trace = scriptedTest {
     canCreateSurfaces()
-    keyPress(Key.ArrowUp)
+    physicalKeyPress(KeyCode.ArrowUp)
     tick(16)            // simulates one frame: newEvents → RedrawRequested → aboutToWait
-    keyRelease(Key.ArrowUp)
+    physicalKeyRelease(KeyCode.ArrowUp)
     closeRequested()
 }.run(MyHandler())
 
@@ -48,7 +47,7 @@ assertEquals(Callback.Suspended, trace.last())
 | Verb | Effect |
 |------|--------|
 | `canCreateSurfaces()` | invokes `handler.canCreateSurfaces` |
-| `keyPress(key, modifiers)` / `keyRelease(key, modifiers)` | `WindowEvent.KeyboardInput` |
+| `physicalKeyPress(code, modifiers)` / `physicalKeyRelease(code, modifiers)` | `WindowEvent.KeyInput` |
 | `pointerMove(x, y)` | `WindowEvent.PointerMoved` |
 | `mouseInput(button, state)` | `WindowEvent.MouseInput` |
 | `resized(w, h)` | `WindowEvent.Resized` |

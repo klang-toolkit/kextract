@@ -12,19 +12,26 @@
  */
 package org.graphiks.kadre.web
 
-import org.graphiks.kadre.core.Key
-import org.graphiks.kadre.core.KeyLocation
+import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyEvent
+import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
-import org.graphiks.kadre.core.Modifiers
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.FingerId
+import org.graphiks.kadre.core.KeyboardModifierState
+import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MouseButton
+import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
+import org.graphiks.kadre.core.defaultLogicalKey
+import org.graphiks.kadre.core.defaultText
 
 /**
  * Converts a DOM code (`KeyboardEvent.code`) into a Kadre [WebKey].
@@ -116,6 +123,75 @@ internal fun domCodeToKey(code: String): WebKey = when (code) {
     else -> WebKey.Unknown
 }
 
+internal fun domCodeToKeyCode(code: String): KeyCode? = when (code) {
+    "KeyA" -> KeyCode.KeyA
+    "KeyB" -> KeyCode.KeyB
+    "KeyC" -> KeyCode.KeyC
+    "KeyD" -> KeyCode.KeyD
+    "KeyE" -> KeyCode.KeyE
+    "KeyF" -> KeyCode.KeyF
+    "KeyG" -> KeyCode.KeyG
+    "KeyH" -> KeyCode.KeyH
+    "KeyI" -> KeyCode.KeyI
+    "KeyJ" -> KeyCode.KeyJ
+    "KeyK" -> KeyCode.KeyK
+    "KeyL" -> KeyCode.KeyL
+    "KeyM" -> KeyCode.KeyM
+    "KeyN" -> KeyCode.KeyN
+    "KeyO" -> KeyCode.KeyO
+    "KeyP" -> KeyCode.KeyP
+    "KeyQ" -> KeyCode.KeyQ
+    "KeyR" -> KeyCode.KeyR
+    "KeyS" -> KeyCode.KeyS
+    "KeyT" -> KeyCode.KeyT
+    "KeyU" -> KeyCode.KeyU
+    "KeyV" -> KeyCode.KeyV
+    "KeyW" -> KeyCode.KeyW
+    "KeyX" -> KeyCode.KeyX
+    "KeyY" -> KeyCode.KeyY
+    "KeyZ" -> KeyCode.KeyZ
+    "Digit0" -> KeyCode.Digit0
+    "Digit1" -> KeyCode.Digit1
+    "Digit2" -> KeyCode.Digit2
+    "Digit3" -> KeyCode.Digit3
+    "Digit4" -> KeyCode.Digit4
+    "Digit5" -> KeyCode.Digit5
+    "Digit6" -> KeyCode.Digit6
+    "Digit7" -> KeyCode.Digit7
+    "Digit8" -> KeyCode.Digit8
+    "Digit9" -> KeyCode.Digit9
+    "F1" -> KeyCode.F1
+    "F2" -> KeyCode.F2
+    "F3" -> KeyCode.F3
+    "F4" -> KeyCode.F4
+    "F5" -> KeyCode.F5
+    "F6" -> KeyCode.F6
+    "F7" -> KeyCode.F7
+    "F8" -> KeyCode.F8
+    "F9" -> KeyCode.F9
+    "F10" -> KeyCode.F10
+    "F11" -> KeyCode.F11
+    "F12" -> KeyCode.F12
+    "Space" -> KeyCode.Space
+    "Enter" -> KeyCode.Enter
+    "Escape" -> KeyCode.Escape
+    "Backspace" -> KeyCode.Backspace
+    "Tab" -> KeyCode.Tab
+    "ArrowUp" -> KeyCode.ArrowUp
+    "ArrowDown" -> KeyCode.ArrowDown
+    "ArrowLeft" -> KeyCode.ArrowLeft
+    "ArrowRight" -> KeyCode.ArrowRight
+    "ShiftLeft" -> KeyCode.ShiftLeft
+    "ShiftRight" -> KeyCode.ShiftRight
+    "ControlLeft" -> KeyCode.ControlLeft
+    "ControlRight" -> KeyCode.ControlRight
+    "AltLeft" -> KeyCode.AltLeft
+    "AltRight" -> KeyCode.AltRight
+    "MetaLeft" -> KeyCode.MetaLeft
+    "MetaRight" -> KeyCode.MetaRight
+    else -> null
+}
+
 /**
  * Builds a [WebModifiers] from the boolean fields of a DOM `KeyboardEvent` or `MouseEvent`.
  *
@@ -137,6 +213,53 @@ internal fun domModifiers(
     if (altKey)   mods = mods + WebModifiers.ALT
     if (metaKey)  mods = mods + WebModifiers.META
     return mods
+}
+
+internal fun domKeyboardModifiers(
+    shiftKey: Boolean,
+    ctrlKey: Boolean,
+    altKey: Boolean,
+    metaKey: Boolean,
+): KeyboardModifiers {
+    var mods = KeyboardModifiers.NONE
+    if (shiftKey) mods += KeyboardModifiers.Shift
+    if (ctrlKey) mods += KeyboardModifiers.Ctrl
+    if (altKey) mods += KeyboardModifiers.Alt
+    if (metaKey) mods += KeyboardModifiers.Meta
+    return mods
+}
+
+internal fun domKeyEvent(
+    code: String,
+    key: String,
+    eventType: String,
+    shiftKey: Boolean,
+    ctrlKey: Boolean,
+    altKey: Boolean,
+    metaKey: Boolean,
+    repeat: Boolean,
+): KeyEvent {
+    val mappedCode = domCodeToKeyCode(code)
+    val native = NativeKeyInfo(
+        platform = KeyPlatform.Web,
+        keyCode = code,
+        keyValue = key,
+    )
+    val logicalKey = when {
+        key.length == 1 -> LogicalKey.Character(key)
+        mappedCode != null -> mappedCode.defaultLogicalKey()
+        else -> LogicalKey.Unidentified(native)
+    }
+    return KeyEvent(
+        physicalKey = mappedCode?.let(PhysicalKey::Code) ?: PhysicalKey.Native(KeyPlatform.Web, code.hashCode().toLong()),
+        logicalKey = logicalKey,
+        state = domCoreKeyStateFromEventType(eventType),
+        modifiers = domKeyboardModifiers(shiftKey, ctrlKey, altKey, metaKey),
+        repeat = repeat,
+        text = key.takeIf { it.length == 1 } ?: mappedCode?.defaultText(),
+        keyWithoutModifiers = mappedCode?.defaultLogicalKey(),
+        native = native,
+    )
 }
 
 /**
@@ -168,6 +291,11 @@ internal fun domKeyStateFromEventType(eventType: String): WebKeyState = when (ev
     "keydown"     -> WebKeyState.Pressed
     "pointerdown" -> WebKeyState.Pressed
     else          -> WebKeyState.Released
+}
+
+internal fun domCoreKeyStateFromEventType(eventType: String): KeyState = when (eventType) {
+    "keydown" -> KeyState.Pressed
+    else -> KeyState.Released
 }
 
 /**
@@ -253,16 +381,7 @@ internal fun normalizeWheelDelta(delta: Double, deltaMode: Int): Double {
 internal fun WebWindowEvent.toWindowEvent(): WindowEvent = when (this) {
     WebWindowEvent.CloseRequested -> WindowEvent.CloseRequested
     is WebWindowEvent.Resized -> WindowEvent.Resized(PhysicalSize(width, height))
-    is WebWindowEvent.KeyboardInput -> WindowEvent.KeyboardInput(
-        deviceId = null,
-        key = key.toKey(),
-        state = state.toKeyState(),
-        modifiers = modifiers.toModifiers(),
-        isRepeat = isRepeat,
-        text = text,
-        location = location.toKeyLocation(),
-        scanCode = scanCode?.hashCode(),  // DOM code string → stable Int hash for cross-platform compat
-    )
+is WebWindowEvent.KeyInput -> WindowEvent.KeyInput(event)
     is WebWindowEvent.PointerMoved -> WindowEvent.PointerMoved(
         deviceId = null,
         position = PhysicalPosition(x, y),
@@ -293,36 +412,9 @@ internal fun WebWindowEvent.toWindowEvent(): WindowEvent = when (this) {
     is WebWindowEvent.ScaleFactorChanged -> WindowEvent.ScaleFactorChanged(factor)
     WebWindowEvent.RedrawRequested -> WindowEvent.RedrawRequested
     WebWindowEvent.Destroyed -> WindowEvent.Destroyed
-    is WebWindowEvent.ModifiersChanged -> WindowEvent.ModifiersChanged(modifiers.toModifiers())
-}
-
-private fun WebKey.toKey(): Key = when (this) {
-    WebKey.A -> Key.A; WebKey.B -> Key.B; WebKey.C -> Key.C; WebKey.D -> Key.D
-    WebKey.E -> Key.E; WebKey.F -> Key.F; WebKey.G -> Key.G; WebKey.H -> Key.H
-    WebKey.I -> Key.I; WebKey.J -> Key.J; WebKey.K -> Key.K; WebKey.L -> Key.L
-    WebKey.M -> Key.M; WebKey.N -> Key.N; WebKey.O -> Key.O; WebKey.P -> Key.P
-    WebKey.Q -> Key.Q; WebKey.R -> Key.R; WebKey.S -> Key.S; WebKey.T -> Key.T
-    WebKey.U -> Key.U; WebKey.V -> Key.V; WebKey.W -> Key.W; WebKey.X -> Key.X
-    WebKey.Y -> Key.Y; WebKey.Z -> Key.Z
-    WebKey.Digit0 -> Key.Digit0; WebKey.Digit1 -> Key.Digit1
-    WebKey.Digit2 -> Key.Digit2; WebKey.Digit3 -> Key.Digit3
-    WebKey.Digit4 -> Key.Digit4; WebKey.Digit5 -> Key.Digit5
-    WebKey.Digit6 -> Key.Digit6; WebKey.Digit7 -> Key.Digit7
-    WebKey.Digit8 -> Key.Digit8; WebKey.Digit9 -> Key.Digit9
-    WebKey.F1  -> Key.F1;  WebKey.F2  -> Key.F2;  WebKey.F3  -> Key.F3
-    WebKey.F4  -> Key.F4;  WebKey.F5  -> Key.F5;  WebKey.F6  -> Key.F6
-    WebKey.F7  -> Key.F7;  WebKey.F8  -> Key.F8;  WebKey.F9  -> Key.F9
-    WebKey.F10 -> Key.F10; WebKey.F11 -> Key.F11; WebKey.F12 -> Key.F12
-    WebKey.Space     -> Key.Space;     WebKey.Enter  -> Key.Enter
-    WebKey.Escape    -> Key.Escape;    WebKey.Backspace -> Key.Backspace
-    WebKey.Tab       -> Key.Tab
-    WebKey.ArrowUp   -> Key.ArrowUp;   WebKey.ArrowDown  -> Key.ArrowDown
-    WebKey.ArrowLeft -> Key.ArrowLeft; WebKey.ArrowRight -> Key.ArrowRight
-    WebKey.ShiftLeft    -> Key.ShiftLeft;    WebKey.ShiftRight   -> Key.ShiftRight
-    WebKey.ControlLeft  -> Key.ControlLeft;  WebKey.ControlRight -> Key.ControlRight
-    WebKey.AltLeft      -> Key.AltLeft;      WebKey.AltRight     -> Key.AltRight
-    WebKey.MetaLeft     -> Key.MetaLeft;     WebKey.MetaRight    -> Key.MetaRight
-    WebKey.Unknown -> Key.Unknown
+    is WebWindowEvent.ModifiersChanged -> WindowEvent.ModifiersChanged(
+        KeyboardModifierState(logical = modifiers.toKeyboardModifiers()),
+    )
 }
 
 private fun WebKeyState.toKeyState(): KeyState = when (this) {
@@ -330,7 +422,7 @@ private fun WebKeyState.toKeyState(): KeyState = when (this) {
     WebKeyState.Released -> KeyState.Released
 }
 
-private fun WebModifiers.toModifiers(): Modifiers = Modifiers(bits)
+private fun WebModifiers.toKeyboardModifiers(): KeyboardModifiers = KeyboardModifiers(bits)
 
 private fun WebMouseButton.toMouseButton(): MouseButton = when (this) {
     WebMouseButton.Left   -> MouseButton.Left
@@ -344,11 +436,4 @@ private fun WebTouchPhase.toTouchPhase(): TouchPhase = when (this) {
     WebTouchPhase.Moved     -> TouchPhase.Moved
     WebTouchPhase.Ended     -> TouchPhase.Ended
     WebTouchPhase.Cancelled -> TouchPhase.Cancelled
-}
-
-private fun WebKeyLocation.toKeyLocation(): KeyLocation = when (this) {
-    WebKeyLocation.Standard -> KeyLocation.Standard
-    WebKeyLocation.Left     -> KeyLocation.Left
-    WebKeyLocation.Right    -> KeyLocation.Right
-    WebKeyLocation.Numpad   -> KeyLocation.Numpad
 }

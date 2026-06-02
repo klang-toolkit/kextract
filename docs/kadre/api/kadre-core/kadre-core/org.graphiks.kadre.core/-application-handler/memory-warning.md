@@ -9,9 +9,9 @@ Called when the system notifies the application of a low-memory condition.
 
 Mobile backends only:
 
-- 
+-
    iOS / UIKit : `applicationDidReceiveMemoryWarning` / `didReceiveMemoryWarning`.
-- 
+-
    Android     : `onTrimMemory(TRIM_MEMORY_RUNNING_CRITICAL)`.
 
 On all other backends this method is never called. Applications should release any caches or optional resources in response to this callback.

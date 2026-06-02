@@ -7,12 +7,12 @@ index d807b6a..10e017c 100644
          val name = toplevel.javaName(decl.name())
          val type = TypeMapper.map(decl.type())
 +        val varLookupExpr = if (toplevel.hasLookup) "LOOKUP" else "SymbolLookup.loaderLookup()"
- 
+
          // KDoc
          builder.appendLine("/**")
          builder.appendLine(" * {@snippet lang=c : ${decl.name()} ${decl.type()}")
          builder.appendLine(" */")
- 
+
 -        // Variable Layout, Segment and Handle (toplevel properties)
 +        if (isAggregateGlobal(decl.type())) {
 +            // Struct/union/array-typed global: a whole aggregate cannot be read or written
@@ -35,7 +35,7 @@ index d807b6a..10e017c 100644
 @@ -106,6 +118,27 @@ class KotlinHeaderBuilder(private val builder: SourceBuilder, private val toplev
          builder.appendLine()
      }
- 
+
 +    /**
 +     * True when a global variable's type is an aggregate (struct/union/array) rather than a
 +     * scalar. Typedef / qualifier indirections are unwrapped; pointers stay scalar (a pointer
@@ -67,7 +67,7 @@ index 31234ef..2e86faa 100644
 @@ -55,17 +55,18 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
          builder.appendLine("    allocator.allocate(MemoryLayout.sequenceLayout(elementCount, layout))")
          builder.appendLine()
- 
+
 -        // asSlice
 +        // asSlice — byteSize() is a Java method (no getter convention), so it must be
 +        // invoked with parentheses; Kotlin will not expose it as a `.byteSize` property.
@@ -75,7 +75,7 @@ index 31234ef..2e86faa 100644
 -        builder.appendLine("    array.asSlice(layout.byteSize * index)")
 +        builder.appendLine("    array.asSlice(layout.byteSize() * index)")
          builder.appendLine()
- 
+
          // reinterpret
          builder.appendLine("fun reinterpret(addr: MemorySegment): MemorySegment =")
 -        builder.appendLine("    addr.reinterpret(layout.byteSize)")
@@ -85,5 +85,5 @@ index 31234ef..2e86faa 100644
 -        builder.appendLine("    addr.reinterpret(layout.byteSize * elementCount)")
 +        builder.appendLine("    addr.reinterpret(layout.byteSize() * elementCount)")
          builder.appendLine()
- 
+
          builder.unindent()

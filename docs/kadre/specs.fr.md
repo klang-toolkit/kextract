@@ -222,7 +222,7 @@ sequenceDiagram
 |-----------|--------------|
 | `pointerdown`/`pointerup` | `WindowEvent.MouseInput` (mouse) OU `WindowEvent.Touch` (touch) selon `pointerType` |
 | `pointermove` | `WindowEvent.PointerMoved` |
-| `keydown`/`keyup` | `WindowEvent.KeyboardInput` (mapping `code` → `Key` enum) |
+| `keydown`/`keyup` | `WindowEvent.KeyInput` (mapping `code` → `KeyEvent`) |
 | `wheel` | `WindowEvent.MouseWheel` |
 | `resize` (window) | `WindowEvent.Resized` (via ResizeObserver sur canvas) |
 | `visibilitychange` | `suspended` (hidden) / `resumed` (visible) |
@@ -307,7 +307,7 @@ sequenceDiagram
 | `WM_PAINT` | `WindowEvent.RedrawRequested` |
 | `WM_SIZE` | `WindowEvent.Resized(PhysicalSize)` |
 | `WM_DPICHANGED` | `WindowEvent.ScaleFactorChanged` |
-| `WM_KEYDOWN`/`WM_KEYUP` | `WindowEvent.KeyboardInput` |
+| `WM_KEYDOWN`/`WM_KEYUP` | `WindowEvent.KeyInput` |
 | `WM_LBUTTONDOWN`/`WM_LBUTTONUP` | `WindowEvent.MouseInput(Left)` |
 | `WM_MOUSEMOVE` | `WindowEvent.PointerMoved` |
 | `WM_MOUSEWHEEL` | `WindowEvent.MouseWheel` |
@@ -414,7 +414,7 @@ fun pumpEvents(controlFlow: ControlFlow) {
 |-----------|--------------|
 | `Expose` | `WindowEvent.RedrawRequested` |
 | `ConfigureNotify` | `WindowEvent.Resized` + `Moved` selon delta |
-| `KeyPress`/`KeyRelease` | `WindowEvent.KeyboardInput` (via XLookupString pour le mapping) |
+| `KeyPress`/`KeyRelease` | `WindowEvent.KeyInput` (via XLookupString pour le mapping) |
 | `ButtonPress`/`ButtonRelease` | `WindowEvent.MouseInput` |
 | `MotionNotify` | `WindowEvent.PointerMoved` |
 | `EnterNotify`/`LeaveNotify` | `WindowEvent.PointerEntered`/`PointerLeft` |
@@ -495,7 +495,7 @@ fun pumpEvents(controlFlow: ControlFlow) {
 | `wl_pointer.motion` | `WindowEvent.PointerMoved` |
 | `wl_pointer.button` | `WindowEvent.MouseInput` |
 | `wl_pointer.axis` | `WindowEvent.MouseWheel` |
-| `wl_keyboard.key` | `WindowEvent.KeyboardInput` (via libxkbcommon mapping) |
+| `wl_keyboard.key` | `WindowEvent.KeyInput` (via libxkbcommon mapping) |
 | `wl_keyboard.enter`/`leave` | `WindowEvent.Focused` |
 | `wl_touch.down`/`up`/`motion` | `WindowEvent.Touch` |
 | `wl_output.scale` | `WindowEvent.ScaleFactorChanged` (per-output scale) |
@@ -628,7 +628,7 @@ val monitors = eventLoop.availableMonitors()   // List<MonitorHandle>
 val primary  = eventLoop.primaryMonitor()       // MonitorHandle?
 ```
 
-Chaque `MonitorHandle` fournit : `id`, `name?`, `position`, `scaleFactor`, `currentVideoMode?`, `videoModes`.  
+Chaque `MonitorHandle` fournit : `id`, `name?`, `position`, `scaleFactor`, `currentVideoMode?`, `videoModes`.
 `VideoMode` contient `size`, `bitDepth?`, `refreshRateMilliHz?`.
 
 Le plein écran se configure par fenêtre : `window.setFullscreen(Fullscreen.Borderless())` / `Fullscreen.Exclusive(monitor, videoMode)` / `null`.
@@ -676,19 +676,22 @@ Le plein écran se configure par fenêtre : `window.setFullscreen(Fullscreen.Bor
 | `setBlur()` | réel (NSVisualEffectView) | réel (DwmEnableBlurBehind) | no-op | no-op | no-op | no-op | no-op |
 | `setWindowIcon()` | partiel (stub — DEFERRED.md) | partiel (stub WM_SETICON — DEFERRED.md) | réel (_NET_WM_ICON) | no-op | no-op | no-op | no-op |
 
-### 3.9 Richesse clavier (R4)
+### 3.9 Richesse clavier (R4/R6 incubation)
 
-`KeyboardInput` porte des champs supplémentaires avec valeurs par défaut rétro-compatibles :
+`WindowEvent.KeyInput` transporte un `KeyEvent` inspiré de winit :
 
-- `text: String?` — texte Unicode produit par la touche (null si absent ou si le backend ne l'expose pas).
+- `physicalKey: PhysicalKey` — touche indépendante du layout, soit `KeyCode` standardisé, code natif plateforme ou non identifiée.
+- `logicalKey: LogicalKey` — caractère layout-aware, touche nommée, dead key ou touche non identifiée.
+- `text: String?` et `textWithAllModifiers: String?` — texte produit, y compris les cas terminal/éditeur quand le backend les expose.
+- `keyWithoutModifiers: LogicalKey?` — touche logique sans modifieurs, utile pour les raccourcis.
 - `location: KeyLocation` — Standard / Left / Right / Numpad.
-- `scanCode: Int?` — code physique indépendant du layout.
-- `isRepeat: Boolean` — indicateur de répétition automatique.
+- `repeat` et `synthetic` — répétition automatique et release synthétique plateforme.
+- `native: NativeKeyInfo` — codes backend bruts pour debug et fallback.
 
-`ModifiersChanged(modifiers: Modifiers)` est émis lors d'un changement de touche modificatrice.  
-**État d'émission** : AppKit, Win32, Web — réel. X11, Wayland, Android, UIKit — TODO (cf. DEFERRED.md).
+`KeyboardModifierState` est émis par `WindowEvent.ModifiersChanged` et combine bitflags logiques et état physique gauche/droite.
+**État d'émission** : AppKit, Win32, Web — réel. X11, Wayland, Android, UIKit — TODO/partiel (cf. DEFERRED.md).
 
-`DeviceEvent.MouseWheel(deltaX, deltaY)` est dispatché en parallèle de `WindowEvent.MouseWheel` selon le filtre `ActiveEventLoop.listenDeviceEvents(DeviceEvents.Always/WhenFocused/Never)`.
+`DeviceEvent.Key` transporte `RawKeyEvent(physicalKey, state, native)` pour l'entrée clavier brute, avec accesseurs legacy `scancode/state` pour les backends existants. `DeviceEvent.MouseWheel(deltaX, deltaY)` est dispatché en parallèle de `WindowEvent.MouseWheel` selon le filtre `ActiveEventLoop.listenDeviceEvents(DeviceEvents.Always/WhenFocused/Never)`.
 
 ### 3.10 Événements avancés : IME, DnD, gestes, Occluded
 
@@ -702,21 +705,21 @@ Cycle de vie des events : `Ime(Enabled)` → `Ime(Preedit(text, cursorRange?))` 
 
 #### Drag & drop
 
-`DragEntered(position, paths)` → `DragMoved(position)` → `DragDropped(position, paths)` ou `DragLeft`.  
+`DragEntered(position, paths)` → `DragMoved(position)` → `DragDropped(position, paths)` ou `DragLeft`.
 `paths` contient les chemins de fichiers (ou noms de fichiers sur Web où les chemins complets ne sont pas disponibles).
 
 #### Gestes
 
-`PinchGesture(delta, phase)`, `PanGesture(delta: PhysicalPosition<Double>, phase)`, `RotationGesture(delta radians, phase)` — principalement macOS/iOS.  
-`DoubleTapGesture` — iOS et Web.  
+`PinchGesture(delta, phase)`, `PanGesture(delta: PhysicalPosition<Double>, phase)`, `RotationGesture(delta radians, phase)` — principalement macOS/iOS.
+`DoubleTapGesture` — iOS et Web.
 `TouchpadPressure(pressure: Float, stage: Int)` — trackpads Force Touch macOS uniquement.
 
 `phase` utilise `TouchPhase` (Started/Moved/Ended/Cancelled).
 
 #### Occluded
 
-`Occluded(occluded: Boolean)` — émis lorsque la fenêtre est masquée derrière d'autres fenêtres ou redevient visible.  
-Prévu : AppKit (`NSWindowDidChangeOcclusionStateNotification`) et Web (Page Visibility API).  
+`Occluded(occluded: Boolean)` — émis lorsque la fenêtre est masquée derrière d'autres fenêtres ou redevient visible.
+Prévu : AppKit (`NSWindowDidChangeOcclusionStateNotification`) et Web (Page Visibility API).
 Win32/X11/Wayland/Android/UIKit : no-op documenté.
 
 ---
@@ -765,7 +768,7 @@ class PongGame : ApplicationHandler {
             is WindowEvent.CloseRequested -> eventLoop.exit()
             is WindowEvent.RedrawRequested -> draw()
             is WindowEvent.Resized -> renderer?.resize(event.size)
-            is WindowEvent.KeyboardInput -> inputAdapter.onKey(event)
+            is WindowEvent.KeyInput -> inputAdapter.onKey(event)
             is WindowEvent.Touch -> inputAdapter.onTouch(event, window!!.innerSize())
             else -> {}
         }
@@ -815,11 +818,11 @@ class InputAdapter {
     var playerInput = PaddleInput.None
         private set
 
-    fun onKey(event: WindowEvent.KeyboardInput) {
-        playerInput = when (event.key to event.state) {
-            Key.ArrowUp to KeyState.Pressed -> PaddleInput.Up
-            Key.ArrowDown to KeyState.Pressed -> PaddleInput.Down
-            else -> if (event.state == KeyState.Released) PaddleInput.None else playerInput
+    fun onKey(event: WindowEvent.KeyInput) {
+        playerInput = when (event.event.physicalKey to event.event.state) {
+            PhysicalKey.Code(KeyCode.ArrowUp) to KeyState.Pressed -> PaddleInput.Up
+            PhysicalKey.Code(KeyCode.ArrowDown) to KeyState.Pressed -> PaddleInput.Down
+            else -> if (event.event.state == KeyState.Released) PaddleInput.None else playerInput
         }
     }
 
@@ -913,7 +916,7 @@ gantt
 - Pas de gamepad input (hors périmètre — winit délègue à `gilrs`)
 - Pong : pas d'audio, pas de réseau, IA basique
 
-Plusieurs éléments d'API ont été **volontairement reportés** à des jalons futurs ; tous sont tracés par des commentaires `TODO` dans le code.  
+Plusieurs éléments d'API ont été **volontairement reportés** à des jalons futurs ; tous sont tracés par des commentaires `TODO` dans le code.
 Voir la liste de référence : [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md)
 
 Points résiduels clés :
@@ -925,7 +928,7 @@ Points résiduels clés :
 - **ModifiersChanged** : émis sur AppKit/Win32/Web ; non câblé sur X11/Wayland/Android/UIKit.
 - **Curseurs custom** (`createCustomCursor` / `setCustomCursor`) : no-op sur tous les backends (impl interface par défaut).
 - **Méthodes fenêtre diverses** (`requestUserAttention`, `setContentProtected`, `showWindowMenu`, `dragWindow`, `dragResizeWindow`) : no-op partout.
-- **Modèle clavier fermé** : `Key` reste un enum fermé (~70 touches) ; le modèle ouvert winit (`Character`/`Named`/`Dead` + 200+ `KeyCode`) n'est pas reproduit. `text`/`scanCode`/`location` ont été ajoutés en R4 mais la divergence de modèle subsiste.
+- **Couverture clavier** : le modèle public suit maintenant winit (`PhysicalKey` / `LogicalKey` / `NamedKey` / `Dead`), mais `KeyCode` et `NamedKey` ne sont pas encore exhaustifs et les champs riches restent dépendants des backends.
 - **Stylet / tablette** : non supporté (MouseInput + Touch conservés au lieu du modèle unifié PointerButton/PointerKind).
 
 ---
@@ -992,12 +995,12 @@ Points résiduels clés :
 | winit (Rust) | Kadre |
 |--------------|-------|
 | `KeyLocation` (Standard/Left/Right/Numpad) | `KeyLocation` (Standard/Left/Right/Numpad) |
-| `KeyEvent::text` | `KeyboardInput.text: String?` |
-| `KeyEvent::physical_key` (scan code) | `KeyboardInput.scanCode: Int?` |
-| `KeyEvent::location` | `KeyboardInput.location: KeyLocation` |
-| `KeyEvent::repeat` | `KeyboardInput.isRepeat: Boolean` |
+| `KeyEvent::text` | `KeyEvent.text: String?` |
+| `KeyEvent::physical_key` | `KeyEvent.physicalKey: PhysicalKey` |
+| `KeyEvent::location` | `KeyEvent.location: KeyLocation` |
+| `KeyEvent::repeat` | `KeyEvent.repeat: Boolean` |
 | `Modifiers` | `Modifiers` (bitfield : SHIFT=0x1, CTRL=0x2, ALT=0x4, META=0x8) |
-| `WindowEvent::ModifiersChanged` | `WindowEvent.ModifiersChanged(modifiers: Modifiers)` |
+| `WindowEvent::ModifiersChanged` | `WindowEvent.ModifiersChanged(state: KeyboardModifierState)` |
 | `DeviceEvent::MouseWheel` | `DeviceEvent.MouseWheel(deltaX, deltaY)` |
 | Filtre `DeviceEvents` | `DeviceEvents` (Always/WhenFocused/Never) + `ActiveEventLoop.listenDeviceEvents()` |
 | `Window::reset_dead_keys()` | `Window.resetDeadKeys()` |

@@ -3,7 +3,7 @@
 # UserAttentionType
 
 [common]\
-enum [UserAttentionType](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[UserAttentionType](index.md)&gt; 
+enum [UserAttentionType](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[UserAttentionType](index.md)&gt;
 
 Type of user-attention request on the taskbar or dock icon.
 

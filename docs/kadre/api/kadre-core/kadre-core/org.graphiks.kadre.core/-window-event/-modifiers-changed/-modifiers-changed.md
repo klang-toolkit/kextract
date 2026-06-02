@@ -3,4 +3,4 @@
 # ModifiersChanged
 
 [common]\
-constructor(modifiers: [Modifiers](../../-modifiers/index.md))
+constructor(state: [KeyboardModifierState](../../-keyboard-modifier-state/index.md))

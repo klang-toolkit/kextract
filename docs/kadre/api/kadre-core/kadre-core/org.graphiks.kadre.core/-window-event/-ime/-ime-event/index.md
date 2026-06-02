@@ -8,13 +8,13 @@ Sub-events of the IME pipeline.
 
 The typical lifecycle is:
 
-1. 
+1.
    [Enabled](-enabled/index.md)  — the IME context was activated (e.g. focus entered a text field).
-2. 
+2.
    [Preedit](-preedit/index.md)  — intermediate composed text (shown with underline in most UIs).
-3. 
+3.
    [Commit](-commit/index.md)   — the final string to insert into the text buffer.
-4. 
+4.
    [Disabled](-disabled/index.md) — the IME context was deactivated.
 
 [DeleteSurrounding](-delete-surrounding/index.md) may be emitted at any point to request deletion of text around the cursor (needed by some CJK / prediction engines).

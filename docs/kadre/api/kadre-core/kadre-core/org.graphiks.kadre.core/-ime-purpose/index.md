@@ -3,7 +3,7 @@
 # ImePurpose
 
 [common]\
-enum [ImePurpose](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[ImePurpose](index.md)&gt; 
+enum [ImePurpose](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[ImePurpose](index.md)&gt;
 
 Intended purpose of the IME text field currently focused.
 

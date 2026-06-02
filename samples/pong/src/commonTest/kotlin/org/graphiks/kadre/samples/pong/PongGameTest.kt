@@ -15,8 +15,13 @@ import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyEvent
+import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -27,6 +32,7 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.defaultLogicalKey
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -161,6 +167,15 @@ class PongGameTest {
         game.canCreateSurfaces(eventLoop)
         return Triple(game, renderer, eventLoop)
     }
+
+    private fun keyInput(key: KeyCode, state: KeyState): WindowEvent.KeyInput = WindowEvent.KeyInput(
+        KeyEvent(
+            physicalKey = PhysicalKey.Code(key),
+            logicalKey = key.defaultLogicalKey(),
+            state = state,
+            modifiers = KeyboardModifiers.NONE,
+        ),
+    )
 
     // -------------------------------------------------------------------------
     // canCreateSurfaces
@@ -299,17 +314,12 @@ class PongGameTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `KeyboardInput does not crash`() {
+    fun `KeyInput does not crash`() {
         val (game, _, eventLoop) = makeGame()
         game.windowEvent(
             eventLoop,
             WindowId(1L),
-            WindowEvent.KeyboardInput(
-                deviceId = null,
-                key = org.graphiks.kadre.core.Key.ArrowUp,
-                state = org.graphiks.kadre.core.KeyState.Pressed,
-                modifiers = org.graphiks.kadre.core.Modifiers.NONE,
-            )
+            keyInput(KeyCode.ArrowUp, KeyState.Pressed)
         )
         // No assertion — just verify it doesn't crash
     }

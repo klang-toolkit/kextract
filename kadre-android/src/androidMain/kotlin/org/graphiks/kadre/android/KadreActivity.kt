@@ -13,7 +13,9 @@ import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.FingerId
+import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.NativeKeyInfo
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
@@ -21,6 +23,9 @@ import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.TouchForce
 import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
+import org.graphiks.kadre.core.defaultLogicalKey
+import org.graphiks.kadre.core.defaultText
+import org.graphiks.kadre.core.KeyEvent as KadreKeyEvent
 
 /**
  * Root Kadre Activity for Android.
@@ -283,7 +288,7 @@ abstract class KadreActivity : ComponentActivity() {
     }
 
     /**
-     * Translates an Android key event into a [WindowEvent.KeyboardInput] and
+     * Translates an Android key event into a [WindowEvent.KeyInput] and
      * dispatches it to the handler.
      *
      * @return `true` if the key was mapped and consumed; `false` for unmapped
@@ -292,25 +297,23 @@ abstract class KadreActivity : ComponentActivity() {
     private fun dispatchKey(keyCode: Int, event: KeyEvent, state: KeyState, isRepeat: Boolean): Boolean {
         val window = eventLoop.pendingWindow
         if (destroyed || window == null) return false
-        val key = AndroidKeyMapper.fromKeyCode(keyCode)
-        if (key == org.graphiks.kadre.core.Key.Unknown) return false
-        // R4: unicodeChar is 0 for non-printable keys; convert to text if printable
-        val unicodeChar = event.unicodeChar
-        val text = if (unicodeChar > 0x20 && !Character.isISOControl(unicodeChar)) {
-            String(Character.toChars(unicodeChar))
-        } else null
-
+        val mappedCode = AndroidKeyMapper.keyCode(keyCode) ?: return false
+        val native = NativeKeyInfo(platform = KeyPlatform.Android, virtualKey = keyCode.toLong())
+        val logicalKey = mappedCode.defaultLogicalKey()
         handler.windowEvent(
             eventLoop,
             window.id,
-            WindowEvent.KeyboardInput(
-                deviceId = DeviceId(event.deviceId.toLong()),
-                key = key,
-                state = state,
-                modifiers = AndroidKeyMapper.modifiersFrom(event.metaState),
-                isRepeat = isRepeat,
-                text = text,
-                scanCode = event.scanCode,
+            WindowEvent.KeyInput(
+                KadreKeyEvent(
+                    physicalKey = AndroidKeyMapper.physicalKey(keyCode),
+                    logicalKey = logicalKey,
+                    state = state,
+                    modifiers = AndroidKeyMapper.modifiersFrom(event.metaState),
+                    repeat = isRepeat,
+                    text = mappedCode.defaultText(),
+                    keyWithoutModifiers = logicalKey,
+                    native = native.copy(scanCode = event.scanCode.toLong()),
+                ),
             ),
         )
         return true

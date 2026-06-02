@@ -5,8 +5,6 @@
 [common]\
 [Left](index.md)
 
-Left-side instance of a key (e.g. left Shift, left Ctrl).
-
 ## Properties
 
 | Name | Summary |

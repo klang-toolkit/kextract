@@ -2,7 +2,7 @@
  * Objective-C subclass of NSApplication for kadre.
  *
  * Overrides `sendEvent:` to intercept keyboard events (NSEventTypeKeyDown /
- * NSEventTypeKeyUp) and dispatch them as [WindowEvent.KeyboardInput] to the
+ * NSEventTypeKeyUp) and dispatch them as [WindowEvent.KeyInput] to the
  * active [AppKitEventLoop], and mouse events as the corresponding [WindowEvent].
  *
  * The reference to [AppKitEventLoop] is stored in the [KadreApplication] instance
@@ -36,15 +36,22 @@ import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.DeviceId
-import org.graphiks.kadre.core.Key
-import org.graphiks.kadre.core.KeyLocation
+import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyEvent
+import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.KeyboardModifierState
+import org.graphiks.kadre.core.LogicalKey
+import org.graphiks.kadre.core.location
 import org.graphiks.kadre.core.MouseButton
+import org.graphiks.kadre.core.NativeKeyInfo
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
+import org.graphiks.kadre.core.defaultLogicalKey
+import org.graphiks.kadre.core.defaultText
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
@@ -154,7 +161,7 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
      * `@JvmStatic` trampolines invoked by the Panama upcall stubs.
      *
      * `sendEvent:` is overridden to intercept keyDown/keyUp and dispatch them
-     * to [AppKitEventLoop] as [WindowEvent.KeyboardInput].
+     * to [AppKitEventLoop] as [WindowEvent.KeyInput].
      *
      * The event loop is retrieved via [Companion.sharedApp] (equivalent
      * to `NSApp as? KadreApplication`) — no mutable static variable dedicated
@@ -205,9 +212,15 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                 // Get isARepeat: [event isARepeat] → Boolean
                 val isRepeat = ObjCRuntime.msgSend(ValueLayout.JAVA_BOOLEAN, event, ObjCRuntime.sel("isARepeat")) as Boolean
 
-                val key = AppKitKeyMapper.keyCode(keyCode)
+                val mappedCode = AppKitKeyMapper.keyCode(keyCode)
                 val modifiers = AppKitKeyMapper.modifierFlags(modFlags)
                 val state = if (isKeyDown) KeyState.Pressed else KeyState.Released
+                val native = NativeKeyInfo(
+                    platform = KeyPlatform.AppKit,
+                    scanCode = keyCode.toLong(),
+                )
+                val logicalKey = mappedCode?.defaultLogicalKey()
+                    ?: LogicalKey.Unidentified(native)
 
                 // R4: extract text via [NSEvent characters] (nil-safe)
                 val text: String? = if (isKeyDown) {
@@ -235,13 +248,6 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                     } catch (_: Throwable) { null }
                 } else null
 
-                // R4: location based on VK code (left/right modifiers)
-                val location: KeyLocation = when (key) {
-                    Key.ShiftLeft, Key.ControlLeft, Key.AltLeft, Key.MetaLeft -> KeyLocation.Left
-                    Key.ShiftRight, Key.ControlRight, Key.AltRight, Key.MetaRight -> KeyLocation.Right
-                    else -> KeyLocation.Standard
-                }
-
                 // GRA-156: dispatch raw DeviceEvent.Key BEFORE window-scoped WindowEvent
                 loop.handler.deviceEvent(
                     loop,
@@ -252,31 +258,34 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                 loop.handler.windowEvent(
                     loop,
                     appKitWindow.id,
-                    WindowEvent.KeyboardInput(
-                        deviceId = DeviceId(0L),
-                        key = key,
-                        state = state,
-                        modifiers = modifiers,
-                        isRepeat = isRepeat,
-                        isSynthetic = false,
-                        text = text,
-                        location = location,
-                        scanCode = keyCode.toInt(),
+                    WindowEvent.KeyInput(
+                        KeyEvent(
+                            physicalKey = AppKitKeyMapper.physicalKey(keyCode),
+                            logicalKey = logicalKey,
+                            state = state,
+                            modifiers = modifiers,
+                            location = AppKitKeyMapper.physicalKey(keyCode).location(),
+                            repeat = isRepeat,
+                            synthetic = false,
+                            text = text ?: mappedCode?.defaultText(),
+                            keyWithoutModifiers = logicalKey,
+                            native = native,
+                        ),
                     ),
                 )
 
                 // R4: emit ModifiersChanged when a modifier key is involved
-                val isModifierKey = key in setOf(
-                    Key.ShiftLeft, Key.ShiftRight,
-                    Key.ControlLeft, Key.ControlRight,
-                    Key.AltLeft, Key.AltRight,
-                    Key.MetaLeft, Key.MetaRight,
+                val isModifierKey = mappedCode in setOf(
+                    KeyCode.ShiftLeft, KeyCode.ShiftRight,
+                    KeyCode.ControlLeft, KeyCode.ControlRight,
+                    KeyCode.AltLeft, KeyCode.AltRight,
+                    KeyCode.MetaLeft, KeyCode.MetaRight,
                 )
                 if (isModifierKey) {
                     loop.handler.windowEvent(
                         loop,
                         appKitWindow.id,
-                        WindowEvent.ModifiersChanged(modifiers),
+                        WindowEvent.ModifiersChanged(KeyboardModifierState(logical = modifiers)),
                     )
                 }
                 return

@@ -11,11 +11,11 @@ Passing null cancels an active attention request.
 
 Platform behaviour:
 
-- 
+-
    AppKit : `NSApp.requestUserAttention` / `cancelUserAttentionRequest`.
-- 
+-
    Win32  : `FlashWindowEx` (FLASHW_TRAY / FLASHW_TIMER).
-- 
+-
    Others : no-op documented.
 
 Default implementation is a no-op. Never throws. TODO R5-MiscWindow: wire in AppKit and Win32 backends.

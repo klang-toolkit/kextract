@@ -17,6 +17,8 @@
  */
 package org.graphiks.kadre.web
 
+import org.graphiks.kadre.core.KeyEvent
+
 // ---------------------------------------------------------------------------
 // Logical keys
 // ---------------------------------------------------------------------------
@@ -197,15 +199,7 @@ sealed interface WebWindowEvent {
      * @property location  Physical key location on the keyboard.
      * @property scanCode  DOM `KeyboardEvent.code` string used as a layout-independent identifier.
      */
-    data class KeyboardInput(
-        val key: WebKey,
-        val state: WebKeyState,
-        val modifiers: WebModifiers,
-        val isRepeat: Boolean = false,
-        val text: String? = null,
-        val location: WebKeyLocation = WebKeyLocation.Standard,
-        val scanCode: String? = null,
-    ) : WebWindowEvent
+    data class KeyInput(val event: KeyEvent) : WebWindowEvent
 
     /**
      * The set of active keyboard modifiers changed.

@@ -9,9 +9,9 @@ Shows the platform window menu (system / title-bar context menu) at the given po
 
 Platform behaviour:
 
-- 
+-
    Win32  : `TrackPopupMenu(GetSystemMenu(...))`.
-- 
+-
    Others : no-op documented.
 
 Default implementation is a no-op. Never throws. TODO R5-MiscWindow: wire in Win32 backend.

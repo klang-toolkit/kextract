@@ -337,7 +337,7 @@ interface Window {
      *
      * When [allowed] is `true`, the platform may activate the IME and the window
      * will start receiving [WindowEvent.Ime] events. When `false`, the IME is
-     * suppressed and only raw [WindowEvent.KeyboardInput] events are delivered.
+     * suppressed and only raw [WindowEvent.KeyInput] events are delivered.
      *
      * Default implementation is a no-op — backends that support IME will override.
      * TODO R5-IME: wire in each backend.

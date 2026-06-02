@@ -9,9 +9,9 @@
  * ## Exemple
  * ```kotlin
  * val trace = scriptedTest {
- *     keyPress(Key.ArrowUp)
+ *     physicalKeyPress(KeyCode.ArrowUp)
  *     tick(16)
- *     keyRelease(Key.ArrowUp)
+ *     physicalKeyRelease(KeyCode.ArrowUp)
  *     closeRequested()
  * }.run(MonHandler())
  *
@@ -26,17 +26,22 @@ import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
-import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyEvent
+import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.KeyState
-import org.graphiks.kadre.core.DeviceEvent
-import org.graphiks.kadre.core.Modifiers
+import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.MouseButton
+import org.graphiks.kadre.core.NamedKey
+import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerSource
@@ -299,14 +304,88 @@ class ScriptBuilder {
     /** Autorise la création de surfaces (déclenche `canCreateSurfaces`). */
     fun canCreateSurfaces() { events += ScriptedEvent.CanCreateSurfaces }
 
-    /** Enfonce une touche logique. */
-    fun keyPress(key: Key, modifiers: Modifiers = Modifiers.NONE) {
-        events += ScriptedEvent.Window(windowId, WindowEvent.KeyboardInput(null, key, KeyState.Pressed, modifiers))
+    /** Enfonce une touche physique. */
+    fun physicalKeyPress(
+        keyCode: KeyCode,
+        modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
+        logicalKey: LogicalKey = keyCode.defaultLogicalKey(),
+        text: String? = null,
+        repeat: Boolean = false,
+    ) {
+        keyInput(keyCode, logicalKey, KeyState.Pressed, modifiers, text, repeat)
     }
 
-    /** Relâche une touche logique. */
-    fun keyRelease(key: Key, modifiers: Modifiers = Modifiers.NONE) {
-        events += ScriptedEvent.Window(windowId, WindowEvent.KeyboardInput(null, key, KeyState.Released, modifiers))
+    /** Relâche une touche physique. */
+    fun physicalKeyRelease(
+        keyCode: KeyCode,
+        modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
+        logicalKey: LogicalKey = keyCode.defaultLogicalKey(),
+    ) {
+        keyInput(keyCode, logicalKey, KeyState.Released, modifiers, text = null, repeat = false)
+    }
+
+    /** Enfonce une touche logique sans contrainte sur la touche physique. */
+    fun logicalKeyPress(
+        logicalKey: LogicalKey,
+        modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
+        text: String? = (logicalKey as? LogicalKey.Character)?.text,
+        repeat: Boolean = false,
+    ) {
+        events += ScriptedEvent.Window(
+            windowId,
+            WindowEvent.KeyInput(
+                KeyEvent(
+                    physicalKey = PhysicalKey.Unidentified,
+                    logicalKey = logicalKey,
+                    state = KeyState.Pressed,
+                    modifiers = modifiers,
+                    repeat = repeat,
+                    text = text,
+                ),
+            ),
+        )
+    }
+
+    /** Relâche une touche logique sans contrainte sur la touche physique. */
+    fun logicalKeyRelease(
+        logicalKey: LogicalKey,
+        modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
+    ) {
+        events += ScriptedEvent.Window(
+            windowId,
+            WindowEvent.KeyInput(
+                KeyEvent(
+                    physicalKey = PhysicalKey.Unidentified,
+                    logicalKey = logicalKey,
+                    state = KeyState.Released,
+                    modifiers = modifiers,
+                ),
+            ),
+        )
+    }
+
+    private fun keyInput(
+        keyCode: KeyCode,
+        logicalKey: LogicalKey,
+        state: KeyState,
+        modifiers: KeyboardModifiers,
+        text: String?,
+        repeat: Boolean,
+    ) {
+        events += ScriptedEvent.Window(
+            windowId,
+            WindowEvent.KeyInput(
+                KeyEvent(
+                    physicalKey = PhysicalKey.Code(keyCode),
+                    logicalKey = logicalKey,
+                    state = state,
+                    modifiers = modifiers,
+                    repeat = repeat,
+                    text = text,
+                    native = NativeKeyInfo(keyCode = keyCode.name),
+                ),
+            ),
+        )
     }
 
     /** Déplace le pointeur. */
@@ -379,10 +458,23 @@ class ScriptBuilder {
  * ```kotlin
  * val trace = scriptedTest {
  *     canCreateSurfaces()
- *     keyPress(Key.ArrowUp); tick(); keyRelease(Key.ArrowUp)
+ *     physicalKeyPress(KeyCode.ArrowUp); tick(); physicalKeyRelease(KeyCode.ArrowUp)
  *     closeRequested()
  * }.run(handler)
  * ```
  */
 fun scriptedTest(block: ScriptBuilder.() -> Unit): ScriptedEventLoop =
     ScriptedEventLoop(ScriptBuilder().apply(block).build())
+
+private fun KeyCode.defaultLogicalKey(): LogicalKey = when (this) {
+    KeyCode.ArrowDown -> LogicalKey.Named(NamedKey.ArrowDown)
+    KeyCode.ArrowLeft -> LogicalKey.Named(NamedKey.ArrowLeft)
+    KeyCode.ArrowRight -> LogicalKey.Named(NamedKey.ArrowRight)
+    KeyCode.ArrowUp -> LogicalKey.Named(NamedKey.ArrowUp)
+    KeyCode.Enter, KeyCode.NumpadEnter -> LogicalKey.Named(NamedKey.Enter)
+    KeyCode.Escape -> LogicalKey.Named(NamedKey.Escape)
+    KeyCode.Space -> LogicalKey.Named(NamedKey.Space)
+    KeyCode.Tab -> LogicalKey.Named(NamedKey.Tab)
+    KeyCode.Backspace -> LogicalKey.Named(NamedKey.Backspace)
+    else -> LogicalKey.Unidentified(NativeKeyInfo(keyCode = name))
+}

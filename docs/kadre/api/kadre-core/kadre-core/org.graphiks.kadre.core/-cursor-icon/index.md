@@ -3,7 +3,7 @@
 # CursorIcon
 
 [common]\
-enum [CursorIcon](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[CursorIcon](index.md)&gt; 
+enum [CursorIcon](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[CursorIcon](index.md)&gt;
 
 Cursor shape to display over the window.
 

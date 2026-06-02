@@ -30,7 +30,7 @@ class BitmapFontTest {
     }
 
     @Test
-    fun `renderDigit returns at most 35 quads (5x7)`() {
+    fun `renderDigit returns at most 35 quads 5x7`() {
         for (d in 0..9) {
             val quads = BitmapFont.renderDigit(d, 0.0, 0.0, pixelSize)
             assertTrue(quads.size <= 35, "renderDigit($d) has ${quads.size} quads, expected maximum 35")

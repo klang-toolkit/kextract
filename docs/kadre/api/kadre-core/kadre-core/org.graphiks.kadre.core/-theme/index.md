@@ -3,7 +3,7 @@
 # Theme
 
 [common]\
-enum [Theme](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[Theme](index.md)&gt; 
+enum [Theme](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[Theme](index.md)&gt;
 
 System UI theme preference.
 

@@ -9,13 +9,13 @@ Sets the application icon shown in the taskbar / dock.
 
 Passing null resets to the default icon. Behaviour is best-effort:
 
-- 
+-
    AppKit: sets `NSApp.applicationIconImage`.
-- 
+-
    Win32:  sends `WM_SETICON`.
-- 
+-
    X11:    sets `_NET_WM_ICON`.
-- 
+-
    Others: no-op. Never throws.
 
 #### Parameters

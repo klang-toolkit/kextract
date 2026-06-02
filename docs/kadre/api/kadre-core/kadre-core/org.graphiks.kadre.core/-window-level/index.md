@@ -3,7 +3,7 @@
 # WindowLevel
 
 [common]\
-enum [WindowLevel](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[WindowLevel](index.md)&gt; 
+enum [WindowLevel](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[WindowLevel](index.md)&gt;
 
 Z-ordering level of the window relative to other windows.
 

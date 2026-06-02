@@ -43,8 +43,8 @@ class HelloWindowWebApp : ApplicationHandler {
                 println("[HelloWindowWeb] Resized → ${event.size.width}×${event.size.height}")
             is WindowEvent.Focused ->
                 println("[HelloWindowWeb] Focused gained=${event.gained}")
-            is WindowEvent.KeyboardInput ->
-                println("[HelloWindowWeb] KeyboardInput ${event.state} key=${event.key} mods=${event.modifiers.bits} repeat=${event.isRepeat}")
+            is WindowEvent.KeyInput ->
+                println("[HelloWindowWeb] KeyInput ${event.event.state} physical=${event.event.physicalKey} logical=${event.event.logicalKey} mods=${event.event.modifiers.bits} repeat=${event.event.repeat}")
             is WindowEvent.PointerMoved ->
                 println("[HelloWindowWeb] PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
             is WindowEvent.PointerEntered ->

@@ -9,9 +9,9 @@ Initiates a user-driven window resize from the current cursor position.
 
 Must be called from a pointer-pressed event handler. Platform behaviour:
 
-- 
+-
    Wayland  : `xdg_toplevel.resize` with the matching edge.
-- 
+-
    Others   : no-op documented.
 
 Default implementation is a no-op. Never throws. TODO R5-MiscWindow: wire in Wayland (and potentially Win32) backend.

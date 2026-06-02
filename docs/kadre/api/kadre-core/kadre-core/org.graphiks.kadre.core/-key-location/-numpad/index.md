@@ -5,8 +5,6 @@
 [common]\
 [Numpad](index.md)
 
-Key is on the numeric keypad.
-
 ## Properties
 
 | Name | Summary |

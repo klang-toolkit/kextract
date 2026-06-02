@@ -1,8 +1,9 @@
 package org.graphiks.kadre.samples.pong
 
 import org.graphiks.kadre.core.ButtonSource
-import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.PointerSource
@@ -19,11 +20,11 @@ class InputAdapter {
     var playerInput: PaddleInput = PaddleInput.NONE
         private set
 
-    fun onKey(event: WindowEvent.KeyboardInput) {
+    fun onKey(event: WindowEvent.KeyInput) {
         playerInput = when {
-            event.key == Key.ArrowUp && event.state == KeyState.Pressed -> PaddleInput.UP
-            event.key == Key.ArrowDown && event.state == KeyState.Pressed -> PaddleInput.DOWN
-            (event.key == Key.ArrowUp || event.key == Key.ArrowDown) && event.state == KeyState.Released -> PaddleInput.NONE
+            event.event.physicalKey == PhysicalKey.Code(KeyCode.ArrowUp) && event.event.state == KeyState.Pressed -> PaddleInput.UP
+            event.event.physicalKey == PhysicalKey.Code(KeyCode.ArrowDown) && event.event.state == KeyState.Pressed -> PaddleInput.DOWN
+            event.event.physicalKey in setOf(PhysicalKey.Code(KeyCode.ArrowUp), PhysicalKey.Code(KeyCode.ArrowDown)) && event.event.state == KeyState.Released -> PaddleInput.NONE
             else -> playerInput
         }
     }

@@ -3,24 +3,16 @@
 # KeyLocation
 
 [common]\
-enum [KeyLocation](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[KeyLocation](index.md)&gt; 
-
-Physical location of a keyboard key.
-
-Distinguishes between keys that appear in multiple locations on the keyboard (e.g. left vs. right Shift, numpad digits vs. top-row digits).
-
-#### Since
-
-R4
+enum [KeyLocation](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[KeyLocation](index.md)&gt;
 
 ## Entries
 
 | | |
 |---|---|
-| [Standard](-standard/index.md) | [common]<br>[Standard](-standard/index.md)<br>Key appears only once or its position is the standard one. |
-| [Left](-left/index.md) | [common]<br>[Left](-left/index.md)<br>Left-side instance of a key (e.g. left Shift, left Ctrl). |
-| [Right](-right/index.md) | [common]<br>[Right](-right/index.md)<br>Right-side instance of a key (e.g. right Shift, right Alt/AltGr). |
-| [Numpad](-numpad/index.md) | [common]<br>[Numpad](-numpad/index.md)<br>Key is on the numeric keypad. |
+| [Standard](-standard/index.md) | [common]<br>[Standard](-standard/index.md) |
+| [Left](-left/index.md) | [common]<br>[Left](-left/index.md) |
+| [Right](-right/index.md) | [common]<br>[Right](-right/index.md) |
+| [Numpad](-numpad/index.md) | [common]<br>[Numpad](-numpad/index.md) |
 
 ## Properties
 

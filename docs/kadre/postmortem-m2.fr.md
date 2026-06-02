@@ -150,7 +150,7 @@ Le sample appelle directement `getMetalLayerFromNsView()` via Panama FFM plutôt
 
 ## Prochaines étapes (M3)
 
-- Clavier / souris : `KeyboardInput`, `MouseInput` → interaction avec le triangle
+- Clavier / souris : `KeyInput`, `MouseInput` → interaction avec le triangle
 - Multi-fenêtres : gestion de plusieurs `WindowId` dans le même `ApplicationHandler`
 - Portabilité : Linux (X11/Wayland), Windows (DXGI)
 - Abstraction `Renderer` : séparer la logique de rendu de l'ApplicationHandler

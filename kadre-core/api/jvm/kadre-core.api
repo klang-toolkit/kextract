@@ -195,12 +195,13 @@ public final class org/graphiks/kadre/core/DeviceEvent$Button : org/graphiks/kad
 
 public final class org/graphiks/kadre/core/DeviceEvent$Key : org/graphiks/kadre/core/DeviceEvent {
 	public fun <init> (ILorg/graphiks/kadre/core/KeyState;)V
-	public final fun component1 ()I
-	public final fun component2 ()Lorg/graphiks/kadre/core/KeyState;
-	public final fun copy (ILorg/graphiks/kadre/core/KeyState;)Lorg/graphiks/kadre/core/DeviceEvent$Key;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/DeviceEvent$Key;ILorg/graphiks/kadre/core/KeyState;ILjava/lang/Object;)Lorg/graphiks/kadre/core/DeviceEvent$Key;
+	public fun <init> (Lorg/graphiks/kadre/core/RawKeyEvent;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/RawKeyEvent;
+	public final fun copy (Lorg/graphiks/kadre/core/RawKeyEvent;)Lorg/graphiks/kadre/core/DeviceEvent$Key;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/DeviceEvent$Key;Lorg/graphiks/kadre/core/RawKeyEvent;ILjava/lang/Object;)Lorg/graphiks/kadre/core/DeviceEvent$Key;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getScancode ()I
+	public final fun getEvent ()Lorg/graphiks/kadre/core/RawKeyEvent;
+	public final fun getScancode ()Ljava/lang/Integer;
 	public final fun getState ()Lorg/graphiks/kadre/core/KeyState;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -269,6 +270,13 @@ public final class org/graphiks/kadre/core/EventLoop {
 
 public abstract interface class org/graphiks/kadre/core/EventLoopProxy {
 	public abstract fun wakeUp ()V
+}
+
+public final class org/graphiks/kadre/core/EventsKt {
+	public static final fun defaultLogicalKey (Lorg/graphiks/kadre/core/KeyCode;)Lorg/graphiks/kadre/core/LogicalKey;
+	public static final fun defaultText (Lorg/graphiks/kadre/core/KeyCode;)Ljava/lang/String;
+	public static final fun location (Lorg/graphiks/kadre/core/KeyCode;)Lorg/graphiks/kadre/core/KeyLocation;
+	public static final fun location (Lorg/graphiks/kadre/core/PhysicalKey;)Lorg/graphiks/kadre/core/KeyLocation;
 }
 
 public final class org/graphiks/kadre/core/FingerId {
@@ -381,76 +389,235 @@ public final class org/graphiks/kadre/core/InputCapabilities {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/graphiks/kadre/core/Key : java/lang/Enum {
-	public static final field A Lorg/graphiks/kadre/core/Key;
-	public static final field AltLeft Lorg/graphiks/kadre/core/Key;
-	public static final field AltRight Lorg/graphiks/kadre/core/Key;
-	public static final field ArrowDown Lorg/graphiks/kadre/core/Key;
-	public static final field ArrowLeft Lorg/graphiks/kadre/core/Key;
-	public static final field ArrowRight Lorg/graphiks/kadre/core/Key;
-	public static final field ArrowUp Lorg/graphiks/kadre/core/Key;
-	public static final field B Lorg/graphiks/kadre/core/Key;
-	public static final field Backspace Lorg/graphiks/kadre/core/Key;
-	public static final field C Lorg/graphiks/kadre/core/Key;
-	public static final field ControlLeft Lorg/graphiks/kadre/core/Key;
-	public static final field ControlRight Lorg/graphiks/kadre/core/Key;
-	public static final field D Lorg/graphiks/kadre/core/Key;
-	public static final field Digit0 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit1 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit2 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit3 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit4 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit5 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit6 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit7 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit8 Lorg/graphiks/kadre/core/Key;
-	public static final field Digit9 Lorg/graphiks/kadre/core/Key;
-	public static final field E Lorg/graphiks/kadre/core/Key;
-	public static final field Enter Lorg/graphiks/kadre/core/Key;
-	public static final field Escape Lorg/graphiks/kadre/core/Key;
-	public static final field F Lorg/graphiks/kadre/core/Key;
-	public static final field F1 Lorg/graphiks/kadre/core/Key;
-	public static final field F10 Lorg/graphiks/kadre/core/Key;
-	public static final field F11 Lorg/graphiks/kadre/core/Key;
-	public static final field F12 Lorg/graphiks/kadre/core/Key;
-	public static final field F2 Lorg/graphiks/kadre/core/Key;
-	public static final field F3 Lorg/graphiks/kadre/core/Key;
-	public static final field F4 Lorg/graphiks/kadre/core/Key;
-	public static final field F5 Lorg/graphiks/kadre/core/Key;
-	public static final field F6 Lorg/graphiks/kadre/core/Key;
-	public static final field F7 Lorg/graphiks/kadre/core/Key;
-	public static final field F8 Lorg/graphiks/kadre/core/Key;
-	public static final field F9 Lorg/graphiks/kadre/core/Key;
-	public static final field G Lorg/graphiks/kadre/core/Key;
-	public static final field H Lorg/graphiks/kadre/core/Key;
-	public static final field I Lorg/graphiks/kadre/core/Key;
-	public static final field J Lorg/graphiks/kadre/core/Key;
-	public static final field K Lorg/graphiks/kadre/core/Key;
-	public static final field L Lorg/graphiks/kadre/core/Key;
-	public static final field M Lorg/graphiks/kadre/core/Key;
-	public static final field MetaLeft Lorg/graphiks/kadre/core/Key;
-	public static final field MetaRight Lorg/graphiks/kadre/core/Key;
-	public static final field N Lorg/graphiks/kadre/core/Key;
-	public static final field O Lorg/graphiks/kadre/core/Key;
-	public static final field P Lorg/graphiks/kadre/core/Key;
-	public static final field Q Lorg/graphiks/kadre/core/Key;
-	public static final field R Lorg/graphiks/kadre/core/Key;
-	public static final field S Lorg/graphiks/kadre/core/Key;
-	public static final field ShiftLeft Lorg/graphiks/kadre/core/Key;
-	public static final field ShiftRight Lorg/graphiks/kadre/core/Key;
-	public static final field Space Lorg/graphiks/kadre/core/Key;
-	public static final field T Lorg/graphiks/kadre/core/Key;
-	public static final field Tab Lorg/graphiks/kadre/core/Key;
-	public static final field U Lorg/graphiks/kadre/core/Key;
-	public static final field Unknown Lorg/graphiks/kadre/core/Key;
-	public static final field V Lorg/graphiks/kadre/core/Key;
-	public static final field W Lorg/graphiks/kadre/core/Key;
-	public static final field X Lorg/graphiks/kadre/core/Key;
-	public static final field Y Lorg/graphiks/kadre/core/Key;
-	public static final field Z Lorg/graphiks/kadre/core/Key;
+public final class org/graphiks/kadre/core/KeyChord {
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/LogicalKey;IZLorg/graphiks/kadre/core/KeyChordModifierMatch;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/LogicalKey;IZLorg/graphiks/kadre/core/KeyChordModifierMatch;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/PhysicalKey;
+	public final fun component2 ()Lorg/graphiks/kadre/core/LogicalKey;
+	public final fun component3-bWuc1c0 ()I
+	public final fun component4 ()Z
+	public final fun component5 ()Lorg/graphiks/kadre/core/KeyChordModifierMatch;
+	public final fun copy-tRNJYuA (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/LogicalKey;IZLorg/graphiks/kadre/core/KeyChordModifierMatch;)Lorg/graphiks/kadre/core/KeyChord;
+	public static synthetic fun copy-tRNJYuA$default (Lorg/graphiks/kadre/core/KeyChord;Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/LogicalKey;IZLorg/graphiks/kadre/core/KeyChordModifierMatch;ILjava/lang/Object;)Lorg/graphiks/kadre/core/KeyChord;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAllowRepeat ()Z
+	public final fun getLogicalKey ()Lorg/graphiks/kadre/core/LogicalKey;
+	public final fun getModifierMatch ()Lorg/graphiks/kadre/core/KeyChordModifierMatch;
+	public final fun getModifiers-bWuc1c0 ()I
+	public final fun getPhysicalKey ()Lorg/graphiks/kadre/core/PhysicalKey;
+	public fun hashCode ()I
+	public final fun matches (Lorg/graphiks/kadre/core/KeyEvent;)Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/KeyChordModifierMatch : java/lang/Enum {
+	public static final field Contains Lorg/graphiks/kadre/core/KeyChordModifierMatch;
+	public static final field Exact Lorg/graphiks/kadre/core/KeyChordModifierMatch;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/Key;
-	public static fun values ()[Lorg/graphiks/kadre/core/Key;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/KeyChordModifierMatch;
+	public static fun values ()[Lorg/graphiks/kadre/core/KeyChordModifierMatch;
+}
+
+public final class org/graphiks/kadre/core/KeyCode : java/lang/Enum {
+	public static final field AltLeft Lorg/graphiks/kadre/core/KeyCode;
+	public static final field AltRight Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ArrowDown Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ArrowLeft Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ArrowRight Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ArrowUp Lorg/graphiks/kadre/core/KeyCode;
+	public static final field AudioVolumeDown Lorg/graphiks/kadre/core/KeyCode;
+	public static final field AudioVolumeMute Lorg/graphiks/kadre/core/KeyCode;
+	public static final field AudioVolumeUp Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Backquote Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Backslash Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Backspace Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BracketLeft Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BracketRight Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BrowserBack Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BrowserFavorites Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BrowserForward Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BrowserHome Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BrowserRefresh Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BrowserSearch Lorg/graphiks/kadre/core/KeyCode;
+	public static final field BrowserStop Lorg/graphiks/kadre/core/KeyCode;
+	public static final field CapsLock Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Comma Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ContextMenu Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ControlLeft Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ControlRight Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Delete Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit0 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit1 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit2 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit3 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit4 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit5 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit6 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit7 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit8 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Digit9 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Eject Lorg/graphiks/kadre/core/KeyCode;
+	public static final field End Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Enter Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Equal Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Escape Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F1 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F10 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F11 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F12 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F13 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F14 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F15 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F16 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F17 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F18 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F19 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F2 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F20 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F21 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F22 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F23 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F24 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F25 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F26 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F27 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F28 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F29 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F3 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F30 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F31 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F32 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F33 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F34 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F35 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F4 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F5 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F6 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F7 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F8 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field F9 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Fn Lorg/graphiks/kadre/core/KeyCode;
+	public static final field FnLock Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Help Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Home Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Insert Lorg/graphiks/kadre/core/KeyCode;
+	public static final field IntlBackslash Lorg/graphiks/kadre/core/KeyCode;
+	public static final field IntlRo Lorg/graphiks/kadre/core/KeyCode;
+	public static final field IntlYen Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyA Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyB Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyC Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyD Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyE Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyF Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyG Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyH Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyI Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyJ Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyK Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyL Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyM Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyN Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyO Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyP Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyQ Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyR Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyS Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyT Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyU Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyV Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyW Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyX Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyY Lorg/graphiks/kadre/core/KeyCode;
+	public static final field KeyZ Lorg/graphiks/kadre/core/KeyCode;
+	public static final field LaunchApp1 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field LaunchApp2 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field LaunchMail Lorg/graphiks/kadre/core/KeyCode;
+	public static final field MediaPlayPause Lorg/graphiks/kadre/core/KeyCode;
+	public static final field MediaSelect Lorg/graphiks/kadre/core/KeyCode;
+	public static final field MediaStop Lorg/graphiks/kadre/core/KeyCode;
+	public static final field MediaTrackNext Lorg/graphiks/kadre/core/KeyCode;
+	public static final field MediaTrackPrevious Lorg/graphiks/kadre/core/KeyCode;
+	public static final field MetaLeft Lorg/graphiks/kadre/core/KeyCode;
+	public static final field MetaRight Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Minus Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumLock Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad0 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad1 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad2 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad3 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad4 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad5 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad6 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad7 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad8 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Numpad9 Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadAdd Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadBackspace Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadClear Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadComma Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadDecimal Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadDivide Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadEnter Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadEqual Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadMultiply Lorg/graphiks/kadre/core/KeyCode;
+	public static final field NumpadSubtract Lorg/graphiks/kadre/core/KeyCode;
+	public static final field PageDown Lorg/graphiks/kadre/core/KeyCode;
+	public static final field PageUp Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Pause Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Period Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Power Lorg/graphiks/kadre/core/KeyCode;
+	public static final field PrintScreen Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Quote Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ScrollLock Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Semicolon Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ShiftLeft Lorg/graphiks/kadre/core/KeyCode;
+	public static final field ShiftRight Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Slash Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Sleep Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Space Lorg/graphiks/kadre/core/KeyCode;
+	public static final field Tab Lorg/graphiks/kadre/core/KeyCode;
+	public static final field WakeUp Lorg/graphiks/kadre/core/KeyCode;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/KeyCode;
+	public static fun values ()[Lorg/graphiks/kadre/core/KeyCode;
+}
+
+public final class org/graphiks/kadre/core/KeyEvent {
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/LogicalKey;Lorg/graphiks/kadre/core/KeyState;ILorg/graphiks/kadre/core/KeyLocation;ZZLjava/lang/String;Ljava/lang/String;Lorg/graphiks/kadre/core/LogicalKey;Lorg/graphiks/kadre/core/NativeKeyInfo;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/LogicalKey;Lorg/graphiks/kadre/core/KeyState;ILorg/graphiks/kadre/core/KeyLocation;ZZLjava/lang/String;Ljava/lang/String;Lorg/graphiks/kadre/core/LogicalKey;Lorg/graphiks/kadre/core/NativeKeyInfo;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/PhysicalKey;
+	public final fun component10 ()Lorg/graphiks/kadre/core/LogicalKey;
+	public final fun component11 ()Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public final fun component2 ()Lorg/graphiks/kadre/core/LogicalKey;
+	public final fun component3 ()Lorg/graphiks/kadre/core/KeyState;
+	public final fun component4-bWuc1c0 ()I
+	public final fun component5 ()Lorg/graphiks/kadre/core/KeyLocation;
+	public final fun component6 ()Z
+	public final fun component7 ()Z
+	public final fun component8 ()Ljava/lang/String;
+	public final fun component9 ()Ljava/lang/String;
+	public final fun copy-vroUkzI (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/LogicalKey;Lorg/graphiks/kadre/core/KeyState;ILorg/graphiks/kadre/core/KeyLocation;ZZLjava/lang/String;Ljava/lang/String;Lorg/graphiks/kadre/core/LogicalKey;Lorg/graphiks/kadre/core/NativeKeyInfo;)Lorg/graphiks/kadre/core/KeyEvent;
+	public static synthetic fun copy-vroUkzI$default (Lorg/graphiks/kadre/core/KeyEvent;Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/LogicalKey;Lorg/graphiks/kadre/core/KeyState;ILorg/graphiks/kadre/core/KeyLocation;ZZLjava/lang/String;Ljava/lang/String;Lorg/graphiks/kadre/core/LogicalKey;Lorg/graphiks/kadre/core/NativeKeyInfo;ILjava/lang/Object;)Lorg/graphiks/kadre/core/KeyEvent;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCharacter ()Ljava/lang/String;
+	public final fun getEffectiveText ()Ljava/lang/String;
+	public final fun getKeyWithoutModifiers ()Lorg/graphiks/kadre/core/LogicalKey;
+	public final fun getLocation ()Lorg/graphiks/kadre/core/KeyLocation;
+	public final fun getLogicalKey ()Lorg/graphiks/kadre/core/LogicalKey;
+	public final fun getModifiers-bWuc1c0 ()I
+	public final fun getNative ()Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public final fun getPhysicalKey ()Lorg/graphiks/kadre/core/PhysicalKey;
+	public final fun getRepeat ()Z
+	public final fun getShortcutKey ()Lorg/graphiks/kadre/core/LogicalKey;
+	public final fun getState ()Lorg/graphiks/kadre/core/KeyState;
+	public final fun getSynthetic ()Z
+	public final fun getText ()Ljava/lang/String;
+	public final fun getTextWithAllModifiers ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun isPressed ()Z
+	public final fun isReleased ()Z
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/KeyLocation : java/lang/Enum {
@@ -463,12 +630,135 @@ public final class org/graphiks/kadre/core/KeyLocation : java/lang/Enum {
 	public static fun values ()[Lorg/graphiks/kadre/core/KeyLocation;
 }
 
+public final class org/graphiks/kadre/core/KeyPlatform : java/lang/Enum {
+	public static final field Android Lorg/graphiks/kadre/core/KeyPlatform;
+	public static final field AppKit Lorg/graphiks/kadre/core/KeyPlatform;
+	public static final field UIKit Lorg/graphiks/kadre/core/KeyPlatform;
+	public static final field Unknown Lorg/graphiks/kadre/core/KeyPlatform;
+	public static final field Wayland Lorg/graphiks/kadre/core/KeyPlatform;
+	public static final field Web Lorg/graphiks/kadre/core/KeyPlatform;
+	public static final field Win32 Lorg/graphiks/kadre/core/KeyPlatform;
+	public static final field X11 Lorg/graphiks/kadre/core/KeyPlatform;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/KeyPlatform;
+	public static fun values ()[Lorg/graphiks/kadre/core/KeyPlatform;
+}
+
 public final class org/graphiks/kadre/core/KeyState : java/lang/Enum {
 	public static final field Pressed Lorg/graphiks/kadre/core/KeyState;
 	public static final field Released Lorg/graphiks/kadre/core/KeyState;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/KeyState;
 	public static fun values ()[Lorg/graphiks/kadre/core/KeyState;
+}
+
+public final class org/graphiks/kadre/core/KeyboardModifierState {
+	public synthetic fun <init> (ILorg/graphiks/kadre/core/ModifierKeys;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (ILorg/graphiks/kadre/core/ModifierKeys;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1-bWuc1c0 ()I
+	public final fun component2 ()Lorg/graphiks/kadre/core/ModifierKeys;
+	public final fun copy-tjt-sNE (ILorg/graphiks/kadre/core/ModifierKeys;)Lorg/graphiks/kadre/core/KeyboardModifierState;
+	public static synthetic fun copy-tjt-sNE$default (Lorg/graphiks/kadre/core/KeyboardModifierState;ILorg/graphiks/kadre/core/ModifierKeys;ILjava/lang/Object;)Lorg/graphiks/kadre/core/KeyboardModifierState;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLogical-bWuc1c0 ()I
+	public final fun getPhysical ()Lorg/graphiks/kadre/core/ModifierKeys;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/KeyboardModifiers {
+	public static final field ALT I
+	public static final field ALT_GRAPH I
+	public static final field CAPS_LOCK I
+	public static final field CTRL I
+	public static final field Companion Lorg/graphiks/kadre/core/KeyboardModifiers$Companion;
+	public static final field META I
+	public static final field NUM_LOCK I
+	public static final field SHIFT I
+	public static final field SYMBOL I
+	public static final synthetic fun box-impl (I)Lorg/graphiks/kadre/core/KeyboardModifiers;
+	public static fun constructor-impl (I)I
+	public static final fun contains-kH9grfk (II)Z
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (ILjava/lang/Object;)Z
+	public static final fun equals-impl0 (II)Z
+	public static final fun getAlt-impl (I)Z
+	public static final fun getAltGraph-impl (I)Z
+	public final fun getBits ()I
+	public static final fun getCapsLock-impl (I)Z
+	public static final fun getCtrl-impl (I)Z
+	public static final fun getMeta-impl (I)Z
+	public static final fun getNumLock-impl (I)Z
+	public static final fun getShift-impl (I)Z
+	public static final fun getSymbol-impl (I)Z
+	public fun hashCode ()I
+	public static fun hashCode-impl (I)I
+	public static final fun minus-MVhyVd8 (II)I
+	public static final fun plus-MVhyVd8 (II)I
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (I)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()I
+}
+
+public final class org/graphiks/kadre/core/KeyboardModifiers$Companion {
+	public final fun getAlt-bWuc1c0 ()I
+	public final fun getAltGraph-bWuc1c0 ()I
+	public final fun getCapsLock-bWuc1c0 ()I
+	public final fun getCtrl-bWuc1c0 ()I
+	public final fun getMeta-bWuc1c0 ()I
+	public final fun getNONE-bWuc1c0 ()I
+	public final fun getNumLock-bWuc1c0 ()I
+	public final fun getShift-bWuc1c0 ()I
+	public final fun getSymbol-bWuc1c0 ()I
+}
+
+public abstract interface class org/graphiks/kadre/core/LogicalKey {
+}
+
+public final class org/graphiks/kadre/core/LogicalKey$Character : org/graphiks/kadre/core/LogicalKey {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lorg/graphiks/kadre/core/LogicalKey$Character;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/LogicalKey$Character;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/LogicalKey$Character;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getText ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/LogicalKey$Dead : org/graphiks/kadre/core/LogicalKey {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lorg/graphiks/kadre/core/LogicalKey$Dead;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/LogicalKey$Dead;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/LogicalKey$Dead;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAccent ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/LogicalKey$Named : org/graphiks/kadre/core/LogicalKey {
+	public fun <init> (Lorg/graphiks/kadre/core/NamedKey;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/NamedKey;
+	public final fun copy (Lorg/graphiks/kadre/core/NamedKey;)Lorg/graphiks/kadre/core/LogicalKey$Named;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/LogicalKey$Named;Lorg/graphiks/kadre/core/NamedKey;ILjava/lang/Object;)Lorg/graphiks/kadre/core/LogicalKey$Named;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKey ()Lorg/graphiks/kadre/core/NamedKey;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/LogicalKey$Unidentified : org/graphiks/kadre/core/LogicalKey {
+	public fun <init> ()V
+	public fun <init> (Lorg/graphiks/kadre/core/NativeKeyInfo;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/NativeKeyInfo;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public final fun copy (Lorg/graphiks/kadre/core/NativeKeyInfo;)Lorg/graphiks/kadre/core/LogicalKey$Unidentified;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/LogicalKey$Unidentified;Lorg/graphiks/kadre/core/NativeKeyInfo;ILjava/lang/Object;)Lorg/graphiks/kadre/core/LogicalKey$Unidentified;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getNative ()Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/LogicalPosition {
@@ -497,33 +787,40 @@ public final class org/graphiks/kadre/core/LogicalSize {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/graphiks/kadre/core/Modifiers {
-	public static final field Companion Lorg/graphiks/kadre/core/Modifiers$Companion;
-	public static final synthetic fun box-impl (I)Lorg/graphiks/kadre/core/Modifiers;
-	public static fun constructor-impl (I)I
-	public static final fun contains-ZhwnmpE (II)Z
-	public fun equals (Ljava/lang/Object;)Z
-	public static fun equals-impl (ILjava/lang/Object;)Z
-	public static final fun equals-impl0 (II)Z
-	public static final fun getAlt-impl (I)Z
-	public final fun getBits ()I
-	public static final fun getCtrl-impl (I)Z
-	public static final fun getMeta-impl (I)Z
-	public static final fun getShift-impl (I)Z
-	public fun hashCode ()I
-	public static fun hashCode-impl (I)I
-	public static final fun plus-Y4L4D3c (II)I
-	public fun toString ()Ljava/lang/String;
-	public static fun toString-impl (I)Ljava/lang/String;
-	public final synthetic fun unbox-impl ()I
+public final class org/graphiks/kadre/core/ModifierKeyState : java/lang/Enum {
+	public static final field Pressed Lorg/graphiks/kadre/core/ModifierKeyState;
+	public static final field Released Lorg/graphiks/kadre/core/ModifierKeyState;
+	public static final field Unknown Lorg/graphiks/kadre/core/ModifierKeyState;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/ModifierKeyState;
+	public static fun values ()[Lorg/graphiks/kadre/core/ModifierKeyState;
 }
 
-public final class org/graphiks/kadre/core/Modifiers$Companion {
-	public final fun getALT-yizPXk8 ()I
-	public final fun getCTRL-yizPXk8 ()I
-	public final fun getMETA-yizPXk8 ()I
-	public final fun getNONE-yizPXk8 ()I
-	public final fun getSHIFT-yizPXk8 ()I
+public final class org/graphiks/kadre/core/ModifierKeys {
+	public fun <init> ()V
+	public fun <init> (Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun component2 ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun component3 ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun component4 ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun component5 ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun component6 ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun component7 ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun component8 ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun copy (Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;)Lorg/graphiks/kadre/core/ModifierKeys;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/ModifierKeys;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;Lorg/graphiks/kadre/core/ModifierKeyState;ILjava/lang/Object;)Lorg/graphiks/kadre/core/ModifierKeys;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLeftAlt ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun getLeftCtrl ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun getLeftMeta ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun getLeftShift ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun getRightAlt ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun getRightCtrl ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun getRightMeta ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public final fun getRightShift ()Lorg/graphiks/kadre/core/ModifierKeyState;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public abstract interface class org/graphiks/kadre/core/MonitorHandle {
@@ -565,6 +862,174 @@ public final class org/graphiks/kadre/core/MouseButton$Other : org/graphiks/kadr
 
 public final class org/graphiks/kadre/core/MouseButton$Right : org/graphiks/kadre/core/MouseButton {
 	public static final field INSTANCE Lorg/graphiks/kadre/core/MouseButton$Right;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NamedKey : java/lang/Enum {
+	public static final field Accept Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Again Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Alt Lorg/graphiks/kadre/core/NamedKey;
+	public static final field AltGraph Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ArrowDown Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ArrowLeft Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ArrowRight Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ArrowUp Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Attn Lorg/graphiks/kadre/core/NamedKey;
+	public static final field AudioVolumeDown Lorg/graphiks/kadre/core/NamedKey;
+	public static final field AudioVolumeMute Lorg/graphiks/kadre/core/NamedKey;
+	public static final field AudioVolumeUp Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Backspace Lorg/graphiks/kadre/core/NamedKey;
+	public static final field BrowserBack Lorg/graphiks/kadre/core/NamedKey;
+	public static final field BrowserFavorites Lorg/graphiks/kadre/core/NamedKey;
+	public static final field BrowserForward Lorg/graphiks/kadre/core/NamedKey;
+	public static final field BrowserHome Lorg/graphiks/kadre/core/NamedKey;
+	public static final field BrowserRefresh Lorg/graphiks/kadre/core/NamedKey;
+	public static final field BrowserSearch Lorg/graphiks/kadre/core/NamedKey;
+	public static final field BrowserStop Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Cancel Lorg/graphiks/kadre/core/NamedKey;
+	public static final field CapsLock Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Clear Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ContextMenu Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Control Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Copy Lorg/graphiks/kadre/core/NamedKey;
+	public static final field CrSel Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Cut Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Delete Lorg/graphiks/kadre/core/NamedKey;
+	public static final field End Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Enter Lorg/graphiks/kadre/core/NamedKey;
+	public static final field EraseEof Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Escape Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ExSel Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Execute Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F1 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F10 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F11 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F12 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F13 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F14 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F15 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F16 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F17 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F18 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F19 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F2 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F20 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F21 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F22 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F23 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F24 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F25 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F26 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F27 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F28 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F29 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F3 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F30 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F31 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F32 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F33 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F34 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F35 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F4 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F5 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F6 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F7 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F8 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field F9 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Find Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Fn Lorg/graphiks/kadre/core/NamedKey;
+	public static final field FnLock Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Help Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Home Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Hyper Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Insert Lorg/graphiks/kadre/core/NamedKey;
+	public static final field LaunchApp1 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field LaunchApp2 Lorg/graphiks/kadre/core/NamedKey;
+	public static final field LaunchMail Lorg/graphiks/kadre/core/NamedKey;
+	public static final field MediaPause Lorg/graphiks/kadre/core/NamedKey;
+	public static final field MediaPlay Lorg/graphiks/kadre/core/NamedKey;
+	public static final field MediaPlayPause Lorg/graphiks/kadre/core/NamedKey;
+	public static final field MediaStop Lorg/graphiks/kadre/core/NamedKey;
+	public static final field MediaTrackNext Lorg/graphiks/kadre/core/NamedKey;
+	public static final field MediaTrackPrevious Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Meta Lorg/graphiks/kadre/core/NamedKey;
+	public static final field NumLock Lorg/graphiks/kadre/core/NamedKey;
+	public static final field PageDown Lorg/graphiks/kadre/core/NamedKey;
+	public static final field PageUp Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Paste Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Pause Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Play Lorg/graphiks/kadre/core/NamedKey;
+	public static final field PrintScreen Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Props Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Redo Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ScrollLock Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Select Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Shift Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Space Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Super Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Symbol Lorg/graphiks/kadre/core/NamedKey;
+	public static final field SymbolLock Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Tab Lorg/graphiks/kadre/core/NamedKey;
+	public static final field Undo Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ZoomIn Lorg/graphiks/kadre/core/NamedKey;
+	public static final field ZoomOut Lorg/graphiks/kadre/core/NamedKey;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/core/NamedKey;
+	public static fun values ()[Lorg/graphiks/kadre/core/NamedKey;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyInfo {
+	public fun <init> ()V
+	public fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun component2 ()Ljava/lang/Long;
+	public final fun component3 ()Ljava/lang/Long;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun copy (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;)Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyInfo;Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKeyCode ()Ljava/lang/String;
+	public final fun getKeyValue ()Ljava/lang/String;
+	public final fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun getScanCode ()Ljava/lang/Long;
+	public final fun getVirtualKey ()Ljava/lang/Long;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/graphiks/kadre/core/PhysicalKey {
+}
+
+public final class org/graphiks/kadre/core/PhysicalKey$Code : org/graphiks/kadre/core/PhysicalKey {
+	public fun <init> (Lorg/graphiks/kadre/core/KeyCode;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/KeyCode;
+	public final fun copy (Lorg/graphiks/kadre/core/KeyCode;)Lorg/graphiks/kadre/core/PhysicalKey$Code;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/PhysicalKey$Code;Lorg/graphiks/kadre/core/KeyCode;ILjava/lang/Object;)Lorg/graphiks/kadre/core/PhysicalKey$Code;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()Lorg/graphiks/kadre/core/KeyCode;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/PhysicalKey$Native : org/graphiks/kadre/core/PhysicalKey {
+	public fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;J)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun component2 ()J
+	public final fun copy (Lorg/graphiks/kadre/core/KeyPlatform;J)Lorg/graphiks/kadre/core/PhysicalKey$Native;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/PhysicalKey$Native;Lorg/graphiks/kadre/core/KeyPlatform;JILjava/lang/Object;)Lorg/graphiks/kadre/core/PhysicalKey$Native;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()J
+	public final fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/PhysicalKey$Unidentified : org/graphiks/kadre/core/PhysicalKey {
+	public static final field INSTANCE Lorg/graphiks/kadre/core/PhysicalKey$Unidentified;
 	public fun equals (Ljava/lang/Object;)Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -711,6 +1176,23 @@ public final class org/graphiks/kadre/core/RawDisplayHandle$Xlib : org/graphiks/
 	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/RawDisplayHandle$Xlib;JILjava/lang/Object;)Lorg/graphiks/kadre/core/RawDisplayHandle$Xlib;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDisplay ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/RawKeyEvent {
+	public fun <init> (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/KeyState;Lorg/graphiks/kadre/core/NativeKeyInfo;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/KeyState;Lorg/graphiks/kadre/core/NativeKeyInfo;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/PhysicalKey;
+	public final fun component2 ()Lorg/graphiks/kadre/core/KeyState;
+	public final fun component3 ()Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public final fun copy (Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/KeyState;Lorg/graphiks/kadre/core/NativeKeyInfo;)Lorg/graphiks/kadre/core/RawKeyEvent;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/RawKeyEvent;Lorg/graphiks/kadre/core/PhysicalKey;Lorg/graphiks/kadre/core/KeyState;Lorg/graphiks/kadre/core/NativeKeyInfo;ILjava/lang/Object;)Lorg/graphiks/kadre/core/RawKeyEvent;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getNative ()Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public final fun getPhysicalKey ()Lorg/graphiks/kadre/core/PhysicalKey;
+	public final fun getScancode ()Ljava/lang/Integer;
+	public final fun getState ()Lorg/graphiks/kadre/core/KeyState;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -1230,41 +1712,24 @@ public final class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Preedit : or
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class org/graphiks/kadre/core/WindowEvent$KeyboardInput : org/graphiks/kadre/core/WindowEvent {
-	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public synthetic fun <init> (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
-	public final fun component2 ()Lorg/graphiks/kadre/core/Key;
-	public final fun component3 ()Lorg/graphiks/kadre/core/KeyState;
-	public final fun component4-yizPXk8 ()I
-	public final fun component5 ()Z
-	public final fun component6 ()Z
-	public final fun component7 ()Ljava/lang/String;
-	public final fun component8 ()Lorg/graphiks/kadre/core/KeyLocation;
-	public final fun component9 ()Ljava/lang/Integer;
-	public final fun copy-ACKXCmQ (Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
-	public static synthetic fun copy-ACKXCmQ$default (Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;Lorg/graphiks/kadre/core/DeviceId;Lorg/graphiks/kadre/core/Key;Lorg/graphiks/kadre/core/KeyState;IZZLjava/lang/String;Lorg/graphiks/kadre/core/KeyLocation;Ljava/lang/Integer;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$KeyboardInput;
+public final class org/graphiks/kadre/core/WindowEvent$KeyInput : org/graphiks/kadre/core/WindowEvent {
+	public fun <init> (Lorg/graphiks/kadre/core/KeyEvent;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/KeyEvent;
+	public final fun copy (Lorg/graphiks/kadre/core/KeyEvent;)Lorg/graphiks/kadre/core/WindowEvent$KeyInput;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$KeyInput;Lorg/graphiks/kadre/core/KeyEvent;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$KeyInput;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
-	public final fun getKey ()Lorg/graphiks/kadre/core/Key;
-	public final fun getLocation ()Lorg/graphiks/kadre/core/KeyLocation;
-	public final fun getModifiers-yizPXk8 ()I
-	public final fun getScanCode ()Ljava/lang/Integer;
-	public final fun getState ()Lorg/graphiks/kadre/core/KeyState;
-	public final fun getText ()Ljava/lang/String;
+	public final fun getEvent ()Lorg/graphiks/kadre/core/KeyEvent;
 	public fun hashCode ()I
-	public final fun isRepeat ()Z
-	public final fun isSynthetic ()Z
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$ModifiersChanged : org/graphiks/kadre/core/WindowEvent {
-	public synthetic fun <init> (ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-yizPXk8 ()I
-	public final fun copy-ZhwnmpE (I)Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;
-	public static synthetic fun copy-ZhwnmpE$default (Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;IILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;
+	public fun <init> (Lorg/graphiks/kadre/core/KeyboardModifierState;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/KeyboardModifierState;
+	public final fun copy (Lorg/graphiks/kadre/core/KeyboardModifierState;)Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;Lorg/graphiks/kadre/core/KeyboardModifierState;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$ModifiersChanged;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getModifiers-yizPXk8 ()I
+	public final fun getState ()Lorg/graphiks/kadre/core/KeyboardModifierState;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

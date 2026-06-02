@@ -155,8 +155,8 @@ class MyAppHandler : ApplicationHandler {
                 println("PointerMoved (${event.position.x.toInt()}, ${event.position.y.toInt()})")
 
             // Entrées clavier (via libxkbcommon sur X11 et Wayland)
-            is WindowEvent.KeyboardInput ->
-                println("Key ${event.state} key=${event.key} repeat=${event.isRepeat}")
+            is WindowEvent.KeyInput ->
+                println("Key ${event.event.state} physical=${event.event.physicalKey} logical=${event.event.logicalKey} repeat=${event.event.repeat}")
 
             // Fenêtre détruite : libérer les ressources GPU ici
             WindowEvent.Destroyed -> window = null

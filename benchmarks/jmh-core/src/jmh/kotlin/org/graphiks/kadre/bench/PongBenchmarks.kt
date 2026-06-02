@@ -6,9 +6,12 @@
  */
 package org.graphiks.kadre.bench
 
-import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyEvent
 import org.graphiks.kadre.core.KeyState
-import org.graphiks.kadre.core.Modifiers
+import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.PhysicalKey
+import org.graphiks.kadre.core.defaultLogicalKey
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.samples.pong.BitmapFont
 import org.graphiks.kadre.samples.pong.GameState
@@ -32,8 +35,18 @@ open class PongBenchmarks {
 
     private val initial = GameState.INITIAL
     private val ai = PongAi()
-    private val keyDown = WindowEvent.KeyboardInput(null, Key.ArrowUp, KeyState.Pressed, Modifiers.NONE)
-    private val keyUp = WindowEvent.KeyboardInput(null, Key.ArrowUp, KeyState.Released, Modifiers.NONE)
+    private val keyDown = keyInput(KeyState.Pressed)
+    private val keyUp = keyInput(KeyState.Released)
+
+
+    private fun keyInput(state: KeyState) = WindowEvent.KeyInput(
+        KeyEvent(
+            physicalKey = PhysicalKey.Code(KeyCode.ArrowUp),
+            logicalKey = KeyCode.ArrowUp.defaultLogicalKey(),
+            state = state,
+            modifiers = KeyboardModifiers.NONE,
+        ),
+    )
 
     // ── Tick physique ────────────────────────────────────────────────────────
 

@@ -23,7 +23,7 @@ import kotlin.math.roundToInt
  * JS DOM bridge to the Kadre engine.
  *
  * Listens to and dispatches the following DOM events:
- * - Keyboard: `keydown` / `keyup` → [WebWindowEvent.KeyboardInput]
+ * - Keyboard: `keydown` / `keyup` → [WebWindowEvent.KeyInput]
  * - Pointer: `pointermove` → [WebWindowEvent.PointerMoved]
  * - Pointer: `pointerdown` / `pointerup` → [WebWindowEvent.MouseInput]
  * - Pointer: `pointerenter` / `pointerleave` → [WebWindowEvent.PointerEntered] / [WebWindowEvent.PointerLeft]
@@ -92,15 +92,18 @@ class JsWebDomBridge : WebDomBridge {
             val ke = e as KeyboardEvent
             val mods = domModifiers(ke.shiftKey, ke.ctrlKey, ke.altKey, ke.metaKey)
             dispatch(
-                WebWindowEvent.KeyboardInput(
-                    key = domCodeToKey(ke.code),
-                    state = WebKeyState.Pressed,
-                    modifiers = mods,
-                    isRepeat = ke.repeat,
-                    text = domKeyToText(ke.key),
-                    location = domLocationToKeyLocation(ke.location),
-                    scanCode = ke.code,
-                )
+                WebWindowEvent.KeyInput(
+                    domKeyEvent(
+                        code = ke.code,
+                        key = ke.key,
+                        eventType = "keydown",
+                        shiftKey = ke.shiftKey,
+                        ctrlKey = ke.ctrlKey,
+                        altKey = ke.altKey,
+                        metaKey = ke.metaKey,
+                        repeat = ke.repeat,
+                    ),
+                ),
             )
             // R4: emit ModifiersChanged when a modifier key is pressed
             if (ke.key in setOf("Shift", "Control", "Alt", "Meta")) {
@@ -112,15 +115,18 @@ class JsWebDomBridge : WebDomBridge {
             val ke = e as KeyboardEvent
             val mods = domModifiers(ke.shiftKey, ke.ctrlKey, ke.altKey, ke.metaKey)
             dispatch(
-                WebWindowEvent.KeyboardInput(
-                    key = domCodeToKey(ke.code),
-                    state = WebKeyState.Released,
-                    modifiers = mods,
-                    isRepeat = false,
-                    text = null,
-                    location = domLocationToKeyLocation(ke.location),
-                    scanCode = ke.code,
-                )
+                WebWindowEvent.KeyInput(
+                    domKeyEvent(
+                        code = ke.code,
+                        key = ke.key,
+                        eventType = "keyup",
+                        shiftKey = ke.shiftKey,
+                        ctrlKey = ke.ctrlKey,
+                        altKey = ke.altKey,
+                        metaKey = ke.metaKey,
+                        repeat = false,
+                    ),
+                ),
             )
             // R4: emit ModifiersChanged when a modifier key is released
             if (ke.key in setOf("Shift", "Control", "Alt", "Meta")) {

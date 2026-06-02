@@ -36,19 +36,23 @@
  */
 package org.graphiks.kadre.win32
 
-import org.graphiks.kadre.core.Key
-import org.graphiks.kadre.core.KeyLocation
-import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.FingerId
-import org.graphiks.kadre.core.Modifiers
+import org.graphiks.kadre.core.KeyEvent
+import org.graphiks.kadre.core.KeyPlatform
+import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MouseButton
+import org.graphiks.kadre.core.NativeKeyInfo
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.WindowEvent
+import org.graphiks.kadre.core.defaultLogicalKey
+import org.graphiks.kadre.core.defaultText
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 
@@ -190,55 +194,17 @@ object KadreWndProc {
             WM_KEYDOWN.toUInt(),
             WM_SYSKEYDOWN.toUInt() -> {
                 val vkCode   = wParam.toInt()
-                val key      = Win32KeyMapper.fromVkCode(vkCode)
                 val isRepeat = (lParam and KF_REPEAT) != 0L
                 val mods     = currentModifiers()
-                // R4: scancode is bits 16-23 of lParam (always valid for key messages)
-                val scanCode = ((lParam ushr 16) and 0xFF).toInt()
-                // R4: location from extended-key bit (bit 24) and VK code
-                val location = win32KeyLocation(vkCode, lParam)
-                // R4: text via ToUnicode (if available)
-                val text     = if (!isRepeat) win32KeyText(vkCode, scanCode) else null
-                emit(
-                    hwnd,
-                    WindowEvent.KeyboardInput(
-                        deviceId = null,
-                        key = key,
-                        state = KeyState.Pressed,
-                        modifiers = mods,
-                        isRepeat = isRepeat,
-                        text = text,
-                        location = location,
-                        scanCode = scanCode,
-                    ),
-                )
-                // R4: ModifiersChanged on modifier key press
-                if (isModifierVk(vkCode)) emit(hwnd, WindowEvent.ModifiersChanged(mods))
+                emit(hwnd, keyEvent(vkCode, KeyState.Pressed, mods, isRepeat))
                 0L
             }
 
             WM_KEYUP.toUInt(),
             WM_SYSKEYUP.toUInt() -> {
-                val vkCode   = wParam.toInt()
-                val key      = Win32KeyMapper.fromVkCode(vkCode)
-                val mods     = currentModifiers()
-                val scanCode = ((lParam ushr 16) and 0xFF).toInt()
-                val location = win32KeyLocation(vkCode, lParam)
-                emit(
-                    hwnd,
-                    WindowEvent.KeyboardInput(
-                        deviceId = null,
-                        key = key,
-                        state = KeyState.Released,
-                        modifiers = mods,
-                        isRepeat = false,
-                        text = null,
-                        location = location,
-                        scanCode = scanCode,
-                    ),
-                )
-                // R4: ModifiersChanged on modifier key release
-                if (isModifierVk(vkCode)) emit(hwnd, WindowEvent.ModifiersChanged(mods))
+                val vkCode = wParam.toInt()
+                val mods   = currentModifiers()
+                emit(hwnd, keyEvent(vkCode, KeyState.Released, mods, isRepeat = false))
                 0L
             }
 
@@ -395,44 +361,41 @@ object KadreWndProc {
      * GetKeyState reads the key state at the moment the message is processed — consistent
      * with the Win32 message thread.
      *
-     * @return [Modifiers] representing the active modifiers.
+     * @return [KeyboardModifiers] representing the active modifiers.
      */
-    private fun currentModifiers(): Modifiers {
-        if (getKeyState == null) return Modifiers.NONE
+    private fun currentModifiers(): KeyboardModifiers {
+        if (getKeyState == null) return KeyboardModifiers.NONE
         var bits = 0
         // GetKeyState returns a Short: bit 15 = key down, bit 0 = toggle
-        if ((getKeyState!!.invokeExact(VK_SHIFT)   as Short).toInt() and 0x8000 != 0) bits = bits or 0x1
-        if ((getKeyState!!.invokeExact(VK_CONTROL) as Short).toInt() and 0x8000 != 0) bits = bits or 0x2
-        if ((getKeyState!!.invokeExact(VK_MENU)    as Short).toInt() and 0x8000 != 0) bits = bits or 0x4
+        if ((getKeyState!!.invokeExact(VK_SHIFT)   as Short).toInt() and 0x8000 != 0) bits = bits or KeyboardModifiers.SHIFT
+        if ((getKeyState!!.invokeExact(VK_CONTROL) as Short).toInt() and 0x8000 != 0) bits = bits or KeyboardModifiers.CTRL
+        if ((getKeyState!!.invokeExact(VK_MENU)    as Short).toInt() and 0x8000 != 0) bits = bits or KeyboardModifiers.ALT
         if ((getKeyState!!.invokeExact(VK_LWIN)    as Short).toInt() and 0x8000 != 0 ||
-            (getKeyState!!.invokeExact(VK_RWIN)    as Short).toInt() and 0x8000 != 0) bits = bits or 0x8
-        return Modifiers(bits)
+            (getKeyState!!.invokeExact(VK_RWIN)    as Short).toInt() and 0x8000 != 0) bits = bits or KeyboardModifiers.META
+        return KeyboardModifiers(bits)
     }
 
-    /**
-     * Returns the [KeyLocation] for a key given its VK code and lParam.
-     *
-     * The extended-key bit (bit 24 of lParam) distinguishes:
-     * - right Ctrl, right Alt, numpad Enter, numpad Delete, etc.
-     *
-     * Also dispatches left/right based on specific VK codes for shift
-     * (Win32 uses VK_LSHIFT/VK_RSHIFT directly in WM_KEYDOWN after processing).
-     *
-     * @param vkCode VK code (wParam of the keyboard message).
-     * @param lParam lParam of the keyboard message.
-     */
-    private fun win32KeyLocation(vkCode: Int, lParam: Long): KeyLocation {
-        val extended = (lParam and 0x0100_0000L) != 0L
-        return when (vkCode) {
-            VK_LSHIFT, VK_LCONTROL, VK_LMENU, VK_LWIN -> KeyLocation.Left
-            VK_RSHIFT, VK_RCONTROL, VK_RMENU, VK_RWIN -> KeyLocation.Right
-            VK_SHIFT -> if (extended) KeyLocation.Right else KeyLocation.Left
-            VK_CONTROL -> if (extended) KeyLocation.Right else KeyLocation.Left
-            VK_MENU -> if (extended) KeyLocation.Right else KeyLocation.Left
-            // Numpad keys: VK_NUMPAD0–VK_NUMPAD9, VK_ADD, VK_SUBTRACT, etc.
-            in 0x60..0x69, 0x6A, 0x6B, 0x6D, 0x6E, 0x6F -> KeyLocation.Numpad
-            else -> KeyLocation.Standard
-        }
+    private fun keyEvent(
+        vkCode: Int,
+        state: KeyState,
+        modifiers: KeyboardModifiers,
+        isRepeat: Boolean,
+    ): WindowEvent.KeyInput {
+        val mappedCode = Win32KeyMapper.keyCode(vkCode)
+        val native = NativeKeyInfo(platform = KeyPlatform.Win32, virtualKey = vkCode.toLong())
+        val logicalKey = mappedCode?.defaultLogicalKey() ?: LogicalKey.Unidentified(native)
+        return WindowEvent.KeyInput(
+            KeyEvent(
+                physicalKey = Win32KeyMapper.physicalKey(vkCode),
+                logicalKey = logicalKey,
+                state = state,
+                modifiers = modifiers,
+                repeat = isRepeat,
+                text = mappedCode?.defaultText(),
+                keyWithoutModifiers = logicalKey,
+                native = native,
+            ),
+        )
     }
 
     /**

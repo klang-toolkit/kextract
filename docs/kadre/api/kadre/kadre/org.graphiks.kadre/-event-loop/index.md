@@ -50,11 +50,11 @@ JVM implementation of [EventLoop](index.md).
 
 Routes to the appropriate backend via reflection:
 
-- 
+-
    macOS   → `org.graphiks.kadre.appkit.AppKitEventLoopKt#runApp`
-- 
+-
    Windows → `org.graphiks.kadre.win32.Win32EventLoopKt#runApp`
-- 
+-
    Linux   → X11 or Wayland according to LinuxBackendDetector
 
 No direct import of the backend modules — loading is deferred to runtime to avoid initializing native bindings on the wrong OS.

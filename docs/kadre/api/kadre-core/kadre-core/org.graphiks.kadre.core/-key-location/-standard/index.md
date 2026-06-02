@@ -5,8 +5,6 @@
 [common]\
 [Standard](index.md)
 
-Key appears only once or its position is the standard one.
-
 ## Properties
 
 | Name | Summary |

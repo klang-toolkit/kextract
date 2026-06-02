@@ -97,7 +97,7 @@ The macOS, iOS, and Android foundation of Kadre was delivered in an intensive se
 | Ticket | Deliverable |
 |--------|------------|
 | GRA-153 | Multi-window support: `windowWillClose` cleanup + `exit()` closes all |
-| GRA-154 | Keyboard input `sendEvent:` → `WindowEvent.KeyboardInput` + `isRepeat` |
+| GRA-154 | Keyboard input `sendEvent:` -> `WindowEvent.KeyInput` + `repeat` |
 | GRA-155 | Full mouse input (clicks, movement, scroll, enter/exit) |
 | GRA-156 | `DeviceEvent` dispatch (`PointerMotion`, `Button`, `Key`) before `WindowEvent` |
 

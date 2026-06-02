@@ -51,7 +51,7 @@ class PongAiTest {
     }
 
     @Test
-    fun `reset puts the target back to 0,5`() {
+    fun `reset puts the target back to 0_5`() {
         val ai = PongAi(reactionLagMs = 0L)
         val s = state.copy(ball = state.ball.copy(y = 0.9))
         ai.suggest(s, 0L) // target = 0.9

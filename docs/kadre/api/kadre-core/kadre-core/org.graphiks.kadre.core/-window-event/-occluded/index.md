@@ -11,11 +11,11 @@ Emitted when the window becomes hidden behind other windows (occluded = true) or
 
 Platform support:
 
-- 
+-
    AppKit: `NSWindowDidChangeOcclusionStateNotification` — TODO.
-- 
+-
    Web: Page Visibility API (`visibilitychange`) — TODO.
-- 
+-
    Win32 / X11 / Wayland / Android / UIKit: no-op documented.
 
 ## Constructors

@@ -3,15 +3,15 @@
 # CursorGrabMode
 
 [common]\
-enum [CursorGrabMode](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[CursorGrabMode](index.md)&gt; 
+enum [CursorGrabMode](index.md) : [Enum](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-enum/index.html)&lt;[CursorGrabMode](index.md)&gt;
 
 Pointer grab mode.
 
-- 
+-
    [None](-none/index.md)     — cursor moves freely.
-- 
+-
    [Confined](-confined/index.md) — cursor is constrained inside the window bounds.
-- 
+-
    [Locked](-locked/index.md)   — cursor is hidden and positioned deltas are raw (FPS-style).
 
 Mobile and web backends document their limitations in their respective implementations; this method never throws.

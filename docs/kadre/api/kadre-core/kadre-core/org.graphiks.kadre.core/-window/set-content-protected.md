@@ -9,11 +9,11 @@ Enables or disables screen-capture protection for this window.
 
 When `true`, the window content is excluded from screenshots and screen recordings. Platform behaviour:
 
-- 
+-
    Win32  : `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`.
-- 
+-
    AppKit : `NSWindow.sharingType = NSWindowSharingNone`.
-- 
+-
    Others : no-op documented.
 
 Default implementation is a no-op. Never throws. TODO R5-MiscWindow: wire in Win32 and AppKit backends.

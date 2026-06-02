@@ -27,7 +27,7 @@ Objectif : exposer des handles natifs (`NSView`, `UIView`, `android.view.Surface
 - **Plein écran** — `Fullscreen.Borderless` (tous backends) et `Fullscreen.Exclusive` (desktop ; fallback borderless sur Wayland/Web/mobile)
 - **Curseur** — 25 formes `CursorIcon`, visibilité, grab (Confined/Locked), warp, hit-testing ; curseurs custom RGBA (`CursorImage` / `CustomCursor`, câblage TODO)
 - **Thème & apparence** — `Theme` (Light/Dark), override par fenêtre, événement `ThemeChanged`, `WindowLevel`, transparence, flou, icône de fenêtre
-- **Richesse clavier** — `text`, `location` (`KeyLocation`), `scanCode`, `isRepeat` sur `KeyboardInput` ; `ModifiersChanged` ; reset dead-key
+- **Richesse clavier** — `PhysicalKey`, `LogicalKey`, `text`, `textWithAllModifiers`, `keyWithoutModifiers`, `KeyLocation`, `repeat`, `synthetic` ; `ModifiersChanged` ; reset dead-key
 - **Événements device** — `DeviceEvent.MouseWheel` ; filtre via `listenDeviceEvents(DeviceEvents.Always/WhenFocused/Never)`
 - **IME** — `setImeAllowed`, `setImeCursorArea`, `setImePurpose(ImePurpose)` ; cycle de vie `ImeEvent` complet (Enabled/Preedit/Commit/DeleteSurrounding/Disabled) — API définie, émission TODO
 - **Drag & drop** — événements `DragEntered/Moved/Dropped/Left` — API définie, émission TODO

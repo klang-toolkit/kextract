@@ -14,7 +14,7 @@ what we can add. The callback `ApplicationHandler` / `WindowEvent` model follows
 | Moved                |   ✗    |   ✗   |  ✓  |    —    |
 | ScaleFactorChanged   |   ✓    |   ✓   |  ✗  |    ✗    |
 | Focused              |   ✗    |   ✗   |  ✓  |    ✗    |
-| KeyboardInput        |   ✓    |   ✓   |  ✓  |    ✓    |
+| KeyInput        |   ✓    |   ✓   |  ✓  |    ✓    |
 | PointerMoved         |   ✓    |   ✓   |  ✓  |    ✓    |
 | PointerEntered       |   ✓    |   ✗   |  ✓  |    ✓    |
 | PointerLeft          |   ✓    |   ✓   |  ✓  |    ✓    |

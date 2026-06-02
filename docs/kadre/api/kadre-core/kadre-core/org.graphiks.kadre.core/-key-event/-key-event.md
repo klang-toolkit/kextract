@@ -1,0 +1,6 @@
+//[kadre-core](../../../index.md)/[org.graphiks.kadre.core](../index.md)/[KeyEvent](index.md)/[KeyEvent](-key-event.md)
+
+# KeyEvent
+
+[common]\
+constructor(physicalKey: [PhysicalKey](../-physical-key/index.md), logicalKey: [LogicalKey](../-logical-key/index.md), state: [KeyState](../-key-state/index.md), modifiers: [KeyboardModifiers](../-keyboard-modifiers/index.md), location: [KeyLocation](../-key-location/index.md) = KeyLocation.Standard, repeat: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false, synthetic: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html) = false, text: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, textWithAllModifiers: [String](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-string/index.html)? = null, keyWithoutModifiers: [LogicalKey](../-logical-key/index.md)? = null, native: [NativeKeyInfo](../-native-key-info/index.md) = NativeKeyInfo())

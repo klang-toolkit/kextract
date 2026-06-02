@@ -8,9 +8,9 @@ Fullscreen mode requested via [Window.setFullscreen](../-window/set-fullscreen.m
 
 ## Variants
 
-- 
+-
    [Borderless](-borderless/index.md) — covers the monitor with a borderless window. Works on all backends.
-- 
+-
    [Exclusive](-exclusive/index.md)  — requests exclusive fullscreen with a specific video mode. Only supported on AppKit, Win32 and X11 (backend-specific implementation). On Wayland, Web, Android and UIKit, passing [Exclusive](-exclusive/index.md) falls back to borderless and is documented as a no-op for the exclusive part.
 
 #### Inheritors

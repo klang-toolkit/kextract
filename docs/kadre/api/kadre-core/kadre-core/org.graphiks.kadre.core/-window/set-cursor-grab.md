@@ -7,11 +7,11 @@ abstract fun [setCursorGrab](set-cursor-grab.md)(mode: [CursorGrabMode](../-curs
 
 Sets the cursor grab mode for this window.
 
-- 
+-
    [CursorGrabMode.None](../-cursor-grab-mode/-none/index.md)     — releases any existing grab.
-- 
+-
    [CursorGrabMode.Confined](../-cursor-grab-mode/-confined/index.md) — limits the cursor to the window bounds.
-- 
+-
    [CursorGrabMode.Locked](../-cursor-grab-mode/-locked/index.md)   — locks the cursor position (FPS mode).
 
 Backends that do not support a given mode implement a documented no-op. Never throws.

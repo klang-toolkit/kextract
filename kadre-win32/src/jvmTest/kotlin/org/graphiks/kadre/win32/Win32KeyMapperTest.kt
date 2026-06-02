@@ -9,7 +9,7 @@
  */
 package org.graphiks.kadre.win32
 
-import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -17,68 +17,68 @@ class Win32KeyMapperTest {
 
     @Test
     fun `letters A to Z are correctly mapped`() {
-        assertEquals(Key.A, Win32KeyMapper.fromVkCode(VK_A))
-        assertEquals(Key.B, Win32KeyMapper.fromVkCode(VK_B))
-        assertEquals(Key.C, Win32KeyMapper.fromVkCode(VK_C))
-        assertEquals(Key.M, Win32KeyMapper.fromVkCode(VK_M))
-        assertEquals(Key.Z, Win32KeyMapper.fromVkCode(VK_Z))
+        assertEquals(KeyCode.KeyA, Win32KeyMapper.keyCode(VK_A))
+        assertEquals(KeyCode.KeyB, Win32KeyMapper.keyCode(VK_B))
+        assertEquals(KeyCode.KeyC, Win32KeyMapper.keyCode(VK_C))
+        assertEquals(KeyCode.KeyM, Win32KeyMapper.keyCode(VK_M))
+        assertEquals(KeyCode.KeyZ, Win32KeyMapper.keyCode(VK_Z))
     }
 
     @Test
     fun `digits 0 to 9 are correctly mapped`() {
-        assertEquals(Key.Digit0, Win32KeyMapper.fromVkCode(VK_0))
-        assertEquals(Key.Digit1, Win32KeyMapper.fromVkCode(VK_1))
-        assertEquals(Key.Digit5, Win32KeyMapper.fromVkCode(VK_5))
-        assertEquals(Key.Digit9, Win32KeyMapper.fromVkCode(VK_9))
+        assertEquals(KeyCode.Digit0, Win32KeyMapper.keyCode(VK_0))
+        assertEquals(KeyCode.Digit1, Win32KeyMapper.keyCode(VK_1))
+        assertEquals(KeyCode.Digit5, Win32KeyMapper.keyCode(VK_5))
+        assertEquals(KeyCode.Digit9, Win32KeyMapper.keyCode(VK_9))
     }
 
     @Test
     fun `function keys F1 to F12 are correctly mapped`() {
-        assertEquals(Key.F1,  Win32KeyMapper.fromVkCode(VK_F1))
-        assertEquals(Key.F5,  Win32KeyMapper.fromVkCode(VK_F5))
-        assertEquals(Key.F12, Win32KeyMapper.fromVkCode(VK_F12))
+        assertEquals(KeyCode.F1,  Win32KeyMapper.keyCode(VK_F1))
+        assertEquals(KeyCode.F5,  Win32KeyMapper.keyCode(VK_F5))
+        assertEquals(KeyCode.F12, Win32KeyMapper.keyCode(VK_F12))
     }
 
     @Test
     fun `navigation keys are correctly mapped`() {
-        assertEquals(Key.ArrowLeft,  Win32KeyMapper.fromVkCode(VK_LEFT))
-        assertEquals(Key.ArrowRight, Win32KeyMapper.fromVkCode(VK_RIGHT))
-        assertEquals(Key.ArrowUp,    Win32KeyMapper.fromVkCode(VK_UP))
-        assertEquals(Key.ArrowDown,  Win32KeyMapper.fromVkCode(VK_DOWN))
+        assertEquals(KeyCode.ArrowLeft,  Win32KeyMapper.keyCode(VK_LEFT))
+        assertEquals(KeyCode.ArrowRight, Win32KeyMapper.keyCode(VK_RIGHT))
+        assertEquals(KeyCode.ArrowUp,    Win32KeyMapper.keyCode(VK_UP))
+        assertEquals(KeyCode.ArrowDown,  Win32KeyMapper.keyCode(VK_DOWN))
     }
 
     @Test
     fun `special keys are correctly mapped`() {
-        assertEquals(Key.Space,     Win32KeyMapper.fromVkCode(VK_SPACE))
-        assertEquals(Key.Enter,     Win32KeyMapper.fromVkCode(VK_RETURN))
-        assertEquals(Key.Escape,    Win32KeyMapper.fromVkCode(VK_ESCAPE))
-        assertEquals(Key.Backspace, Win32KeyMapper.fromVkCode(VK_BACK))
-        assertEquals(Key.Tab,       Win32KeyMapper.fromVkCode(VK_TAB))
+        assertEquals(KeyCode.Space,     Win32KeyMapper.keyCode(VK_SPACE))
+        assertEquals(KeyCode.Enter,     Win32KeyMapper.keyCode(VK_RETURN))
+        assertEquals(KeyCode.Escape,    Win32KeyMapper.keyCode(VK_ESCAPE))
+        assertEquals(KeyCode.Backspace, Win32KeyMapper.keyCode(VK_BACK))
+        assertEquals(KeyCode.Tab,       Win32KeyMapper.keyCode(VK_TAB))
     }
 
     @Test
     fun `left and right modifiers are correctly mapped`() {
-        assertEquals(Key.ShiftLeft,    Win32KeyMapper.fromVkCode(VK_LSHIFT))
-        assertEquals(Key.ShiftRight,   Win32KeyMapper.fromVkCode(VK_RSHIFT))
-        assertEquals(Key.ControlLeft,  Win32KeyMapper.fromVkCode(VK_LCONTROL))
-        assertEquals(Key.ControlRight, Win32KeyMapper.fromVkCode(VK_RCONTROL))
-        assertEquals(Key.AltLeft,      Win32KeyMapper.fromVkCode(VK_LMENU))
-        assertEquals(Key.AltRight,     Win32KeyMapper.fromVkCode(VK_RMENU))
-        assertEquals(Key.MetaLeft,     Win32KeyMapper.fromVkCode(VK_LWIN))
-        assertEquals(Key.MetaRight,    Win32KeyMapper.fromVkCode(VK_RWIN))
+        assertEquals(KeyCode.ShiftLeft,    Win32KeyMapper.keyCode(VK_LSHIFT))
+        assertEquals(KeyCode.ShiftRight,   Win32KeyMapper.keyCode(VK_RSHIFT))
+        assertEquals(KeyCode.ControlLeft,  Win32KeyMapper.keyCode(VK_LCONTROL))
+        assertEquals(KeyCode.ControlRight, Win32KeyMapper.keyCode(VK_RCONTROL))
+        assertEquals(KeyCode.AltLeft,      Win32KeyMapper.keyCode(VK_LMENU))
+        assertEquals(KeyCode.AltRight,     Win32KeyMapper.keyCode(VK_RMENU))
+        assertEquals(KeyCode.MetaLeft,     Win32KeyMapper.keyCode(VK_LWIN))
+        assertEquals(KeyCode.MetaRight,    Win32KeyMapper.keyCode(VK_RWIN))
     }
 
     @Test
     fun `generic modifiers map to the left variant`() {
-        assertEquals(Key.ShiftLeft,   Win32KeyMapper.fromVkCode(VK_SHIFT))
-        assertEquals(Key.ControlLeft, Win32KeyMapper.fromVkCode(VK_CONTROL))
-        assertEquals(Key.AltLeft,     Win32KeyMapper.fromVkCode(VK_MENU))
+        assertEquals(KeyCode.ShiftLeft,   Win32KeyMapper.keyCode(VK_SHIFT))
+        assertEquals(KeyCode.ControlLeft, Win32KeyMapper.keyCode(VK_CONTROL))
+        assertEquals(KeyCode.AltLeft,     Win32KeyMapper.keyCode(VK_MENU))
     }
 
     @Test
     fun `unknown VK code returns Key Unknown`() {
-        assertEquals(Key.Unknown, Win32KeyMapper.fromVkCode(0x00))
-        assertEquals(Key.Unknown, Win32KeyMapper.fromVkCode(0xFF))
-        assertEquals(Key.Unknown, Win32KeyMapper.fromVkCode(-1))
+        assertEquals(null, Win32KeyMapper.keyCode(0x00))
+        assertEquals(null, Win32KeyMapper.keyCode(0xFF))
+        assertEquals(null, Win32KeyMapper.keyCode(-1))
     }
 }

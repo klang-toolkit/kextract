@@ -13,11 +13,12 @@
  */
 package org.graphiks.kadre.win32
 
-import org.graphiks.kadre.core.Key
+import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.FingerId
+import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
@@ -94,14 +95,14 @@ class KadreWndProcTest {
     // ── WM_KEYDOWN ────────────────────────────────────────────────────────────
 
     @Test
-    fun `WM_KEYDOWN emits KeyboardInput Pressed for key A`() {
+    fun `WM_KEYDOWN emits KeyInput Pressed for key A`() {
         // wParam = VK_A, lParam = 0 (no repeat)
         KadreWndProc.dispatch(TEST_HWND, WM_KEYDOWN, VK_A.toLong(), 0L)
 
-        assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
-            assertEquals(Key.A, event.key)
-            assertEquals(KeyState.Pressed, event.state)
-            assertEquals(false, event.isRepeat)
+        assertIs<WindowEvent.KeyInput>(capturedEvent).also { event ->
+            assertEquals(PhysicalKey.Code(KeyCode.KeyA), event.event.physicalKey)
+            assertEquals(KeyState.Pressed, event.event.state)
+            assertEquals(false, event.event.repeat)
         }
     }
 
@@ -111,41 +112,41 @@ class KadreWndProcTest {
         val lParamRepeat = KF_REPEAT
         KadreWndProc.dispatch(TEST_HWND, WM_KEYDOWN, VK_SPACE.toLong(), lParamRepeat)
 
-        assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
-            assertEquals(Key.Space, event.key)
-            assertEquals(KeyState.Pressed, event.state)
-            assertEquals(true, event.isRepeat)
+        assertIs<WindowEvent.KeyInput>(capturedEvent).also { event ->
+            assertEquals(PhysicalKey.Code(KeyCode.Space), event.event.physicalKey)
+            assertEquals(KeyState.Pressed, event.event.state)
+            assertEquals(true, event.event.repeat)
         }
     }
 
     @Test
-    fun `WM_KEYUP emits KeyboardInput Released`() {
+    fun `WM_KEYUP emits KeyInput Released`() {
         KadreWndProc.dispatch(TEST_HWND, WM_KEYUP, VK_ESCAPE.toLong(), 0L)
 
-        assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
-            assertEquals(Key.Escape, event.key)
-            assertEquals(KeyState.Released, event.state)
-            assertEquals(false, event.isRepeat)
+        assertIs<WindowEvent.KeyInput>(capturedEvent).also { event ->
+            assertEquals(PhysicalKey.Code(KeyCode.Escape), event.event.physicalKey)
+            assertEquals(KeyState.Released, event.event.state)
+            assertEquals(false, event.event.repeat)
         }
     }
 
     @Test
-    fun `WM_SYSKEYDOWN emits KeyboardInput Pressed for key F4`() {
+    fun `WM_SYSKEYDOWN emits KeyInput Pressed for key F4`() {
         KadreWndProc.dispatch(TEST_HWND, WM_SYSKEYDOWN, VK_F4.toLong(), 0L)
 
-        assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
-            assertEquals(Key.F4, event.key)
-            assertEquals(KeyState.Pressed, event.state)
+        assertIs<WindowEvent.KeyInput>(capturedEvent).also { event ->
+            assertEquals(PhysicalKey.Code(KeyCode.F4), event.event.physicalKey)
+            assertEquals(KeyState.Pressed, event.event.state)
         }
     }
 
     @Test
-    fun `WM_SYSKEYUP emits KeyboardInput Released`() {
+    fun `WM_SYSKEYUP emits KeyInput Released`() {
         KadreWndProc.dispatch(TEST_HWND, WM_SYSKEYUP, VK_F4.toLong(), 0L)
 
-        assertIs<WindowEvent.KeyboardInput>(capturedEvent).also { event ->
-            assertEquals(Key.F4, event.key)
-            assertEquals(KeyState.Released, event.state)
+        assertIs<WindowEvent.KeyInput>(capturedEvent).also { event ->
+            assertEquals(PhysicalKey.Code(KeyCode.F4), event.event.physicalKey)
+            assertEquals(KeyState.Released, event.event.state)
         }
     }
 

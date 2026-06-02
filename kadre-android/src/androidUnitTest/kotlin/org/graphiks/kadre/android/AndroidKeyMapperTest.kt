@@ -1,8 +1,8 @@
 package org.graphiks.kadre.android
 
 import android.view.KeyEvent
-import org.graphiks.kadre.core.Key
-import org.graphiks.kadre.core.Modifiers
+import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyboardModifiers
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,57 +18,57 @@ class AndroidKeyMapperTest {
 
     @Test
     fun `fromKeyCode maps letters`() {
-        assertEquals(Key.A, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_A))
-        assertEquals(Key.Z, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_Z))
+        assertEquals(KeyCode.KeyA, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_A))
+        assertEquals(KeyCode.KeyZ, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_Z))
     }
 
     @Test
     fun `fromKeyCode maps digits`() {
-        assertEquals(Key.Digit0, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_0))
-        assertEquals(Key.Digit9, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_9))
+        assertEquals(KeyCode.Digit0, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_0))
+        assertEquals(KeyCode.Digit9, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_9))
     }
 
     @Test
     fun `fromKeyCode maps function keys`() {
-        assertEquals(Key.F1, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_F1))
-        assertEquals(Key.F12, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_F12))
+        assertEquals(KeyCode.F1, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_F1))
+        assertEquals(KeyCode.F12, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_F12))
     }
 
     @Test
     fun `fromKeyCode maps the D-pad to arrow keys`() {
-        assertEquals(Key.ArrowUp, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_DPAD_UP))
-        assertEquals(Key.ArrowDown, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_DPAD_DOWN))
-        assertEquals(Key.ArrowLeft, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_DPAD_LEFT))
-        assertEquals(Key.ArrowRight, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_DPAD_RIGHT))
+        assertEquals(KeyCode.ArrowUp, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_DPAD_UP))
+        assertEquals(KeyCode.ArrowDown, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_DPAD_DOWN))
+        assertEquals(KeyCode.ArrowLeft, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_DPAD_LEFT))
+        assertEquals(KeyCode.ArrowRight, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_DPAD_RIGHT))
     }
 
     @Test
     fun `fromKeyCode maps special keys`() {
-        assertEquals(Key.Space, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_SPACE))
-        assertEquals(Key.Enter, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_ENTER))
-        assertEquals(Key.Escape, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_ESCAPE))
-        assertEquals(Key.Backspace, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_DEL))
-        assertEquals(Key.Tab, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_TAB))
+        assertEquals(KeyCode.Space, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_SPACE))
+        assertEquals(KeyCode.Enter, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_ENTER))
+        assertEquals(KeyCode.Escape, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_ESCAPE))
+        assertEquals(KeyCode.Backspace, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_DEL))
+        assertEquals(KeyCode.Tab, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_TAB))
     }
 
     @Test
     fun `fromKeyCode maps left and right modifiers`() {
-        assertEquals(Key.ShiftLeft, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_SHIFT_LEFT))
-        assertEquals(Key.ShiftRight, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_SHIFT_RIGHT))
-        assertEquals(Key.ControlLeft, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_CTRL_LEFT))
-        assertEquals(Key.AltRight, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_ALT_RIGHT))
-        assertEquals(Key.MetaLeft, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_META_LEFT))
+        assertEquals(KeyCode.ShiftLeft, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_SHIFT_LEFT))
+        assertEquals(KeyCode.ShiftRight, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_SHIFT_RIGHT))
+        assertEquals(KeyCode.ControlLeft, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_CTRL_LEFT))
+        assertEquals(KeyCode.AltRight, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_ALT_RIGHT))
+        assertEquals(KeyCode.MetaLeft, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_META_LEFT))
     }
 
     @Test
     fun `fromKeyCode returns Unknown for unmapped keys`() {
-        assertEquals(Key.Unknown, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_VOLUME_UP))
-        assertEquals(Key.Unknown, AndroidKeyMapper.fromKeyCode(KeyEvent.KEYCODE_BACK))
+        assertEquals(null, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_VOLUME_UP))
+        assertEquals(null, AndroidKeyMapper.keyCode(KeyEvent.KEYCODE_BACK))
     }
 
     @Test
     fun `modifiersFrom returns NONE for an empty metaState`() {
-        assertEquals(Modifiers.NONE, AndroidKeyMapper.modifiersFrom(0))
+        assertEquals(KeyboardModifiers.NONE, AndroidKeyMapper.modifiersFrom(0))
     }
 
     @Test

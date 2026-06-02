@@ -5,8 +5,6 @@
 [common]\
 [Right](index.md)
 
-Right-side instance of a key (e.g. right Shift, right Alt/AltGr).
-
 ## Properties
 
 | Name | Summary |

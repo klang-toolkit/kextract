@@ -269,19 +269,19 @@ class DomEventMapperTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `WebWindowEvent KeyboardInput structural equality`() {
-        val e1 = WebWindowEvent.KeyboardInput(
-            key = WebKey.A,
-            state = WebKeyState.Pressed,
-            modifiers = WebModifiers.NONE,
-            isRepeat = false,
+    fun `WebWindowEvent KeyInput structural equality`() {
+        val keyEvent = domKeyEvent(
+            code = "KeyA",
+            key = "a",
+            eventType = "keydown",
+            shiftKey = false,
+            ctrlKey = false,
+            altKey = false,
+            metaKey = false,
+            repeat = false,
         )
-        val e2 = WebWindowEvent.KeyboardInput(
-            key = WebKey.A,
-            state = WebKeyState.Pressed,
-            modifiers = WebModifiers.NONE,
-            isRepeat = false,
-        )
+        val e1 = WebWindowEvent.KeyInput(keyEvent)
+        val e2 = WebWindowEvent.KeyInput(keyEvent)
         assertEquals(e1, e2)
     }
 

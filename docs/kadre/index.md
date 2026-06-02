@@ -27,7 +27,7 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 - **Fullscreen** — `Fullscreen.Borderless` (all backends) and `Fullscreen.Exclusive` (desktop; falls back to borderless on Wayland/Web/mobile)
 - **Cursor** — 25 `CursorIcon` shapes, visibility, grab (Confined/Locked), warp, hit-testing; custom RGBA cursors (`CursorImage` / `CustomCursor`, wiring TODO)
 - **Theme & appearance** — `Theme` (Light/Dark), per-window theme override, `ThemeChanged` event, `WindowLevel`, transparency, blur, window icon
-- **Keyboard richness** — `text`, `location` (`KeyLocation`), `scanCode`, `isRepeat` on `KeyboardInput`; `ModifiersChanged`; dead-key reset
+- **Keyboard richness** — `PhysicalKey`, `LogicalKey`, `text`, `textWithAllModifiers`, `keyWithoutModifiers`, `KeyLocation`, `repeat`, `synthetic`; `ModifiersChanged`; dead-key reset
 - **Device events** — `DeviceEvent.MouseWheel`; filter via `listenDeviceEvents(DeviceEvents.Always/WhenFocused/Never)`
 - **IME** — `setImeAllowed`, `setImeCursorArea`, `setImePurpose(ImePurpose)`; full `ImeEvent` lifecycle (Enabled/Preedit/Commit/DeleteSurrounding/Disabled) — API defined, emission TODO
 - **Drag & drop** — `DragEntered/Moved/Dropped/Left` events — API defined, emission TODO
