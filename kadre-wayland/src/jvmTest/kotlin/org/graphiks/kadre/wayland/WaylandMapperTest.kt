@@ -3,10 +3,10 @@ package org.graphiks.kadre.wayland
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.KeyCode
-import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.MouseButton
+import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PointerKind
@@ -60,7 +60,7 @@ class WaylandMapperTest {
     @Test
     fun `unknown keycode preserves native physical key`() {
         val event = mapWaylandKeyEvent(999, WL_KEY_PRESSED).event
-        assertEquals(PhysicalKey.Native(KeyPlatform.Wayland, 999), event.physicalKey)
+        assertEquals(PhysicalKey.Native(NativeKeyCode.Wayland(999)), event.physicalKey)
     }
 }
 class WaylandFocusedMapperTest {

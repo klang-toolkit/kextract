@@ -15,8 +15,8 @@ package org.graphiks.kadre.android
 
 import android.view.KeyEvent
 import org.graphiks.kadre.core.KeyCode
-import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.PhysicalKey
 
 internal object AndroidKeyMapper {
@@ -110,7 +110,7 @@ internal object AndroidKeyMapper {
     fun keyCode(keyCode: Int): KeyCode? = table[keyCode]
 
     fun physicalKey(keyCode: Int): PhysicalKey = keyCode(keyCode)?.let(PhysicalKey::Code)
-        ?: PhysicalKey.Native(KeyPlatform.Android, keyCode.toLong())
+        ?: PhysicalKey.Native(NativeKeyCode.Android(scanCode = null, keyCode = keyCode.toLong()))
 
     /**
      * Builds the kadre [KeyboardModifiers] from an Android `metaState` bitmask.

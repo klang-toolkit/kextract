@@ -120,9 +120,32 @@ class EventsTest {
 
     @Test
     fun `Native physical key keeps platform code`() {
-        val key = PhysicalKey.Native(KeyPlatform.AppKit, 126)
+        val key = PhysicalKey.Native(NativeKeyCode.AppKit(126))
         assertEquals(KeyPlatform.AppKit, key.platform)
         assertEquals(126, key.code)
+        assertEquals(NativeKeyCode.PlatformCode(KeyPlatform.AppKit, 126), key.nativeCode)
+    }
+
+    @Test
+    fun `Native physical key keeps legacy platform code constructor`() {
+        val key = PhysicalKey.Native(KeyPlatform.X11, 64)
+
+        assertEquals(KeyPlatform.X11, key.platform)
+        assertEquals(NativeKeyCode.PlatformCode(KeyPlatform.X11, 64), key.nativeCode)
+    }
+
+    @Test
+    fun `NativeKeyInfo can carry typed physical and logical native identities`() {
+        val info = NativeKeyInfo(
+            platform = KeyPlatform.Web,
+            keyCode = "IntlYen",
+            keyValue = "\u00a5",
+            nativeCode = NativeKeyCode.Web("IntlYen"),
+            nativeKey = NativeLogicalKey.Web("\u00a5"),
+        )
+
+        assertEquals(NativeKeyCode.Web("IntlYen"), info.nativeCode)
+        assertEquals(NativeLogicalKey.Web("\u00a5"), info.nativeKey)
     }
 
     @Test
@@ -251,6 +274,7 @@ class EventsTest {
 
     @Test
     fun `WindowEvent KeyInput keeps rich event`() {
+        val deviceId = DeviceId(9L)
         val keyEvent = KeyEvent(
             physicalKey = PhysicalKey.Code(KeyCode.KeyA),
             logicalKey = LogicalKey.Character("a"),
@@ -258,9 +282,10 @@ class EventsTest {
             modifiers = KeyboardModifiers.Shift,
             text = "A",
         )
-        val event = WindowEvent.KeyInput(keyEvent)
+        val event = WindowEvent.KeyInput(keyEvent, deviceId = deviceId)
         assertEquals("KeyInput", classifyWindowEvent(event))
         assertEquals(keyEvent, event.event)
+        assertEquals(deviceId, event.deviceId)
     }
 
     @Test

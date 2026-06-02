@@ -45,6 +45,8 @@ import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.location
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.NativeKeyCode
+import org.graphiks.kadre.core.NativeLogicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.PointerSource
@@ -215,13 +217,6 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                 val mappedCode = AppKitKeyMapper.keyCode(keyCode)
                 val modifiers = AppKitKeyMapper.modifierFlags(modFlags)
                 val state = if (isKeyDown) KeyState.Pressed else KeyState.Released
-                val native = NativeKeyInfo(
-                    platform = KeyPlatform.AppKit,
-                    scanCode = keyCode.toLong(),
-                )
-                val logicalKey = mappedCode?.defaultLogicalKey()
-                    ?: LogicalKey.Unidentified(native)
-
                 // R4: extract text via [NSEvent characters] (nil-safe)
                 val text: String? = if (isKeyDown) {
                     try {
@@ -247,6 +242,14 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                         }
                     } catch (_: Throwable) { null }
                 } else null
+                val native = NativeKeyInfo(
+                    platform = KeyPlatform.AppKit,
+                    scanCode = keyCode.toLong(),
+                    nativeCode = NativeKeyCode.AppKit(keyCode.toLong()),
+                    nativeKey = NativeLogicalKey.AppKit(characters = text),
+                )
+                val logicalKey = mappedCode?.defaultLogicalKey()
+                    ?: LogicalKey.Unidentified(native)
 
                 // GRA-156: dispatch raw DeviceEvent.Key BEFORE window-scoped WindowEvent
                 loop.handler.deviceEvent(
@@ -259,7 +262,7 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                     loop,
                     appKitWindow.id,
                     WindowEvent.KeyInput(
-                        KeyEvent(
+                        event = KeyEvent(
                             physicalKey = AppKitKeyMapper.physicalKey(keyCode),
                             logicalKey = logicalKey,
                             state = state,
@@ -271,6 +274,7 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                             keyWithoutModifiers = logicalKey,
                             native = native,
                         ),
+                        deviceId = DeviceId(0L),
                     ),
                 )
 

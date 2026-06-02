@@ -7,6 +7,7 @@ package org.graphiks.kadre.appkit
 
 import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.PhysicalKey
 
 /**
@@ -16,7 +17,7 @@ import org.graphiks.kadre.core.PhysicalKey
 internal object AppKitKeyMapper {
 
     fun physicalKey(code: Short): PhysicalKey = keyCode(code)?.let(PhysicalKey::Code)
-        ?: PhysicalKey.Native(org.graphiks.kadre.core.KeyPlatform.AppKit, code.toLong())
+        ?: PhysicalKey.Native(NativeKeyCode.AppKit(code.toLong()))
 
     fun keyCode(code: Short): KeyCode? = when (code.toInt()) {
         // Letters (QWERTY US layout)

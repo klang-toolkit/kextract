@@ -14,6 +14,8 @@ import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.NativeKeyCode
+import org.graphiks.kadre.core.NativeLogicalKey
 import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.defaultLogicalKey
@@ -98,7 +100,7 @@ private val KEYCODE_TABLE: Map<Int, KeyCode> = mapOf(
 fun linuxKeycodeToKeyCode(keycode: Int): KeyCode? = KEYCODE_TABLE[keycode]
 
 fun linuxKeycodeToPhysicalKey(keycode: Int): PhysicalKey = linuxKeycodeToKeyCode(keycode)?.let(PhysicalKey::Code)
-    ?: PhysicalKey.Native(KeyPlatform.Wayland, keycode.toLong())
+    ?: PhysicalKey.Native(NativeKeyCode.Wayland(keycode.toLong()))
 
 fun waylandKeyStateToKeyState(state: Int): KeyState = when (state) {
     WL_KEY_RELEASED -> KeyState.Released
@@ -111,10 +113,15 @@ fun mapWaylandKeyEvent(
     modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
 ): WindowEvent.KeyInput {
     val mappedCode = linuxKeycodeToKeyCode(keycode)
-    val native = NativeKeyInfo(platform = KeyPlatform.Wayland, scanCode = keycode.toLong())
+    val native = NativeKeyInfo(
+        platform = KeyPlatform.Wayland,
+        scanCode = keycode.toLong(),
+        nativeCode = NativeKeyCode.Wayland(keycode.toLong()),
+        nativeKey = NativeLogicalKey.Wayland(keysym = null),
+    )
     val logicalKey = mappedCode?.defaultLogicalKey() ?: LogicalKey.Unidentified(native)
     return WindowEvent.KeyInput(
-        KeyEvent(
+        event = KeyEvent(
             physicalKey = linuxKeycodeToPhysicalKey(keycode),
             logicalKey = logicalKey,
             state = waylandKeyStateToKeyState(state),
@@ -124,6 +131,7 @@ fun mapWaylandKeyEvent(
             keyWithoutModifiers = logicalKey,
             native = native,
         ),
+        deviceId = null,
     )
 }
 

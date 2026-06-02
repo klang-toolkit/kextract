@@ -78,7 +78,7 @@ class PongAppWeb : ApplicationHandler {
 
     private fun onKey(event: WindowEvent.KeyInput) {
         // Debug log: confirms the arrival of keyboard events on the handler side.
-        println("[pong-web] key ${event.event.physicalKey} ${event.event.state}")
+        println("[pong-web] key ${event.event.physicalKey.logName()} ${event.event.state}")
         playerInput = when {
             event.event.physicalKey == PhysicalKey.Code(KeyCode.ArrowUp) && event.event.state == KeyState.Pressed -> PaddleInput.UP
             event.event.physicalKey == PhysicalKey.Code(KeyCode.ArrowDown) && event.event.state == KeyState.Pressed -> PaddleInput.DOWN
@@ -112,3 +112,8 @@ class PongAppWeb : ApplicationHandler {
  */
 private fun jsDateNow(): Double = js("Date.now()")
 private fun currentTimeMs(): Long = jsDateNow().toLong()
+
+private fun PhysicalKey.logName(): String = when (this) {
+    is PhysicalKey.Code -> code.name
+    else -> toString()
+}

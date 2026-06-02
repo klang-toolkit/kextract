@@ -893,6 +893,273 @@ sealed interface org.graphiks.kadre.core/MouseButton { // org.graphiks.kadre.cor
     }
 }
 
+sealed interface org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode|null[0]
+    abstract val platform // org.graphiks.kadre.core/NativeKeyCode.platform|{}platform[0]
+        abstract fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.platform.<get-platform>|<get-platform>(){}[0]
+
+    final class Android : org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode.Android|null[0]
+        constructor <init>(kotlin/Long?, kotlin/Long) // org.graphiks.kadre.core/NativeKeyCode.Android.<init>|<init>(kotlin.Long?;kotlin.Long){}[0]
+
+        final val keyCode // org.graphiks.kadre.core/NativeKeyCode.Android.keyCode|{}keyCode[0]
+            final fun <get-keyCode>(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.Android.keyCode.<get-keyCode>|<get-keyCode>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeKeyCode.Android.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.Android.platform.<get-platform>|<get-platform>(){}[0]
+        final val scanCode // org.graphiks.kadre.core/NativeKeyCode.Android.scanCode|{}scanCode[0]
+            final fun <get-scanCode>(): kotlin/Long? // org.graphiks.kadre.core/NativeKeyCode.Android.scanCode.<get-scanCode>|<get-scanCode>(){}[0]
+
+        final fun component1(): kotlin/Long? // org.graphiks.kadre.core/NativeKeyCode.Android.component1|component1(){}[0]
+        final fun component2(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.Android.component2|component2(){}[0]
+        final fun copy(kotlin/Long? = ..., kotlin/Long = ...): org.graphiks.kadre.core/NativeKeyCode.Android // org.graphiks.kadre.core/NativeKeyCode.Android.copy|copy(kotlin.Long?;kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyCode.Android.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyCode.Android.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.Android.toString|toString(){}[0]
+    }
+
+    final class AppKit : org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode.AppKit|null[0]
+        constructor <init>(kotlin/Long) // org.graphiks.kadre.core/NativeKeyCode.AppKit.<init>|<init>(kotlin.Long){}[0]
+
+        final val keyCode // org.graphiks.kadre.core/NativeKeyCode.AppKit.keyCode|{}keyCode[0]
+            final fun <get-keyCode>(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.AppKit.keyCode.<get-keyCode>|<get-keyCode>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeKeyCode.AppKit.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.AppKit.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.AppKit.component1|component1(){}[0]
+        final fun copy(kotlin/Long = ...): org.graphiks.kadre.core/NativeKeyCode.AppKit // org.graphiks.kadre.core/NativeKeyCode.AppKit.copy|copy(kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyCode.AppKit.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyCode.AppKit.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.AppKit.toString|toString(){}[0]
+    }
+
+    final class PlatformCode : org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode.PlatformCode|null[0]
+        constructor <init>(org.graphiks.kadre.core/KeyPlatform, kotlin/Long) // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.<init>|<init>(org.graphiks.kadre.core.KeyPlatform;kotlin.Long){}[0]
+
+        final val code // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.code|{}code[0]
+            final fun <get-code>(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.code.<get-code>|<get-code>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.component1|component1(){}[0]
+        final fun component2(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.component2|component2(){}[0]
+        final fun copy(org.graphiks.kadre.core/KeyPlatform = ..., kotlin/Long = ...): org.graphiks.kadre.core/NativeKeyCode.PlatformCode // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.copy|copy(org.graphiks.kadre.core.KeyPlatform;kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.PlatformCode.toString|toString(){}[0]
+    }
+
+    final class UIKit : org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode.UIKit|null[0]
+        constructor <init>(kotlin/Long) // org.graphiks.kadre.core/NativeKeyCode.UIKit.<init>|<init>(kotlin.Long){}[0]
+
+        final val hidUsage // org.graphiks.kadre.core/NativeKeyCode.UIKit.hidUsage|{}hidUsage[0]
+            final fun <get-hidUsage>(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.UIKit.hidUsage.<get-hidUsage>|<get-hidUsage>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeKeyCode.UIKit.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.UIKit.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.UIKit.component1|component1(){}[0]
+        final fun copy(kotlin/Long = ...): org.graphiks.kadre.core/NativeKeyCode.UIKit // org.graphiks.kadre.core/NativeKeyCode.UIKit.copy|copy(kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyCode.UIKit.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyCode.UIKit.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.UIKit.toString|toString(){}[0]
+    }
+
+    final class Wayland : org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode.Wayland|null[0]
+        constructor <init>(kotlin/Long) // org.graphiks.kadre.core/NativeKeyCode.Wayland.<init>|<init>(kotlin.Long){}[0]
+
+        final val evdevCode // org.graphiks.kadre.core/NativeKeyCode.Wayland.evdevCode|{}evdevCode[0]
+            final fun <get-evdevCode>(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.Wayland.evdevCode.<get-evdevCode>|<get-evdevCode>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeKeyCode.Wayland.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.Wayland.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.Wayland.component1|component1(){}[0]
+        final fun copy(kotlin/Long = ...): org.graphiks.kadre.core/NativeKeyCode.Wayland // org.graphiks.kadre.core/NativeKeyCode.Wayland.copy|copy(kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyCode.Wayland.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyCode.Wayland.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.Wayland.toString|toString(){}[0]
+    }
+
+    final class Web : org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode.Web|null[0]
+        constructor <init>(kotlin/String) // org.graphiks.kadre.core/NativeKeyCode.Web.<init>|<init>(kotlin.String){}[0]
+
+        final val code // org.graphiks.kadre.core/NativeKeyCode.Web.code|{}code[0]
+            final fun <get-code>(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.Web.code.<get-code>|<get-code>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeKeyCode.Web.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.Web.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.Web.component1|component1(){}[0]
+        final fun copy(kotlin/String = ...): org.graphiks.kadre.core/NativeKeyCode.Web // org.graphiks.kadre.core/NativeKeyCode.Web.copy|copy(kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyCode.Web.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyCode.Web.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.Web.toString|toString(){}[0]
+    }
+
+    final class Win32 : org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode.Win32|null[0]
+        constructor <init>(kotlin/Long?, kotlin/Long) // org.graphiks.kadre.core/NativeKeyCode.Win32.<init>|<init>(kotlin.Long?;kotlin.Long){}[0]
+
+        final val platform // org.graphiks.kadre.core/NativeKeyCode.Win32.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.Win32.platform.<get-platform>|<get-platform>(){}[0]
+        final val scanCode // org.graphiks.kadre.core/NativeKeyCode.Win32.scanCode|{}scanCode[0]
+            final fun <get-scanCode>(): kotlin/Long? // org.graphiks.kadre.core/NativeKeyCode.Win32.scanCode.<get-scanCode>|<get-scanCode>(){}[0]
+        final val virtualKey // org.graphiks.kadre.core/NativeKeyCode.Win32.virtualKey|{}virtualKey[0]
+            final fun <get-virtualKey>(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.Win32.virtualKey.<get-virtualKey>|<get-virtualKey>(){}[0]
+
+        final fun component1(): kotlin/Long? // org.graphiks.kadre.core/NativeKeyCode.Win32.component1|component1(){}[0]
+        final fun component2(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.Win32.component2|component2(){}[0]
+        final fun copy(kotlin/Long? = ..., kotlin/Long = ...): org.graphiks.kadre.core/NativeKeyCode.Win32 // org.graphiks.kadre.core/NativeKeyCode.Win32.copy|copy(kotlin.Long?;kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyCode.Win32.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyCode.Win32.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.Win32.toString|toString(){}[0]
+    }
+
+    final class X11 : org.graphiks.kadre.core/NativeKeyCode { // org.graphiks.kadre.core/NativeKeyCode.X11|null[0]
+        constructor <init>(kotlin/Long) // org.graphiks.kadre.core/NativeKeyCode.X11.<init>|<init>(kotlin.Long){}[0]
+
+        final val keycode // org.graphiks.kadre.core/NativeKeyCode.X11.keycode|{}keycode[0]
+            final fun <get-keycode>(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.X11.keycode.<get-keycode>|<get-keycode>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeKeyCode.X11.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyCode.X11.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/Long // org.graphiks.kadre.core/NativeKeyCode.X11.component1|component1(){}[0]
+        final fun copy(kotlin/Long = ...): org.graphiks.kadre.core/NativeKeyCode.X11 // org.graphiks.kadre.core/NativeKeyCode.X11.copy|copy(kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyCode.X11.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyCode.X11.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyCode.X11.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey|null[0]
+    abstract val platform // org.graphiks.kadre.core/NativeLogicalKey.platform|{}platform[0]
+        abstract fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.platform.<get-platform>|<get-platform>(){}[0]
+
+    final class Android : org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey.Android|null[0]
+        constructor <init>(kotlin/Long, kotlin/String? = ...) // org.graphiks.kadre.core/NativeLogicalKey.Android.<init>|<init>(kotlin.Long;kotlin.String?){}[0]
+
+        final val displayLabel // org.graphiks.kadre.core/NativeLogicalKey.Android.displayLabel|{}displayLabel[0]
+            final fun <get-displayLabel>(): kotlin/String? // org.graphiks.kadre.core/NativeLogicalKey.Android.displayLabel.<get-displayLabel>|<get-displayLabel>(){}[0]
+        final val keyCode // org.graphiks.kadre.core/NativeLogicalKey.Android.keyCode|{}keyCode[0]
+            final fun <get-keyCode>(): kotlin/Long // org.graphiks.kadre.core/NativeLogicalKey.Android.keyCode.<get-keyCode>|<get-keyCode>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeLogicalKey.Android.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.Android.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/Long // org.graphiks.kadre.core/NativeLogicalKey.Android.component1|component1(){}[0]
+        final fun component2(): kotlin/String? // org.graphiks.kadre.core/NativeLogicalKey.Android.component2|component2(){}[0]
+        final fun copy(kotlin/Long = ..., kotlin/String? = ...): org.graphiks.kadre.core/NativeLogicalKey.Android // org.graphiks.kadre.core/NativeLogicalKey.Android.copy|copy(kotlin.Long;kotlin.String?){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeLogicalKey.Android.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeLogicalKey.Android.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.Android.toString|toString(){}[0]
+    }
+
+    final class AppKit : org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey.AppKit|null[0]
+        constructor <init>(kotlin/String?, kotlin/String? = ...) // org.graphiks.kadre.core/NativeLogicalKey.AppKit.<init>|<init>(kotlin.String?;kotlin.String?){}[0]
+
+        final val characters // org.graphiks.kadre.core/NativeLogicalKey.AppKit.characters|{}characters[0]
+            final fun <get-characters>(): kotlin/String? // org.graphiks.kadre.core/NativeLogicalKey.AppKit.characters.<get-characters>|<get-characters>(){}[0]
+        final val charactersIgnoringModifiers // org.graphiks.kadre.core/NativeLogicalKey.AppKit.charactersIgnoringModifiers|{}charactersIgnoringModifiers[0]
+            final fun <get-charactersIgnoringModifiers>(): kotlin/String? // org.graphiks.kadre.core/NativeLogicalKey.AppKit.charactersIgnoringModifiers.<get-charactersIgnoringModifiers>|<get-charactersIgnoringModifiers>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeLogicalKey.AppKit.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.AppKit.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/String? // org.graphiks.kadre.core/NativeLogicalKey.AppKit.component1|component1(){}[0]
+        final fun component2(): kotlin/String? // org.graphiks.kadre.core/NativeLogicalKey.AppKit.component2|component2(){}[0]
+        final fun copy(kotlin/String? = ..., kotlin/String? = ...): org.graphiks.kadre.core/NativeLogicalKey.AppKit // org.graphiks.kadre.core/NativeLogicalKey.AppKit.copy|copy(kotlin.String?;kotlin.String?){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeLogicalKey.AppKit.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeLogicalKey.AppKit.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.AppKit.toString|toString(){}[0]
+    }
+
+    final class PlatformValue : org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue|null[0]
+        constructor <init>(org.graphiks.kadre.core/KeyPlatform, kotlin/String) // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.<init>|<init>(org.graphiks.kadre.core.KeyPlatform;kotlin.String){}[0]
+
+        final val platform // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.platform.<get-platform>|<get-platform>(){}[0]
+        final val value // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.value|{}value[0]
+            final fun <get-value>(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.component1|component1(){}[0]
+        final fun component2(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.component2|component2(){}[0]
+        final fun copy(org.graphiks.kadre.core/KeyPlatform = ..., kotlin/String = ...): org.graphiks.kadre.core/NativeLogicalKey.PlatformValue // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.copy|copy(org.graphiks.kadre.core.KeyPlatform;kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.PlatformValue.toString|toString(){}[0]
+    }
+
+    final class UIKit : org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey.UIKit|null[0]
+        constructor <init>(kotlin/Long, kotlin/String?) // org.graphiks.kadre.core/NativeLogicalKey.UIKit.<init>|<init>(kotlin.Long;kotlin.String?){}[0]
+
+        final val characters // org.graphiks.kadre.core/NativeLogicalKey.UIKit.characters|{}characters[0]
+            final fun <get-characters>(): kotlin/String? // org.graphiks.kadre.core/NativeLogicalKey.UIKit.characters.<get-characters>|<get-characters>(){}[0]
+        final val keyCode // org.graphiks.kadre.core/NativeLogicalKey.UIKit.keyCode|{}keyCode[0]
+            final fun <get-keyCode>(): kotlin/Long // org.graphiks.kadre.core/NativeLogicalKey.UIKit.keyCode.<get-keyCode>|<get-keyCode>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeLogicalKey.UIKit.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.UIKit.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/Long // org.graphiks.kadre.core/NativeLogicalKey.UIKit.component1|component1(){}[0]
+        final fun component2(): kotlin/String? // org.graphiks.kadre.core/NativeLogicalKey.UIKit.component2|component2(){}[0]
+        final fun copy(kotlin/Long = ..., kotlin/String? = ...): org.graphiks.kadre.core/NativeLogicalKey.UIKit // org.graphiks.kadre.core/NativeLogicalKey.UIKit.copy|copy(kotlin.Long;kotlin.String?){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeLogicalKey.UIKit.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeLogicalKey.UIKit.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.UIKit.toString|toString(){}[0]
+    }
+
+    final class Wayland : org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey.Wayland|null[0]
+        constructor <init>(kotlin/Long?) // org.graphiks.kadre.core/NativeLogicalKey.Wayland.<init>|<init>(kotlin.Long?){}[0]
+
+        final val keysym // org.graphiks.kadre.core/NativeLogicalKey.Wayland.keysym|{}keysym[0]
+            final fun <get-keysym>(): kotlin/Long? // org.graphiks.kadre.core/NativeLogicalKey.Wayland.keysym.<get-keysym>|<get-keysym>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeLogicalKey.Wayland.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.Wayland.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/Long? // org.graphiks.kadre.core/NativeLogicalKey.Wayland.component1|component1(){}[0]
+        final fun copy(kotlin/Long? = ...): org.graphiks.kadre.core/NativeLogicalKey.Wayland // org.graphiks.kadre.core/NativeLogicalKey.Wayland.copy|copy(kotlin.Long?){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeLogicalKey.Wayland.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeLogicalKey.Wayland.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.Wayland.toString|toString(){}[0]
+    }
+
+    final class Web : org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey.Web|null[0]
+        constructor <init>(kotlin/String) // org.graphiks.kadre.core/NativeLogicalKey.Web.<init>|<init>(kotlin.String){}[0]
+
+        final val key // org.graphiks.kadre.core/NativeLogicalKey.Web.key|{}key[0]
+            final fun <get-key>(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.Web.key.<get-key>|<get-key>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeLogicalKey.Web.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.Web.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.Web.component1|component1(){}[0]
+        final fun copy(kotlin/String = ...): org.graphiks.kadre.core/NativeLogicalKey.Web // org.graphiks.kadre.core/NativeLogicalKey.Web.copy|copy(kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeLogicalKey.Web.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeLogicalKey.Web.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.Web.toString|toString(){}[0]
+    }
+
+    final class Win32 : org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey.Win32|null[0]
+        constructor <init>(kotlin/Long) // org.graphiks.kadre.core/NativeLogicalKey.Win32.<init>|<init>(kotlin.Long){}[0]
+
+        final val platform // org.graphiks.kadre.core/NativeLogicalKey.Win32.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.Win32.platform.<get-platform>|<get-platform>(){}[0]
+        final val virtualKey // org.graphiks.kadre.core/NativeLogicalKey.Win32.virtualKey|{}virtualKey[0]
+            final fun <get-virtualKey>(): kotlin/Long // org.graphiks.kadre.core/NativeLogicalKey.Win32.virtualKey.<get-virtualKey>|<get-virtualKey>(){}[0]
+
+        final fun component1(): kotlin/Long // org.graphiks.kadre.core/NativeLogicalKey.Win32.component1|component1(){}[0]
+        final fun copy(kotlin/Long = ...): org.graphiks.kadre.core/NativeLogicalKey.Win32 // org.graphiks.kadre.core/NativeLogicalKey.Win32.copy|copy(kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeLogicalKey.Win32.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeLogicalKey.Win32.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.Win32.toString|toString(){}[0]
+    }
+
+    final class X11 : org.graphiks.kadre.core/NativeLogicalKey { // org.graphiks.kadre.core/NativeLogicalKey.X11|null[0]
+        constructor <init>(kotlin/Long) // org.graphiks.kadre.core/NativeLogicalKey.X11.<init>|<init>(kotlin.Long){}[0]
+
+        final val keysym // org.graphiks.kadre.core/NativeLogicalKey.X11.keysym|{}keysym[0]
+            final fun <get-keysym>(): kotlin/Long // org.graphiks.kadre.core/NativeLogicalKey.X11.keysym.<get-keysym>|<get-keysym>(){}[0]
+        final val platform // org.graphiks.kadre.core/NativeLogicalKey.X11.platform|{}platform[0]
+            final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeLogicalKey.X11.platform.<get-platform>|<get-platform>(){}[0]
+
+        final fun component1(): kotlin/Long // org.graphiks.kadre.core/NativeLogicalKey.X11.component1|component1(){}[0]
+        final fun copy(kotlin/Long = ...): org.graphiks.kadre.core/NativeLogicalKey.X11 // org.graphiks.kadre.core/NativeLogicalKey.X11.copy|copy(kotlin.Long){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeLogicalKey.X11.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeLogicalKey.X11.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeLogicalKey.X11.toString|toString(){}[0]
+    }
+}
+
 sealed interface org.graphiks.kadre.core/PhysicalKey { // org.graphiks.kadre.core/PhysicalKey|null[0]
     final class Code : org.graphiks.kadre.core/PhysicalKey { // org.graphiks.kadre.core/PhysicalKey.Code|null[0]
         constructor <init>(org.graphiks.kadre.core/KeyCode) // org.graphiks.kadre.core/PhysicalKey.Code.<init>|<init>(org.graphiks.kadre.core.KeyCode){}[0]
@@ -909,9 +1176,12 @@ sealed interface org.graphiks.kadre.core/PhysicalKey { // org.graphiks.kadre.cor
 
     final class Native : org.graphiks.kadre.core/PhysicalKey { // org.graphiks.kadre.core/PhysicalKey.Native|null[0]
         constructor <init>(org.graphiks.kadre.core/KeyPlatform, kotlin/Long) // org.graphiks.kadre.core/PhysicalKey.Native.<init>|<init>(org.graphiks.kadre.core.KeyPlatform;kotlin.Long){}[0]
+        constructor <init>(org.graphiks.kadre.core/NativeKeyCode) // org.graphiks.kadre.core/PhysicalKey.Native.<init>|<init>(org.graphiks.kadre.core.NativeKeyCode){}[0]
 
         final val code // org.graphiks.kadre.core/PhysicalKey.Native.code|{}code[0]
             final fun <get-code>(): kotlin/Long // org.graphiks.kadre.core/PhysicalKey.Native.code.<get-code>|<get-code>(){}[0]
+        final val nativeCode // org.graphiks.kadre.core/PhysicalKey.Native.nativeCode|{}nativeCode[0]
+            final fun <get-nativeCode>(): org.graphiks.kadre.core/NativeKeyCode // org.graphiks.kadre.core/PhysicalKey.Native.nativeCode.<get-nativeCode>|<get-nativeCode>(){}[0]
         final val platform // org.graphiks.kadre.core/PhysicalKey.Native.platform|{}platform[0]
             final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/PhysicalKey.Native.platform.<get-platform>|<get-platform>(){}[0]
 
@@ -1331,13 +1601,16 @@ sealed interface org.graphiks.kadre.core/WindowEvent { // org.graphiks.kadre.cor
     }
 
     final class KeyInput : org.graphiks.kadre.core/WindowEvent { // org.graphiks.kadre.core/WindowEvent.KeyInput|null[0]
-        constructor <init>(org.graphiks.kadre.core/KeyEvent) // org.graphiks.kadre.core/WindowEvent.KeyInput.<init>|<init>(org.graphiks.kadre.core.KeyEvent){}[0]
+        constructor <init>(org.graphiks.kadre.core/KeyEvent, org.graphiks.kadre.core/DeviceId? = ...) // org.graphiks.kadre.core/WindowEvent.KeyInput.<init>|<init>(org.graphiks.kadre.core.KeyEvent;org.graphiks.kadre.core.DeviceId?){}[0]
 
+        final val deviceId // org.graphiks.kadre.core/WindowEvent.KeyInput.deviceId|{}deviceId[0]
+            final fun <get-deviceId>(): org.graphiks.kadre.core/DeviceId? // org.graphiks.kadre.core/WindowEvent.KeyInput.deviceId.<get-deviceId>|<get-deviceId>(){}[0]
         final val event // org.graphiks.kadre.core/WindowEvent.KeyInput.event|{}event[0]
             final fun <get-event>(): org.graphiks.kadre.core/KeyEvent // org.graphiks.kadre.core/WindowEvent.KeyInput.event.<get-event>|<get-event>(){}[0]
 
         final fun component1(): org.graphiks.kadre.core/KeyEvent // org.graphiks.kadre.core/WindowEvent.KeyInput.component1|component1(){}[0]
-        final fun copy(org.graphiks.kadre.core/KeyEvent = ...): org.graphiks.kadre.core/WindowEvent.KeyInput // org.graphiks.kadre.core/WindowEvent.KeyInput.copy|copy(org.graphiks.kadre.core.KeyEvent){}[0]
+        final fun component2(): org.graphiks.kadre.core/DeviceId? // org.graphiks.kadre.core/WindowEvent.KeyInput.component2|component2(){}[0]
+        final fun copy(org.graphiks.kadre.core/KeyEvent = ..., org.graphiks.kadre.core/DeviceId? = ...): org.graphiks.kadre.core/WindowEvent.KeyInput // org.graphiks.kadre.core/WindowEvent.KeyInput.copy|copy(org.graphiks.kadre.core.KeyEvent;org.graphiks.kadre.core.DeviceId?){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowEvent.KeyInput.equals|equals(kotlin.Any?){}[0]
         final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowEvent.KeyInput.hashCode|hashCode(){}[0]
         final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowEvent.KeyInput.toString|toString(){}[0]
@@ -1918,12 +2191,16 @@ final class org.graphiks.kadre.core/ModifierKeys { // org.graphiks.kadre.core/Mo
 }
 
 final class org.graphiks.kadre.core/NativeKeyInfo { // org.graphiks.kadre.core/NativeKeyInfo|null[0]
-    constructor <init>(org.graphiks.kadre.core/KeyPlatform = ..., kotlin/Long? = ..., kotlin/Long? = ..., kotlin/String? = ..., kotlin/String? = ...) // org.graphiks.kadre.core/NativeKeyInfo.<init>|<init>(org.graphiks.kadre.core.KeyPlatform;kotlin.Long?;kotlin.Long?;kotlin.String?;kotlin.String?){}[0]
+    constructor <init>(org.graphiks.kadre.core/KeyPlatform = ..., kotlin/Long? = ..., kotlin/Long? = ..., kotlin/String? = ..., kotlin/String? = ..., org.graphiks.kadre.core/NativeKeyCode? = ..., org.graphiks.kadre.core/NativeLogicalKey? = ...) // org.graphiks.kadre.core/NativeKeyInfo.<init>|<init>(org.graphiks.kadre.core.KeyPlatform;kotlin.Long?;kotlin.Long?;kotlin.String?;kotlin.String?;org.graphiks.kadre.core.NativeKeyCode?;org.graphiks.kadre.core.NativeLogicalKey?){}[0]
 
     final val keyCode // org.graphiks.kadre.core/NativeKeyInfo.keyCode|{}keyCode[0]
         final fun <get-keyCode>(): kotlin/String? // org.graphiks.kadre.core/NativeKeyInfo.keyCode.<get-keyCode>|<get-keyCode>(){}[0]
     final val keyValue // org.graphiks.kadre.core/NativeKeyInfo.keyValue|{}keyValue[0]
         final fun <get-keyValue>(): kotlin/String? // org.graphiks.kadre.core/NativeKeyInfo.keyValue.<get-keyValue>|<get-keyValue>(){}[0]
+    final val nativeCode // org.graphiks.kadre.core/NativeKeyInfo.nativeCode|{}nativeCode[0]
+        final fun <get-nativeCode>(): org.graphiks.kadre.core/NativeKeyCode? // org.graphiks.kadre.core/NativeKeyInfo.nativeCode.<get-nativeCode>|<get-nativeCode>(){}[0]
+    final val nativeKey // org.graphiks.kadre.core/NativeKeyInfo.nativeKey|{}nativeKey[0]
+        final fun <get-nativeKey>(): org.graphiks.kadre.core/NativeLogicalKey? // org.graphiks.kadre.core/NativeKeyInfo.nativeKey.<get-nativeKey>|<get-nativeKey>(){}[0]
     final val platform // org.graphiks.kadre.core/NativeKeyInfo.platform|{}platform[0]
         final fun <get-platform>(): org.graphiks.kadre.core/KeyPlatform // org.graphiks.kadre.core/NativeKeyInfo.platform.<get-platform>|<get-platform>(){}[0]
     final val scanCode // org.graphiks.kadre.core/NativeKeyInfo.scanCode|{}scanCode[0]
@@ -1936,7 +2213,9 @@ final class org.graphiks.kadre.core/NativeKeyInfo { // org.graphiks.kadre.core/N
     final fun component3(): kotlin/Long? // org.graphiks.kadre.core/NativeKeyInfo.component3|component3(){}[0]
     final fun component4(): kotlin/String? // org.graphiks.kadre.core/NativeKeyInfo.component4|component4(){}[0]
     final fun component5(): kotlin/String? // org.graphiks.kadre.core/NativeKeyInfo.component5|component5(){}[0]
-    final fun copy(org.graphiks.kadre.core/KeyPlatform = ..., kotlin/Long? = ..., kotlin/Long? = ..., kotlin/String? = ..., kotlin/String? = ...): org.graphiks.kadre.core/NativeKeyInfo // org.graphiks.kadre.core/NativeKeyInfo.copy|copy(org.graphiks.kadre.core.KeyPlatform;kotlin.Long?;kotlin.Long?;kotlin.String?;kotlin.String?){}[0]
+    final fun component6(): org.graphiks.kadre.core/NativeKeyCode? // org.graphiks.kadre.core/NativeKeyInfo.component6|component6(){}[0]
+    final fun component7(): org.graphiks.kadre.core/NativeLogicalKey? // org.graphiks.kadre.core/NativeKeyInfo.component7|component7(){}[0]
+    final fun copy(org.graphiks.kadre.core/KeyPlatform = ..., kotlin/Long? = ..., kotlin/Long? = ..., kotlin/String? = ..., kotlin/String? = ..., org.graphiks.kadre.core/NativeKeyCode? = ..., org.graphiks.kadre.core/NativeLogicalKey? = ...): org.graphiks.kadre.core/NativeKeyInfo // org.graphiks.kadre.core/NativeKeyInfo.copy|copy(org.graphiks.kadre.core.KeyPlatform;kotlin.Long?;kotlin.Long?;kotlin.String?;kotlin.String?;org.graphiks.kadre.core.NativeKeyCode?;org.graphiks.kadre.core.NativeLogicalKey?){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/NativeKeyInfo.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/NativeKeyInfo.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyInfo.toString|toString(){}[0]

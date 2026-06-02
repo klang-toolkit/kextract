@@ -980,23 +980,241 @@ public final class org/graphiks/kadre/core/NamedKey : java/lang/Enum {
 	public static fun values ()[Lorg/graphiks/kadre/core/NamedKey;
 }
 
+public abstract interface class org/graphiks/kadre/core/NativeKeyCode {
+	public abstract fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyCode$Android : org/graphiks/kadre/core/NativeKeyCode {
+	public fun <init> (Ljava/lang/Long;J)V
+	public final fun component1 ()Ljava/lang/Long;
+	public final fun component2 ()J
+	public final fun copy (Ljava/lang/Long;J)Lorg/graphiks/kadre/core/NativeKeyCode$Android;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyCode$Android;Ljava/lang/Long;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyCode$Android;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKeyCode ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun getScanCode ()Ljava/lang/Long;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyCode$AppKit : org/graphiks/kadre/core/NativeKeyCode {
+	public fun <init> (J)V
+	public final fun component1 ()J
+	public final fun copy (J)Lorg/graphiks/kadre/core/NativeKeyCode$AppKit;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyCode$AppKit;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyCode$AppKit;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKeyCode ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyCode$PlatformCode : org/graphiks/kadre/core/NativeKeyCode {
+	public fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;J)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun component2 ()J
+	public final fun copy (Lorg/graphiks/kadre/core/KeyPlatform;J)Lorg/graphiks/kadre/core/NativeKeyCode$PlatformCode;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyCode$PlatformCode;Lorg/graphiks/kadre/core/KeyPlatform;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyCode$PlatformCode;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyCode$UIKit : org/graphiks/kadre/core/NativeKeyCode {
+	public fun <init> (J)V
+	public final fun component1 ()J
+	public final fun copy (J)Lorg/graphiks/kadre/core/NativeKeyCode$UIKit;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyCode$UIKit;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyCode$UIKit;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getHidUsage ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyCode$Wayland : org/graphiks/kadre/core/NativeKeyCode {
+	public fun <init> (J)V
+	public final fun component1 ()J
+	public final fun copy (J)Lorg/graphiks/kadre/core/NativeKeyCode$Wayland;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyCode$Wayland;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyCode$Wayland;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEvdevCode ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyCode$Web : org/graphiks/kadre/core/NativeKeyCode {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lorg/graphiks/kadre/core/NativeKeyCode$Web;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyCode$Web;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyCode$Web;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()Ljava/lang/String;
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyCode$Win32 : org/graphiks/kadre/core/NativeKeyCode {
+	public fun <init> (Ljava/lang/Long;J)V
+	public final fun component1 ()Ljava/lang/Long;
+	public final fun component2 ()J
+	public final fun copy (Ljava/lang/Long;J)Lorg/graphiks/kadre/core/NativeKeyCode$Win32;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyCode$Win32;Ljava/lang/Long;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyCode$Win32;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun getScanCode ()Ljava/lang/Long;
+	public final fun getVirtualKey ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeKeyCode$X11 : org/graphiks/kadre/core/NativeKeyCode {
+	public fun <init> (J)V
+	public final fun component1 ()J
+	public final fun copy (J)Lorg/graphiks/kadre/core/NativeKeyCode$X11;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyCode$X11;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyCode$X11;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKeycode ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/graphiks/kadre/core/NativeKeyInfo {
 	public fun <init> ()V
-	public fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;)V
-	public synthetic fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;Lorg/graphiks/kadre/core/NativeKeyCode;Lorg/graphiks/kadre/core/NativeLogicalKey;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;Lorg/graphiks/kadre/core/NativeKeyCode;Lorg/graphiks/kadre/core/NativeLogicalKey;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lorg/graphiks/kadre/core/KeyPlatform;
 	public final fun component2 ()Ljava/lang/Long;
 	public final fun component3 ()Ljava/lang/Long;
 	public final fun component4 ()Ljava/lang/String;
 	public final fun component5 ()Ljava/lang/String;
-	public final fun copy (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;)Lorg/graphiks/kadre/core/NativeKeyInfo;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyInfo;Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public final fun component6 ()Lorg/graphiks/kadre/core/NativeKeyCode;
+	public final fun component7 ()Lorg/graphiks/kadre/core/NativeLogicalKey;
+	public final fun copy (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;Lorg/graphiks/kadre/core/NativeKeyCode;Lorg/graphiks/kadre/core/NativeLogicalKey;)Lorg/graphiks/kadre/core/NativeKeyInfo;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeKeyInfo;Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/Long;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/String;Lorg/graphiks/kadre/core/NativeKeyCode;Lorg/graphiks/kadre/core/NativeLogicalKey;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeKeyInfo;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getKeyCode ()Ljava/lang/String;
 	public final fun getKeyValue ()Ljava/lang/String;
+	public final fun getNativeCode ()Lorg/graphiks/kadre/core/NativeKeyCode;
+	public final fun getNativeKey ()Lorg/graphiks/kadre/core/NativeLogicalKey;
 	public final fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
 	public final fun getScanCode ()Ljava/lang/Long;
 	public final fun getVirtualKey ()Ljava/lang/Long;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class org/graphiks/kadre/core/NativeLogicalKey {
+	public abstract fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+}
+
+public final class org/graphiks/kadre/core/NativeLogicalKey$Android : org/graphiks/kadre/core/NativeLogicalKey {
+	public fun <init> (JLjava/lang/String;)V
+	public synthetic fun <init> (JLjava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (JLjava/lang/String;)Lorg/graphiks/kadre/core/NativeLogicalKey$Android;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeLogicalKey$Android;JLjava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeLogicalKey$Android;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDisplayLabel ()Ljava/lang/String;
+	public final fun getKeyCode ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeLogicalKey$AppKit : org/graphiks/kadre/core/NativeLogicalKey {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lorg/graphiks/kadre/core/NativeLogicalKey$AppKit;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeLogicalKey$AppKit;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeLogicalKey$AppKit;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCharacters ()Ljava/lang/String;
+	public final fun getCharactersIgnoringModifiers ()Ljava/lang/String;
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeLogicalKey$PlatformValue : org/graphiks/kadre/core/NativeLogicalKey {
+	public fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/String;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/String;)Lorg/graphiks/kadre/core/NativeLogicalKey$PlatformValue;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeLogicalKey$PlatformValue;Lorg/graphiks/kadre/core/KeyPlatform;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeLogicalKey$PlatformValue;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeLogicalKey$UIKit : org/graphiks/kadre/core/NativeLogicalKey {
+	public fun <init> (JLjava/lang/String;)V
+	public final fun component1 ()J
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (JLjava/lang/String;)Lorg/graphiks/kadre/core/NativeLogicalKey$UIKit;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeLogicalKey$UIKit;JLjava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeLogicalKey$UIKit;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCharacters ()Ljava/lang/String;
+	public final fun getKeyCode ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeLogicalKey$Wayland : org/graphiks/kadre/core/NativeLogicalKey {
+	public fun <init> (Ljava/lang/Long;)V
+	public final fun component1 ()Ljava/lang/Long;
+	public final fun copy (Ljava/lang/Long;)Lorg/graphiks/kadre/core/NativeLogicalKey$Wayland;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeLogicalKey$Wayland;Ljava/lang/Long;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeLogicalKey$Wayland;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKeysym ()Ljava/lang/Long;
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeLogicalKey$Web : org/graphiks/kadre/core/NativeLogicalKey {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lorg/graphiks/kadre/core/NativeLogicalKey$Web;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeLogicalKey$Web;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeLogicalKey$Web;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKey ()Ljava/lang/String;
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeLogicalKey$Win32 : org/graphiks/kadre/core/NativeLogicalKey {
+	public fun <init> (J)V
+	public final fun component1 ()J
+	public final fun copy (J)Lorg/graphiks/kadre/core/NativeLogicalKey$Win32;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeLogicalKey$Win32;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeLogicalKey$Win32;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
+	public final fun getVirtualKey ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class org/graphiks/kadre/core/NativeLogicalKey$X11 : org/graphiks/kadre/core/NativeLogicalKey {
+	public fun <init> (J)V
+	public final fun component1 ()J
+	public final fun copy (J)Lorg/graphiks/kadre/core/NativeLogicalKey$X11;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/NativeLogicalKey$X11;JILjava/lang/Object;)Lorg/graphiks/kadre/core/NativeLogicalKey$X11;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKeysym ()J
+	public fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -1017,12 +1235,14 @@ public final class org/graphiks/kadre/core/PhysicalKey$Code : org/graphiks/kadre
 
 public final class org/graphiks/kadre/core/PhysicalKey$Native : org/graphiks/kadre/core/PhysicalKey {
 	public fun <init> (Lorg/graphiks/kadre/core/KeyPlatform;J)V
+	public fun <init> (Lorg/graphiks/kadre/core/NativeKeyCode;)V
 	public final fun component1 ()Lorg/graphiks/kadre/core/KeyPlatform;
 	public final fun component2 ()J
 	public final fun copy (Lorg/graphiks/kadre/core/KeyPlatform;J)Lorg/graphiks/kadre/core/PhysicalKey$Native;
 	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/PhysicalKey$Native;Lorg/graphiks/kadre/core/KeyPlatform;JILjava/lang/Object;)Lorg/graphiks/kadre/core/PhysicalKey$Native;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCode ()J
+	public final fun getNativeCode ()Lorg/graphiks/kadre/core/NativeKeyCode;
 	public final fun getPlatform ()Lorg/graphiks/kadre/core/KeyPlatform;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -1713,11 +1933,14 @@ public final class org/graphiks/kadre/core/WindowEvent$Ime$ImeEvent$Preedit : or
 }
 
 public final class org/graphiks/kadre/core/WindowEvent$KeyInput : org/graphiks/kadre/core/WindowEvent {
-	public fun <init> (Lorg/graphiks/kadre/core/KeyEvent;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/KeyEvent;Lorg/graphiks/kadre/core/DeviceId;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/KeyEvent;Lorg/graphiks/kadre/core/DeviceId;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lorg/graphiks/kadre/core/KeyEvent;
-	public final fun copy (Lorg/graphiks/kadre/core/KeyEvent;)Lorg/graphiks/kadre/core/WindowEvent$KeyInput;
-	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/WindowEvent$KeyInput;Lorg/graphiks/kadre/core/KeyEvent;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$KeyInput;
+	public final fun component2-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
+	public final fun copy-kAerw-s (Lorg/graphiks/kadre/core/KeyEvent;Lorg/graphiks/kadre/core/DeviceId;)Lorg/graphiks/kadre/core/WindowEvent$KeyInput;
+	public static synthetic fun copy-kAerw-s$default (Lorg/graphiks/kadre/core/WindowEvent$KeyInput;Lorg/graphiks/kadre/core/KeyEvent;Lorg/graphiks/kadre/core/DeviceId;ILjava/lang/Object;)Lorg/graphiks/kadre/core/WindowEvent$KeyInput;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceId-MH7XhkM ()Lorg/graphiks/kadre/core/DeviceId;
 	public final fun getEvent ()Lorg/graphiks/kadre/core/KeyEvent;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;

@@ -10,7 +10,7 @@
 package org.graphiks.kadre.win32
 
 import org.graphiks.kadre.core.KeyCode
-import org.graphiks.kadre.core.KeyPlatform
+import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.PhysicalKey
 
 /**
@@ -117,5 +117,5 @@ internal object Win32KeyMapper {
     fun keyCode(vkCode: Int): KeyCode? = table[vkCode]
 
     fun physicalKey(vkCode: Int): PhysicalKey = keyCode(vkCode)?.let(PhysicalKey::Code)
-        ?: PhysicalKey.Native(KeyPlatform.Win32, vkCode.toLong())
+        ?: PhysicalKey.Native(NativeKeyCode.Win32(scanCode = null, virtualKey = vkCode.toLong()))
 }

@@ -18,6 +18,7 @@ import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.FingerId
+import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -116,6 +117,21 @@ class KadreWndProcTest {
             assertEquals(PhysicalKey.Code(KeyCode.Space), event.event.physicalKey)
             assertEquals(KeyState.Pressed, event.event.state)
             assertEquals(true, event.event.repeat)
+        }
+    }
+
+    @Test
+    fun `WM_KEYDOWN preserves extended scancode in native key code`() {
+        val scanCode = 0x4DL
+        val lParam = (scanCode shl 16) or KF_EXTENDED
+        KadreWndProc.dispatch(TEST_HWND, WM_KEYDOWN, VK_RIGHT.toLong(), lParam)
+
+        assertIs<WindowEvent.KeyInput>(capturedEvent).also { event ->
+            assertEquals(0xE000L or scanCode, event.event.native.scanCode)
+            assertEquals(
+                NativeKeyCode.Win32(scanCode = 0xE000L or scanCode, virtualKey = VK_RIGHT.toLong()),
+                event.event.native.nativeCode,
+            )
         }
     }
 

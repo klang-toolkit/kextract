@@ -45,6 +45,8 @@ import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.NativeKeyCode
+import org.graphiks.kadre.core.NativeLogicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
@@ -196,7 +198,7 @@ object KadreWndProc {
                 val vkCode   = wParam.toInt()
                 val isRepeat = (lParam and KF_REPEAT) != 0L
                 val mods     = currentModifiers()
-                emit(hwnd, keyEvent(vkCode, KeyState.Pressed, mods, isRepeat))
+                emit(hwnd, keyEvent(vkCode, KeyState.Pressed, mods, isRepeat, lParam))
                 0L
             }
 
@@ -204,7 +206,7 @@ object KadreWndProc {
             WM_SYSKEYUP.toUInt() -> {
                 val vkCode = wParam.toInt()
                 val mods   = currentModifiers()
-                emit(hwnd, keyEvent(vkCode, KeyState.Released, mods, isRepeat = false))
+                emit(hwnd, keyEvent(vkCode, KeyState.Released, mods, isRepeat = false, lParam))
                 0L
             }
 
@@ -380,12 +382,23 @@ object KadreWndProc {
         state: KeyState,
         modifiers: KeyboardModifiers,
         isRepeat: Boolean,
+        lParam: Long = 0L,
     ): WindowEvent.KeyInput {
         val mappedCode = Win32KeyMapper.keyCode(vkCode)
-        val native = NativeKeyInfo(platform = KeyPlatform.Win32, virtualKey = vkCode.toLong())
+        val rawScanCode = (lParam ushr 16) and 0xFF
+        val scanCode = rawScanCode
+            .takeIf { it != 0L }
+            ?.let { if ((lParam and KF_EXTENDED) != 0L) 0xE000L or it else it }
+        val native = NativeKeyInfo(
+            platform = KeyPlatform.Win32,
+            scanCode = scanCode,
+            virtualKey = vkCode.toLong(),
+            nativeCode = NativeKeyCode.Win32(scanCode = scanCode, virtualKey = vkCode.toLong()),
+            nativeKey = NativeLogicalKey.Win32(vkCode.toLong()),
+        )
         val logicalKey = mappedCode?.defaultLogicalKey() ?: LogicalKey.Unidentified(native)
         return WindowEvent.KeyInput(
-            KeyEvent(
+            event = KeyEvent(
                 physicalKey = Win32KeyMapper.physicalKey(vkCode),
                 logicalKey = logicalKey,
                 state = state,
@@ -395,6 +408,7 @@ object KadreWndProc {
                 keyWithoutModifiers = logicalKey,
                 native = native,
             ),
+            deviceId = null,
         )
     }
 

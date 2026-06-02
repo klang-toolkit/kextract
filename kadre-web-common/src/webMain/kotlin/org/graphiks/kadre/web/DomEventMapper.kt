@@ -23,6 +23,8 @@ import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.NativeKeyCode
+import org.graphiks.kadre.core.NativeLogicalKey
 import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -244,6 +246,8 @@ internal fun domKeyEvent(
         platform = KeyPlatform.Web,
         keyCode = code,
         keyValue = key,
+        nativeCode = NativeKeyCode.Web(code),
+        nativeKey = NativeLogicalKey.Web(key),
     )
     val logicalKey = when {
         key.length == 1 -> LogicalKey.Character(key)
@@ -251,7 +255,7 @@ internal fun domKeyEvent(
         else -> LogicalKey.Unidentified(native)
     }
     return KeyEvent(
-        physicalKey = mappedCode?.let(PhysicalKey::Code) ?: PhysicalKey.Native(KeyPlatform.Web, code.hashCode().toLong()),
+        physicalKey = mappedCode?.let(PhysicalKey::Code) ?: PhysicalKey.Native(NativeKeyCode.Web(code)),
         logicalKey = logicalKey,
         state = domCoreKeyStateFromEventType(eventType),
         modifiers = domKeyboardModifiers(shiftKey, ctrlKey, altKey, metaKey),
@@ -381,7 +385,7 @@ internal fun normalizeWheelDelta(delta: Double, deltaMode: Int): Double {
 internal fun WebWindowEvent.toWindowEvent(): WindowEvent = when (this) {
     WebWindowEvent.CloseRequested -> WindowEvent.CloseRequested
     is WebWindowEvent.Resized -> WindowEvent.Resized(PhysicalSize(width, height))
-is WebWindowEvent.KeyInput -> WindowEvent.KeyInput(event)
+    is WebWindowEvent.KeyInput -> WindowEvent.KeyInput(event, deviceId = null)
     is WebWindowEvent.PointerMoved -> WindowEvent.PointerMoved(
         deviceId = null,
         position = PhysicalPosition(x, y),

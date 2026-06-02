@@ -32,6 +32,8 @@ import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.NativeKeyCode
+import org.graphiks.kadre.core.NativeLogicalKey
 import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -355,11 +357,13 @@ private fun x11KeyInput(
         platform = KeyPlatform.X11,
         scanCode = keycode.toLong(),
         keyValue = keysym.toString(),
+        nativeCode = NativeKeyCode.X11(keycode.toLong()),
+        nativeKey = NativeLogicalKey.X11(keysym.toLong()),
     )
     val logicalKey = mappedCode?.defaultLogicalKey() ?: LogicalKey.Unidentified(native)
     return WindowEvent.KeyInput(
-        KeyEvent(
-            physicalKey = mappedCode?.let(PhysicalKey::Code) ?: PhysicalKey.Native(KeyPlatform.X11, keycode.toLong()),
+        event = KeyEvent(
+            physicalKey = mappedCode?.let(PhysicalKey::Code) ?: PhysicalKey.Native(NativeKeyCode.X11(keycode.toLong())),
             logicalKey = logicalKey,
             state = state,
             modifiers = modifiers,
@@ -368,6 +372,7 @@ private fun x11KeyInput(
             keyWithoutModifiers = logicalKey,
             native = native,
         ),
+        deviceId = null,
     )
 }
 

@@ -16,6 +16,8 @@ import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.NativeKeyCode
+import org.graphiks.kadre.core.NativeLogicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
@@ -298,13 +300,20 @@ abstract class KadreActivity : ComponentActivity() {
         val window = eventLoop.pendingWindow
         if (destroyed || window == null) return false
         val mappedCode = AndroidKeyMapper.keyCode(keyCode) ?: return false
-        val native = NativeKeyInfo(platform = KeyPlatform.Android, virtualKey = keyCode.toLong())
+        val deviceId = DeviceId(event.deviceId.toLong())
+        val native = NativeKeyInfo(
+            platform = KeyPlatform.Android,
+            scanCode = event.scanCode.toLong(),
+            virtualKey = keyCode.toLong(),
+            nativeCode = NativeKeyCode.Android(event.scanCode.toLong(), keyCode.toLong()),
+            nativeKey = NativeLogicalKey.Android(keyCode.toLong()),
+        )
         val logicalKey = mappedCode.defaultLogicalKey()
         handler.windowEvent(
             eventLoop,
             window.id,
             WindowEvent.KeyInput(
-                KadreKeyEvent(
+                event = KadreKeyEvent(
                     physicalKey = AndroidKeyMapper.physicalKey(keyCode),
                     logicalKey = logicalKey,
                     state = state,
@@ -312,8 +321,9 @@ abstract class KadreActivity : ComponentActivity() {
                     repeat = isRepeat,
                     text = mappedCode.defaultText(),
                     keyWithoutModifiers = logicalKey,
-                    native = native.copy(scanCode = event.scanCode.toLong()),
+                    native = native,
                 ),
+                deviceId = deviceId,
             ),
         )
         return true

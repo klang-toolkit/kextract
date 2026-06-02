@@ -377,7 +377,7 @@ Objectif immédiat: assumer que Kadre peut casser son API pendant l'incubation p
 
 ### Priorité P0 — clavier
 
-- Garder `WindowEvent.KeyInput(KeyEvent)` comme unique API clavier publique.
+- Garder `WindowEvent.KeyInput(event, deviceId)` comme unique API clavier publique.
 - Valider par TDD `PhysicalKey`, `LogicalKey`, `KeyboardModifiers`, `KeyboardModifierState`, `KeyLocation`, `KeyChord`.
 - Compléter les tables `KeyCode` / `NamedKey` manquantes par lots testés.
 - Brancher les champs riches par backend: `textWithAllModifiers`, `keyWithoutModifiers`, `location`, `synthetic`, état gauche/droite.

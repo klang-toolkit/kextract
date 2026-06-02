@@ -9,8 +9,8 @@
 package org.graphiks.kadre.uikit
 
 import org.graphiks.kadre.core.KeyCode
-import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.PhysicalKey
 
 internal object UiKitKeyMapper {
@@ -70,7 +70,7 @@ internal object UiKitKeyMapper {
     }
 
     fun physicalKey(usage: Long): PhysicalKey = keyCode(usage)?.let(PhysicalKey::Code)
-        ?: PhysicalKey.Native(KeyPlatform.UIKit, usage)
+        ?: PhysicalKey.Native(NativeKeyCode.UIKit(usage))
 
     private val LETTER_KEYS = arrayOf(
         KeyCode.KeyA, KeyCode.KeyB, KeyCode.KeyC, KeyCode.KeyD, KeyCode.KeyE, KeyCode.KeyF,

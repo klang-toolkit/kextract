@@ -45,7 +45,11 @@ enum class KeyState {
  */
 sealed interface PhysicalKey {
     data class Code(val code: KeyCode) : PhysicalKey
-    data class Native(val platform: KeyPlatform, val code: Long) : PhysicalKey
+    data class Native(val platform: KeyPlatform, val code: Long) : PhysicalKey {
+        constructor(nativeCode: NativeKeyCode) : this(nativeCode.platform, nativeCode.portableCode())
+
+        val nativeCode: NativeKeyCode get() = NativeKeyCode.PlatformCode(platform, code)
+    }
     data object Unidentified : PhysicalKey
 }
 
@@ -424,12 +428,110 @@ enum class KeyPlatform {
     Unknown,
 }
 
+/**
+ * Platform-specific physical key identity.
+ *
+ * This keeps the value typed by source platform instead of reducing every
+ * backend to an opaque integer. It mirrors winit's `NativeKeyCode` role while
+ * staying idiomatic for Kotlin callers.
+ */
+sealed interface NativeKeyCode {
+    val platform: KeyPlatform
+
+    data class AppKit(val keyCode: Long) : NativeKeyCode {
+        override val platform: KeyPlatform = KeyPlatform.AppKit
+    }
+
+    data class UIKit(val hidUsage: Long) : NativeKeyCode {
+        override val platform: KeyPlatform = KeyPlatform.UIKit
+    }
+
+    data class Android(val scanCode: Long?, val keyCode: Long) : NativeKeyCode {
+        override val platform: KeyPlatform = KeyPlatform.Android
+    }
+
+    data class Win32(val scanCode: Long?, val virtualKey: Long) : NativeKeyCode {
+        override val platform: KeyPlatform = KeyPlatform.Win32
+    }
+
+    data class X11(val keycode: Long) : NativeKeyCode {
+        override val platform: KeyPlatform = KeyPlatform.X11
+    }
+
+    data class Wayland(val evdevCode: Long) : NativeKeyCode {
+        override val platform: KeyPlatform = KeyPlatform.Wayland
+    }
+
+    data class Web(val code: String) : NativeKeyCode {
+        override val platform: KeyPlatform = KeyPlatform.Web
+    }
+
+    data class PlatformCode(
+        override val platform: KeyPlatform,
+        val code: Long,
+    ) : NativeKeyCode
+}
+
+private fun NativeKeyCode.portableCode(): Long = when (this) {
+    is NativeKeyCode.AppKit -> keyCode
+    is NativeKeyCode.UIKit -> hidUsage
+    is NativeKeyCode.Android -> keyCode
+    is NativeKeyCode.Win32 -> virtualKey
+    is NativeKeyCode.X11 -> keycode
+    is NativeKeyCode.Wayland -> evdevCode
+    is NativeKeyCode.Web -> code.hashCode().toLong()
+    is NativeKeyCode.PlatformCode -> code
+}
+
+/**
+ * Platform-specific logical key identity, used when the backend cannot map the
+ * key to a portable [LogicalKey.Character], [LogicalKey.Named], or [LogicalKey.Dead].
+ */
+sealed interface NativeLogicalKey {
+    val platform: KeyPlatform
+
+    data class AppKit(val characters: String?, val charactersIgnoringModifiers: String? = null) : NativeLogicalKey {
+        override val platform: KeyPlatform = KeyPlatform.AppKit
+    }
+
+    data class UIKit(val keyCode: Long, val characters: String?) : NativeLogicalKey {
+        override val platform: KeyPlatform = KeyPlatform.UIKit
+    }
+
+    data class Android(val keyCode: Long, val displayLabel: String? = null) : NativeLogicalKey {
+        override val platform: KeyPlatform = KeyPlatform.Android
+    }
+
+    data class Win32(val virtualKey: Long) : NativeLogicalKey {
+        override val platform: KeyPlatform = KeyPlatform.Win32
+    }
+
+    data class X11(val keysym: Long) : NativeLogicalKey {
+        override val platform: KeyPlatform = KeyPlatform.X11
+    }
+
+    data class Wayland(val keysym: Long?) : NativeLogicalKey {
+        override val platform: KeyPlatform = KeyPlatform.Wayland
+    }
+
+    data class Web(val key: String) : NativeLogicalKey {
+        override val platform: KeyPlatform = KeyPlatform.Web
+    }
+
+    data class PlatformValue(
+        override val platform: KeyPlatform,
+        val value: String,
+    ) : NativeLogicalKey
+}
+
 data class NativeKeyInfo(
     val platform: KeyPlatform = KeyPlatform.Unknown,
     val scanCode: Long? = null,
     val virtualKey: Long? = null,
     val keyCode: String? = null,
     val keyValue: String? = null,
+    val nativeCode: NativeKeyCode? = null,
+    val nativeKey: NativeLogicalKey? = null,
 )
 
 data class KeyEvent(
@@ -860,7 +962,10 @@ sealed interface WindowEvent {
     /**
      * A keyboard event occurred while the window had focus.
      */
-    data class KeyInput(val event: KeyEvent) : WindowEvent
+    data class KeyInput(
+        val event: KeyEvent,
+        val deviceId: DeviceId? = null,
+    ) : WindowEvent
 
     /**
      * The pointer moved over the window.
@@ -1189,9 +1294,12 @@ sealed interface DeviceEvent {
     data class Key(val event: RawKeyEvent) : DeviceEvent {
         constructor(scancode: Int, state: KeyState) : this(
             RawKeyEvent(
-                physicalKey = PhysicalKey.Native(KeyPlatform.Unknown, scancode.toLong()),
+                physicalKey = PhysicalKey.Native(NativeKeyCode.PlatformCode(KeyPlatform.Unknown, scancode.toLong())),
                 state = state,
-                native = NativeKeyInfo(scanCode = scancode.toLong()),
+                native = NativeKeyInfo(
+                    scanCode = scancode.toLong(),
+                    nativeCode = NativeKeyCode.PlatformCode(KeyPlatform.Unknown, scancode.toLong()),
+                ),
             ),
         )
 

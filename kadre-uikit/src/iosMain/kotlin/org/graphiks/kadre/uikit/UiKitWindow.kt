@@ -12,6 +12,8 @@ import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.NativeKeyCode
+import org.graphiks.kadre.core.NativeLogicalKey
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerKind
@@ -133,20 +135,20 @@ class KadreMetalView(
             val press = element as? UIPress ?: return@forEach
             val uiKey = press.key ?: return@forEach
             val mappedCode = UiKitKeyMapper.keyCode(uiKey.keyCode) ?: return@forEach
-            val native = NativeKeyInfo(
-                platform = KeyPlatform.UIKit,
-                scanCode = uiKey.keyCode,
-            )
-            val logicalKey = mappedCode.defaultLogicalKey()
             handled = true
             // R4: UIKey.characters is the text produced by the key (may be nil/empty)
             val characters = uiKey.characters
             val text: String? = if (!characters.isNullOrEmpty() && characters[0] >= ' ') characters else null
-            // R4: UIKey.keyCode maps to HID usage (same as what the mapper uses)
-            val scanCode: Int = uiKey.keyCode.toInt()
+            val native = NativeKeyInfo(
+                platform = KeyPlatform.UIKit,
+                scanCode = uiKey.keyCode,
+                nativeCode = NativeKeyCode.UIKit(uiKey.keyCode),
+                nativeKey = NativeLogicalKey.UIKit(uiKey.keyCode, characters = text),
+            )
+            val logicalKey = mappedCode.defaultLogicalKey()
             onEvent(
-WindowEvent.KeyInput(
-                    KeyEvent(
+                WindowEvent.KeyInput(
+                    event = KeyEvent(
                         physicalKey = UiKitKeyMapper.physicalKey(uiKey.keyCode),
                         logicalKey = logicalKey,
                         state = state,
@@ -157,7 +159,8 @@ WindowEvent.KeyInput(
                         keyWithoutModifiers = logicalKey,
                         native = native,
                     ),
-                )
+                    deviceId = null,
+                ),
             )
         }
         return handled

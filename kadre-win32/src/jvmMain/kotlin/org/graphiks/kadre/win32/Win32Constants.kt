@@ -159,6 +159,15 @@ internal const val TOUCH_COORD_SCALE: Double = 100.0
  */
 internal const val KF_REPEAT: Long = 0x4000_0000L
 
+/**
+ * Mask for bit 24 of lParam for keyboard messages.
+ *
+ * Extended scancodes identify keys from the enhanced keyboard set. We fold this
+ * bit into the native scancode as 0xE000 | scanCode, matching winit's stable
+ * native identity convention and avoiding collisions with non-extended keys.
+ */
+internal const val KF_EXTENDED: Long = 0x0100_0000L
+
 // ── Virtual key codes (VK_*) ──────────────────────────────────────────────────
 // Used by Win32KeyMapper for the VK → Key table
 

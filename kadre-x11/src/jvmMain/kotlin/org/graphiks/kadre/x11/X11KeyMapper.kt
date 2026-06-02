@@ -13,6 +13,8 @@ import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.NativeKeyInfo
+import org.graphiks.kadre.core.NativeKeyCode
+import org.graphiks.kadre.core.NativeLogicalKey
 import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.defaultLogicalKey
@@ -125,12 +127,14 @@ object X11KeyMapper {
             platform = KeyPlatform.X11,
             scanCode = keycode.toLong(),
             keyValue = keysym.takeIf { it != 0 }?.toString(),
+            nativeCode = NativeKeyCode.X11(keycode.toLong()),
+            nativeKey = keysym.takeIf { it != 0 }?.let { NativeLogicalKey.X11(it.toLong()) },
         )
         val logicalKey = mappedCode?.defaultLogicalKey() ?: LogicalKey.Unidentified(native)
 
         return WindowEvent.KeyInput(
-            KeyEvent(
-                physicalKey = mappedCode?.let(PhysicalKey::Code) ?: PhysicalKey.Native(KeyPlatform.X11, keycode.toLong()),
+            event = KeyEvent(
+                physicalKey = mappedCode?.let(PhysicalKey::Code) ?: PhysicalKey.Native(NativeKeyCode.X11(keycode.toLong())),
                 logicalKey = logicalKey,
                 state = keyState,
                 modifiers = modifiers,
@@ -139,6 +143,7 @@ object X11KeyMapper {
                 keyWithoutModifiers = logicalKey,
                 native = native,
             ),
+            deviceId = null,
         )
     }
 }

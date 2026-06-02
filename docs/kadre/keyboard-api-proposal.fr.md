@@ -38,6 +38,11 @@ data class KeyEvent(
     val shortcutKey: LogicalKey get() = keyWithoutModifiers ?: logicalKey
     val effectiveText: String? get() = textWithAllModifiers ?: text
 }
+
+data class KeyInput(
+    val event: KeyEvent,
+    val deviceId: DeviceId? = null,
+)
 ```
 
 `shortcutKey` est le choix recommandé pour les raccourcis utilisateur, car il utilise la touche logique sans modifieurs quand le backend la fournit. `effectiveText` est le choix recommandé pour les terminaux/éditeurs qui veulent le texte complet produit avec tous les modifieurs.
@@ -51,11 +56,21 @@ sealed interface PhysicalKey {
     data object Unidentified : PhysicalKey
 }
 
+sealed interface NativeKeyCode {
+    data class AppKit(val keyCode: Long) : NativeKeyCode
+    data class UIKit(val hidUsage: Long) : NativeKeyCode
+    data class Android(val scanCode: Long?, val keyCode: Long) : NativeKeyCode
+    data class Win32(val scanCode: Long?, val virtualKey: Long) : NativeKeyCode
+    data class X11(val keycode: Long) : NativeKeyCode
+    data class Wayland(val evdevCode: Long) : NativeKeyCode
+    data class Web(val code: String) : NativeKeyCode
+}
+
 fun PhysicalKey.location(): KeyLocation
 fun KeyCode.location(): KeyLocation
 ```
 
-`Native` est volontaire: Kadre ne doit pas jeter un scancode/HID usage encore non normalisé. `location()` donne un fallback commun pour gauche/droite/numpad quand le backend ne fournit pas déjà `KeyEvent.location`.
+`Native` est volontaire: Kadre ne doit pas jeter un scancode/HID usage encore non normalisé. `PhysicalKey.Native(platform, code)` conserve l'ABI de l'API incubée precedente; l'identite native typee complete est exposee dans `NativeKeyInfo.nativeCode`, notamment pour eviter les identites fragiles comme le hash d'un `KeyboardEvent.code` Web. `location()` donne un fallback commun pour gauche/droite/numpad quand le backend ne fournit pas déjà `KeyEvent.location`.
 
 ## Touches logiques
 
@@ -65,6 +80,16 @@ sealed interface LogicalKey {
     data class Named(val key: NamedKey) : LogicalKey
     data class Dead(val accent: String?) : LogicalKey
     data class Unidentified(val native: NativeKeyInfo = NativeKeyInfo()) : LogicalKey
+}
+
+sealed interface NativeLogicalKey {
+    data class AppKit(val characters: String?, val charactersIgnoringModifiers: String?) : NativeLogicalKey
+    data class UIKit(val keyCode: Long, val characters: String?) : NativeLogicalKey
+    data class Android(val keyCode: Long, val displayLabel: String?) : NativeLogicalKey
+    data class Win32(val virtualKey: Long) : NativeLogicalKey
+    data class X11(val keysym: Long) : NativeLogicalKey
+    data class Wayland(val keysym: Long?) : NativeLogicalKey
+    data class Web(val key: String) : NativeLogicalKey
 }
 ```
 
