@@ -33,11 +33,13 @@ import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 
 /**
  * Maps a [CursorIcon] to the corresponding CSS cursor property value.
@@ -356,33 +358,36 @@ class WebWindow(
     /**
      * Sets the cursor grab mode.
      *
-     * - [CursorGrabMode.Locked]: calls `requestPointerLock()` on the canvas.
+     * - [CursorGrabMode.Locked]: unsupported until Pointer Lock is wired in concrete bridges.
      * - [CursorGrabMode.Confined]: no-op (browsers do not expose canvas-confined grab).
      * - [CursorGrabMode.None]: calls `exitPointerLock()`.
      */
-    override fun setCursorGrab(mode: CursorGrabMode) {
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult {
         when (mode) {
-            CursorGrabMode.Locked   -> bridge.requestPointerLock(canvasElementId)
-            CursorGrabMode.Confined -> { /* no-op: no confined grab API in browsers */ }
+            CursorGrabMode.Locked -> return WindowRequestResult.Failure(
+                RequestError.Unsupported("Web Pointer Lock is not wired in the DOM bridges"),
+            )
+            CursorGrabMode.Confined -> return WindowRequestResult.Failure(
+                RequestError.Unsupported("Browsers do not expose canvas-confined cursor grab"),
+            )
             CursorGrabMode.None     -> bridge.exitPointerLock()
         }
+        return WindowRequestResult.Success
     }
 
     /**
      * No-op on Web: cursor warping is not exposed by browser APIs.
      */
-    override fun setCursorPosition(position: PhysicalPosition<Int>) {
-        // No-op: browsers do not allow JavaScript to warp the cursor position.
-    }
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Browsers do not allow cursor warping"))
 
     /**
      * No-op on Web.
      *
      * TODO(R3-web-hittest): implement via CSS pointer-events: none.
      */
-    override fun setCursorHittest(hittest: Boolean) {
-        // No-op on Web: pointer-events CSS could be toggled but is out of scope for R3.
-    }
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Web cursor hit-testing is not implemented"))
 
     /**
      * Returns the system theme via the bridge's `prefersDarkColorScheme`.

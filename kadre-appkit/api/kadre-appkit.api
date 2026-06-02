@@ -46,9 +46,9 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun setBlur (Z)V
 	public fun setContentProtected (Z)V
 	public fun setCursor (Lorg/graphiks/kadre/core/CursorIcon;)V
-	public fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)V
-	public fun setCursorHittest (Z)V
-	public fun setCursorPosition (Lorg/graphiks/kadre/core/PhysicalPosition;)V
+	public fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)Lorg/graphiks/kadre/core/WindowRequestResult;
+	public fun setCursorHittest (Z)Lorg/graphiks/kadre/core/WindowRequestResult;
+	public fun setCursorPosition (Lorg/graphiks/kadre/core/PhysicalPosition;)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public fun setCursorVisible (Z)V
 	public fun setCustomCursor (Lorg/graphiks/kadre/core/CustomCursor;)V
 	public fun setDecorations (Z)V

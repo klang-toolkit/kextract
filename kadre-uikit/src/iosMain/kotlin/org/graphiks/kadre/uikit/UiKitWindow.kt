@@ -20,6 +20,7 @@ import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.VideoMode
@@ -28,6 +29,7 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 import org.graphiks.kadre.core.location
 import org.graphiks.kadre.core.defaultLogicalKey
 import org.graphiks.kadre.core.defaultText
@@ -687,14 +689,17 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
     /** No-op on iOS. */
     override fun setCursorVisible(visible: Boolean) { /* no-op: iOS has no cursor */ }
 
-    /** No-op on iOS. */
-    override fun setCursorGrab(mode: CursorGrabMode) { /* no-op: iOS has no cursor */ }
+    /** Unsupported on iOS. */
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("iOS has no cursor to grab"))
 
-    /** No-op on iOS. */
-    override fun setCursorPosition(position: PhysicalPosition<Int>) { /* no-op: iOS has no cursor */ }
+    /** Unsupported on iOS. */
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("iOS has no cursor to warp"))
 
-    /** No-op on iOS. */
-    override fun setCursorHittest(hittest: Boolean) { /* no-op: iOS does not support hit-testing */ }
+    /** Unsupported on iOS. */
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("iOS does not support cursor hit-testing"))
 
     /**
      * Returns the current theme via the view controller's traitCollection.

@@ -27,11 +27,13 @@ import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
@@ -574,25 +576,37 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
      *   pointer position (raw delta mode).
      * - [CursorGrabMode.None]: re-associates.
      */
-    override fun setCursorGrab(mode: CursorGrabMode) {
-        try {
-            AppKitCursorHelper.setGrabMode(mode)
-        } catch (_: Throwable) {}
-    }
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
+        AppKitCursorHelper.setGrabMode(mode)
 
     /**
      * Warps the cursor to [position] via CGWarpMouseCursorPosition.
      */
-    override fun setCursorPosition(position: PhysicalPosition<Int>) {
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
         try {
-            AppKitCursorHelper.warpCursor(position.x.toDouble(), position.y.toDouble())
-        } catch (_: Throwable) {}
-    }
+            Arena.ofConfined().use { arena ->
+                val nsWindow = NSWindow(nsWindowPtr)
+                val contentView = NSView(contentViewPtr)
+                val scale = nsWindow.backingScaleFactor()
+                val contentFrame = contentView.frame()
+                val contentHeight = contentFrame.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
+                val xPoints = position.x / scale
+                val yPointsFromBottom = contentHeight - (position.y / scale)
+                val localRect = allocNSRect(arena, xPoints, yPointsFromBottom, 0.0, 0.0)
+                val screenRect = nsWindow.convertRectToScreen(localRect)
+                AppKitCursorHelper.warpCursor(
+                    screenRect.getAtIndex(ValueLayout.JAVA_DOUBLE, 0),
+                    screenRect.getAtIndex(ValueLayout.JAVA_DOUBLE, 1),
+                )
+            }
+        } catch (t: Throwable) {
+            WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "AppKit cursor position conversion failed"))
+        }
 
     /**
      * Enables or disables cursor hit-testing via NSWindow.ignoresMouseEvents.
      */
-    override fun setCursorHittest(hittest: Boolean) {
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
         try {
             val nsWindow = NSWindow(nsWindowPtr)
             // ignoresMouseEvents = true means the window is click-through (hittest = false)
@@ -602,8 +616,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
                 ObjCRuntime.sel("setIgnoresMouseEvents:"),
                 !hittest,
             )
-        } catch (_: Throwable) {}
-    }
+            WindowRequestResult.Success
+        } catch (t: Throwable) {
+            WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "NSWindow cursor hit-testing failed"))
+        }
 
     /** In-memory theme override. */
     @Volatile private var _theme: Theme? = attrs.preferredTheme

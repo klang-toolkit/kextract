@@ -41,7 +41,7 @@ Statuts autorises par le test commun: `implemented`, `unsupported-platform`, `de
 | `Window.reset_dead_keys()` | `resetDeadKeys()` | implemented | API commune presente avec implementations ou no-op best-effort documentes par plateforme. |
 | `Window.available_monitors()` | `Window.availableMonitors()` | implemented | Methode Window-level presente; fallback commun `emptyList()` quand inconnu; overrides desktop ou synthetiques quand l'enumeration backend est disponible. |
 | `Window.primary_monitor()` | `Window.primaryMonitor()` | implemented | Nullable comme winit; fallback commun `null` quand inconnu; overrides quand le backend connait un primaire. X11 utilise le primaire XRandR quand disponible; Wayland retourne `null` par absence de concept primaire. |
-| Cursor grab/position/hittest | `setCursor`, `setCursorVisible`, `setCursorGrab`, `setCursorPosition`, `setCursorHittest` | deferred | winit retourne `Result`; Kadre retourne `Unit` et documente des no-op. |
+| Cursor grab/position/hittest | `setCursor`, `setCursorVisible`, `setCursorGrab`, `setCursorPosition`, `setCursorHittest` | implemented | `setCursorGrab`, `setCursorPosition` et `setCursorHittest` retournent `WindowRequestResult`; les backends sans support réel retournent `Failure(RequestError.Unsupported(...))`. `setCursor` et `setCursorVisible` restent des setters `Unit` no-throw. |
 | `Window.drag_window()` | `Window.dragWindow()` | deferred | winit fallible; Kadre no-op `Unit` par defaut. |
 | `Window.drag_resize_window()` | `Window.dragResizeWindow()` | deferred | winit fallible; Kadre no-op `Unit` par defaut. |
 | `Window.request_ime_update()` | `setImeAllowed`, `setImeCursorArea`, `setImePurpose` | deferred | IME riche hors portee, sauf methodes Window existantes. |
@@ -52,7 +52,7 @@ Statuts autorises par le test commun: `implemented`, `unsupported-platform`, `de
 | `ActiveEventLoop.owned_display_handle()` | `ownedDisplayHandle(): OwnedDisplayHandle?` | deferred | winit non-null; Kadre nullable avec `null` par defaut. |
 | `MonitorHandle`, `VideoMode` | `MonitorHandle`, `VideoMode` | implemented | Id, nom, position, scale factor, mode courant, modes disponibles. |
 | `Fullscreen::{Borderless, Exclusive}` | `Fullscreen.Borderless`, `Fullscreen.Exclusive` | unsupported-platform | API presente, mais `Exclusive` est documente comme fallback/no-op sur Wayland, Web, Android, UIKit. |
-| Result/error support | `WindowRequestResult`, `SurfaceSizeRequestResult`, `RequestError` | implemented | Types disponibles, pas encore utilises par toutes les methodes Window fallibles. |
+| Result/error support | `WindowRequestResult`, `SurfaceSizeRequestResult`, `RequestError` | implemented | Types utilises par `requestSurfaceSize` et les requetes curseur fallibles (`setCursorGrab`, `setCursorPosition`, `setCursorHittest`). |
 
 ## Implications API
 

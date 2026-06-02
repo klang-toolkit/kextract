@@ -2073,9 +2073,9 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun setBlur (Z)V
 	public fun setContentProtected (Z)V
 	public abstract fun setCursor (Lorg/graphiks/kadre/core/CursorIcon;)V
-	public abstract fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)V
-	public abstract fun setCursorHittest (Z)V
-	public abstract fun setCursorPosition (Lorg/graphiks/kadre/core/PhysicalPosition;)V
+	public abstract fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)Lorg/graphiks/kadre/core/WindowRequestResult;
+	public abstract fun setCursorHittest (Z)Lorg/graphiks/kadre/core/WindowRequestResult;
+	public abstract fun setCursorPosition (Lorg/graphiks/kadre/core/PhysicalPosition;)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public abstract fun setCursorVisible (Z)V
 	public fun setCustomCursor (Lorg/graphiks/kadre/core/CustomCursor;)V
 	public abstract fun setDecorations (Z)V

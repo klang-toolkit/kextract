@@ -304,35 +304,35 @@ interface Window {
      * - [CursorGrabMode.Confined] — limits the cursor to the window bounds.
      * - [CursorGrabMode.Locked]   — locks the cursor position (FPS mode).
      *
-     * Backends that do not support a given mode implement a documented no-op.
-     * Never throws.
+     * Backends that do not support a given mode return [WindowRequestResult.Failure]
+     * with [RequestError.Unsupported]. Never throws.
      *
      * @param mode New grab mode.
      */
-    fun setCursorGrab(mode: CursorGrabMode)
+    fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult
 
     /**
      * Warps the cursor to the given position (physical pixels, relative to the
      * top-left of the window's client area).
      *
-     * On backends where cursor warping is not supported this is a no-op.
-     * Never throws.
+     * On backends where cursor warping is not supported this returns
+     * [WindowRequestResult.Failure] with [RequestError.Unsupported]. Never throws.
      *
      * @param position New cursor position in physical pixels.
      */
-    fun setCursorPosition(position: PhysicalPosition<Int>)
+    fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult
 
     /**
      * Enables or disables cursor hit-testing for this window.
      *
      * When disabled (`false`) the window becomes click-through — pointer
      * events are forwarded to the window underneath. On backends that do not
-     * support hit-testing this is a no-op.
-     * Never throws.
+     * support hit-testing this returns [WindowRequestResult.Failure] with
+     * [RequestError.Unsupported]. Never throws.
      *
      * @param hittest true (default) to receive pointer events; false to pass them through.
      */
-    fun setCursorHittest(hittest: Boolean)
+    fun setCursorHittest(hittest: Boolean): WindowRequestResult
 
     /**
      * Returns the current system theme as seen by this window, or null if unknown.

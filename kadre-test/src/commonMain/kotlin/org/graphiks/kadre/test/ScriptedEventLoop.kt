@@ -46,6 +46,7 @@ import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.StartCause
 import org.graphiks.kadre.core.TouchPhase
 import org.graphiks.kadre.core.Theme
@@ -54,6 +55,7 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 import org.graphiks.kadre.core.defaultLogicalKey
 import org.graphiks.kadre.core.location
 
@@ -185,9 +187,12 @@ class ScriptedWindow(
     // R3 stubs (in-memory no-ops)
     override fun setCursor(cursor: CursorIcon) {}
     override fun setCursorVisible(visible: Boolean) {}
-    override fun setCursorGrab(mode: CursorGrabMode) {}
-    override fun setCursorPosition(position: PhysicalPosition<Int>) {}
-    override fun setCursorHittest(hittest: Boolean) {}
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Scripted test window does not support cursor grab"))
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Scripted test window does not support cursor warping"))
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Scripted test window does not support cursor hit-testing"))
     override val theme: Theme? get() = null
     override fun setTheme(theme: Theme?) {}
     override fun setWindowLevel(level: WindowLevel) {}

@@ -652,10 +652,10 @@ Fullscreen is set per-window: `window.setFullscreen(Fullscreen.Borderless())` / 
 |---------|--------|-------|-----|---------|-----|---------|-------|
 | `setCursor(CursorIcon)` | real | real | real | no-op (libwayland-cursor TODO) | real (CSS cursor) | no-op | no-op |
 | `setCursorVisible()` | real | partial (`ShowCursor` not rebalanced — DEFERRED.md) | no-op (XCreatePixmapCursor TODO) | no-op | real (CSS) | no-op | no-op |
-| `setCursorGrab(Confined)` | real | real | real | no-op (pointer-constraints TODO) | real (Pointer Lock API) | no-op | no-op |
-| `setCursorGrab(Locked)` | real | real | real | no-op | real | no-op | no-op |
-| `setCursorPosition()` | partial (CGWarpMouseCursorPosition, scalar cast) | real | real | no-op | no-op | no-op | no-op |
-| `setCursorHittest()` | real | real | real | real | no-op | no-op | no-op |
+| `setCursorGrab(Confined)` | real | real | real | unsupported (pointer-constraints TODO) | unsupported | unsupported | unsupported |
+| `setCursorGrab(Locked)` | real | real | real | unsupported | unsupported (Pointer Lock bridge TODO) | unsupported | unsupported |
+| `setCursorPosition()` | partial (CGWarpMouseCursorPosition, scalar cast) | real | real | unsupported | unsupported | unsupported | unsupported |
+| `setCursorHittest()` | real | real | unsupported | unsupported (input-region TODO) | unsupported | unsupported | unsupported |
 | `setCustomCursor()` | no-op (TODO R5) | no-op (TODO R5) | no-op (TODO R5) | no-op (TODO R5) | no-op (TODO R5) | no-op | no-op |
 
 **Platform matrix — theme:**
@@ -978,9 +978,9 @@ Key residual points:
 | `CustomCursor` / `CursorImage` | `CustomCursor` (opaque handle) / `CursorImage(rgba, width, height, hotspotX, hotspotY)` — all backends no-op (see DEFERRED.md) |
 | `Window::set_cursor()` | `Window.setCursor(cursor: CursorIcon)` |
 | `Window::set_cursor_visible()` | `Window.setCursorVisible(visible: Boolean)` |
-| `Window::set_cursor_grab()` | `Window.setCursorGrab(mode: CursorGrabMode)` |
-| `Window::set_cursor_position()` | `Window.setCursorPosition(position: PhysicalPosition<Int>)` |
-| `Window::set_cursor_hittest()` | `Window.setCursorHittest(hittest: Boolean)` |
+| `Window::set_cursor_grab()` | `Window.setCursorGrab(mode: CursorGrabMode): WindowRequestResult` |
+| `Window::set_cursor_position()` | `Window.setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult` |
+| `Window::set_cursor_hittest()` | `Window.setCursorHittest(hittest: Boolean): WindowRequestResult` |
 | `Window::theme()` / `set_theme()` | `Window.theme` / `Window.setTheme(theme: Theme?)` |
 | `Window::set_window_level()` | `Window.setWindowLevel(level: WindowLevel)` |
 | `Window::set_transparent()` | `Window.setTransparent(transparent: Boolean)` |

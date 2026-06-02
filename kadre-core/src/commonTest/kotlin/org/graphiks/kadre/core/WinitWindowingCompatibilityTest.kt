@@ -75,6 +75,15 @@ class WinitWindowingCompatibilityTest {
         assertEquals(primary, window.primaryMonitor())
     }
 
+    @Test
+    fun `cursor requests report typed unsupported errors`() {
+        val window = TestWindow(currentMonitor = null)
+
+        assertUnsupported(window.setCursorGrab(CursorGrabMode.Locked))
+        assertUnsupported(window.setCursorPosition(PhysicalPosition(10, 20)))
+        assertUnsupported(window.setCursorHittest(false))
+    }
+
     private companion object {
         const val targetWinitCommit = "c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
 
@@ -187,8 +196,8 @@ class WinitWindowingCompatibilityTest {
             WinitWindowingApi(
                 winitApi = "Window cursor setters and grab/position requests",
                 kadreApi = "Window.setCursor, setCursorVisible, setCursorGrab, setCursorPosition, setCursorHittest",
-                status = WinitWindowingStatus.Deferred,
-                note = "Cursor grab, cursor position and hittest are fallible in winit; Kadre methods return Unit and several backends document no-op behavior.",
+                status = WinitWindowingStatus.Implemented,
+                note = "Cursor grab, cursor position and hittest return WindowRequestResult; unsupported/no-op backends report RequestError.Unsupported. setCursor and setCursorVisible remain no-throw Unit setters.",
             ),
             WinitWindowingApi(
                 winitApi = "Window drag_window",
@@ -269,6 +278,13 @@ class WinitWindowingCompatibilityTest {
         override val videoModes: List<VideoMode> = emptyList()
     }
 
+    private fun assertUnsupported(result: WindowRequestResult) {
+        assertTrue(
+            result is WindowRequestResult.Failure && result.error is RequestError.Unsupported,
+            "Expected unsupported failure, got $result",
+        )
+    }
+
     private class TestMonitorRegistryWindow(
         private val delegate: TestWindow,
         private val availableMonitors: List<MonitorHandle>,
@@ -313,9 +329,12 @@ class WinitWindowingCompatibilityTest {
         override fun setFullscreen(fullscreen: Fullscreen?) {}
         override fun setCursor(cursor: CursorIcon) {}
         override fun setCursorVisible(visible: Boolean) {}
-        override fun setCursorGrab(mode: CursorGrabMode) {}
-        override fun setCursorPosition(position: PhysicalPosition<Int>) {}
-        override fun setCursorHittest(hittest: Boolean) {}
+        override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
+            WindowRequestResult.Failure(RequestError.Unsupported("Test window does not support cursor grab"))
+        override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
+            WindowRequestResult.Failure(RequestError.Unsupported("Test window does not support cursor warping"))
+        override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
+            WindowRequestResult.Failure(RequestError.Unsupported("Test window does not support cursor hit-testing"))
         override fun setTheme(theme: Theme?) {}
         override fun setWindowLevel(level: WindowLevel) {}
         override fun setTransparent(transparent: Boolean) {}

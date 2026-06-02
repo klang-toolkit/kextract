@@ -718,6 +718,32 @@ internal val getWindowLongPtrW: MethodHandle? by lazy {
     )
 }
 
+// ── Last-error helpers ───────────────────────────────────────────────────────
+
+/**
+ * void SetLastError(DWORD dwErrCode);
+ */
+internal val setLastError: MethodHandle? by lazy {
+    kernel32.downcall(
+        "SetLastError",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.JAVA_INT, // DWORD
+        )
+    )
+}
+
+/**
+ * DWORD GetLastError(void);
+ */
+internal val getLastError: MethodHandle? by lazy {
+    kernel32.downcall(
+        "GetLastError",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT, // DWORD
+        )
+    )
+}
+
 // ── IsZoomed ──────────────────────────────────────────────────────────────────
 
 /**

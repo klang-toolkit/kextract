@@ -3,7 +3,7 @@
 # setCursorGrab
 
 [common]\
-abstract fun [setCursorGrab](set-cursor-grab.md)(mode: [CursorGrabMode](../-cursor-grab-mode/index.md))
+abstract fun [setCursorGrab](set-cursor-grab.md)(mode: [CursorGrabMode](../-cursor-grab-mode/index.md)): [WindowRequestResult](../-window-request-result/index.md)
 
 Sets the cursor grab mode for this window.
 
@@ -14,7 +14,7 @@ Sets the cursor grab mode for this window.
 -
    [CursorGrabMode.Locked](../-cursor-grab-mode/-locked/index.md)   — locks the cursor position (FPS mode).
 
-Backends that do not support a given mode implement a documented no-op. Never throws.
+Backends that do not support a given mode return [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws.
 
 #### Parameters
 

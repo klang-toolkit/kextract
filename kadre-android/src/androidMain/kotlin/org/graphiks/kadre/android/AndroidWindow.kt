@@ -12,12 +12,14 @@ import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 
 /**
  * Android implementation of [Window].
@@ -248,14 +250,17 @@ class AndroidWindow internal constructor(
     /** No-op on Android: there is no visible cursor. */
     override fun setCursorVisible(visible: Boolean) { /* no-op: Android has no cursor */ }
 
-    /** No-op on Android: there is no cursor to grab. */
-    override fun setCursorGrab(mode: CursorGrabMode) { /* no-op: Android has no cursor */ }
+    /** Unsupported on Android: there is no cursor to grab. */
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Android has no cursor to grab"))
 
-    /** No-op on Android: there is no cursor to warp. */
-    override fun setCursorPosition(position: PhysicalPosition<Int>) { /* no-op: Android has no cursor */ }
+    /** Unsupported on Android: there is no cursor to warp. */
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Android has no cursor to warp"))
 
-    /** No-op on Android. */
-    override fun setCursorHittest(hittest: Boolean) { /* no-op: Android does not support hit-testing */ }
+    /** Unsupported on Android. */
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Android does not support cursor hit-testing"))
 
     /**
      * Returns the current UI theme via UiModeManager.

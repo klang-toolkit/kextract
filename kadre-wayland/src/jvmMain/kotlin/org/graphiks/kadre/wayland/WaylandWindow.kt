@@ -26,6 +26,7 @@ import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
@@ -33,6 +34,7 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 import java.lang.foreign.MemorySegment
 
 /** wl_compositor.create_surface opcode in the core Wayland protocol. */
@@ -426,9 +428,8 @@ class WaylandWindow private constructor(
      *
      * TODO(R3-wayland-grab): implement via zwp_pointer_constraints_v1.
      */
-    override fun setCursorGrab(mode: CursorGrabMode) {
-        // No-op on Wayland: pointer constraints require zwp_pointer_constraints_v1.
-    }
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Wayland pointer constraints are not wired"))
 
     /**
      * No-op on Wayland.
@@ -436,18 +437,16 @@ class WaylandWindow private constructor(
      * Wayland does not expose global cursor warping. The protocol intentionally
      * hides pointer positions from clients for security reasons.
      */
-    override fun setCursorPosition(position: PhysicalPosition<Int>) {
-        // No-op on Wayland: cursor warping is not exposed by the Wayland protocol.
-    }
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Wayland does not expose cursor warping"))
 
     /**
      * No-op on Wayland.
      *
      * TODO(R3-wayland-hittest): implement via the input-region protocol.
      */
-    override fun setCursorHittest(hittest: Boolean) {
-        // No-op on Wayland: no standard click-through mechanism.
-    }
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Wayland input-region cursor hit-testing is not wired"))
 
     /**
      * Returns null on Wayland.

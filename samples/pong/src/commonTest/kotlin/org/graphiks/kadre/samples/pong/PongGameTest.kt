@@ -26,12 +26,14 @@ import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 import org.graphiks.kadre.core.defaultLogicalKey
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -103,9 +105,12 @@ class FakeWindow : Window {
     // R3 no-ops
     override fun setCursor(cursor: CursorIcon) {}
     override fun setCursorVisible(visible: Boolean) {}
-    override fun setCursorGrab(mode: CursorGrabMode) {}
-    override fun setCursorPosition(position: PhysicalPosition<Int>) {}
-    override fun setCursorHittest(hittest: Boolean) {}
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Pong test window does not support cursor grab"))
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Pong test window does not support cursor warping"))
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Pong test window does not support cursor hit-testing"))
     override val theme: Theme? get() = null
     override fun setTheme(theme: Theme?) {}
     override fun setWindowLevel(level: WindowLevel) {}

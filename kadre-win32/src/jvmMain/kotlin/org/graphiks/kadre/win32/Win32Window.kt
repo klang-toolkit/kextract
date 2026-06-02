@@ -23,11 +23,13 @@ import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
@@ -457,69 +459,101 @@ class Win32Window private constructor(
      * Note: Risk FFM — ClipCursor writes a RECT via the pointer; layout must
      * be exact (16 bytes, 4-byte aligned).
      */
-    override fun setCursorGrab(mode: CursorGrabMode) {
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
         try {
+            val clip = clipCursor ?: return WindowRequestResult.Failure(
+                RequestError.Unsupported("Win32 ClipCursor is unavailable"),
+            )
             when (mode) {
                 CursorGrabMode.None -> {
-                    clipCursor?.invokeExact(MemorySegment.NULL) as? Int
+                    val ok = clip.invokeExact(MemorySegment.NULL) as Int
+                    if (ok == 0) return WindowRequestResult.Failure(RequestError.OsError("ClipCursor(NULL) failed"))
                 }
                 CursorGrabMode.Confined, CursorGrabMode.Locked -> {
+                    val getRect = getWindowRect ?: return WindowRequestResult.Failure(
+                        RequestError.Unsupported("Win32 GetWindowRect is unavailable"),
+                    )
                     // ClipCursor expects SCREEN coordinates → GetWindowRect (not GetClientRect,
                     // whose top-left is always 0,0 and would confine to the screen corner).
                     Arena.ofConfined().use { arena ->
                         val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
-                        val ok = getWindowRect?.invokeExact(hwnd, rect) as? Int ?: 0
-                        if (ok != 0) {
-                            clipCursor?.invokeExact(rect) as? Int
-                        }
+                        val rectOk = getRect.invokeExact(hwnd, rect) as Int
+                        if (rectOk == 0) return WindowRequestResult.Failure(RequestError.OsError("GetWindowRect failed for cursor grab"))
+                        val clipOk = clip.invokeExact(rect) as Int
+                        if (clipOk == 0) return WindowRequestResult.Failure(RequestError.OsError("ClipCursor failed"))
                     }
                 }
             }
-        } catch (_: Throwable) {}
-    }
+            WindowRequestResult.Success
+        } catch (t: Throwable) {
+            WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "Win32 cursor grab failed"))
+        }
 
     /**
      * Moves the cursor to the specified window-relative position via SetCursorPos.
      */
-    override fun setCursorPosition(position: PhysicalPosition<Int>) {
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
         try {
+            val getRect = getWindowRect ?: return WindowRequestResult.Failure(
+                RequestError.Unsupported("Win32 GetWindowRect is unavailable"),
+            )
+            val setPos = setCursorPos ?: return WindowRequestResult.Failure(
+                RequestError.Unsupported("Win32 SetCursorPos is unavailable"),
+            )
             // Convert window-client coords to screen coords via GetWindowRect
-            val screenX = try {
-                Arena.ofConfined().use { arena ->
-                    val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
-                    val ok = getWindowRect?.invokeExact(hwnd, rect) as? Int ?: 0
-                    if (ok == 0) return
-                    rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_LEFT) + position.x
-                }
-            } catch (_: Throwable) { return }
-            val screenY = try {
-                Arena.ofConfined().use { arena ->
-                    val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
-                    val ok = getWindowRect?.invokeExact(hwnd, rect) as? Int ?: 0
-                    if (ok == 0) return
+            val (screenX, screenY) = Arena.ofConfined().use { arena ->
+                val rect = arena.allocate(RECT_SIZE, RECT_ALIGN)
+                val ok = getRect.invokeExact(hwnd, rect) as Int
+                if (ok == 0) return WindowRequestResult.Failure(RequestError.OsError("GetWindowRect failed for cursor position"))
+                rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_LEFT) + position.x to
                     rect.get(ValueLayout.JAVA_INT, RECT_OFFSET_TOP) + position.y
-                }
-            } catch (_: Throwable) { return }
-            setCursorPos?.invokeExact(screenX, screenY) as? Int
-        } catch (_: Throwable) {}
-    }
+            }
+            val ok = setPos.invokeExact(screenX, screenY) as Int
+            if (ok == 0) {
+                WindowRequestResult.Failure(RequestError.OsError("SetCursorPos failed"))
+            } else {
+                WindowRequestResult.Success
+            }
+        } catch (t: Throwable) {
+            WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "Win32 cursor position failed"))
+        }
 
     /**
      * Enables or disables click-through via WS_EX_TRANSPARENT (extended style).
      *
      * Note: WS_EX_TRANSPARENT makes the window transparent to mouse input.
      */
-    override fun setCursorHittest(hittest: Boolean) {
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
         try {
-            val exStyle = try {
-                getWindowLongPtrW?.invokeExact(hwnd, GWL_EXSTYLE) as? Long ?: 0L
-            } catch (_: Throwable) { 0L }
+            val getStyle = getWindowLongPtrW ?: return WindowRequestResult.Failure(
+                RequestError.Unsupported("Win32 GetWindowLongPtrW is unavailable"),
+            )
+            val setStyle = setWindowLongPtrW ?: return WindowRequestResult.Failure(
+                RequestError.Unsupported("Win32 SetWindowLongPtrW is unavailable"),
+            )
+            setLastError?.invokeExact(0)
+            val exStyle = getStyle.invokeExact(hwnd, GWL_EXSTYLE) as Long
+            if (exStyle == 0L) {
+                val error = try { getLastError?.invokeExact() as? Int ?: 0 } catch (_: Throwable) { 0 }
+                if (error != 0) {
+                    return WindowRequestResult.Failure(RequestError.OsError("GetWindowLongPtrW failed: $error"))
+                }
+            }
             val transparentFlag = 0x00000020L // WS_EX_TRANSPARENT
             val newStyle = if (!hittest) exStyle or transparentFlag
                            else exStyle and transparentFlag.inv()
-            setWindowLongPtrW?.invokeExact(hwnd, GWL_EXSTYLE, newStyle) as? Long
-        } catch (_: Throwable) {}
-    }
+            setLastError?.invokeExact(0)
+            val previous = setStyle.invokeExact(hwnd, GWL_EXSTYLE, newStyle) as Long
+            if (previous == 0L) {
+                val error = try { getLastError?.invokeExact() as? Int ?: 0 } catch (_: Throwable) { 0 }
+                if (error != 0) {
+                    return WindowRequestResult.Failure(RequestError.OsError("SetWindowLongPtrW failed: $error"))
+                }
+            }
+            WindowRequestResult.Success
+        } catch (t: Throwable) {
+            WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "Win32 cursor hit-testing failed"))
+        }
 
     /** In-memory theme for this window. */
     @Volatile private var _theme: Theme? = attrs.preferredTheme

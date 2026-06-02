@@ -26,11 +26,13 @@ import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
@@ -375,17 +377,23 @@ class X11Window private constructor(
      * Note: XGrabPointer may fail (returns != GrabSuccess) if the pointer is
      * already grabbed; the result is silently ignored per the no-throw contract.
      */
-    override fun setCursorGrab(mode: CursorGrabMode) {
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
         try {
             val display = MemorySegment.ofAddress(displayPtr)
             when (mode) {
                 CursorGrabMode.None -> {
-                    xUngrabPointer?.invokeExact(display, 0L) as? Int
+                    val ungrab = xUngrabPointer ?: return WindowRequestResult.Failure(
+                        RequestError.Unsupported("XUngrabPointer is unavailable"),
+                    )
+                    ungrab.invokeExact(display, 0L) as Int
                 }
                 CursorGrabMode.Confined, CursorGrabMode.Locked -> {
+                    val grab = xGrabPointer ?: return WindowRequestResult.Failure(
+                        RequestError.Unsupported("XGrabPointer is unavailable"),
+                    )
                     // GrabModeAsync = 1; event_mask = PointerMotionMask|ButtonPressMask|ButtonReleaseMask
                     val eventMask = (PointerMotionMask or ButtonPressMask or ButtonReleaseMask).toInt()
-                    xGrabPointer?.invokeExact(
+                    val result = grab.invokeExact(
                         display,
                         xWindowId,        // grab_window
                         1,                // owner_events = True
@@ -395,30 +403,40 @@ class X11Window private constructor(
                         xWindowId,        // confine_to = this window
                         0L,               // cursor = None
                         0L,               // time = CurrentTime
-                    ) as? Int
+                    ) as Int
+                    if (result != 0) {
+                        return WindowRequestResult.Failure(RequestError.OsError("XGrabPointer failed: $result"))
+                    }
                 }
             }
             xFlush?.invokeExact(display) as? Int
-        } catch (_: Throwable) {}
-    }
+            WindowRequestResult.Success
+        } catch (t: Throwable) {
+            WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "X11 cursor grab failed"))
+        }
 
     /**
      * Warps the cursor to [position] relative to this window via XWarpPointer.
      */
-    override fun setCursorPosition(position: PhysicalPosition<Int>) {
+    override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
         try {
+            val warp = xWarpPointer ?: return WindowRequestResult.Failure(
+                RequestError.Unsupported("XWarpPointer is unavailable"),
+            )
             val display = MemorySegment.ofAddress(displayPtr)
-            xWarpPointer?.invokeExact(
+            warp.invokeExact(
                 display,
                 0L,           // src_window = None
                 xWindowId,    // dest_window = this window
                 0, 0, 0, 0,   // src_x, src_y, src_width, src_height (ignored when src=None)
                 position.x,
                 position.y,
-            ) as? Int
+            ) as Int
             xFlush?.invokeExact(display) as? Int
-        } catch (_: Throwable) {}
-    }
+            WindowRequestResult.Success
+        } catch (t: Throwable) {
+            WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "X11 cursor position failed"))
+        }
 
     /**
      * Hit-testing is not supported on X11.
@@ -429,9 +447,8 @@ class X11Window private constructor(
      * TODO(R3-x11-hittest): use _NET_WM_WINDOW_TYPE_DESKTOP or
      * XInputShape (X11 Shape Extension) for partial hit-testing.
      */
-    override fun setCursorHittest(hittest: Boolean) {
-        // No-op on X11: no standard click-through mechanism.
-    }
+    override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("X11 cursor hit-testing is not implemented"))
 
     /**
      * Returns null — X11 has no standard theme API.
