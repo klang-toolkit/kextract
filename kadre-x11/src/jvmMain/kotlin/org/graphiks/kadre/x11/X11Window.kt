@@ -62,6 +62,7 @@ private val FULL_EVENT_MASK: Long =
  */
 class X11Window private constructor(
     private val displayPtr: Long,
+    private val screen: Int,
     private val xWindowId: Long,
     private val attrs: WindowAttributes,
 ) : Window {
@@ -273,7 +274,7 @@ class X11Window private constructor(
      * Falls back to the first available monitor (primary screen).
      */
     override fun currentMonitor(): MonitorHandle? {
-        val monitors = enumerateX11Monitors(displayPtr, 0, scaleFactor)
+        val monitors = enumerateX11Monitors(displayPtr, screen, scaleFactor)
         if (monitors.isEmpty()) return null
         val pos = outerPosition
         return monitors.firstOrNull { m ->
@@ -283,6 +284,12 @@ class X11Window private constructor(
             pos.y >= m.position.y && pos.y < m.position.y + mh
         } ?: monitors.first()
     }
+
+    override fun availableMonitors(): List<MonitorHandle> =
+        enumerateX11Monitors(displayPtr, screen, scaleFactor)
+
+    override fun primaryMonitor(): MonitorHandle? =
+        availableMonitors().firstOrNull()
 
     /** In-memory fullscreen state (R2). */
     @Volatile private var _fullscreen: Fullscreen? = attrs.fullscreen
@@ -781,7 +788,7 @@ class X11Window private constructor(
                 xStoreName?.invokeExact(displaySeg, xWindowId, namePtr) as? Int
             }
 
-            val window = X11Window(display, xWindowId, attrs)
+            val window = X11Window(display, screen, xWindowId, attrs)
 
             // ── 6. XMapWindow (if visible) ────────────────────────────────────
             if (attrs.visible) {

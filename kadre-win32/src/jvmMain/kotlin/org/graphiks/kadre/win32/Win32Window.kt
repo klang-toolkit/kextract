@@ -308,6 +308,12 @@ class Win32Window private constructor(
      */
     override fun currentMonitor(): MonitorHandle? = win32MonitorFromHwnd(hwnd)
 
+    override fun availableMonitors(): List<MonitorHandle> =
+        enumerateWin32Monitors()
+
+    override fun primaryMonitor(): MonitorHandle? =
+        enumerateWin32Monitors().firstOrNull { it.isPrimary }
+
     override val fullscreen: Fullscreen?
         get() = _fullscreen
 

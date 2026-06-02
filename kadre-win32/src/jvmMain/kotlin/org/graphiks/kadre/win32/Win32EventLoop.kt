@@ -143,7 +143,7 @@ internal class Win32EventLoop : ActiveEventLoop {
      * Returns the primary monitor (dwFlags & MONITORINFOF_PRIMARY), or null.
      */
     override fun primaryMonitor(): MonitorHandle? =
-        enumerateWin32Monitors().firstOrNull { (it as? Win32MonitorHandle) != null }
+        enumerateWin32Monitors().firstOrNull { it.isPrimary }
 
     // ── R3: system theme ──────────────────────────────────────────────────────
 

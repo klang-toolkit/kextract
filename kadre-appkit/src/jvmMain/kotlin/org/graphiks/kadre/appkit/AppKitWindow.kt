@@ -472,6 +472,12 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         } catch (_: Throwable) { null }
     }
 
+    override fun availableMonitors(): List<MonitorHandle> =
+        AppKitMonitorHandle.allScreens()
+
+    override fun primaryMonitor(): MonitorHandle? =
+        AppKitMonitorHandle.primaryScreen()
+
     override val fullscreen: Fullscreen?
         get() = _fullscreen
 

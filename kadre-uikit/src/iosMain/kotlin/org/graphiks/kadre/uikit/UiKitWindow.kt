@@ -668,6 +668,12 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
      */
     override fun currentMonitor(): MonitorHandle = syntheticUiKitMonitor()
 
+    override fun availableMonitors(): List<MonitorHandle> =
+        listOf(currentMonitor())
+
+    override fun primaryMonitor(): MonitorHandle? =
+        currentMonitor()
+
     /** In-memory fullscreen state (R2). */
     private var _fullscreen: Fullscreen? = null
 

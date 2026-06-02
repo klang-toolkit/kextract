@@ -1777,6 +1777,7 @@ public final class org/graphiks/kadre/core/VideoMode {
 }
 
 public abstract interface class org/graphiks/kadre/core/Window {
+	public fun availableMonitors ()Ljava/util/List;
 	public abstract fun close ()V
 	public abstract fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)V
@@ -1805,6 +1806,7 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun isResizable ()Z
 	public abstract fun isVisible ()Z
 	public abstract fun prePresentNotify ()V
+	public fun primaryMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun recognizeDoubleTapGesture (Z)V
 	public fun recognizePanGesture (ZII)V
 	public fun recognizePinchGesture (Z)V
@@ -1844,6 +1846,7 @@ public abstract interface class org/graphiks/kadre/core/Window {
 }
 
 public final class org/graphiks/kadre/core/Window$DefaultImpls {
+	public static fun availableMonitors (Lorg/graphiks/kadre/core/Window;)Ljava/util/List;
 	public static fun dragResizeWindow (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/ResizeDirection;)V
 	public static fun dragWindow (Lorg/graphiks/kadre/core/Window;)V
 	public static fun focusWindow (Lorg/graphiks/kadre/core/Window;)V
@@ -1854,6 +1857,7 @@ public final class org/graphiks/kadre/core/Window$DefaultImpls {
 	public static fun getSurfaceResizeIncrements (Lorg/graphiks/kadre/core/Window;)Lorg/graphiks/kadre/core/PhysicalSize;
 	public static fun getSurfaceSize (Lorg/graphiks/kadre/core/Window;)Lorg/graphiks/kadre/core/PhysicalSize;
 	public static fun inputCapabilities (Lorg/graphiks/kadre/core/Window;)Lorg/graphiks/kadre/core/InputCapabilities;
+	public static fun primaryMonitor (Lorg/graphiks/kadre/core/Window;)Lorg/graphiks/kadre/core/MonitorHandle;
 	public static fun recognizeDoubleTapGesture (Lorg/graphiks/kadre/core/Window;Z)V
 	public static fun recognizePanGesture (Lorg/graphiks/kadre/core/Window;ZII)V
 	public static fun recognizePinchGesture (Lorg/graphiks/kadre/core/Window;Z)V

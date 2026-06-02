@@ -4,6 +4,7 @@ public final class org/graphiks/kadre/appkit/AppKitEventLoopKt {
 
 public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/core/Window {
 	public fun <init> (Lorg/graphiks/kadre/core/WindowAttributes;)V
+	public fun availableMonitors ()Ljava/util/List;
 	public fun close ()V
 	public fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)V
@@ -33,6 +34,7 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun isResizable ()Z
 	public fun isVisible ()Z
 	public fun prePresentNotify ()V
+	public fun primaryMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun recognizeDoubleTapGesture (Z)V
 	public fun recognizePanGesture (ZII)V
 	public fun recognizePinchGesture (Z)V

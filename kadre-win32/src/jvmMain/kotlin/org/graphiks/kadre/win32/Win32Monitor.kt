@@ -132,6 +132,7 @@ internal class Win32MonitorHandle(
     override val id: Long,         // HMONITOR address
     override val name: String?,
     override val position: PhysicalPosition<Int>,
+    val isPrimary: Boolean,
     private val physicalWidth: Int,
     private val physicalHeight: Int,
     override val scaleFactor: Double,
@@ -281,6 +282,7 @@ private fun readMonitorInfo(hMonitor: MemorySegment, infoHandle: MethodHandle): 
                 id            = hMonitor.address(),
                 name          = deviceName.ifEmpty { null },
                 position      = PhysicalPosition(left, top),
+                isPrimary     = (flags and MONITORINFOF_PRIMARY) != 0,
                 physicalWidth = width,
                 physicalHeight= height,
                 scaleFactor   = scale,

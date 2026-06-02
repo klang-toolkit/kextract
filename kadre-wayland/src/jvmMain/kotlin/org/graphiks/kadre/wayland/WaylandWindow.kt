@@ -305,6 +305,12 @@ class WaylandWindow private constructor(
         override val videoModes: List<VideoMode> = listOf(currentVideoMode)
     }
 
+    override fun availableMonitors(): List<MonitorHandle> =
+        currentMonitor()?.let(::listOf) ?: emptyList()
+
+    override fun primaryMonitor(): MonitorHandle? =
+        null
+
     /** In-memory fullscreen state (R2). */
     @Volatile private var _fullscreen: Fullscreen? = attrs.fullscreen
 

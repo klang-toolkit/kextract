@@ -19,7 +19,7 @@ Les ecarts prioritaires ne demandent pas de breaking change dans cette tache, ma
 
 1. `Window.is_visible` et `Window.is_minimized` sont `Option<bool>` dans winit, mais `Boolean` non nullable dans Kadre. Kadre ne peut donc pas representer l'etat inconnu.
 2. Plusieurs operations winit fallibles (`set_cursor_position`, `set_cursor_grab`, `drag_window`, `drag_resize_window`) sont encore des methodes Kadre `Unit`, parfois documentees no-op.
-3. `Window.available_monitors` et `Window.primary_monitor` existent dans winit en plus des methodes `ActiveEventLoop`; Kadre ne les expose que sur `ActiveEventLoop`.
+3. `Window.available_monitors` et `Window.primary_monitor` existent dans winit en plus des methodes `ActiveEventLoop`; Kadre expose maintenant les equivalents `Window.availableMonitors()` et `Window.primaryMonitor()` avec fallback `emptyList`/`null` quand le backend ne sait pas repondre.
 4. `ActiveEventLoop.owned_display_handle` est non nullable dans winit; `ActiveEventLoop.ownedDisplayHandle()` est nullable et retourne `null` par defaut dans Kadre.
 5. `Window.request_ime_update` et `Window.ime_capabilities` sont reportes: l'IME riche est hors portee de ce passage, au-dela des methodes Kadre existantes `setImeAllowed`, `setImeCursorArea`, `setImePurpose`.
 6. Plusieurs setters d'apparence et de gestion de fenetre existent cote API commune, mais restent incomplets backend par backend.
@@ -39,8 +39,8 @@ Statuts autorises par le test commun: `implemented`, `unsupported-platform`, `de
 | Focus sur `Window` | `focusWindow`, `hasFocus` | implemented | API commune presente; AppKit implemente le focus, les autres backends restent a valider finement. |
 | Apparence et etat fenetre | `setWindowLevel`, `requestUserAttention`, `setTheme`, `theme`, `setTransparent`, `setBlur`, `setWindowIcon`, `setContentProtected` | deferred | API commune presente, mais plusieurs methodes restent no-op ou partielles selon backend; content protection AppKit est implemente dans cet increment. |
 | `Window.reset_dead_keys()` | `resetDeadKeys()` | implemented | API commune presente avec implementations ou no-op best-effort documentes par plateforme. |
-| `Window.available_monitors()` | absent sur `Window`; present via `ActiveEventLoop.availableMonitors()` | deferred | Methode de convenance winit manquante sur `Window`. |
-| `Window.primary_monitor()` | absent sur `Window`; present via `ActiveEventLoop.primaryMonitor()` | deferred | Methode de convenance winit manquante sur `Window`. |
+| `Window.available_monitors()` | `Window.availableMonitors()` | implemented | Methode Window-level presente; fallback commun `emptyList()` quand inconnu; overrides desktop ou synthetiques quand l'enumeration backend est disponible. |
+| `Window.primary_monitor()` | `Window.primaryMonitor()` | implemented | Nullable comme winit; fallback commun `null` quand inconnu; overrides quand le backend connait un primaire. Wayland retourne `null` par absence de concept primaire. |
 | Cursor grab/position/hittest | `setCursor`, `setCursorVisible`, `setCursorGrab`, `setCursorPosition`, `setCursorHittest` | deferred | winit retourne `Result`; Kadre retourne `Unit` et documente des no-op. |
 | `Window.drag_window()` | `Window.dragWindow()` | deferred | winit fallible; Kadre no-op `Unit` par defaut. |
 | `Window.drag_resize_window()` | `Window.dragResizeWindow()` | deferred | winit fallible; Kadre no-op `Unit` par defaut. |
@@ -56,13 +56,14 @@ Statuts autorises par le test commun: `implemented`, `unsupported-platform`, `de
 
 ## Implications API
 
-Cette tache ne change pas l'API. Elle fige l'inventaire et rend explicite les zones a traiter plus tard.
+Cette analyse suit l'API courante. Les methodes Window-level de monitoring sont maintenant presentes avec un fallback portable `emptyList`/`null` documente.
 
 Priorites probables pour une suite:
 
 1. Ajouter une representation nullable ou inconnue pour `isVisible` et `isMinimized`, ou documenter formellement le choix Kadre d'un bool par defaut backend.
 2. Convertir les operations cursor/drag critiques vers des result types Kadre existants, sans exceptions pour les limitations attendues.
-3. Ajouter `Window.availableMonitors()` et `Window.primaryMonitor()` si l'objectif est la parite ergonomique winit.
-4. Rendre `ownedDisplayHandle` non nullable quand chaque backend peut produire un handle fiable, ou documenter la divergence.
-5. Reporter `request_ime_update` / `ime_capabilities` vers un ticket IME dedie.
-6. Faire progresser les backends desktop un par un pour les setters deja exposes: focus, content protection, resize increments, attention utilisateur, window level, theme et icon.
+3. Faire progresser les backends non desktop vers une enumeration multi-ecran reelle si la plateforme expose plus qu'un moniteur synthetique.
+4. Modeliser le primaire XRandR/X11 au lieu d'utiliser le premier moniteur enumere.
+5. Rendre `ownedDisplayHandle` non nullable quand chaque backend peut produire un handle fiable, ou documenter la divergence.
+6. Reporter `request_ime_update` / `ime_capabilities` vers un ticket IME dedie.
+7. Faire progresser les backends desktop un par un pour les setters deja exposes: focus, content protection, resize increments, attention utilisateur, window level, theme et icon.

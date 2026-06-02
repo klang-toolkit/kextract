@@ -3,6 +3,7 @@ package org.graphiks.kadre.core
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class WinitWindowingCompatibilityTest {
@@ -49,6 +50,29 @@ class WinitWindowingCompatibilityTest {
             assertTrue(row.kadreApi.isNotBlank(), "Missing Kadre API mapping for ${row.winitApi}")
             assertTrue(row.note.isNotBlank(), "Missing note for ${row.winitApi}")
         }
+    }
+
+    @Test
+    fun `window monitor convenience methods are unknown by default`() {
+        val monitor = TestMonitorHandle()
+        val window = TestWindow(currentMonitor = monitor)
+
+        assertEquals(emptyList(), window.availableMonitors())
+        assertNull(window.primaryMonitor())
+    }
+
+    @Test
+    fun `window monitor convenience methods can be implemented by backend registry`() {
+        val primary = TestMonitorHandle(id = 1L, name = "primary")
+        val secondary = TestMonitorHandle(id = 2L, name = "secondary")
+        val window = TestMonitorRegistryWindow(
+            delegate = TestWindow(currentMonitor = secondary),
+            availableMonitors = listOf(primary, secondary),
+            primaryMonitor = primary,
+        )
+
+        assertEquals(listOf(primary, secondary), window.availableMonitors())
+        assertEquals(primary, window.primaryMonitor())
     }
 
     private companion object {
@@ -150,15 +174,15 @@ class WinitWindowingCompatibilityTest {
             ),
             WinitWindowingApi(
                 winitApi = "Window.available_monitors",
-                kadreApi = "missing on Window; ActiveEventLoop.availableMonitors exists",
-                status = WinitWindowingStatus.Deferred,
-                note = "winit exposes monitor enumeration on both ActiveEventLoop and Window; Kadre only exposes it through ActiveEventLoop today.",
+                kadreApi = "Window.availableMonitors",
+                status = WinitWindowingStatus.Implemented,
+                note = "Kadre exposes a Window-level method; default is empty when unknown and desktop/synthetic backends override it from their monitor registry.",
             ),
             WinitWindowingApi(
                 winitApi = "Window.primary_monitor",
-                kadreApi = "missing on Window; ActiveEventLoop.primaryMonitor exists",
-                status = WinitWindowingStatus.Deferred,
-                note = "winit exposes primary monitor lookup on Window as a convenience; Kadre lacks the Window-level method.",
+                kadreApi = "Window.primaryMonitor",
+                status = WinitWindowingStatus.Implemented,
+                note = "Kadre exposes a nullable Window-level primary monitor lookup; default is null when unknown and backends override it where the platform has a primary monitor concept.",
             ),
             WinitWindowingApi(
                 winitApi = "Window cursor setters and grab/position requests",
@@ -233,5 +257,70 @@ class WinitWindowingCompatibilityTest {
                 note = "Kadre has support result types for fallible requests, though not all Window methods use them yet.",
             ),
         )
+    }
+
+    private class TestMonitorHandle(
+        override val id: Long = 1L,
+        override val name: String? = "test-monitor",
+    ) : MonitorHandle {
+        override val position: PhysicalPosition<Int> = PhysicalPosition(0, 0)
+        override val scaleFactor: Double = 1.0
+        override val currentVideoMode: VideoMode? = null
+        override val videoModes: List<VideoMode> = emptyList()
+    }
+
+    private class TestMonitorRegistryWindow(
+        private val delegate: TestWindow,
+        private val availableMonitors: List<MonitorHandle>,
+        private val primaryMonitor: MonitorHandle?,
+    ) : Window by delegate {
+        override fun availableMonitors(): List<MonitorHandle> = availableMonitors
+        override fun primaryMonitor(): MonitorHandle? = primaryMonitor
+    }
+
+    private class TestWindow(
+        private val currentMonitor: MonitorHandle?,
+    ) : Window {
+        override val id: WindowId = WindowId(1L)
+        override val rawWindowHandle: RawWindowHandle = RawWindowHandle.Web(canvasElementId = "test-window")
+        override val rawDisplayHandle: RawDisplayHandle = RawDisplayHandle.Web
+        override val title: String = "test"
+        override val innerSize: PhysicalSize<Int> = PhysicalSize(800, 600)
+        override val outerSize: PhysicalSize<Int> = innerSize
+        override val scaleFactor: Double = 1.0
+        override val isVisible: Boolean = true
+        override val isResizable: Boolean = true
+        override val isMinimized: Boolean = false
+        override val isMaximized: Boolean = false
+        override val isDecorated: Boolean = true
+        override val outerPosition: PhysicalPosition<Int> = PhysicalPosition(0, 0)
+        override val fullscreen: Fullscreen? = null
+        override val theme: Theme? = null
+
+        override fun requestRedraw() {}
+        override fun setTitle(title: String) {}
+        override fun setVisible(visible: Boolean) {}
+        override fun close() {}
+        override fun setResizable(resizable: Boolean) {}
+        override fun setMinimized(minimized: Boolean) {}
+        override fun setMaximized(maximized: Boolean) {}
+        override fun setDecorations(decorated: Boolean) {}
+        override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {}
+        override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) {}
+        override fun setOuterPosition(position: PhysicalPosition<Int>) {}
+        override fun prePresentNotify() {}
+        override fun currentMonitor(): MonitorHandle? = currentMonitor
+        override fun setFullscreen(fullscreen: Fullscreen?) {}
+        override fun setCursor(cursor: CursorIcon) {}
+        override fun setCursorVisible(visible: Boolean) {}
+        override fun setCursorGrab(mode: CursorGrabMode) {}
+        override fun setCursorPosition(position: PhysicalPosition<Int>) {}
+        override fun setCursorHittest(hittest: Boolean) {}
+        override fun setTheme(theme: Theme?) {}
+        override fun setWindowLevel(level: WindowLevel) {}
+        override fun setTransparent(transparent: Boolean) {}
+        override fun setBlur(blur: Boolean) {}
+        override fun setWindowIcon(icon: Icon?) {}
+        override fun resetDeadKeys() {}
     }
 }

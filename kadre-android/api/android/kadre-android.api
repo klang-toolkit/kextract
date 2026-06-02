@@ -5,6 +5,7 @@ public final class org/graphiks/kadre/android/AndroidKadreRuntime {
 }
 
 public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre/core/Window {
+	public fun availableMonitors ()Ljava/util/List;
 	public fun close ()V
 	public fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)V
@@ -33,6 +34,7 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun isResizable ()Z
 	public fun isVisible ()Z
 	public fun prePresentNotify ()V
+	public fun primaryMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun recognizeDoubleTapGesture (Z)V
 	public fun recognizePanGesture (ZII)V
 	public fun recognizePinchGesture (Z)V

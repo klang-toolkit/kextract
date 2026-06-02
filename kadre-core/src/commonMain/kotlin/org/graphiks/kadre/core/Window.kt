@@ -221,6 +221,26 @@ interface Window {
     fun currentMonitor(): MonitorHandle?
 
     /**
+     * Returns the monitors available to this window.
+     *
+     * The default implementation is intentionally conservative: it returns an
+     * empty list when the backend cannot determine display-wide monitor
+     * information at the window level. Backends with a monitor registry, or a
+     * documented synthetic monitor model, should override this method.
+     */
+    fun availableMonitors(): List<MonitorHandle> = emptyList()
+
+    /**
+     * Returns the primary monitor visible to this window, or null if unknown.
+     *
+     * By default Kadre returns null because [currentMonitor] is not necessarily
+     * the platform primary monitor. Backends that can distinguish the platform
+     * primary monitor, or intentionally expose a single synthetic monitor,
+     * should override this method.
+     */
+    fun primaryMonitor(): MonitorHandle? = null
+
+    /**
      * Enters or exits fullscreen mode.
      *
      * - Pass [Fullscreen.Borderless] to cover the monitor without a mode change.

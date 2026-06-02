@@ -320,6 +320,12 @@ class WebWindow(
      */
     override fun currentMonitor(): MonitorHandle = syntheticWebMonitor(_scaleFactor, _physicalSize)
 
+    override fun availableMonitors(): List<MonitorHandle> =
+        listOf(currentMonitor())
+
+    override fun primaryMonitor(): MonitorHandle? =
+        currentMonitor()
+
     /** In-memory fullscreen state (R2). */
     private var _fullscreen: Fullscreen? = null
 
