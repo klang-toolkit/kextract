@@ -12,6 +12,7 @@ import org.graphiks.kadre.appkit.bindings.NSBackingStoreType
 import org.graphiks.kadre.appkit.bindings.NSRect
 import org.graphiks.kadre.appkit.bindings.NSView
 import org.graphiks.kadre.appkit.bindings.NSWindow
+import org.graphiks.kadre.appkit.bindings.NSWindowSharingType
 import org.graphiks.kadre.appkit.bindings.NSWindowStyleMask
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
@@ -146,6 +147,9 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
                 nsWindow.setContentMaxSize(allocNSSize(a, max.width.toDouble(), max.height.toDouble()))
             }
         }
+        attrs.resizeIncrements?.let { increments ->
+            setSurfaceResizeIncrements(increments)
+        }
         attrs.position?.let { pos ->
             Arena.ofConfined().use { a ->
                 nsWindow.setFrameOrigin(allocNSPoint(a, pos.x.toDouble(), pos.y.toDouble()))
@@ -153,6 +157,9 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         }
         if (attrs.maximized) {
             nsWindow.zoom(MemorySegment.NULL)
+        }
+        if (attrs.contentProtected) {
+            setContentProtected(true)
         }
 
         // 8. Display if requested
@@ -388,6 +395,28 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         } catch (_: Throwable) {}
     }
 
+    override val surfaceResizeIncrements: PhysicalSize<Int>?
+        get() = try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val scale = nsWindow.backingScaleFactor()
+            val increments = nsWindow.contentResizeIncrements()
+            val width = increments.getAtIndex(ValueLayout.JAVA_DOUBLE, 0)
+            val height = increments.getAtIndex(ValueLayout.JAVA_DOUBLE, 1)
+            appKitResizeIncrementsToPhysicalSize(width, height, scale)
+        } catch (_: Throwable) { null }
+
+    override fun setSurfaceResizeIncrements(increments: PhysicalSize<Int>?) {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            val scale = nsWindow.backingScaleFactor()
+            val (width, height) = physicalSizeToAppKitResizeIncrements(increments, scale)
+            Arena.ofConfined().use { arena ->
+                val nsSize = allocNSSize(arena, width, height)
+                nsWindow.setContentResizeIncrements(nsSize)
+            }
+        } catch (_: Throwable) {}
+    }
+
     override val outerPosition: PhysicalPosition<Int>
         get() = try {
             val nsWindow = NSWindow(nsWindowPtr)
@@ -472,6 +501,23 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             // If state already matches, no-op.
         } catch (_: Throwable) {}
     }
+
+    override fun focusWindow() {
+        try {
+            val nsWindow = NSWindow(nsWindowPtr)
+            activateApplicationForWindowFocus()
+            if (nsWindow.isVisible() && !nsWindow.isMiniaturized()) {
+                nsWindow.makeKeyAndOrderFront(MemorySegment.NULL)
+            } else {
+                nsWindow.makeKeyWindow()
+            }
+        } catch (_: Throwable) {}
+    }
+
+    override val hasFocus: Boolean
+        get() = try {
+            NSWindow(nsWindowPtr).isKeyWindow()
+        } catch (_: Throwable) { false }
 
     // ── R3: cursor, theme & appearance ───────────────────────────────────────
 
@@ -679,6 +725,18 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         } catch (_: Throwable) {}
     }
 
+    override fun setContentProtected(protected: Boolean) {
+        try {
+            NSWindow(nsWindowPtr).setSharingType(
+                if (protected) {
+                    NSWindowSharingType.NSWindowSharingNone
+                } else {
+                    NSWindowSharingType.NSWindowSharingReadOnly
+                },
+            )
+        } catch (_: Throwable) {}
+    }
+
     /**
      * Installs a [KadreWindowDelegate] on this window.
      *
@@ -734,6 +792,37 @@ private fun allocNSSize(arena: Arena, width: Double, height: Double): MemorySegm
     seg.setAtIndex(ValueLayout.JAVA_DOUBLE, 0, width)
     seg.setAtIndex(ValueLayout.JAVA_DOUBLE, 1, height)
     return seg
+}
+
+internal fun appKitResizeIncrementsToPhysicalSize(
+    widthPoints: Double,
+    heightPoints: Double,
+    scale: Double,
+): PhysicalSize<Int>? =
+    if (widthPoints <= 0.0 || heightPoints <= 0.0 || scale <= 0.0) {
+        null
+    } else {
+        PhysicalSize((widthPoints * scale).toInt(), (heightPoints * scale).toInt())
+    }
+
+internal fun physicalSizeToAppKitResizeIncrements(
+    increments: PhysicalSize<Int>?,
+    scale: Double,
+): Pair<Double, Double> =
+    if (increments == null || scale <= 0.0) {
+        0.0 to 0.0
+    } else {
+        increments.width / scale to increments.height / scale
+    }
+
+private fun activateApplicationForWindowFocus() {
+    val nsAppClass = ObjCRuntime.getClass("NSApplication")
+    val nsApp = ObjCRuntime.msgSend(
+        ValueLayout.ADDRESS,
+        nsAppClass,
+        ObjCRuntime.sel("sharedApplication"),
+    ) as MemorySegment
+    ObjCRuntime.msgSend(null, nsApp, ObjCRuntime.sel("activateIgnoringOtherApps:"), true)
 }
 
 /**
