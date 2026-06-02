@@ -83,6 +83,11 @@ interface ActiveEventLoop {
      */
     fun createProxy(): EventLoopProxy
 
+    /**
+     * Returns a persistent display handle usable independently from a window.
+     */
+    fun ownedDisplayHandle(): OwnedDisplayHandle? = null
+
     // ── R2: monitor enumeration ───────────────────────────────────────────────
 
     /**

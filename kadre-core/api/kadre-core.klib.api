@@ -542,6 +542,7 @@ abstract interface org.graphiks.kadre.core/ActiveEventLoop { // org.graphiks.kad
     abstract fun setControlFlow(org.graphiks.kadre.core/ControlFlow) // org.graphiks.kadre.core/ActiveEventLoop.setControlFlow|setControlFlow(org.graphiks.kadre.core.ControlFlow){}[0]
     abstract fun systemTheme(): org.graphiks.kadre.core/Theme? // org.graphiks.kadre.core/ActiveEventLoop.systemTheme|systemTheme(){}[0]
     open fun createCustomCursor(org.graphiks.kadre.core/CursorImage): org.graphiks.kadre.core/CustomCursor? // org.graphiks.kadre.core/ActiveEventLoop.createCustomCursor|createCustomCursor(org.graphiks.kadre.core.CursorImage){}[0]
+    open fun ownedDisplayHandle(): org.graphiks.kadre.core/OwnedDisplayHandle? // org.graphiks.kadre.core/ActiveEventLoop.ownedDisplayHandle|ownedDisplayHandle(){}[0]
 }
 
 abstract interface org.graphiks.kadre.core/ApplicationHandler { // org.graphiks.kadre.core/ApplicationHandler|null[0]
@@ -606,6 +607,18 @@ abstract interface org.graphiks.kadre.core/Window { // org.graphiks.kadre.core/W
         abstract fun <get-theme>(): org.graphiks.kadre.core/Theme? // org.graphiks.kadre.core/Window.theme.<get-theme>|<get-theme>(){}[0]
     abstract val title // org.graphiks.kadre.core/Window.title|{}title[0]
         abstract fun <get-title>(): kotlin/String // org.graphiks.kadre.core/Window.title.<get-title>|<get-title>(){}[0]
+    open val enabledButtons // org.graphiks.kadre.core/Window.enabledButtons|{}enabledButtons[0]
+        open fun <get-enabledButtons>(): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/Window.enabledButtons.<get-enabledButtons>|<get-enabledButtons>(){}[0]
+    open val hasFocus // org.graphiks.kadre.core/Window.hasFocus|{}hasFocus[0]
+        open fun <get-hasFocus>(): kotlin/Boolean // org.graphiks.kadre.core/Window.hasFocus.<get-hasFocus>|<get-hasFocus>(){}[0]
+    open val safeArea // org.graphiks.kadre.core/Window.safeArea|{}safeArea[0]
+        open fun <get-safeArea>(): org.graphiks.kadre.core/Insets<kotlin/Int> // org.graphiks.kadre.core/Window.safeArea.<get-safeArea>|<get-safeArea>(){}[0]
+    open val surfacePosition // org.graphiks.kadre.core/Window.surfacePosition|{}surfacePosition[0]
+        open fun <get-surfacePosition>(): org.graphiks.kadre.core/PhysicalPosition<kotlin/Int> // org.graphiks.kadre.core/Window.surfacePosition.<get-surfacePosition>|<get-surfacePosition>(){}[0]
+    open val surfaceResizeIncrements // org.graphiks.kadre.core/Window.surfaceResizeIncrements|{}surfaceResizeIncrements[0]
+        open fun <get-surfaceResizeIncrements>(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? // org.graphiks.kadre.core/Window.surfaceResizeIncrements.<get-surfaceResizeIncrements>|<get-surfaceResizeIncrements>(){}[0]
+    open val surfaceSize // org.graphiks.kadre.core/Window.surfaceSize|{}surfaceSize[0]
+        open fun <get-surfaceSize>(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int> // org.graphiks.kadre.core/Window.surfaceSize.<get-surfaceSize>|<get-surfaceSize>(){}[0]
 
     abstract fun close() // org.graphiks.kadre.core/Window.close|close(){}[0]
     abstract fun currentMonitor(): org.graphiks.kadre.core/MonitorHandle? // org.graphiks.kadre.core/Window.currentMonitor|currentMonitor(){}[0]
@@ -634,17 +647,21 @@ abstract interface org.graphiks.kadre.core/Window { // org.graphiks.kadre.core/W
     abstract fun setWindowLevel(org.graphiks.kadre.core/WindowLevel) // org.graphiks.kadre.core/Window.setWindowLevel|setWindowLevel(org.graphiks.kadre.core.WindowLevel){}[0]
     open fun dragResizeWindow(org.graphiks.kadre.core/ResizeDirection) // org.graphiks.kadre.core/Window.dragResizeWindow|dragResizeWindow(org.graphiks.kadre.core.ResizeDirection){}[0]
     open fun dragWindow() // org.graphiks.kadre.core/Window.dragWindow|dragWindow(){}[0]
+    open fun focusWindow() // org.graphiks.kadre.core/Window.focusWindow|focusWindow(){}[0]
     open fun inputCapabilities(): org.graphiks.kadre.core/InputCapabilities // org.graphiks.kadre.core/Window.inputCapabilities|inputCapabilities(){}[0]
     open fun recognizeDoubleTapGesture(kotlin/Boolean) // org.graphiks.kadre.core/Window.recognizeDoubleTapGesture|recognizeDoubleTapGesture(kotlin.Boolean){}[0]
     open fun recognizePanGesture(kotlin/Boolean, kotlin/Int, kotlin/Int) // org.graphiks.kadre.core/Window.recognizePanGesture|recognizePanGesture(kotlin.Boolean;kotlin.Int;kotlin.Int){}[0]
     open fun recognizePinchGesture(kotlin/Boolean) // org.graphiks.kadre.core/Window.recognizePinchGesture|recognizePinchGesture(kotlin.Boolean){}[0]
     open fun recognizeRotationGesture(kotlin/Boolean) // org.graphiks.kadre.core/Window.recognizeRotationGesture|recognizeRotationGesture(kotlin.Boolean){}[0]
+    open fun requestSurfaceSize(org.graphiks.kadre.core/PhysicalSize<kotlin/Int>): org.graphiks.kadre.core/SurfaceSizeRequestResult // org.graphiks.kadre.core/Window.requestSurfaceSize|requestSurfaceSize(org.graphiks.kadre.core.PhysicalSize<kotlin.Int>){}[0]
     open fun requestUserAttention(org.graphiks.kadre.core/UserAttentionType?) // org.graphiks.kadre.core/Window.requestUserAttention|requestUserAttention(org.graphiks.kadre.core.UserAttentionType?){}[0]
     open fun setContentProtected(kotlin/Boolean) // org.graphiks.kadre.core/Window.setContentProtected|setContentProtected(kotlin.Boolean){}[0]
     open fun setCustomCursor(org.graphiks.kadre.core/CustomCursor) // org.graphiks.kadre.core/Window.setCustomCursor|setCustomCursor(org.graphiks.kadre.core.CustomCursor){}[0]
+    open fun setEnabledButtons(org.graphiks.kadre.core/WindowButtons) // org.graphiks.kadre.core/Window.setEnabledButtons|setEnabledButtons(org.graphiks.kadre.core.WindowButtons){}[0]
     open fun setImeAllowed(kotlin/Boolean) // org.graphiks.kadre.core/Window.setImeAllowed|setImeAllowed(kotlin.Boolean){}[0]
     open fun setImeCursorArea(org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>, org.graphiks.kadre.core/PhysicalSize<kotlin/Int>) // org.graphiks.kadre.core/Window.setImeCursorArea|setImeCursorArea(org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>){}[0]
     open fun setImePurpose(org.graphiks.kadre.core/ImePurpose) // org.graphiks.kadre.core/Window.setImePurpose|setImePurpose(org.graphiks.kadre.core.ImePurpose){}[0]
+    open fun setSurfaceResizeIncrements(org.graphiks.kadre.core/PhysicalSize<kotlin/Int>?) // org.graphiks.kadre.core/Window.setSurfaceResizeIncrements|setSurfaceResizeIncrements(org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?){}[0]
     open fun showWindowMenu(org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>) // org.graphiks.kadre.core/Window.showWindowMenu|showWindowMenu(org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>){}[0]
 }
 
@@ -1429,6 +1446,84 @@ sealed interface org.graphiks.kadre.core/RawWindowHandle { // org.graphiks.kadre
     }
 }
 
+sealed interface org.graphiks.kadre.core/RequestError { // org.graphiks.kadre.core/RequestError|null[0]
+    abstract val message // org.graphiks.kadre.core/RequestError.message|{}message[0]
+        abstract fun <get-message>(): kotlin/String // org.graphiks.kadre.core/RequestError.message.<get-message>|<get-message>(){}[0]
+
+    final class OsError : org.graphiks.kadre.core/RequestError { // org.graphiks.kadre.core/RequestError.OsError|null[0]
+        constructor <init>(kotlin/String) // org.graphiks.kadre.core/RequestError.OsError.<init>|<init>(kotlin.String){}[0]
+
+        final val message // org.graphiks.kadre.core/RequestError.OsError.message|{}message[0]
+            final fun <get-message>(): kotlin/String // org.graphiks.kadre.core/RequestError.OsError.message.<get-message>|<get-message>(){}[0]
+
+        final fun component1(): kotlin/String // org.graphiks.kadre.core/RequestError.OsError.component1|component1(){}[0]
+        final fun copy(kotlin/String = ...): org.graphiks.kadre.core/RequestError.OsError // org.graphiks.kadre.core/RequestError.OsError.copy|copy(kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/RequestError.OsError.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/RequestError.OsError.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/RequestError.OsError.toString|toString(){}[0]
+    }
+
+    final class PermissionDenied : org.graphiks.kadre.core/RequestError { // org.graphiks.kadre.core/RequestError.PermissionDenied|null[0]
+        constructor <init>(kotlin/String = ...) // org.graphiks.kadre.core/RequestError.PermissionDenied.<init>|<init>(kotlin.String){}[0]
+
+        final val message // org.graphiks.kadre.core/RequestError.PermissionDenied.message|{}message[0]
+            final fun <get-message>(): kotlin/String // org.graphiks.kadre.core/RequestError.PermissionDenied.message.<get-message>|<get-message>(){}[0]
+
+        final fun component1(): kotlin/String // org.graphiks.kadre.core/RequestError.PermissionDenied.component1|component1(){}[0]
+        final fun copy(kotlin/String = ...): org.graphiks.kadre.core/RequestError.PermissionDenied // org.graphiks.kadre.core/RequestError.PermissionDenied.copy|copy(kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/RequestError.PermissionDenied.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/RequestError.PermissionDenied.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/RequestError.PermissionDenied.toString|toString(){}[0]
+    }
+
+    final class Unsupported : org.graphiks.kadre.core/RequestError { // org.graphiks.kadre.core/RequestError.Unsupported|null[0]
+        constructor <init>(kotlin/String = ...) // org.graphiks.kadre.core/RequestError.Unsupported.<init>|<init>(kotlin.String){}[0]
+
+        final val message // org.graphiks.kadre.core/RequestError.Unsupported.message|{}message[0]
+            final fun <get-message>(): kotlin/String // org.graphiks.kadre.core/RequestError.Unsupported.message.<get-message>|<get-message>(){}[0]
+
+        final fun component1(): kotlin/String // org.graphiks.kadre.core/RequestError.Unsupported.component1|component1(){}[0]
+        final fun copy(kotlin/String = ...): org.graphiks.kadre.core/RequestError.Unsupported // org.graphiks.kadre.core/RequestError.Unsupported.copy|copy(kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/RequestError.Unsupported.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/RequestError.Unsupported.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/RequestError.Unsupported.toString|toString(){}[0]
+    }
+}
+
+sealed interface org.graphiks.kadre.core/SurfaceSizeRequestResult { // org.graphiks.kadre.core/SurfaceSizeRequestResult|null[0]
+    final class Applied : org.graphiks.kadre.core/SurfaceSizeRequestResult { // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied|null[0]
+        constructor <init>(org.graphiks.kadre.core/PhysicalSize<kotlin/Int>) // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied.<init>|<init>(org.graphiks.kadre.core.PhysicalSize<kotlin.Int>){}[0]
+
+        final val size // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied.size|{}size[0]
+            final fun <get-size>(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int> // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied.size.<get-size>|<get-size>(){}[0]
+
+        final fun component1(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int> // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied.component1|component1(){}[0]
+        final fun copy(org.graphiks.kadre.core/PhysicalSize<kotlin/Int> = ...): org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied.copy|copy(org.graphiks.kadre.core.PhysicalSize<kotlin.Int>){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/SurfaceSizeRequestResult.Applied.toString|toString(){}[0]
+    }
+
+    final class Failure : org.graphiks.kadre.core/SurfaceSizeRequestResult { // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure|null[0]
+        constructor <init>(org.graphiks.kadre.core/RequestError) // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure.<init>|<init>(org.graphiks.kadre.core.RequestError){}[0]
+
+        final val error // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure.error|{}error[0]
+            final fun <get-error>(): org.graphiks.kadre.core/RequestError // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure.error.<get-error>|<get-error>(){}[0]
+
+        final fun component1(): org.graphiks.kadre.core/RequestError // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure.component1|component1(){}[0]
+        final fun copy(org.graphiks.kadre.core/RequestError = ...): org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure.copy|copy(org.graphiks.kadre.core.RequestError){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/SurfaceSizeRequestResult.Failure.toString|toString(){}[0]
+    }
+
+    final object Pending : org.graphiks.kadre.core/SurfaceSizeRequestResult { // org.graphiks.kadre.core/SurfaceSizeRequestResult.Pending|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/SurfaceSizeRequestResult.Pending.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/SurfaceSizeRequestResult.Pending.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/SurfaceSizeRequestResult.Pending.toString|toString(){}[0]
+    }
+}
+
 sealed interface org.graphiks.kadre.core/TouchForce { // org.graphiks.kadre.core/TouchForce|null[0]
     final class Calibrated : org.graphiks.kadre.core/TouchForce { // org.graphiks.kadre.core/TouchForce.Calibrated|null[0]
         constructor <init>(kotlin/Double, kotlin/Double) // org.graphiks.kadre.core/TouchForce.Calibrated.<init>|<init>(kotlin.Double;kotlin.Double){}[0]
@@ -1912,6 +2007,49 @@ sealed interface org.graphiks.kadre.core/WindowEvent { // org.graphiks.kadre.cor
     }
 }
 
+sealed interface org.graphiks.kadre.core/WindowRequestResult { // org.graphiks.kadre.core/WindowRequestResult|null[0]
+    final class Failure : org.graphiks.kadre.core/WindowRequestResult { // org.graphiks.kadre.core/WindowRequestResult.Failure|null[0]
+        constructor <init>(org.graphiks.kadre.core/RequestError) // org.graphiks.kadre.core/WindowRequestResult.Failure.<init>|<init>(org.graphiks.kadre.core.RequestError){}[0]
+
+        final val error // org.graphiks.kadre.core/WindowRequestResult.Failure.error|{}error[0]
+            final fun <get-error>(): org.graphiks.kadre.core/RequestError // org.graphiks.kadre.core/WindowRequestResult.Failure.error.<get-error>|<get-error>(){}[0]
+
+        final fun component1(): org.graphiks.kadre.core/RequestError // org.graphiks.kadre.core/WindowRequestResult.Failure.component1|component1(){}[0]
+        final fun copy(org.graphiks.kadre.core/RequestError = ...): org.graphiks.kadre.core/WindowRequestResult.Failure // org.graphiks.kadre.core/WindowRequestResult.Failure.copy|copy(org.graphiks.kadre.core.RequestError){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowRequestResult.Failure.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowRequestResult.Failure.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowRequestResult.Failure.toString|toString(){}[0]
+    }
+
+    final object Success : org.graphiks.kadre.core/WindowRequestResult { // org.graphiks.kadre.core/WindowRequestResult.Success|null[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowRequestResult.Success.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowRequestResult.Success.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowRequestResult.Success.toString|toString(){}[0]
+    }
+}
+
+final class <#A: kotlin/Number> org.graphiks.kadre.core/Insets { // org.graphiks.kadre.core/Insets|null[0]
+    constructor <init>(#A, #A, #A, #A) // org.graphiks.kadre.core/Insets.<init>|<init>(1:0;1:0;1:0;1:0){}[0]
+
+    final val bottom // org.graphiks.kadre.core/Insets.bottom|{}bottom[0]
+        final fun <get-bottom>(): #A // org.graphiks.kadre.core/Insets.bottom.<get-bottom>|<get-bottom>(){}[0]
+    final val left // org.graphiks.kadre.core/Insets.left|{}left[0]
+        final fun <get-left>(): #A // org.graphiks.kadre.core/Insets.left.<get-left>|<get-left>(){}[0]
+    final val right // org.graphiks.kadre.core/Insets.right|{}right[0]
+        final fun <get-right>(): #A // org.graphiks.kadre.core/Insets.right.<get-right>|<get-right>(){}[0]
+    final val top // org.graphiks.kadre.core/Insets.top|{}top[0]
+        final fun <get-top>(): #A // org.graphiks.kadre.core/Insets.top.<get-top>|<get-top>(){}[0]
+
+    final fun component1(): #A // org.graphiks.kadre.core/Insets.component1|component1(){}[0]
+    final fun component2(): #A // org.graphiks.kadre.core/Insets.component2|component2(){}[0]
+    final fun component3(): #A // org.graphiks.kadre.core/Insets.component3|component3(){}[0]
+    final fun component4(): #A // org.graphiks.kadre.core/Insets.component4|component4(){}[0]
+    final fun copy(#A = ..., #A = ..., #A = ..., #A = ...): org.graphiks.kadre.core/Insets<#A> // org.graphiks.kadre.core/Insets.copy|copy(1:0;1:0;1:0;1:0){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/Insets.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/Insets.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.graphiks.kadre.core/Insets.toString|toString(){}[0]
+}
+
 final class <#A: kotlin/Number> org.graphiks.kadre.core/LogicalPosition { // org.graphiks.kadre.core/LogicalPosition|null[0]
     constructor <init>(#A, #A) // org.graphiks.kadre.core/LogicalPosition.<init>|<init>(1:0;1:0){}[0]
 
@@ -2225,6 +2363,19 @@ final class org.graphiks.kadre.core/NativeKeyInfo { // org.graphiks.kadre.core/N
     final fun toString(): kotlin/String // org.graphiks.kadre.core/NativeKeyInfo.toString|toString(){}[0]
 }
 
+final class org.graphiks.kadre.core/OwnedDisplayHandle { // org.graphiks.kadre.core/OwnedDisplayHandle|null[0]
+    constructor <init>(org.graphiks.kadre.core/RawDisplayHandle) // org.graphiks.kadre.core/OwnedDisplayHandle.<init>|<init>(org.graphiks.kadre.core.RawDisplayHandle){}[0]
+
+    final val rawDisplayHandle // org.graphiks.kadre.core/OwnedDisplayHandle.rawDisplayHandle|{}rawDisplayHandle[0]
+        final fun <get-rawDisplayHandle>(): org.graphiks.kadre.core/RawDisplayHandle // org.graphiks.kadre.core/OwnedDisplayHandle.rawDisplayHandle.<get-rawDisplayHandle>|<get-rawDisplayHandle>(){}[0]
+
+    final fun component1(): org.graphiks.kadre.core/RawDisplayHandle // org.graphiks.kadre.core/OwnedDisplayHandle.component1|component1(){}[0]
+    final fun copy(org.graphiks.kadre.core/RawDisplayHandle = ...): org.graphiks.kadre.core/OwnedDisplayHandle // org.graphiks.kadre.core/OwnedDisplayHandle.copy|copy(org.graphiks.kadre.core.RawDisplayHandle){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/OwnedDisplayHandle.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/OwnedDisplayHandle.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // org.graphiks.kadre.core/OwnedDisplayHandle.toString|toString(){}[0]
+}
+
 final class org.graphiks.kadre.core/RawKeyEvent { // org.graphiks.kadre.core/RawKeyEvent|null[0]
     constructor <init>(org.graphiks.kadre.core/PhysicalKey, org.graphiks.kadre.core/KeyState, org.graphiks.kadre.core/NativeKeyInfo = ...) // org.graphiks.kadre.core/RawKeyEvent.<init>|<init>(org.graphiks.kadre.core.PhysicalKey;org.graphiks.kadre.core.KeyState;org.graphiks.kadre.core.NativeKeyInfo){}[0]
 
@@ -2288,16 +2439,20 @@ final class org.graphiks.kadre.core/VideoMode { // org.graphiks.kadre.core/Video
 }
 
 final class org.graphiks.kadre.core/WindowAttributes { // org.graphiks.kadre.core/WindowAttributes|null[0]
-    constructor <init>(kotlin/String = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/Fullscreen? = ..., org.graphiks.kadre.core/CursorIcon = ..., org.graphiks.kadre.core/Theme? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/WindowLevel = ..., org.graphiks.kadre.core/Icon? = ...) // org.graphiks.kadre.core/WindowAttributes.<init>|<init>(kotlin.String;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>?;kotlin.Boolean;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.Fullscreen?;org.graphiks.kadre.core.CursorIcon;org.graphiks.kadre.core.Theme?;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.WindowLevel;org.graphiks.kadre.core.Icon?){}[0]
+    constructor <init>(kotlin/String = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>? = ..., org.graphiks.kadre.core/WindowButtons = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/Fullscreen? = ..., org.graphiks.kadre.core/CursorIcon = ..., org.graphiks.kadre.core/Theme? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/WindowLevel = ..., org.graphiks.kadre.core/Icon? = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/RawWindowHandle? = ...) // org.graphiks.kadre.core/WindowAttributes.<init>|<init>(kotlin.String;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>?;org.graphiks.kadre.core.WindowButtons;kotlin.Boolean;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.Fullscreen?;org.graphiks.kadre.core.CursorIcon;org.graphiks.kadre.core.Theme?;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.WindowLevel;org.graphiks.kadre.core.Icon?;kotlin.Boolean;org.graphiks.kadre.core.RawWindowHandle?){}[0]
 
     final val active // org.graphiks.kadre.core/WindowAttributes.active|{}active[0]
         final fun <get-active>(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.active.<get-active>|<get-active>(){}[0]
     final val blur // org.graphiks.kadre.core/WindowAttributes.blur|{}blur[0]
         final fun <get-blur>(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.blur.<get-blur>|<get-blur>(){}[0]
+    final val contentProtected // org.graphiks.kadre.core/WindowAttributes.contentProtected|{}contentProtected[0]
+        final fun <get-contentProtected>(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.contentProtected.<get-contentProtected>|<get-contentProtected>(){}[0]
     final val cursor // org.graphiks.kadre.core/WindowAttributes.cursor|{}cursor[0]
         final fun <get-cursor>(): org.graphiks.kadre.core/CursorIcon // org.graphiks.kadre.core/WindowAttributes.cursor.<get-cursor>|<get-cursor>(){}[0]
     final val decorations // org.graphiks.kadre.core/WindowAttributes.decorations|{}decorations[0]
         final fun <get-decorations>(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.decorations.<get-decorations>|<get-decorations>(){}[0]
+    final val enabledButtons // org.graphiks.kadre.core/WindowAttributes.enabledButtons|{}enabledButtons[0]
+        final fun <get-enabledButtons>(): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowAttributes.enabledButtons.<get-enabledButtons>|<get-enabledButtons>(){}[0]
     final val fullscreen // org.graphiks.kadre.core/WindowAttributes.fullscreen|{}fullscreen[0]
         final fun <get-fullscreen>(): org.graphiks.kadre.core/Fullscreen? // org.graphiks.kadre.core/WindowAttributes.fullscreen.<get-fullscreen>|<get-fullscreen>(){}[0]
     final val maxSize // org.graphiks.kadre.core/WindowAttributes.maxSize|{}maxSize[0]
@@ -2306,12 +2461,16 @@ final class org.graphiks.kadre.core/WindowAttributes { // org.graphiks.kadre.cor
         final fun <get-maximized>(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.maximized.<get-maximized>|<get-maximized>(){}[0]
     final val minSize // org.graphiks.kadre.core/WindowAttributes.minSize|{}minSize[0]
         final fun <get-minSize>(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.minSize.<get-minSize>|<get-minSize>(){}[0]
+    final val parentWindow // org.graphiks.kadre.core/WindowAttributes.parentWindow|{}parentWindow[0]
+        final fun <get-parentWindow>(): org.graphiks.kadre.core/RawWindowHandle? // org.graphiks.kadre.core/WindowAttributes.parentWindow.<get-parentWindow>|<get-parentWindow>(){}[0]
     final val position // org.graphiks.kadre.core/WindowAttributes.position|{}position[0]
         final fun <get-position>(): org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.position.<get-position>|<get-position>(){}[0]
     final val preferredTheme // org.graphiks.kadre.core/WindowAttributes.preferredTheme|{}preferredTheme[0]
         final fun <get-preferredTheme>(): org.graphiks.kadre.core/Theme? // org.graphiks.kadre.core/WindowAttributes.preferredTheme.<get-preferredTheme>|<get-preferredTheme>(){}[0]
     final val resizable // org.graphiks.kadre.core/WindowAttributes.resizable|{}resizable[0]
         final fun <get-resizable>(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.resizable.<get-resizable>|<get-resizable>(){}[0]
+    final val resizeIncrements // org.graphiks.kadre.core/WindowAttributes.resizeIncrements|{}resizeIncrements[0]
+        final fun <get-resizeIncrements>(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.resizeIncrements.<get-resizeIncrements>|<get-resizeIncrements>(){}[0]
     final val size // org.graphiks.kadre.core/WindowAttributes.size|{}size[0]
         final fun <get-size>(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.size.<get-size>|<get-size>(){}[0]
     final val title // org.graphiks.kadre.core/WindowAttributes.title|{}title[0]
@@ -2327,25 +2486,57 @@ final class org.graphiks.kadre.core/WindowAttributes { // org.graphiks.kadre.cor
 
     final fun component1(): kotlin/String // org.graphiks.kadre.core/WindowAttributes.component1|component1(){}[0]
     final fun component10(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component10|component10(){}[0]
-    final fun component11(): org.graphiks.kadre.core/Fullscreen? // org.graphiks.kadre.core/WindowAttributes.component11|component11(){}[0]
-    final fun component12(): org.graphiks.kadre.core/CursorIcon // org.graphiks.kadre.core/WindowAttributes.component12|component12(){}[0]
-    final fun component13(): org.graphiks.kadre.core/Theme? // org.graphiks.kadre.core/WindowAttributes.component13|component13(){}[0]
-    final fun component14(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component14|component14(){}[0]
-    final fun component15(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component15|component15(){}[0]
-    final fun component16(): org.graphiks.kadre.core/WindowLevel // org.graphiks.kadre.core/WindowAttributes.component16|component16(){}[0]
-    final fun component17(): org.graphiks.kadre.core/Icon? // org.graphiks.kadre.core/WindowAttributes.component17|component17(){}[0]
+    final fun component11(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component11|component11(){}[0]
+    final fun component12(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component12|component12(){}[0]
+    final fun component13(): org.graphiks.kadre.core/Fullscreen? // org.graphiks.kadre.core/WindowAttributes.component13|component13(){}[0]
+    final fun component14(): org.graphiks.kadre.core/CursorIcon // org.graphiks.kadre.core/WindowAttributes.component14|component14(){}[0]
+    final fun component15(): org.graphiks.kadre.core/Theme? // org.graphiks.kadre.core/WindowAttributes.component15|component15(){}[0]
+    final fun component16(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component16|component16(){}[0]
+    final fun component17(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component17|component17(){}[0]
+    final fun component18(): org.graphiks.kadre.core/WindowLevel // org.graphiks.kadre.core/WindowAttributes.component18|component18(){}[0]
+    final fun component19(): org.graphiks.kadre.core/Icon? // org.graphiks.kadre.core/WindowAttributes.component19|component19(){}[0]
     final fun component2(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.component2|component2(){}[0]
+    final fun component20(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component20|component20(){}[0]
+    final fun component21(): org.graphiks.kadre.core/RawWindowHandle? // org.graphiks.kadre.core/WindowAttributes.component21|component21(){}[0]
     final fun component3(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component3|component3(){}[0]
     final fun component4(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component4|component4(){}[0]
     final fun component5(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.component5|component5(){}[0]
     final fun component6(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.component6|component6(){}[0]
-    final fun component7(): org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.component7|component7(){}[0]
-    final fun component8(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component8|component8(){}[0]
-    final fun component9(): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.component9|component9(){}[0]
-    final fun copy(kotlin/String = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/Fullscreen? = ..., org.graphiks.kadre.core/CursorIcon = ..., org.graphiks.kadre.core/Theme? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/WindowLevel = ..., org.graphiks.kadre.core/Icon? = ...): org.graphiks.kadre.core/WindowAttributes // org.graphiks.kadre.core/WindowAttributes.copy|copy(kotlin.String;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>?;kotlin.Boolean;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.Fullscreen?;org.graphiks.kadre.core.CursorIcon;org.graphiks.kadre.core.Theme?;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.WindowLevel;org.graphiks.kadre.core.Icon?){}[0]
+    final fun component7(): org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.component7|component7(){}[0]
+    final fun component8(): org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>? // org.graphiks.kadre.core/WindowAttributes.component8|component8(){}[0]
+    final fun component9(): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowAttributes.component9|component9(){}[0]
+    final fun copy(kotlin/String = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalSize<kotlin/Int>? = ..., org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>? = ..., org.graphiks.kadre.core/WindowButtons = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/Fullscreen? = ..., org.graphiks.kadre.core/CursorIcon = ..., org.graphiks.kadre.core/Theme? = ..., kotlin/Boolean = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/WindowLevel = ..., org.graphiks.kadre.core/Icon? = ..., kotlin/Boolean = ..., org.graphiks.kadre.core/RawWindowHandle? = ...): org.graphiks.kadre.core/WindowAttributes // org.graphiks.kadre.core/WindowAttributes.copy|copy(kotlin.String;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?;org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>?;org.graphiks.kadre.core.WindowButtons;kotlin.Boolean;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.Fullscreen?;org.graphiks.kadre.core.CursorIcon;org.graphiks.kadre.core.Theme?;kotlin.Boolean;kotlin.Boolean;org.graphiks.kadre.core.WindowLevel;org.graphiks.kadre.core.Icon?;kotlin.Boolean;org.graphiks.kadre.core.RawWindowHandle?){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowAttributes.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowAttributes.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowAttributes.toString|toString(){}[0]
+}
+
+final class org.graphiks.kadre.core/WindowButtons { // org.graphiks.kadre.core/WindowButtons|null[0]
+    constructor <init>(kotlin/Int) // org.graphiks.kadre.core/WindowButtons.<init>|<init>(kotlin.Int){}[0]
+
+    final val bits // org.graphiks.kadre.core/WindowButtons.bits|{}bits[0]
+        final fun <get-bits>(): kotlin/Int // org.graphiks.kadre.core/WindowButtons.bits.<get-bits>|<get-bits>(){}[0]
+
+    final fun component1(): kotlin/Int // org.graphiks.kadre.core/WindowButtons.component1|component1(){}[0]
+    final fun contains(org.graphiks.kadre.core/WindowButtons): kotlin/Boolean // org.graphiks.kadre.core/WindowButtons.contains|contains(org.graphiks.kadre.core.WindowButtons){}[0]
+    final fun copy(kotlin/Int = ...): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowButtons.copy|copy(kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // org.graphiks.kadre.core/WindowButtons.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // org.graphiks.kadre.core/WindowButtons.hashCode|hashCode(){}[0]
+    final fun plus(org.graphiks.kadre.core/WindowButtons): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowButtons.plus|plus(org.graphiks.kadre.core.WindowButtons){}[0]
+    final fun toString(): kotlin/String // org.graphiks.kadre.core/WindowButtons.toString|toString(){}[0]
+
+    final object Companion { // org.graphiks.kadre.core/WindowButtons.Companion|null[0]
+        final val ALL // org.graphiks.kadre.core/WindowButtons.Companion.ALL|{}ALL[0]
+            final fun <get-ALL>(): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowButtons.Companion.ALL.<get-ALL>|<get-ALL>(){}[0]
+        final val CLOSE // org.graphiks.kadre.core/WindowButtons.Companion.CLOSE|{}CLOSE[0]
+            final fun <get-CLOSE>(): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowButtons.Companion.CLOSE.<get-CLOSE>|<get-CLOSE>(){}[0]
+        final val MAXIMIZE // org.graphiks.kadre.core/WindowButtons.Companion.MAXIMIZE|{}MAXIMIZE[0]
+            final fun <get-MAXIMIZE>(): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowButtons.Companion.MAXIMIZE.<get-MAXIMIZE>|<get-MAXIMIZE>(){}[0]
+        final val MINIMIZE // org.graphiks.kadre.core/WindowButtons.Companion.MINIMIZE|{}MINIMIZE[0]
+            final fun <get-MINIMIZE>(): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowButtons.Companion.MINIMIZE.<get-MINIMIZE>|<get-MINIMIZE>(){}[0]
+        final val NONE // org.graphiks.kadre.core/WindowButtons.Companion.NONE|{}NONE[0]
+            final fun <get-NONE>(): org.graphiks.kadre.core/WindowButtons // org.graphiks.kadre.core/WindowButtons.Companion.NONE.<get-NONE>|<get-NONE>(){}[0]
+    }
 }
 
 final value class org.graphiks.kadre.core/DeviceId { // org.graphiks.kadre.core/DeviceId|null[0]

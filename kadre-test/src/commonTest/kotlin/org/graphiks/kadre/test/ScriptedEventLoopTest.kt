@@ -18,6 +18,8 @@ import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.NamedKey
 import org.graphiks.kadre.core.PhysicalKey
+import org.graphiks.kadre.core.Window
+import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import kotlin.test.Test
@@ -28,17 +30,23 @@ import kotlin.test.assertFalse
 /** Recording handler: captures the received window events. */
 private class RecordingHandler(
     private val exitOnClose: Boolean = false,
+    private val windowsToCreate: Int = 1,
 ) : ApplicationHandler {
     val received = mutableListOf<WindowEvent>()
+    val receivedByWindow = mutableListOf<Pair<WindowId, WindowEvent>>()
+    val createdWindows = mutableListOf<Window>()
     var surfacesCreated = false
 
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
         surfacesCreated = true
-        eventLoop.createWindow(org.graphiks.kadre.core.WindowAttributes())
+        repeat(windowsToCreate) {
+            createdWindows += eventLoop.createWindow(WindowAttributes())
+        }
     }
 
     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
         received += event
+        receivedByWindow += windowId to event
         if (exitOnClose && event is WindowEvent.CloseRequested) eventLoop.exit()
     }
 }
@@ -209,5 +217,29 @@ class ScriptedEventLoopTest {
         assertTrue(trace[idx + 1] is Callback.WindowEventCb)
         assertEquals(Callback.AboutToWait, trace[idx + 2])
         assertEquals(1, handler.received.count { it is WindowEvent.RedrawRequested })
+    }
+
+    @Test
+    fun multiWindow_createWindowAssignsDistinctIds_andEventsStaySeparated() {
+        val handler = RecordingHandler(windowsToCreate = 2)
+
+        scriptedTest {
+            canCreateSurfaces()
+            physicalKeyPress(KeyCode.ArrowUp, windowId = WindowId(1L))
+            physicalKeyPress(KeyCode.Escape, windowId = WindowId(2L))
+            tick(16, windowId = WindowId(2L))
+        }.run(handler)
+
+        assertEquals(listOf(WindowId(1L), WindowId(2L)), handler.createdWindows.map { it.id })
+        assertEquals(2, handler.createdWindows.map { it.id }.distinct().size)
+
+        val firstWindowEvents = handler.receivedByWindow.filter { it.first == WindowId(1L) }.map { it.second }
+        val secondWindowEvents = handler.receivedByWindow.filter { it.first == WindowId(2L) }.map { it.second }
+
+        assertEquals(1, firstWindowEvents.size)
+        assertTrue(firstWindowEvents.single() is WindowEvent.KeyInput)
+        assertEquals(2, secondWindowEvents.size)
+        assertTrue(secondWindowEvents.first() is WindowEvent.KeyInput)
+        assertTrue(secondWindowEvents.last() is WindowEvent.RedrawRequested)
     }
 }

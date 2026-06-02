@@ -56,6 +56,22 @@ interface Window {
     val outerSize: PhysicalSize<Int>
 
     /**
+     * Returns the size of the renderable surface.
+     */
+    val surfaceSize: PhysicalSize<Int> get() = innerSize
+
+    /**
+     * Requests a new renderable surface size.
+     */
+    fun requestSurfaceSize(size: PhysicalSize<Int>): SurfaceSizeRequestResult =
+        SurfaceSizeRequestResult.Failure(RequestError.Unsupported("Surface resizing is unsupported by this window"))
+
+    /**
+     * Returns the surface position relative to the outer window.
+     */
+    val surfacePosition: PhysicalPosition<Int> get() = PhysicalPosition(0, 0)
+
+    /**
      * Returns the scale factor between logical and physical pixels
      * for this window.
      */
@@ -132,6 +148,16 @@ interface Window {
     val isDecorated: Boolean
 
     /**
+     * Enables or disables individual native window buttons where supported.
+     */
+    fun setEnabledButtons(buttons: WindowButtons) { /* no-op by default */ }
+
+    /**
+     * Returns the enabled native window buttons, if tracked by the backend.
+     */
+    val enabledButtons: WindowButtons get() = WindowButtons.ALL
+
+    /**
      * Sets the minimum surface size constraint.
      *
      * @param size minimum size in physical pixels, or null to remove the constraint.
@@ -144,6 +170,21 @@ interface Window {
      * @param size maximum size in physical pixels, or null to remove the constraint.
      */
     fun setMaxSurfaceSize(size: PhysicalSize<Int>?)
+
+    /**
+     * Insets of the unobstructed area inside [surfaceSize].
+     */
+    val safeArea: Insets<Int> get() = Insets(0, 0, 0, 0)
+
+    /**
+     * Resize increments requested for the renderable surface.
+     */
+    val surfaceResizeIncrements: PhysicalSize<Int>? get() = null
+
+    /**
+     * Sets resize increments for the renderable surface when supported.
+     */
+    fun setSurfaceResizeIncrements(increments: PhysicalSize<Int>?) { /* no-op by default */ }
 
     /**
      * Returns the outer position of the window on the screen in physical pixels
@@ -203,6 +244,16 @@ interface Window {
      * @return The active [Fullscreen] mode, or null when in windowed mode.
      */
     val fullscreen: Fullscreen?
+
+    /**
+     * Requests keyboard focus for this window where supported.
+     */
+    fun focusWindow() { /* no-op by default */ }
+
+    /**
+     * Returns whether this window currently has keyboard focus.
+     */
+    val hasFocus: Boolean get() = false
 
     // ── R3: cursor, theme & appearance ───────────────────────────────────────
 

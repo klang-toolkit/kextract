@@ -33,7 +33,9 @@ data class WindowAttributes(
     val resizable: Boolean = true,
     val minSize: PhysicalSize<Int>? = null,
     val maxSize: PhysicalSize<Int>? = null,
+    val resizeIncrements: PhysicalSize<Int>? = null,
     val position: PhysicalPosition<Int>? = null,
+    val enabledButtons: WindowButtons = WindowButtons.ALL,
     val maximized: Boolean = false,
     val decorations: Boolean = true,
     val active: Boolean = true,
@@ -45,4 +47,6 @@ data class WindowAttributes(
     val blur: Boolean = false,
     val windowLevel: WindowLevel = WindowLevel.Normal,
     val windowIcon: Icon? = null,
+    val contentProtected: Boolean = false,
+    val parentWindow: RawWindowHandle? = null,
 )

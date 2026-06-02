@@ -8,15 +8,22 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)V
 	public fun dragWindow ()V
+	public fun focusWindow ()V
 	public final fun getDelegate ()Lorg/graphiks/kadre/appkit/KadreWindowDelegate;
+	public fun getEnabledButtons ()Lorg/graphiks/kadre/core/WindowButtons;
 	public fun getFullscreen ()Lorg/graphiks/kadre/core/Fullscreen;
+	public fun getHasFocus ()Z
 	public fun getId-1uDr44Y ()J
 	public fun getInnerSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public fun getOuterPosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
 	public fun getOuterSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public fun getRawDisplayHandle ()Lorg/graphiks/kadre/core/RawDisplayHandle;
 	public fun getRawWindowHandle ()Lorg/graphiks/kadre/core/RawWindowHandle;
+	public fun getSafeArea ()Lorg/graphiks/kadre/core/Insets;
 	public fun getScaleFactor ()D
+	public fun getSurfacePosition ()Lorg/graphiks/kadre/core/PhysicalPosition;
+	public fun getSurfaceResizeIncrements ()Lorg/graphiks/kadre/core/PhysicalSize;
+	public fun getSurfaceSize ()Lorg/graphiks/kadre/core/PhysicalSize;
 	public fun getTheme ()Lorg/graphiks/kadre/core/Theme;
 	public fun getTitle ()Ljava/lang/String;
 	public fun inputCapabilities ()Lorg/graphiks/kadre/core/InputCapabilities;
@@ -31,6 +38,7 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun recognizePinchGesture (Z)V
 	public fun recognizeRotationGesture (Z)V
 	public fun requestRedraw ()V
+	public fun requestSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)Lorg/graphiks/kadre/core/SurfaceSizeRequestResult;
 	public fun requestUserAttention (Lorg/graphiks/kadre/core/UserAttentionType;)V
 	public fun resetDeadKeys ()V
 	public fun setBlur (Z)V
@@ -42,6 +50,7 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun setCursorVisible (Z)V
 	public fun setCustomCursor (Lorg/graphiks/kadre/core/CustomCursor;)V
 	public fun setDecorations (Z)V
+	public fun setEnabledButtons (Lorg/graphiks/kadre/core/WindowButtons;)V
 	public fun setFullscreen (Lorg/graphiks/kadre/core/Fullscreen;)V
 	public fun setImeAllowed (Z)V
 	public fun setImeCursorArea (Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/PhysicalSize;)V
@@ -52,6 +61,7 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun setMinimized (Z)V
 	public fun setOuterPosition (Lorg/graphiks/kadre/core/PhysicalPosition;)V
 	public fun setResizable (Z)V
+	public fun setSurfaceResizeIncrements (Lorg/graphiks/kadre/core/PhysicalSize;)V
 	public fun setTheme (Lorg/graphiks/kadre/core/Theme;)V
 	public fun setTitle (Ljava/lang/String;)V
 	public fun setTransparent (Z)V

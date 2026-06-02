@@ -44,6 +44,7 @@ import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 
 /**
@@ -71,8 +72,11 @@ open class WebEventLoop : ActiveEventLoop {
     /** Primary DOM bridge (the first one created); used for system-level queries. */
     private var primaryBridge: WebDomBridge? = null
 
+    /** Next internal window id. Canvas ids are DOM handles, not identity. */
+    private var nextWindowId: Long = 1L
+
     /** Queue of DOM events received between two frames. */
-    private val pendingEvents = mutableListOf<Pair<WindowId, WebWindowEvent>>()
+    private val pendingEvents = mutableListOf<Pair<WindowId, WindowEvent>>()
 
     // -------------------------------------------------------------------------
     // ActiveEventLoop
@@ -127,7 +131,11 @@ open class WebEventLoop : ActiveEventLoop {
         val bridge = createDomBridge()
         if (primaryBridge == null) primaryBridge = bridge
         val canvasId = bridge.ensureCanvas(attrs)
-        val window = WebWindow(canvasId, bridge)
+        val window = WebWindow(
+            id = WindowId(nextWindowId++),
+            canvasElementId = canvasId,
+            bridge = bridge,
+        )
 
         // Initialise synchronously from the current DOM state (before any event fires).
         val (initW, initH) = bridge.readCanvasPhysicalSize(canvasId)
@@ -143,8 +151,8 @@ open class WebEventLoop : ActiveEventLoop {
                     window.updateScaleFactor(event.factor)
                 else -> Unit
             }
-            // Queue the event for dispatch on the next frame
-            pendingEvents.add(Pair(windows.firstOrNull()?.id ?: WindowId(0L), event))
+            // Queue the event for the window owned by this DOM bridge.
+            pendingEvents.add(Pair(window.id, event.toWindowEvent()))
             // In Wait mode, wake the loop immediately
             if (_controlFlow is ControlFlow.Wait) {
                 scheduleWakeUp()
@@ -268,7 +276,7 @@ open class WebEventLoop : ActiveEventLoop {
         val snapshot = pendingEvents.toList()
         pendingEvents.clear()
         for ((windowId, event) in snapshot) {
-            handler.windowEvent(this, windowId, event.toWindowEvent())
+            handler.windowEvent(this, windowId, event)
         }
 
         handler.aboutToWait(this)

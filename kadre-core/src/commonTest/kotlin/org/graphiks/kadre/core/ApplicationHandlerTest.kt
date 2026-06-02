@@ -12,6 +12,7 @@ package org.graphiks.kadre.core
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ApplicationHandlerTest {
@@ -313,19 +314,61 @@ class ApplicationHandlerTest {
         assertFalse(attrs.size != null)
         assertTrue(attrs.visible)
         assertTrue(attrs.resizable)
+        assertEquals(WindowButtons.ALL, attrs.enabledButtons)
+        assertEquals(WindowLevel.Normal, attrs.windowLevel)
+        assertEquals(CursorIcon.Default, attrs.cursor)
+        assertFalse(attrs.maximized)
+        assertFalse(attrs.transparent)
+        assertFalse(attrs.blur)
+        assertTrue(attrs.decorations)
+        assertTrue(attrs.active)
+        assertNull(attrs.fullscreen)
     }
 
     @Test
     fun windowAttributesCustomized() {
+        val icon = Icon(byteArrayOf(1, 2, 3, 4), width = 1, height = 1)
         val attrs = WindowAttributes(
             title = "My window",
             size = PhysicalSize(1920, 1080),
+            minSize = PhysicalSize(640, 480),
+            maxSize = PhysicalSize(3840, 2160),
+            resizeIncrements = PhysicalSize(8, 16),
+            position = PhysicalPosition(50, 60),
             visible = false,
             resizable = false,
+            enabledButtons = WindowButtons.CLOSE,
+            maximized = true,
+            transparent = true,
+            blur = true,
+            decorations = false,
+            windowIcon = icon,
+            preferredTheme = Theme.Dark,
+            contentProtected = true,
+            windowLevel = WindowLevel.AlwaysOnTop,
+            active = false,
+            cursor = CursorIcon.Pointer,
+            parentWindow = RawWindowHandle.Win32(1L, 2L),
         )
         assertEquals("My window", attrs.title)
         assertEquals(PhysicalSize(1920, 1080), attrs.size)
+        assertEquals(PhysicalSize(640, 480), attrs.minSize)
+        assertEquals(PhysicalSize(3840, 2160), attrs.maxSize)
+        assertEquals(PhysicalSize(8, 16), attrs.resizeIncrements)
+        assertEquals(PhysicalPosition(50, 60), attrs.position)
         assertFalse(attrs.visible)
         assertFalse(attrs.resizable)
+        assertEquals(WindowButtons.CLOSE, attrs.enabledButtons)
+        assertTrue(attrs.maximized)
+        assertTrue(attrs.transparent)
+        assertTrue(attrs.blur)
+        assertFalse(attrs.decorations)
+        assertEquals(icon, attrs.windowIcon)
+        assertEquals(Theme.Dark, attrs.preferredTheme)
+        assertTrue(attrs.contentProtected)
+        assertEquals(WindowLevel.AlwaysOnTop, attrs.windowLevel)
+        assertFalse(attrs.active)
+        assertEquals(CursorIcon.Pointer, attrs.cursor)
+        assertEquals(RawWindowHandle.Win32(1L, 2L), attrs.parentWindow)
     }
 }
