@@ -215,7 +215,12 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         get() = RawDisplayHandle.AppKit
 
     override fun inputCapabilities(): InputCapabilities =
-        InputCapabilities(deviceIds = true)
+        InputCapabilities(
+            deviceIds = true,
+            pinchGesture = true,
+            rotationGesture = true,
+            doubleTapGesture = true,
+        )
 
     /**
      * Requested-redraw flag — read and reset by [CFRunLoopRedrawObserver]

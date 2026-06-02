@@ -34,6 +34,14 @@ function pixelDiffRatio(pngBuf1, pngBuf2) {
   return n / (a.width * a.height);
 }
 
+function hasKeyLog(logs, keyCode, state) {
+  return logs.some(
+    (l) =>
+      l.includes(`key ${keyCode} ${state}`) ||
+      l.includes(`key Code(code=${keyCode}) ${state}`),
+  );
+}
+
 test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ page }, testInfo) => {
   fs.mkdirSync(RESULTS, { recursive: true });
 
@@ -97,9 +105,10 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   await page.waitForTimeout(300);
 
   // Verify that the keyboard event indeed reached the PongAppWeb handler.
-  // The log `[pong-web] key ArrowDown Pressed` is emitted by `PongAppWeb.onKey()`.
-  const downPressed = logs.some((l) => l.includes('key ArrowDown Pressed'));
-  const downReleased = logs.some((l) => l.includes('key ArrowDown Released'));
+  // The log is emitted by `PongAppWeb.onKey()`. Depending on the Kotlin
+  // PhysicalKey toString, it can be `ArrowDown` or `Code(code=ArrowDown)`.
+  const downPressed = hasKeyLog(logs, 'ArrowDown', 'Pressed');
+  const downReleased = hasKeyLog(logs, 'ArrowDown', 'Released');
   expect(
     downPressed,
     `Event ArrowDown Pressed jamais reçu par PongAppWeb. Logs : ${logs.filter((l) => l.includes('key')).join(' | ')}`,
@@ -115,7 +124,7 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   await page.keyboard.up('ArrowUp');
   await page.waitForTimeout(300);
 
-  const upPressed = logs.some((l) => l.includes('key ArrowUp Pressed'));
+  const upPressed = hasKeyLog(logs, 'ArrowUp', 'Pressed');
   expect(upPressed, 'Event ArrowUp Pressed jamais reçu').toBe(true);
 
   const frame4 = await page.locator('#kadre-canvas').screenshot();

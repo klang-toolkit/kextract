@@ -31,7 +31,7 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 - **Device events** — `DeviceEvent.MouseWheel`; filter via `listenDeviceEvents(DeviceEvents.Always/WhenFocused/Never)`
 - **IME** — `setImeAllowed`, `setImeCursorArea`, `setImePurpose(ImePurpose)`; full `ImeEvent` lifecycle (Enabled/Preedit/Commit/DeleteSurrounding/Disabled) — API defined, emission TODO
 - **Drag & drop** — `DragEntered/Moved/Dropped/Left` events — API defined, emission TODO
-- **Gestures** — Pinch, Pan, Rotation, DoubleTap, TouchpadPressure — API defined, emission TODO
+- **Gestures** — Pinch, Pan, Rotation, DoubleTap, TouchpadPressure — AppKit wired; UIKit opt-in recognizers; other backends TODO
 - **Occluded** — visibility state change event — API defined, emission TODO
 - **Misc window** — user attention, content protection, window menu, drag/resize-window — API defined, all no-op (see [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md))
 
@@ -55,7 +55,7 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 | ModifiersChanged event | real | real | TODO | TODO | real | TODO | TODO |
 | IME (setImeAllowed etc.) | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
 | DnD events | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| Gesture events | TODO | TODO | — | — | TODO | — | TODO |
+| Gesture events | real | TODO | — | — | TODO | — | opt-in |
 | Occluded event | TODO | — | — | — | TODO | — | — |
 | Custom cursors | TODO | TODO | TODO | TODO | TODO | no-op | no-op |
 
@@ -76,4 +76,4 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 
 **Released** — `org.graphiks.kadre:kadre:1.0.0` on Maven Central.
 
-Residual deferred items (API defined, backend wiring pending): IME emission, DnD emission, gesture emission, Occluded emission, custom cursors. Full list: [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).
+Residual deferred items (API defined, backend wiring pending): IME emission, DnD emission, non-Apple gesture emission, Occluded emission, custom cursors. Full list: [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).

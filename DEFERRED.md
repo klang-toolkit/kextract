@@ -29,7 +29,8 @@ Dernière mise à jour : 2026-06-01
 
 ## 4. Events définis mais non émis (émission = TODO par backend)
 
-- **IME** (Enabled/Preedit/Commit/DeleteSurrounding/Disabled), **DnD** (DragEntered/Moved/Dropped/Left), **gestes** (Pinch/Pan/Rotation/DoubleTap/TouchpadPressure), **Occluded** : API posée, aucun backend ne les émet encore.
+- **IME** (Enabled/Preedit/Commit/DeleteSurrounding/Disabled), **DnD** (DragEntered/Moved/Dropped/Left), **Occluded** : API posée, aucun backend ne les émet encore.
+- **Gestes hors Apple** (Pinch/Pan/Rotation/DoubleTap/TouchpadPressure) : AppKit émet les gestes natifs, UIKit les émet après opt-in explicite ; Win32/X11/Wayland/Web/Android restent à câbler ou non applicables selon la plateforme.
 - **ModifiersChanged** : émis sur AppKit / Win32 / Web ; **non émis** sur X11 / Wayland / Android / iOS.
 
 ## 5. Méthodes définies mais no-op (selon la plateforme)

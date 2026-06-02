@@ -1695,6 +1695,10 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun isResizable ()Z
 	public abstract fun isVisible ()Z
 	public abstract fun prePresentNotify ()V
+	public fun recognizeDoubleTapGesture (Z)V
+	public fun recognizePanGesture (ZII)V
+	public fun recognizePinchGesture (Z)V
+	public fun recognizeRotationGesture (Z)V
 	public abstract fun requestRedraw ()V
 	public fun requestUserAttention (Lorg/graphiks/kadre/core/UserAttentionType;)V
 	public abstract fun resetDeadKeys ()V
@@ -1730,6 +1734,10 @@ public final class org/graphiks/kadre/core/Window$DefaultImpls {
 	public static fun dragResizeWindow (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/ResizeDirection;)V
 	public static fun dragWindow (Lorg/graphiks/kadre/core/Window;)V
 	public static fun inputCapabilities (Lorg/graphiks/kadre/core/Window;)Lorg/graphiks/kadre/core/InputCapabilities;
+	public static fun recognizeDoubleTapGesture (Lorg/graphiks/kadre/core/Window;Z)V
+	public static fun recognizePanGesture (Lorg/graphiks/kadre/core/Window;ZII)V
+	public static fun recognizePinchGesture (Lorg/graphiks/kadre/core/Window;Z)V
+	public static fun recognizeRotationGesture (Lorg/graphiks/kadre/core/Window;Z)V
 	public static fun requestUserAttention (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/UserAttentionType;)V
 	public static fun setContentProtected (Lorg/graphiks/kadre/core/Window;Z)V
 	public static fun setCustomCursor (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/CustomCursor;)V

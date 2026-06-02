@@ -31,6 +31,11 @@ kotlin {
                 api(project(":kadre-core"))
             }
         }
+        commonTest {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
         // iosMain est auto-créé par la hiérarchie KMP — pas besoin de le déclarer
         // sauf pour ajouter des dépendances spécifiques iOS
     }

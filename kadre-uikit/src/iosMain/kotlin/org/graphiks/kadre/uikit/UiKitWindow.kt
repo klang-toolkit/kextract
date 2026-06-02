@@ -45,10 +45,21 @@ import platform.Foundation.NSSelectorFromString
 import platform.QuartzCore.CADisplayLink
 import platform.QuartzCore.CAMetalLayer
 import platform.UIKit.UIEvent
+import platform.UIKit.UIGestureRecognizer
+import platform.UIKit.UIGestureRecognizerDelegateProtocol
+import platform.UIKit.UIGestureRecognizerStateBegan
+import platform.UIKit.UIGestureRecognizerStateCancelled
+import platform.UIKit.UIGestureRecognizerStateChanged
+import platform.UIKit.UIGestureRecognizerStateEnded
+import platform.UIKit.UIGestureRecognizerStateFailed
 import platform.UIKit.UIKey
+import platform.UIKit.UIPanGestureRecognizer
+import platform.UIKit.UIPinchGestureRecognizer
 import platform.UIKit.UIPress
 import platform.UIKit.UIPressesEvent
+import platform.UIKit.UIRotationGestureRecognizer
 import platform.UIKit.UIScreen
+import platform.UIKit.UITapGestureRecognizer
 import platform.UIKit.UITouch
 import platform.UIKit.UITraitCollection
 import platform.UIKit.UIUserInterfaceStyle
@@ -86,6 +97,11 @@ class KadreMetalView(
     private var lastWidth: Int = -1
     private var lastHeight: Int = -1
     private var primaryFingerId: FingerId? = null
+    private val gestureProxy = UIKitGestureRecognizerProxy(this, onEvent)
+    private var pinchRecognizer: UIPinchGestureRecognizer? = null
+    private var panRecognizer: UIPanGestureRecognizer? = null
+    private var rotationRecognizer: UIRotationGestureRecognizer? = null
+    private var doubleTapRecognizer: UITapGestureRecognizer? = null
 
     /**
      * Last emitted scale factor. Initialized to the main screen scale to match
@@ -93,6 +109,75 @@ class KadreMetalView(
      * ScaleFactorChanged is emitted on the first layout pass.
      */
     private var lastScale: Double = UIScreen.mainScreen.scale
+
+    fun recognizePinchGesture(shouldRecognize: Boolean) {
+        if (shouldRecognize) {
+            if (pinchRecognizer != null) return
+            pinchRecognizer = UIPinchGestureRecognizer(
+                target = gestureProxy,
+                action = NSSelectorFromString("handlePinch:"),
+            ).also(::installGestureRecognizer)
+        } else {
+            pinchRecognizer?.let(::removeGestureRecognizer)
+            pinchRecognizer = null
+        }
+    }
+
+    fun recognizePanGesture(
+        shouldRecognize: Boolean,
+        minimumNumberOfTouches: Int,
+        maximumNumberOfTouches: Int,
+    ) {
+        if (shouldRecognize) {
+            panRecognizer?.let(::removeGestureRecognizer)
+            panRecognizer = UIPanGestureRecognizer(
+                target = gestureProxy,
+                action = NSSelectorFromString("handlePan:"),
+            ).also { recognizer ->
+                recognizer.minimumNumberOfTouches = minimumNumberOfTouches.toULong()
+                recognizer.maximumNumberOfTouches = maximumNumberOfTouches.toULong()
+                installGestureRecognizer(recognizer)
+            }
+        } else {
+            panRecognizer?.let(::removeGestureRecognizer)
+            panRecognizer = null
+        }
+    }
+
+    fun recognizeDoubleTapGesture(shouldRecognize: Boolean) {
+        if (shouldRecognize) {
+            if (doubleTapRecognizer != null) return
+            doubleTapRecognizer = UITapGestureRecognizer(
+                target = gestureProxy,
+                action = NSSelectorFromString("handleDoubleTap:"),
+            ).also { recognizer ->
+                recognizer.numberOfTapsRequired = 2u
+                recognizer.numberOfTouchesRequired = 1u
+                installGestureRecognizer(recognizer)
+            }
+        } else {
+            doubleTapRecognizer?.let(::removeGestureRecognizer)
+            doubleTapRecognizer = null
+        }
+    }
+
+    fun recognizeRotationGesture(shouldRecognize: Boolean) {
+        if (shouldRecognize) {
+            if (rotationRecognizer != null) return
+            rotationRecognizer = UIRotationGestureRecognizer(
+                target = gestureProxy,
+                action = NSSelectorFromString("handleRotation:"),
+            ).also(::installGestureRecognizer)
+        } else {
+            rotationRecognizer?.let(::removeGestureRecognizer)
+            rotationRecognizer = null
+        }
+    }
+
+    private fun installGestureRecognizer(recognizer: UIGestureRecognizer) {
+        recognizer.delegate = gestureProxy
+        addGestureRecognizer(recognizer)
+    }
 
     override fun touchesBegan(touches: Set<*>, withEvent: UIEvent?) =
         dispatchTouches(touches, TouchPhase.Started)
@@ -268,6 +353,56 @@ private class DisplayLinkProxy(private val onFrame: () -> Unit) : NSObject() {
     fun handleDisplayLink() = onFrame()
 }
 
+@OptIn(ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
+private class UIKitGestureRecognizerProxy(
+    private val view: UIView,
+    private val onEvent: (WindowEvent) -> Unit,
+) : NSObject(), UIGestureRecognizerDelegateProtocol {
+    private val mapper = UIKitGestureMapper()
+
+    @ObjCAction
+    fun handlePinch(recognizer: UIPinchGestureRecognizer) {
+        val state = gestureState(recognizer.state) ?: return
+        onEvent(mapper.pinch(state, recognizer.scale))
+    }
+
+    @ObjCAction
+    fun handlePan(recognizer: UIPanGestureRecognizer) {
+        val translation = recognizer.translationInView(view)
+        val state = gestureState(recognizer.state) ?: return
+        translation.useContents {
+            onEvent(mapper.pan(state, x, y))
+        }
+    }
+
+    @ObjCAction
+    fun handleRotation(recognizer: UIRotationGestureRecognizer) {
+        val state = gestureState(recognizer.state) ?: return
+        onEvent(mapper.rotation(state, recognizer.rotation))
+    }
+
+    @ObjCAction
+    fun handleDoubleTap(recognizer: UITapGestureRecognizer) {
+        if (recognizer.state == UIGestureRecognizerStateEnded) {
+            onEvent(WindowEvent.DoubleTapGesture(deviceId = null))
+        }
+    }
+
+    private fun gestureState(state: Long): UIKitGestureState? = when (state) {
+        UIGestureRecognizerStateBegan -> UIKitGestureState.Began
+        UIGestureRecognizerStateChanged -> UIKitGestureState.Changed
+        UIGestureRecognizerStateEnded -> UIKitGestureState.Ended
+        UIGestureRecognizerStateCancelled -> UIKitGestureState.Cancelled
+        UIGestureRecognizerStateFailed -> UIKitGestureState.Failed
+        else -> null
+    }
+
+    override fun gestureRecognizer(
+        gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWithGestureRecognizer: UIGestureRecognizer,
+    ): Boolean = true
+}
+
 /**
  * UiKitWindow — implements Window for iOS.
  *
@@ -365,7 +500,37 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         get() = RawDisplayHandle.UiKit
 
     override fun inputCapabilities(): InputCapabilities =
-        InputCapabilities(touch = true)
+        InputCapabilities(
+            touch = true,
+            pinchGesture = true,
+            panGesture = true,
+            rotationGesture = true,
+            doubleTapGesture = true,
+        )
+
+    override fun recognizePinchGesture(shouldRecognize: Boolean) {
+        metalView.recognizePinchGesture(shouldRecognize)
+    }
+
+    override fun recognizePanGesture(
+        shouldRecognize: Boolean,
+        minimumNumberOfTouches: Int,
+        maximumNumberOfTouches: Int,
+    ) {
+        metalView.recognizePanGesture(
+            shouldRecognize = shouldRecognize,
+            minimumNumberOfTouches = minimumNumberOfTouches,
+            maximumNumberOfTouches = maximumNumberOfTouches,
+        )
+    }
+
+    override fun recognizeDoubleTapGesture(shouldRecognize: Boolean) {
+        metalView.recognizeDoubleTapGesture(shouldRecognize)
+    }
+
+    override fun recognizeRotationGesture(shouldRecognize: Boolean) {
+        metalView.recognizeRotationGesture(shouldRecognize)
+    }
 
     override fun requestRedraw() {
         // No-op: the CADisplayLink paces RedrawRequested on every screen refresh.

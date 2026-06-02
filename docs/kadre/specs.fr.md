@@ -695,7 +695,7 @@ Le plein écran se configure par fenêtre : `window.setFullscreen(Fullscreen.Bor
 
 ### 3.10 Événements avancés : IME, DnD, gestes, Occluded
 
-> **Note :** l'API est entièrement définie en `commonMain`. L'émission backend est **reportée** pour tous les éléments de cette section. Voir [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).
+> **Note :** l'API est entièrement définie en `commonMain`. L'émission IME, drag-and-drop, Occluded et gestes hors Apple reste **reportée**. Voir [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).
 
 #### IME
 
@@ -710,9 +710,10 @@ Cycle de vie des events : `Ime(Enabled)` → `Ime(Preedit(text, cursorRange?))` 
 
 #### Gestes
 
-`PinchGesture(delta, phase)`, `PanGesture(delta: PhysicalPosition<Double>, phase)`, `RotationGesture(delta radians, phase)` — principalement macOS/iOS.
-`DoubleTapGesture` — iOS et Web.
-`TouchpadPressure(pressure: Float, stage: Int)` — trackpads Force Touch macOS uniquement.
+`PinchGesture(delta, phase)`, `PanGesture(delta: PhysicalPosition<Float>, phase)`, `RotationGesture(deltaDegrees, phase)` — AppKit/UIKit quand la plateforme expose le geste.
+UIKit suit le modèle opt-in de winit : appeler `recognizePinchGesture`, `recognizePanGesture`, `recognizeRotationGesture` ou `recognizeDoubleTapGesture` pour installer le recognizer natif.
+`DoubleTapGesture` — smart magnify AppKit et recognizer double-tap UIKit.
+`TouchpadPressure(pressure: Float, stage: Long)` — trackpads Force Touch macOS uniquement.
 
 `phase` utilise `TouchPhase` (Started/Moved/Ended/Cancelled).
 
@@ -923,7 +924,7 @@ Points résiduels clés :
 
 - **Events IME** (Enabled/Preedit/Commit/DeleteSurrounding/Disabled) : API définie, aucun backend n'émet encore.
 - **Events DnD** (DragEntered/Moved/Dropped/Left) : API définie, tous les backends = no-op.
-- **Events gestes** (Pinch/Pan/Rotation/DoubleTap/TouchpadPressure) : API définie, tous les backends = no-op.
+- **Events gestes** (Pinch/Pan/Rotation/DoubleTap/TouchpadPressure) : émis sur AppKit et sur UIKit après opt-in explicite ; les autres backends restent non câblés.
 - **Event Occluded** : API définie ; AppKit et Web prévoient de l'émettre.
 - **ModifiersChanged** : émis sur AppKit/Win32/Web ; non câblé sur X11/Wayland/Android/UIKit.
 - **Curseurs custom** (`createCustomCursor` / `setCustomCursor`) : no-op sur tous les backends (impl interface par défaut).
@@ -1025,11 +1026,11 @@ Points résiduels clés :
 
 | winit (Rust) | Kadre |
 |--------------|-------|
-| `WindowEvent::PinchGesture` | `WindowEvent.PinchGesture(delta, phase)` — non émis |
-| `WindowEvent::PanGesture` | `WindowEvent.PanGesture(delta, phase)` — non émis |
-| `WindowEvent::RotationGesture` | `WindowEvent.RotationGesture(delta, phase)` — non émis |
-| `WindowEvent::DoubleTapGesture` | `WindowEvent.DoubleTapGesture` — non émis |
-| `WindowEvent::TouchpadPressure` | `WindowEvent.TouchpadPressure(pressure, stage)` — non émis |
+| `WindowEvent::PinchGesture` | `WindowEvent.PinchGesture(deviceId, delta, phase)` — AppKit / UIKit opt-in |
+| `WindowEvent::PanGesture` | `WindowEvent.PanGesture(deviceId, delta, phase)` — UIKit opt-in |
+| `WindowEvent::RotationGesture` | `WindowEvent.RotationGesture(deviceId, deltaDegrees, phase)` — AppKit / UIKit opt-in |
+| `WindowEvent::DoubleTapGesture` | `WindowEvent.DoubleTapGesture(deviceId)` — AppKit / UIKit opt-in |
+| `WindowEvent::TouchpadPressure` | `WindowEvent.TouchpadPressure(deviceId, pressure, stage)` — AppKit |
 
 #### Fenêtre divers (R5-MiscWindow)
 

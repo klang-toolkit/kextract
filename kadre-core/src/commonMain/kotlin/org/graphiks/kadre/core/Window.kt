@@ -472,6 +472,45 @@ interface Window {
 
 
     /**
+     * Enables or disables native pinch gesture recognition for this window.
+     *
+     * Mirrors winit's iOS opt-in model: UIKit does not recognize gestures by
+     * default; applications must enable the recognizers they want. Other
+     * backends may ignore this method when recognition is always platform-driven
+     * or unsupported.
+     */
+    fun recognizePinchGesture(shouldRecognize: Boolean) { /* no-op by default */ }
+
+    /**
+     * Enables or disables native pan gesture recognition for this window.
+     *
+     * On UIKit this installs/removes a [WindowEvent.PanGesture] recognizer and
+     * applies the requested touch-count bounds. Other backends are documented
+     * no-ops unless they expose an equivalent native opt-in.
+     */
+    fun recognizePanGesture(
+        shouldRecognize: Boolean,
+        minimumNumberOfTouches: Int,
+        maximumNumberOfTouches: Int,
+    ) { /* no-op by default */ }
+
+    /**
+     * Enables or disables native double-tap gesture recognition for this window.
+     *
+     * On UIKit this installs/removes a double-tap recognizer. AppKit emits smart
+     * magnify events directly when the platform sends them.
+     */
+    fun recognizeDoubleTapGesture(shouldRecognize: Boolean) { /* no-op by default */ }
+
+    /**
+     * Enables or disables native rotation gesture recognition for this window.
+     *
+     * On UIKit this installs/removes a rotation recognizer. Other backends are
+     * documented no-ops unless they expose an equivalent native opt-in.
+     */
+    fun recognizeRotationGesture(shouldRecognize: Boolean) { /* no-op by default */ }
+
+    /**
      * Returns the input features this window backend can report precisely.
      */
     fun inputCapabilities(): InputCapabilities = InputCapabilities()

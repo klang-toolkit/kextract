@@ -31,7 +31,7 @@ Objectif : exposer des handles natifs (`NSView`, `UIView`, `android.view.Surface
 - **Événements device** — `DeviceEvent.MouseWheel` ; filtre via `listenDeviceEvents(DeviceEvents.Always/WhenFocused/Never)`
 - **IME** — `setImeAllowed`, `setImeCursorArea`, `setImePurpose(ImePurpose)` ; cycle de vie `ImeEvent` complet (Enabled/Preedit/Commit/DeleteSurrounding/Disabled) — API définie, émission TODO
 - **Drag & drop** — événements `DragEntered/Moved/Dropped/Left` — API définie, émission TODO
-- **Gestes** — Pinch, Pan, Rotation, DoubleTap, TouchpadPressure — API définie, émission TODO
+- **Gestes** — Pinch, Pan, Rotation, DoubleTap, TouchpadPressure — AppKit câblé ; recognizers UIKit opt-in ; autres backends TODO
 - **Occluded** — événement de changement de visibilité — API définie, émission TODO
 - **Fenêtre divers** — attention utilisateur, protection contenu, menu fenêtre, drag/resize-window — API définie, tous no-op (cf. [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md))
 
@@ -55,7 +55,7 @@ Objectif : exposer des handles natifs (`NSView`, `UIView`, `android.view.Surface
 | Événement ModifiersChanged | réel | réel | TODO | TODO | réel | TODO | TODO |
 | IME (setImeAllowed etc.) | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
 | Événements DnD | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
-| Événements gestes | TODO | TODO | — | — | TODO | — | TODO |
+| Événements gestes | réel | TODO | — | — | TODO | — | opt-in |
 | Événement Occluded | TODO | — | — | — | TODO | — | — |
 | Curseurs custom | TODO | TODO | TODO | TODO | TODO | no-op | no-op |
 
@@ -76,4 +76,4 @@ Objectif : exposer des handles natifs (`NSView`, `UIView`, `android.view.Surface
 
 **Publié** — `org.graphiks.kadre:kadre:1.0.0` sur Maven Central.
 
-Éléments résiduels reportés (API définie, câblage backend en attente) : émission IME, émission DnD, émission gestes, émission Occluded, curseurs custom. Liste complète : [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).
+Éléments résiduels reportés (API définie, câblage backend en attente) : émission IME, émission DnD, émission gestes hors Apple, émission Occluded, curseurs custom. Liste complète : [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md).
