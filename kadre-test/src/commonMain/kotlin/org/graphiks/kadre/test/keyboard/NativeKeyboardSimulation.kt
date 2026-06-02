@@ -48,6 +48,166 @@ enum class KeyboardBackend {
     UIKit,
 }
 
+/**
+ * Explicit backend-shaped keyboard input used to prove a mapper path.
+ *
+ * This is intentionally a small commonMain model rather than the real platform
+ * object. Backends can attach the raw fields they consumed without requiring
+ * common tests to depend on DOM, Win32, AppKit, or Android classes.
+ */
+interface NativeKeyboardInput {
+    val backend: KeyboardBackend
+    val fidelity: KeyboardEventFidelity
+    val description: String
+
+    fun verifyMappedEvent(event: KeyEvent): List<String>
+}
+
+data class WebDomKeyboardEventInput(
+    val type: String,
+    val key: String,
+    val code: String,
+    val location: Int = 0,
+    val repeat: Boolean = false,
+    val altKey: Boolean = false,
+    val ctrlKey: Boolean = false,
+    val metaKey: Boolean = false,
+    val shiftKey: Boolean = false,
+    override val fidelity: KeyboardEventFidelity = KeyboardEventFidelity.NativeMessage,
+) : NativeKeyboardInput {
+    override val backend: KeyboardBackend = KeyboardBackend.Web
+    override val description: String = "Web DOM KeyboardEvent(type=$type, key=$key, code=$code)"
+
+    override fun verifyMappedEvent(event: KeyEvent): List<String> {
+        val failures = mutableListOf<String>()
+        fun expect(condition: Boolean, message: String) {
+            if (!condition) failures += "$description: $message"
+        }
+        val expectedState = when (type) {
+            "keydown" -> KeyState.Pressed
+            "keyup" -> KeyState.Released
+            else -> null
+        }
+        val expectedLocation = when (location) {
+            0 -> KeyLocation.Standard
+            1 -> KeyLocation.Left
+            2 -> KeyLocation.Right
+            3 -> KeyLocation.Numpad
+            else -> null
+        }
+
+        expect(expectedState != null, "type must be keydown or keyup, got $type")
+        expectedState?.let { expect(event.state == it, "state expected $it, got ${event.state}") }
+        expect(expectedLocation != null, "location must be 0, 1, 2 or 3, got $location")
+        expectedLocation?.let { expect(event.location == it, "location expected $it, got ${event.location}") }
+        expect(event.native.nativeCode == NativeKeyCode.Web(code), "nativeCode expected ${NativeKeyCode.Web(code)}, got ${event.native.nativeCode}")
+        expect(event.native.nativeKey == NativeLogicalKey.Web(key), "nativeKey expected ${NativeLogicalKey.Web(key)}, got ${event.native.nativeKey}")
+        expect(event.repeat == repeat, "repeat expected $repeat, got ${event.repeat}")
+        expect(event.modifiers.shift == shiftKey, "shift modifier expected $shiftKey, got ${event.modifiers.shift}")
+        expect(event.modifiers.ctrl == ctrlKey, "ctrl modifier expected $ctrlKey, got ${event.modifiers.ctrl}")
+        expect(event.modifiers.alt == altKey, "alt modifier expected $altKey, got ${event.modifiers.alt}")
+        expect(event.modifiers.meta == metaKey, "meta modifier expected $metaKey, got ${event.modifiers.meta}")
+
+        return failures
+    }
+}
+
+data class Win32KeyboardMessageInput(
+    val message: UInt,
+    val wParam: UInt,
+    val lParam: UInt,
+    val virtualKey: Long,
+    val scanCode: Long?,
+    val extended: Boolean = false,
+    val repeatCount: Int = 1,
+    override val fidelity: KeyboardEventFidelity = KeyboardEventFidelity.NativeMessage,
+) : NativeKeyboardInput {
+    override val backend: KeyboardBackend = KeyboardBackend.Win32
+    override val description: String = "Win32 keyboard message(message=$message, virtualKey=$virtualKey, scanCode=$scanCode)"
+
+    override fun verifyMappedEvent(event: KeyEvent): List<String> {
+        val rawScanCode = ((lParam shr 16) and 0xffu).toLong()
+        val lParamRepeatCount = (lParam and 0xffffu).toInt()
+        val lParamExtended = ((lParam shr 24) and 0x1u) == 1u
+        val expectedScanCode = if (lParamExtended) 0xe000L + rawScanCode else rawScanCode
+        val expectedState = when (message) {
+            WM_KEYDOWN, WM_SYSKEYDOWN -> KeyState.Pressed
+            WM_KEYUP, WM_SYSKEYUP -> KeyState.Released
+            else -> null
+        }
+        val expectedCode = NativeKeyCode.Win32(scanCode = scanCode ?: 0, virtualKey = virtualKey)
+        val expectedKey = NativeLogicalKey.Win32(virtualKey = virtualKey)
+        val failures = mutableListOf<String>()
+        fun expect(condition: Boolean, message: String) {
+            if (!condition) failures += "$description: $message"
+        }
+
+        expect(expectedState != null, "message must be WM_KEYDOWN/WM_KEYUP/WM_SYSKEYDOWN/WM_SYSKEYUP, got $message")
+        expectedState?.let { expect(event.state == it, "state expected $it, got ${event.state}") }
+        expect(wParam.toLong() == virtualKey, "wParam expected virtualKey $virtualKey, got ${wParam.toLong()}")
+        expect(scanCode == null || scanCode == expectedScanCode, "scanCode expected $expectedScanCode from lParam, got $scanCode")
+        expect(lParamExtended == extended, "extended expected $lParamExtended from lParam, got $extended")
+        expect(lParamRepeatCount == repeatCount, "repeatCount expected $lParamRepeatCount from lParam, got $repeatCount")
+        expect(event.native.nativeCode == expectedCode, "nativeCode expected $expectedCode, got ${event.native.nativeCode}")
+        expect(event.native.nativeKey == expectedKey, "nativeKey expected $expectedKey, got ${event.native.nativeKey}")
+        expect(event.repeat == repeatCount > 1, "repeat expected ${repeatCount > 1}, got ${event.repeat}")
+
+        return failures
+    }
+
+    companion object {
+        private const val WM_KEYDOWN: UInt = 0x0100u
+        private const val WM_KEYUP: UInt = 0x0101u
+        private const val WM_SYSKEYDOWN: UInt = 0x0104u
+        private const val WM_SYSKEYUP: UInt = 0x0105u
+    }
+}
+
+/**
+ * Attaches a backend-shaped input to the Kadre event observed after the backend
+ * mapper/runtime has consumed that input.
+ *
+ * This class does not map native input to Kadre events. The caller must invoke
+ * the platform mapper/runtime first, then pass the observed event here. That
+ * keeps the harness from becoming a mock mapper.
+ */
+class NativeKeyboardInputAdapter<I : NativeKeyboardInput>(
+    val backend: KeyboardBackend,
+    val acceptedFidelities: Set<KeyboardEventFidelity>,
+    val mapperName: String,
+) {
+    init {
+        require(backend != KeyboardBackend.Common) {
+            "Native keyboard input adapters must target a concrete backend"
+        }
+        require(acceptedFidelities.isNotEmpty()) {
+            "Native keyboard input adapters require at least one accepted fidelity"
+        }
+        require(KeyboardEventFidelity.KadreEvent !in acceptedFidelities) {
+            "Native keyboard input adapters cannot accept L4 KadreEvent"
+        }
+        require(mapperName.isNotBlank()) {
+            "Native keyboard input adapters require a mapper/runtime name"
+        }
+    }
+
+    fun evidenceFor(input: I, observedEvent: KeyEvent): KeyboardEventEvidence {
+        require(input.backend == backend) {
+            "Adapter '$mapperName' targets $backend but received ${input.backend} native input"
+        }
+        require(input.fidelity in acceptedFidelities) {
+            "Adapter '$mapperName' does not accept ${input.fidelity}; expected one of $acceptedFidelities"
+        }
+
+        return KeyboardEventEvidence(
+            fidelity = input.fidelity,
+            event = observedEvent,
+            source = mapperName,
+            nativeInput = input,
+        )
+    }
+}
+
 data class KeyboardBackendValidationPolicy(
     val acceptedFidelityByBackend: Map<KeyboardBackend, Set<KeyboardEventFidelity>> = defaultAcceptedFidelityByBackend,
 ) {
@@ -109,6 +269,21 @@ data class KeyboardScenario(
                 if (evidence.fidelity != fidelity) {
                     failures += "event[$index] for scenario '$name' has ${evidence.fidelity} evidence, expected $fidelity"
                 }
+                val nativeInput = evidence.nativeInput
+                if (nativeInput == null) {
+                    failures += "event[$index] for BackendRuntime scenario '$name' has no native input evidence"
+                } else {
+                    if (nativeInput.backend != backend) {
+                        failures += "event[$index] for scenario '$name' has ${nativeInput.backend} native input, expected $backend"
+                    }
+                    if (nativeInput.fidelity != fidelity) {
+                        failures += "event[$index] for scenario '$name' has ${nativeInput.fidelity} native input, expected $fidelity"
+                    }
+                    if (nativeInput.fidelity != evidence.fidelity) {
+                        failures += "event[$index] for scenario '$name' has ${evidence.fidelity} evidence but ${nativeInput.fidelity} native input"
+                    }
+                    failures += nativeInput.verifyMappedEvent(evidence.event).map { "event[$index] for scenario '$name': $it" }
+                }
             }
         }
         if (actualEvents.size != expectations.size) {
@@ -128,6 +303,7 @@ data class KeyboardEventEvidence(
     val fidelity: KeyboardEventFidelity,
     val event: KeyEvent,
     val source: String? = null,
+    val nativeInput: NativeKeyboardInput? = null,
 )
 
 data class KeyboardValidationResult(val failures: List<String>) {
