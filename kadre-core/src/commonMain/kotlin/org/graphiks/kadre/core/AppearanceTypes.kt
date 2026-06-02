@@ -157,11 +157,11 @@ data class CursorImage(
         if (other !is CursorImage) return false
         return width == other.width && height == other.height &&
             hotspotX == other.hotspotX && hotspotY == other.hotspotY &&
-            rgba.contentEquals(other.rgba)
+            rgba.contentEqualsStable(other.rgba)
     }
 
     override fun hashCode(): Int {
-        var result = rgba.contentHashCode()
+        var result = rgba.contentHashCodeStable()
         result = 31 * result + width
         result = 31 * result + height
         result = 31 * result + hotspotX
@@ -248,13 +248,29 @@ data class Icon(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Icon) return false
-        return width == other.width && height == other.height && rgba.contentEquals(other.rgba)
+        return width == other.width && height == other.height && rgba.contentEqualsStable(other.rgba)
     }
 
     override fun hashCode(): Int {
-        var result = rgba.contentHashCode()
+        var result = rgba.contentHashCodeStable()
         result = 31 * result + width
         result = 31 * result + height
         return result
     }
+}
+
+private fun ByteArray.contentEqualsStable(other: ByteArray): Boolean {
+    if (size != other.size) return false
+    for (index in indices) {
+        if (this[index] != other[index]) return false
+    }
+    return true
+}
+
+private fun ByteArray.contentHashCodeStable(): Int {
+    var result = 1
+    for (element in this) {
+        result = 31 * result + element
+    }
+    return result
 }
