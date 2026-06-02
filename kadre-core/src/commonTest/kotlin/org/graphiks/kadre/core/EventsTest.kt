@@ -114,6 +114,20 @@ class EventsTest {
     }
 
     @Test
+    fun `KeyEvent falls back to logical key and text when optional shortcut fields are absent`() {
+        val event = KeyEvent(
+            physicalKey = PhysicalKey.Code(KeyCode.KeyA),
+            logicalKey = LogicalKey.Character("a"),
+            state = KeyState.Pressed,
+            modifiers = KeyboardModifiers.NONE,
+            text = "a",
+        )
+
+        assertEquals(LogicalKey.Character("a"), event.shortcutKey)
+        assertEquals("a", event.effectiveText)
+    }
+
+    @Test
     fun `LogicalKey Dead is distinct from printable character`() {
         assertFalse(LogicalKey.Dead("^") == LogicalKey.Character("^"))
     }
@@ -159,6 +173,25 @@ class EventsTest {
     }
 
     @Test
+    fun `default logical key and text cover portable printable and named keys`() {
+        assertEquals(LogicalKey.Character("a"), KeyCode.KeyA.defaultLogicalKey())
+        assertEquals(LogicalKey.Character("9"), KeyCode.Digit9.defaultLogicalKey())
+        assertEquals(LogicalKey.Named(NamedKey.ArrowDown), KeyCode.ArrowDown.defaultLogicalKey())
+        assertEquals(LogicalKey.Named(NamedKey.Enter), KeyCode.NumpadEnter.defaultLogicalKey())
+        assertEquals("a", KeyCode.KeyA.defaultText())
+        assertEquals("9", KeyCode.Digit9.defaultText())
+        assertEquals(null, KeyCode.ArrowDown.defaultText())
+    }
+
+    @Test
+    fun `default logical key preserves unsupported portable key as unidentified native key code`() {
+        val logical = KeyCode.IntlYen.defaultLogicalKey()
+
+        assertTrue(logical is LogicalKey.Unidentified)
+        assertEquals("IntlYen", logical.native.keyCode)
+    }
+
+    @Test
     fun `KeyChord can match physical bindings independent of layout`() {
         val chord = KeyChord(physicalKey = PhysicalKey.Code(KeyCode.KeyW))
         val event = KeyEvent(
@@ -166,6 +199,22 @@ class EventsTest {
             logicalKey = LogicalKey.Character("z"),
             state = KeyState.Pressed,
             modifiers = KeyboardModifiers.NONE,
+        )
+
+        assertTrue(chord.matches(event))
+    }
+
+    @Test
+    fun `KeyChord contains modifier matching allows additional modifiers by default`() {
+        val chord = KeyChord(
+            logicalKey = LogicalKey.Character("s"),
+            modifiers = KeyboardModifiers.Ctrl,
+        )
+        val event = KeyEvent(
+            physicalKey = PhysicalKey.Code(KeyCode.KeyS),
+            logicalKey = LogicalKey.Character("s"),
+            state = KeyState.Pressed,
+            modifiers = KeyboardModifiers.Ctrl + KeyboardModifiers.Shift,
         )
 
         assertTrue(chord.matches(event))
@@ -189,6 +238,23 @@ class EventsTest {
     }
 
     @Test
+    fun `KeyChord exact modifiers match when no additional modifiers are present`() {
+        val chord = KeyChord(
+            logicalKey = LogicalKey.Character("s"),
+            modifiers = KeyboardModifiers.Ctrl,
+            modifierMatch = KeyChordModifierMatch.Exact,
+        )
+        val event = KeyEvent(
+            physicalKey = PhysicalKey.Code(KeyCode.KeyS),
+            logicalKey = LogicalKey.Character("s"),
+            state = KeyState.Pressed,
+            modifiers = KeyboardModifiers.Ctrl,
+        )
+
+        assertTrue(chord.matches(event))
+    }
+
+    @Test
     fun `KeyChord rejects repeat by default`() {
         val chord = KeyChord(logicalKey = LogicalKey.Named(NamedKey.Enter))
         val event = KeyEvent(
@@ -197,6 +263,36 @@ class EventsTest {
             state = KeyState.Pressed,
             modifiers = KeyboardModifiers.NONE,
             repeat = true,
+        )
+
+        assertFalse(chord.matches(event))
+    }
+
+    @Test
+    fun `KeyChord can allow repeat explicitly`() {
+        val chord = KeyChord(
+            logicalKey = LogicalKey.Named(NamedKey.Enter),
+            allowRepeat = true,
+        )
+        val event = KeyEvent(
+            physicalKey = PhysicalKey.Code(KeyCode.Enter),
+            logicalKey = LogicalKey.Named(NamedKey.Enter),
+            state = KeyState.Pressed,
+            modifiers = KeyboardModifiers.NONE,
+            repeat = true,
+        )
+
+        assertTrue(chord.matches(event))
+    }
+
+    @Test
+    fun `KeyChord never matches released events`() {
+        val chord = KeyChord(logicalKey = LogicalKey.Named(NamedKey.Enter))
+        val event = KeyEvent(
+            physicalKey = PhysicalKey.Code(KeyCode.Enter),
+            logicalKey = LogicalKey.Named(NamedKey.Enter),
+            state = KeyState.Released,
+            modifiers = KeyboardModifiers.NONE,
         )
 
         assertFalse(chord.matches(event))
@@ -213,6 +309,23 @@ class EventsTest {
             logicalKey = LogicalKey.Character("s"),
             state = KeyState.Pressed,
             modifiers = KeyboardModifiers.Ctrl + KeyboardModifiers.Shift,
+        )
+
+        assertTrue(chord.matches(event))
+    }
+
+    @Test
+    fun `KeyChord logical shortcuts use key without modifiers when present`() {
+        val chord = KeyChord(
+            logicalKey = LogicalKey.Character("s"),
+            modifiers = KeyboardModifiers.Ctrl,
+        )
+        val event = KeyEvent(
+            physicalKey = PhysicalKey.Code(KeyCode.KeyS),
+            logicalKey = LogicalKey.Character("S"),
+            state = KeyState.Pressed,
+            modifiers = KeyboardModifiers.Ctrl,
+            keyWithoutModifiers = LogicalKey.Character("s"),
         )
 
         assertTrue(chord.matches(event))
@@ -286,6 +399,19 @@ class EventsTest {
         assertEquals("KeyInput", classifyWindowEvent(event))
         assertEquals(keyEvent, event.event)
         assertEquals(deviceId, event.deviceId)
+    }
+
+    @Test
+    fun `WindowEvent KeyInput defaults to unknown device id`() {
+        val keyEvent = KeyEvent(
+            physicalKey = PhysicalKey.Code(KeyCode.KeyA),
+            logicalKey = LogicalKey.Character("a"),
+            state = KeyState.Pressed,
+            modifiers = KeyboardModifiers.NONE,
+        )
+        val event = WindowEvent.KeyInput(keyEvent)
+
+        assertEquals(null, event.deviceId)
     }
 
     @Test
@@ -420,5 +546,17 @@ class EventsTest {
         assertEquals(PhysicalKey.Native(KeyPlatform.Unknown, 0x1E), key.event.physicalKey)
         assertEquals(0x1E, key.scancode)
         assertEquals(KeyState.Pressed, key.state)
+        assertEquals(NativeKeyCode.PlatformCode(KeyPlatform.Unknown, 0x1E), key.event.native.nativeCode)
+    }
+
+    @Test
+    fun `RawKeyEvent scancode is absent when native scan code is absent`() {
+        val event = RawKeyEvent(
+            physicalKey = PhysicalKey.Unidentified,
+            state = KeyState.Pressed,
+            native = NativeKeyInfo(),
+        )
+
+        assertEquals(null, event.scancode)
     }
 }

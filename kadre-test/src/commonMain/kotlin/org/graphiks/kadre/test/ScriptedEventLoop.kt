@@ -39,7 +39,6 @@ import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.MouseButton
-import org.graphiks.kadre.core.NamedKey
 import org.graphiks.kadre.core.NativeKeyInfo
 import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.PhysicalPosition
@@ -55,6 +54,8 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.defaultLogicalKey
+import org.graphiks.kadre.core.location
 
 // ---------------------------------------------------------------------------
 // Trace de callbacks
@@ -309,7 +310,7 @@ class ScriptBuilder {
         keyCode: KeyCode,
         modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
         logicalKey: LogicalKey = keyCode.defaultLogicalKey(),
-        text: String? = null,
+        text: String? = logicalKey.defaultText(),
         repeat: Boolean = false,
     ) {
         keyInput(keyCode, logicalKey, KeyState.Pressed, modifiers, text, repeat)
@@ -372,15 +373,17 @@ class ScriptBuilder {
         text: String?,
         repeat: Boolean,
     ) {
+        val physicalKey = PhysicalKey.Code(keyCode)
         events += ScriptedEvent.Window(
             windowId,
             WindowEvent.KeyInput(
                 KeyEvent(
-                    physicalKey = PhysicalKey.Code(keyCode),
+                    physicalKey = physicalKey,
                     logicalKey = logicalKey,
                     state = state,
                     modifiers = modifiers,
                     repeat = repeat,
+                    location = physicalKey.location(),
                     text = text,
                     native = NativeKeyInfo(keyCode = keyCode.name),
                 ),
@@ -451,6 +454,8 @@ class ScriptBuilder {
     internal fun build(): List<ScriptedEvent> = events.toList()
 }
 
+private fun LogicalKey.defaultText(): String? = (this as? LogicalKey.Character)?.text
+
 /**
  * Point d'entrée du DSL : construit une [ScriptedEventLoop] à partir d'un bloc
  * de séquence. Appeler [ScriptedEventLoop.run] avec le handler à tester.
@@ -465,16 +470,3 @@ class ScriptBuilder {
  */
 fun scriptedTest(block: ScriptBuilder.() -> Unit): ScriptedEventLoop =
     ScriptedEventLoop(ScriptBuilder().apply(block).build())
-
-private fun KeyCode.defaultLogicalKey(): LogicalKey = when (this) {
-    KeyCode.ArrowDown -> LogicalKey.Named(NamedKey.ArrowDown)
-    KeyCode.ArrowLeft -> LogicalKey.Named(NamedKey.ArrowLeft)
-    KeyCode.ArrowRight -> LogicalKey.Named(NamedKey.ArrowRight)
-    KeyCode.ArrowUp -> LogicalKey.Named(NamedKey.ArrowUp)
-    KeyCode.Enter, KeyCode.NumpadEnter -> LogicalKey.Named(NamedKey.Enter)
-    KeyCode.Escape -> LogicalKey.Named(NamedKey.Escape)
-    KeyCode.Space -> LogicalKey.Named(NamedKey.Space)
-    KeyCode.Tab -> LogicalKey.Named(NamedKey.Tab)
-    KeyCode.Backspace -> LogicalKey.Named(NamedKey.Backspace)
-    else -> LogicalKey.Unidentified(NativeKeyInfo(keyCode = name))
-}

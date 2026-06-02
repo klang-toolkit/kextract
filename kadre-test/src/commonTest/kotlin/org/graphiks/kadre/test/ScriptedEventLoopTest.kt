@@ -12,6 +12,7 @@ import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.KeyLocation
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MouseButton
@@ -70,6 +71,64 @@ class ScriptedEventLoopTest {
         assertEquals(PhysicalKey.Code(KeyCode.ArrowUp), press.event.physicalKey)
         assertEquals(LogicalKey.Named(NamedKey.ArrowUp), press.event.logicalKey)
         assertEquals(KeyState.Released, release.event.state)
+    }
+
+    @Test
+    fun physicalKeyPress_keyA_usesCoreDefaultLogicalKeyAndText() {
+        val handler = RecordingHandler()
+        scriptedTest {
+            physicalKeyPress(KeyCode.KeyA)
+        }.run(handler)
+
+        val press = handler.received.single() as WindowEvent.KeyInput
+        assertEquals(LogicalKey.Character("a"), press.event.logicalKey)
+        assertEquals("a", press.event.text)
+    }
+
+    @Test
+    fun physicalKeyPress_usesOverriddenCharacterLogicalKeyForDefaultText() {
+        val handler = RecordingHandler()
+        scriptedTest {
+            physicalKeyPress(KeyCode.KeyQ, logicalKey = LogicalKey.Character("a"))
+        }.run(handler)
+
+        val press = handler.received.single() as WindowEvent.KeyInput
+        assertEquals(LogicalKey.Character("a"), press.event.logicalKey)
+        assertEquals("a", press.event.text)
+    }
+
+    @Test
+    fun physicalKeyPress_doesNotInferTextWhenLogicalKeyIsOverriddenToNamedKey() {
+        val handler = RecordingHandler()
+        scriptedTest {
+            physicalKeyPress(KeyCode.KeyA, logicalKey = LogicalKey.Named(NamedKey.Enter))
+        }.run(handler)
+
+        val press = handler.received.single() as WindowEvent.KeyInput
+        assertEquals(LogicalKey.Named(NamedKey.Enter), press.event.logicalKey)
+        assertEquals(null, press.event.text)
+    }
+
+    @Test
+    fun physicalKeyPress_shiftLeft_usesCoreDefaultLocation() {
+        val handler = RecordingHandler()
+        scriptedTest {
+            physicalKeyPress(KeyCode.ShiftLeft)
+        }.run(handler)
+
+        val press = handler.received.single() as WindowEvent.KeyInput
+        assertEquals(KeyLocation.Left, press.event.location)
+    }
+
+    @Test
+    fun physicalKeyPress_numpadEnter_usesCoreDefaultLocation() {
+        val handler = RecordingHandler()
+        scriptedTest {
+            physicalKeyPress(KeyCode.NumpadEnter)
+        }.run(handler)
+
+        val press = handler.received.single() as WindowEvent.KeyInput
+        assertEquals(KeyLocation.Numpad, press.event.location)
     }
 
     @Test
