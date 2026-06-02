@@ -33,7 +33,7 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 - **Drag & drop** — `DragEntered/Moved/Dropped/Left` events — API defined, emission TODO
 - **Gestures** — Pinch, Pan, Rotation, DoubleTap, TouchpadPressure — AppKit wired; UIKit opt-in recognizers; other backends TODO
 - **Occluded** — visibility state change event — API defined, emission TODO
-- **Misc window** — user attention, content protection, window menu, drag/resize-window — API defined, all no-op (see [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md))
+- **Misc window** — user attention and content protection APIs remain backend-dependent; window menu and drag/resize-window now return typed unsupported results until native support is wired (see [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md))
 
 ## Platform capability matrix
 

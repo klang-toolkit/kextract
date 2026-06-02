@@ -2035,8 +2035,8 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public fun availableMonitors ()Ljava/util/List;
 	public abstract fun close ()V
 	public abstract fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
-	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)V
-	public fun dragWindow ()V
+	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)Lorg/graphiks/kadre/core/WindowRequestResult;
+	public fun dragWindow ()Lorg/graphiks/kadre/core/WindowRequestResult;
 	public fun focusWindow ()V
 	public fun getEnabledButtons ()Lorg/graphiks/kadre/core/WindowButtons;
 	public abstract fun getFullscreen ()Lorg/graphiks/kadre/core/Fullscreen;
@@ -2097,13 +2097,13 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public abstract fun setVisible (Z)V
 	public abstract fun setWindowIcon (Lorg/graphiks/kadre/core/Icon;)V
 	public abstract fun setWindowLevel (Lorg/graphiks/kadre/core/WindowLevel;)V
-	public fun showWindowMenu (Lorg/graphiks/kadre/core/PhysicalPosition;)V
+	public fun showWindowMenu (Lorg/graphiks/kadre/core/PhysicalPosition;)Lorg/graphiks/kadre/core/WindowRequestResult;
 }
 
 public final class org/graphiks/kadre/core/Window$DefaultImpls {
 	public static fun availableMonitors (Lorg/graphiks/kadre/core/Window;)Ljava/util/List;
-	public static fun dragResizeWindow (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/ResizeDirection;)V
-	public static fun dragWindow (Lorg/graphiks/kadre/core/Window;)V
+	public static fun dragResizeWindow (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/ResizeDirection;)Lorg/graphiks/kadre/core/WindowRequestResult;
+	public static fun dragWindow (Lorg/graphiks/kadre/core/Window;)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public static fun focusWindow (Lorg/graphiks/kadre/core/Window;)V
 	public static fun getEnabledButtons (Lorg/graphiks/kadre/core/Window;)Lorg/graphiks/kadre/core/WindowButtons;
 	public static fun getHasFocus (Lorg/graphiks/kadre/core/Window;)Z
@@ -2126,7 +2126,7 @@ public final class org/graphiks/kadre/core/Window$DefaultImpls {
 	public static fun setImeCursorArea (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/PhysicalPosition;Lorg/graphiks/kadre/core/PhysicalSize;)V
 	public static fun setImePurpose (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/ImePurpose;)V
 	public static fun setSurfaceResizeIncrements (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/PhysicalSize;)V
-	public static fun showWindowMenu (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/PhysicalPosition;)V
+	public static fun showWindowMenu (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/PhysicalPosition;)Lorg/graphiks/kadre/core/WindowRequestResult;
 }
 
 public final class org/graphiks/kadre/core/WindowAttributes {

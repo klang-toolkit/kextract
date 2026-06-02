@@ -33,7 +33,7 @@ Objectif : exposer des handles natifs (`NSView`, `UIView`, `android.view.Surface
 - **Drag & drop** — événements `DragEntered/Moved/Dropped/Left` — API définie, émission TODO
 - **Gestes** — Pinch, Pan, Rotation, DoubleTap, TouchpadPressure — AppKit câblé ; recognizers UIKit opt-in ; autres backends TODO
 - **Occluded** — événement de changement de visibilité — API définie, émission TODO
-- **Fenêtre divers** — attention utilisateur, protection contenu, menu fenêtre, drag/resize-window — API définie, tous no-op (cf. [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md))
+- **Fenêtre divers** — les APIs attention utilisateur et protection contenu restent dépendantes des backends; menu fenêtre et drag/resize-window retournent désormais des résultats unsupported typés jusqu'au câblage natif (cf. [DEFERRED.md](https://github.com/ygdrasil-io/poc-koreos/blob/master/DEFERRED.md))
 
 ## Matrice de capacités par plateforme
 

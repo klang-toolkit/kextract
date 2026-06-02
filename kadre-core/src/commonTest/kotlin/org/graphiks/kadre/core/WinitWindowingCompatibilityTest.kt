@@ -84,6 +84,15 @@ class WinitWindowingCompatibilityTest {
         assertUnsupported(window.setCursorHittest(false))
     }
 
+    @Test
+    fun `window management requests report typed unsupported errors`() {
+        val window = TestWindow(currentMonitor = null)
+
+        assertUnsupported(window.showWindowMenu(PhysicalPosition(10, 20)))
+        assertUnsupported(window.dragWindow())
+        assertUnsupported(window.dragResizeWindow(ResizeDirection.SouthEast))
+    }
+
     private companion object {
         const val targetWinitCommit = "c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
 
@@ -115,6 +124,7 @@ class WinitWindowingCompatibilityTest {
             "Window cursor setters and grab/position requests",
             "Window drag_window",
             "Window drag_resize_window",
+            "Window show_window_menu",
             "Window.request_ime_update",
             "Window.ime_capabilities",
             "ActiveEventLoop create/control/exit/proxy",
@@ -203,13 +213,19 @@ class WinitWindowingCompatibilityTest {
                 winitApi = "Window drag_window",
                 kadreApi = "Window.dragWindow",
                 status = WinitWindowingStatus.Deferred,
-                note = "winit returns Result for platform failure; Kadre currently defaults to a no-op Unit method.",
+                note = "Kadre returns WindowRequestResult instead of Unit no-op, but native desktop drag support is not wired yet.",
             ),
             WinitWindowingApi(
                 winitApi = "Window drag_resize_window",
                 kadreApi = "Window.dragResizeWindow",
                 status = WinitWindowingStatus.Deferred,
-                note = "winit returns Result for platform failure; Kadre currently defaults to a no-op Unit method.",
+                note = "Kadre returns WindowRequestResult instead of Unit no-op, but native desktop resize-drag support is not wired yet.",
+            ),
+            WinitWindowingApi(
+                winitApi = "Window show_window_menu",
+                kadreApi = "Window.showWindowMenu",
+                status = WinitWindowingStatus.Deferred,
+                note = "Kadre returns WindowRequestResult instead of Unit no-op, but native menu support is not wired yet.",
             ),
             WinitWindowingApi(
                 winitApi = "Window.request_ime_update",

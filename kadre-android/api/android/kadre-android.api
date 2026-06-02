@@ -8,8 +8,8 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun availableMonitors ()Ljava/util/List;
 	public fun close ()V
 	public fun currentMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
-	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)V
-	public fun dragWindow ()V
+	public fun dragResizeWindow (Lorg/graphiks/kadre/core/ResizeDirection;)Lorg/graphiks/kadre/core/WindowRequestResult;
+	public fun dragWindow ()Lorg/graphiks/kadre/core/WindowRequestResult;
 	public fun focusWindow ()V
 	public fun getEnabledButtons ()Lorg/graphiks/kadre/core/WindowButtons;
 	public fun getFullscreen ()Lorg/graphiks/kadre/core/Fullscreen;
@@ -70,7 +70,7 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun setVisible (Z)V
 	public fun setWindowIcon (Lorg/graphiks/kadre/core/Icon;)V
 	public fun setWindowLevel (Lorg/graphiks/kadre/core/WindowLevel;)V
-	public fun showWindowMenu (Lorg/graphiks/kadre/core/PhysicalPosition;)V
+	public fun showWindowMenu (Lorg/graphiks/kadre/core/PhysicalPosition;)Lorg/graphiks/kadre/core/WindowRequestResult;
 }
 
 public abstract class org/graphiks/kadre/android/KadreActivity : androidx/activity/ComponentActivity {

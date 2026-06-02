@@ -927,7 +927,7 @@ Key residual points:
 - **Occluded event**: API defined; only AppKit and Web plan to wire it.
 - **ModifiersChanged**: emitted on AppKit/Win32/Web; not yet wired on X11/Wayland/Android/UIKit.
 - **Custom cursors** (`createCustomCursor` / `setCustomCursor`): no-op on all backends (default interface impl).
-- **Misc window methods** (`requestUserAttention`, `setContentProtected`, `showWindowMenu`, `dragWindow`, `dragResizeWindow`): no-op everywhere.
+- **Misc window methods**: `showWindowMenu`, `dragWindow` and `dragResizeWindow` now return `WindowRequestResult` and report `RequestError.Unsupported` by default; `requestUserAttention` and `setContentProtected` remain no-op where no backend implementation exists.
 - **Keyboard coverage**: the public model is now winit-style (`PhysicalKey` / `LogicalKey` / `NamedKey` / `Dead`), but `KeyCode` and `NamedKey` are not yet exhaustive and rich fields remain backend-dependent.
 - **Stylus / tablet**: not supported (MouseInput + Touch kept instead of unified PointerButton/PointerKind model).
 
@@ -1042,9 +1042,9 @@ Key residual points:
 | `WindowEvent::Occluded` | `WindowEvent.Occluded(occluded: Boolean)` — not yet emitted |
 | `Window::request_user_attention()` | `Window.requestUserAttention(requestType: UserAttentionType?)` — no-op (see DEFERRED.md) |
 | `Window::set_content_protected()` | `Window.setContentProtected(protected: Boolean)` — no-op (see DEFERRED.md) |
-| `Window::drag_window()` | `Window.dragWindow()` — no-op (see DEFERRED.md) |
-| `Window::drag_resize_window()` | `Window.dragResizeWindow(direction: ResizeDirection)` — no-op (see DEFERRED.md) |
-| `Window::show_window_menu()` | `Window.showWindowMenu(position: PhysicalPosition<Int>)` — no-op (see DEFERRED.md) |
+| `Window::drag_window()` | `Window.dragWindow(): WindowRequestResult` — default `RequestError.Unsupported` (see DEFERRED.md) |
+| `Window::drag_resize_window()` | `Window.dragResizeWindow(direction: ResizeDirection): WindowRequestResult` — default `RequestError.Unsupported` (see DEFERRED.md) |
+| `Window::show_window_menu()` | `Window.showWindowMenu(position: PhysicalPosition<Int>): WindowRequestResult` — default `RequestError.Unsupported` (see DEFERRED.md) |
 
 #### WindowAttributes (R3 additions)
 

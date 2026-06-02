@@ -36,7 +36,7 @@ Dernière mise à jour : 2026-06-01
 ## 5. Méthodes définies mais no-op (selon la plateforme)
 
 - **Curseurs custom** (`createCustomCursor` / `setCustomCursor`) : no-op partout (défaut interface).
-- **Divers fenêtre** (`requestUserAttention`, `setContentProtected`, `showWindowMenu`, `dragWindow`, `dragResizeWindow`, `memoryWarning`) : no-op partout.
+- **Divers fenêtre** : `requestUserAttention`, `setContentProtected` et `memoryWarning` restent no-op partout; `showWindowMenu`, `dragWindow` et `dragResizeWindow` retournent désormais `WindowRequestResult.Failure(RequestError.Unsupported(...))` tant que les backends natifs ne sont pas câblés.
 - **iOS / Android** : la quasi-totalité de l'état/géométrie de fenêtre = no-op (attendu sur mobile).
 
 ## 6. Implémentations natives partielles (TODO concrets dans le code)

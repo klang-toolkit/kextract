@@ -501,15 +501,17 @@ interface Window {
      * Shows the platform window menu (system / title-bar context menu) at the given position.
      *
      * Platform behaviour:
-     * - Win32  : `TrackPopupMenu(GetSystemMenu(...))`.
-     * - Others : no-op documented.
+     * - Win32  : `TrackPopupMenu(GetSystemMenu(...))` when implemented.
+     * - Others : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
-     * Default implementation is a no-op. Never throws.
+     * Default implementation returns [WindowRequestResult.Failure] with
+     * [RequestError.Unsupported]. Never throws.
      * TODO R5-MiscWindow: wire in Win32 backend.
      *
      * @param position Position in physical pixels (window-relative) at which to show the menu.
      */
-    fun showWindowMenu(position: PhysicalPosition<Int>) { /* no-op by default, TODO R5-MiscWindow */ }
+    fun showWindowMenu(position: PhysicalPosition<Int>): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Window menu is unsupported by this window"))
 
     /**
      * Initiates a user-driven window drag from the current cursor position.
@@ -517,29 +519,33 @@ interface Window {
      * Intended to be called from a pointer-pressed event handler to allow dragging
      * a custom title bar.
      * Platform behaviour:
-     * - AppKit   : `NSWindow.performWindowDragWithEvent`.
-     * - Wayland  : `xdg_toplevel.move`.
-     * - Others   : no-op documented.
+     * - AppKit   : `NSWindow.performWindowDragWithEvent` when implemented.
+     * - Wayland  : `xdg_toplevel.move` when implemented.
+     * - Others   : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
-     * Default implementation is a no-op. Never throws.
+     * Default implementation returns [WindowRequestResult.Failure] with
+     * [RequestError.Unsupported]. Never throws.
      * TODO R5-MiscWindow: wire in AppKit and Wayland backends.
      */
-    fun dragWindow() { /* no-op by default, TODO R5-MiscWindow */ }
+    fun dragWindow(): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Window dragging is unsupported by this window"))
 
     /**
      * Initiates a user-driven window resize from the current cursor position.
      *
      * Must be called from a pointer-pressed event handler.
      * Platform behaviour:
-     * - Wayland  : `xdg_toplevel.resize` with the matching edge.
-     * - Others   : no-op documented.
+     * - Wayland  : `xdg_toplevel.resize` with the matching edge when implemented.
+     * - Others   : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
-     * Default implementation is a no-op. Never throws.
+     * Default implementation returns [WindowRequestResult.Failure] with
+     * [RequestError.Unsupported]. Never throws.
      * TODO R5-MiscWindow: wire in Wayland (and potentially Win32) backend.
      *
      * @param direction The window edge / corner to resize from.
      */
-    fun dragResizeWindow(direction: ResizeDirection) { /* no-op by default, TODO R5-MiscWindow */ }
+    fun dragResizeWindow(direction: ResizeDirection): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Window resizing is unsupported by this window"))
 
 
     /**

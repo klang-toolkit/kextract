@@ -3,17 +3,17 @@
 # dragWindow
 
 [common]\
-open fun [dragWindow](drag-window.md)()
+open fun [dragWindow](drag-window.md)(): [WindowRequestResult](../-window-request-result/index.md)
 
 Initiates a user-driven window drag from the current cursor position.
 
 Intended to be called from a pointer-pressed event handler to allow dragging a custom title bar. Platform behaviour:
 
 -
-   AppKit   : `NSWindow.performWindowDragWithEvent`.
+   AppKit   : `NSWindow.performWindowDragWithEvent` when implemented.
 -
-   Wayland  : `xdg_toplevel.move`.
+   Wayland  : `xdg_toplevel.move` when implemented.
 -
-   Others   : no-op documented.
+   Others   : [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md).
 
-Default implementation is a no-op. Never throws. TODO R5-MiscWindow: wire in AppKit and Wayland backends.
+Default implementation returns [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws. TODO R5-MiscWindow: wire in AppKit and Wayland backends.

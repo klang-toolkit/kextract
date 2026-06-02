@@ -901,8 +901,8 @@ abstract interface org.graphiks.kadre.core/Window { // org.graphiks.kadre.core/W
     abstract fun setWindowIcon(org.graphiks.kadre.core/Icon?) // org.graphiks.kadre.core/Window.setWindowIcon|setWindowIcon(org.graphiks.kadre.core.Icon?){}[0]
     abstract fun setWindowLevel(org.graphiks.kadre.core/WindowLevel) // org.graphiks.kadre.core/Window.setWindowLevel|setWindowLevel(org.graphiks.kadre.core.WindowLevel){}[0]
     open fun availableMonitors(): kotlin.collections/List<org.graphiks.kadre.core/MonitorHandle> // org.graphiks.kadre.core/Window.availableMonitors|availableMonitors(){}[0]
-    open fun dragResizeWindow(org.graphiks.kadre.core/ResizeDirection) // org.graphiks.kadre.core/Window.dragResizeWindow|dragResizeWindow(org.graphiks.kadre.core.ResizeDirection){}[0]
-    open fun dragWindow() // org.graphiks.kadre.core/Window.dragWindow|dragWindow(){}[0]
+    open fun dragResizeWindow(org.graphiks.kadre.core/ResizeDirection): org.graphiks.kadre.core/WindowRequestResult // org.graphiks.kadre.core/Window.dragResizeWindow|dragResizeWindow(org.graphiks.kadre.core.ResizeDirection){}[0]
+    open fun dragWindow(): org.graphiks.kadre.core/WindowRequestResult // org.graphiks.kadre.core/Window.dragWindow|dragWindow(){}[0]
     open fun focusWindow() // org.graphiks.kadre.core/Window.focusWindow|focusWindow(){}[0]
     open fun inputCapabilities(): org.graphiks.kadre.core/InputCapabilities // org.graphiks.kadre.core/Window.inputCapabilities|inputCapabilities(){}[0]
     open fun primaryMonitor(): org.graphiks.kadre.core/MonitorHandle? // org.graphiks.kadre.core/Window.primaryMonitor|primaryMonitor(){}[0]
@@ -919,7 +919,7 @@ abstract interface org.graphiks.kadre.core/Window { // org.graphiks.kadre.core/W
     open fun setImeCursorArea(org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>, org.graphiks.kadre.core/PhysicalSize<kotlin/Int>) // org.graphiks.kadre.core/Window.setImeCursorArea|setImeCursorArea(org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>;org.graphiks.kadre.core.PhysicalSize<kotlin.Int>){}[0]
     open fun setImePurpose(org.graphiks.kadre.core/ImePurpose) // org.graphiks.kadre.core/Window.setImePurpose|setImePurpose(org.graphiks.kadre.core.ImePurpose){}[0]
     open fun setSurfaceResizeIncrements(org.graphiks.kadre.core/PhysicalSize<kotlin/Int>?) // org.graphiks.kadre.core/Window.setSurfaceResizeIncrements|setSurfaceResizeIncrements(org.graphiks.kadre.core.PhysicalSize<kotlin.Int>?){}[0]
-    open fun showWindowMenu(org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>) // org.graphiks.kadre.core/Window.showWindowMenu|showWindowMenu(org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>){}[0]
+    open fun showWindowMenu(org.graphiks.kadre.core/PhysicalPosition<kotlin/Int>): org.graphiks.kadre.core/WindowRequestResult // org.graphiks.kadre.core/Window.showWindowMenu|showWindowMenu(org.graphiks.kadre.core.PhysicalPosition<kotlin.Int>){}[0]
 }
 
 sealed interface org.graphiks.kadre.core/ButtonSource { // org.graphiks.kadre.core/ButtonSource|null[0]

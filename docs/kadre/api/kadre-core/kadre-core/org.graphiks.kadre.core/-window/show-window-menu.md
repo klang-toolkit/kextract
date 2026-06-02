@@ -3,18 +3,18 @@
 # showWindowMenu
 
 [common]\
-open fun [showWindowMenu](show-window-menu.md)(position: [PhysicalPosition](../-physical-position/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;)
+open fun [showWindowMenu](show-window-menu.md)(position: [PhysicalPosition](../-physical-position/index.md)&lt;[Int](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-int/index.html)&gt;): [WindowRequestResult](../-window-request-result/index.md)
 
 Shows the platform window menu (system / title-bar context menu) at the given position.
 
 Platform behaviour:
 
 -
-   Win32  : `TrackPopupMenu(GetSystemMenu(...))`.
+   Win32  : `TrackPopupMenu(GetSystemMenu(...))` when implemented.
 -
-   Others : no-op documented.
+   Others : [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md).
 
-Default implementation is a no-op. Never throws. TODO R5-MiscWindow: wire in Win32 backend.
+Default implementation returns [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws. TODO R5-MiscWindow: wire in Win32 backend.
 
 #### Parameters
 

@@ -18,7 +18,7 @@ Kadre couvre deja le socle portable de fenetrage winit: attributs de creation, c
 Les ecarts prioritaires ne demandent pas de breaking change dans cette tache, mais doivent rester visibles:
 
 1. `Window.is_visible` et `Window.is_minimized` sont `Option<bool>` dans winit, mais `Boolean` non nullable dans Kadre. Kadre ne peut donc pas representer l'etat inconnu.
-2. Plusieurs operations winit fallibles (`set_cursor_position`, `set_cursor_grab`, `drag_window`, `drag_resize_window`) sont encore des methodes Kadre `Unit`, parfois documentees no-op.
+2. Les operations winit fallibles de curseur et de gestion fenetre (`set_cursor_position`, `set_cursor_grab`, `drag_window`, `drag_resize_window`, `show_window_menu`) retournent maintenant des resultats types cote API commune; plusieurs backends doivent encore remplacer le fallback `RequestError.Unsupported` par du support natif.
 3. `Window.available_monitors` et `Window.primary_monitor` existent dans winit en plus des methodes `ActiveEventLoop`; Kadre expose maintenant les equivalents `Window.availableMonitors()` et `Window.primaryMonitor()` avec fallback `emptyList`/`null` quand le backend ne sait pas repondre.
 4. `ActiveEventLoop.owned_display_handle` est non nullable dans winit; `ActiveEventLoop.ownedDisplayHandle()` est nullable et retourne `null` par defaut dans Kadre.
 5. `Window.request_ime_update` et `Window.ime_capabilities` sont reportes: l'IME riche est hors portee de ce passage, au-dela des methodes Kadre existantes `setImeAllowed`, `setImeCursorArea`, `setImePurpose`.
@@ -42,8 +42,9 @@ Statuts autorises par le test commun: `implemented`, `unsupported-platform`, `de
 | `Window.available_monitors()` | `Window.availableMonitors()` | implemented | Methode Window-level presente; fallback commun `emptyList()` quand inconnu; overrides desktop ou synthetiques quand l'enumeration backend est disponible. |
 | `Window.primary_monitor()` | `Window.primaryMonitor()` | implemented | Nullable comme winit; fallback commun `null` quand inconnu; overrides quand le backend connait un primaire. X11 utilise le primaire XRandR quand disponible; Wayland retourne `null` par absence de concept primaire. |
 | Cursor grab/position/hittest | `setCursor`, `setCursorVisible`, `setCursorGrab`, `setCursorPosition`, `setCursorHittest` | implemented | `setCursorGrab`, `setCursorPosition` et `setCursorHittest` retournent `WindowRequestResult`; les backends sans support réel retournent `Failure(RequestError.Unsupported(...))`. `setCursor` et `setCursorVisible` restent des setters `Unit` no-throw. |
-| `Window.drag_window()` | `Window.dragWindow()` | deferred | winit fallible; Kadre no-op `Unit` par defaut. |
-| `Window.drag_resize_window()` | `Window.dragResizeWindow()` | deferred | winit fallible; Kadre no-op `Unit` par defaut. |
+| `Window.drag_window()` | `Window.dragWindow()` | deferred | Kadre retourne `WindowRequestResult` au lieu d'un no-op `Unit`, mais le support natif desktop reste a cabler. |
+| `Window.drag_resize_window()` | `Window.dragResizeWindow()` | deferred | Kadre retourne `WindowRequestResult` au lieu d'un no-op `Unit`, mais le support natif desktop reste a cabler. |
+| `Window.show_window_menu()` | `Window.showWindowMenu()` | deferred | Kadre retourne `WindowRequestResult` au lieu d'un no-op `Unit`, mais le support natif desktop reste a cabler. |
 | `Window.request_ime_update()` | `setImeAllowed`, `setImeCursorArea`, `setImePurpose` | deferred | IME riche hors portee, sauf methodes Window existantes. |
 | `Window.ime_capabilities()` | absent | deferred | Kadre n'a pas le modele de capacites IME winit. |
 | `ActiveEventLoop` create/control/exit/proxy | `createWindow`, `controlFlow`, `setControlFlow`, `exit`, `isExiting`, `createProxy` | implemented | Socle de controle represente. |
@@ -52,7 +53,7 @@ Statuts autorises par le test commun: `implemented`, `unsupported-platform`, `de
 | `ActiveEventLoop.owned_display_handle()` | `ownedDisplayHandle(): OwnedDisplayHandle?` | deferred | winit non-null; Kadre nullable avec `null` par defaut. |
 | `MonitorHandle`, `VideoMode` | `MonitorHandle`, `VideoMode` | implemented | Id, nom, position, scale factor, mode courant, modes disponibles. |
 | `Fullscreen::{Borderless, Exclusive}` | `Fullscreen.Borderless`, `Fullscreen.Exclusive` | unsupported-platform | API presente, mais `Exclusive` est documente comme fallback/no-op sur Wayland, Web, Android, UIKit. |
-| Result/error support | `WindowRequestResult`, `SurfaceSizeRequestResult`, `RequestError` | implemented | Types utilises par `requestSurfaceSize` et les requetes curseur fallibles (`setCursorGrab`, `setCursorPosition`, `setCursorHittest`). |
+| Result/error support | `WindowRequestResult`, `SurfaceSizeRequestResult`, `RequestError` | implemented | Types utilises par `requestSurfaceSize`, les requetes curseur fallibles (`setCursorGrab`, `setCursorPosition`, `setCursorHittest`) et les requetes de gestion fenetre (`showWindowMenu`, `dragWindow`, `dragResizeWindow`). |
 
 ## Implications API
 
