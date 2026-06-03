@@ -8,7 +8,7 @@
  * [org.graphiks.kadre.samples.hellotriangle], adapted to the wgpu4k web API
  * (getCanvasSurface / top-level requestAdapter / configure without usage Set).
  *
- * Targets: js(IR) browser, wasmJs browser, `binaries.executable()`.
+ * Targets: js browser, wasmJs browser, `binaries.executable()`.
  *
  * Real GPU rendering is only verifiable in a browser (WebGPU); CI is limited
  * to compiling both targets.
@@ -20,7 +20,7 @@ plugins {
 }
 
 kotlin {
-    js(IR) {
+    js {
         browser {
             commonWebpackConfig {
                 outputFileName = "hello-triangle-web.js"

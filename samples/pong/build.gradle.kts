@@ -1,7 +1,7 @@
 /**
  * Module samples/pong — 6-target KMP skeleton.
  *
- * Targets: jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js(IR), wasmJs.
+ * Targets: jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js, wasmJs.
  * setup module (skeleton only, no implementation).
  *
  * Related tickets:
@@ -23,7 +23,7 @@ kotlin {
     // Web targets — in addition to the iOS/JVM/Android targets from the convention plugin.
     // binaries.executable(): generates an executable bundle (webpack) to serve
     // the sample in a browser via jsBrowserDevelopmentRun / wasmJsBrowserDevelopmentRun.
-    js(IR) {
+    js {
         browser {
             commonWebpackConfig {
                 outputFileName = "pong-web.js"

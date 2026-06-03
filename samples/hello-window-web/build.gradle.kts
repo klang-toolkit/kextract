@@ -4,7 +4,7 @@
  * Demonstrates the basic Kadre API for browser targets:
  * canvas window creation, logging of DOM events.
  *
- * Targets: js(IR) browser, wasmJs browser.
+ * Targets: js browser, wasmJs browser.
  *
  * setup module samples/hello-window-web.
  */
@@ -15,7 +15,7 @@ plugins {
 }
 
 kotlin {
-    js(IR) {
+    js {
         browser {
             commonWebpackConfig {
                 outputFileName = "hello-window-web.js"

@@ -9,7 +9,7 @@
  *   - jsMain      → kadre-web-common (stub — impl complète dans #24)
  *   - wasmJsMain  → kadre-web-common (stub — impl complète dans #24)
  *
- * Cibles KMP : jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js(IR), wasmJs.
+ * Cibles KMP : jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js, wasmJs.
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
@@ -25,13 +25,13 @@ android {
 
 kotlin {
     // Cibles web — en plus des cibles iOS/JVM/Android du plugin de convention
-    js(IR) { browser() }
+    js { browser() }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
     // Validation de compatibilité ABI — intégrée au plugin Kotlin.
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
-    abiValidation { enabled.set(true) }
+    abiValidation()
 
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")

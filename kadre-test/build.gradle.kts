@@ -19,7 +19,7 @@ android {
 }
 
 kotlin {
-    js(IR) { browser() }
+    js { browser() }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs { browser() }
 

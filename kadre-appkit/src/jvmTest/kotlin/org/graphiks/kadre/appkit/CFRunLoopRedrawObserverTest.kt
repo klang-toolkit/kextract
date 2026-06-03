@@ -56,7 +56,7 @@ class CFRunLoopRedrawObserverTest {
     fun `AppKitWindow exposes needsRedraw modifiable via requestRedraw`() {
         // requestRedraw must mutate the needsRedraw flag (verified via generated getter/setter)
         val getter = AppKitWindow::class.java.methods
-            .firstOrNull { it.name == "getNeedsRedraw\$kadre_appkit" || it.name == "getNeedsRedraw" }
+            .firstOrNull { it.name == "getNeedsRedraw\$kadre_appkit" || it.name == "getNeedsRedraw" || it.name == "getNeedsRedraw\$org_graphiks_kadre_kadre_appkit" }
         assertNotNull(getter, "AppKitWindow must expose a getter for needsRedraw (internal)")
         assertEquals(java.lang.Boolean.TYPE, getter.returnType)
     }

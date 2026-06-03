@@ -1,7 +1,7 @@
 /**
  * Module kadre-web-common — code partagé entre les cibles JS et wasmJs.
  *
- * Cibles KMP : js(IR) + wasmJs, avec un source set intermédiaire webMain
+ * Cibles KMP : js + wasmJs, avec un source set intermédiaire webMain
  * qui dépend de commonMain et regroupe le code commun aux deux backends web.
  *
  * Contrainte : webMain ne doit contenir AUCUN import DOM.
@@ -21,7 +21,7 @@ kotlin {
     // quand js + wasmJs sont déclarés ensemble, sans dependsOn() explicites.
     applyDefaultHierarchyTemplate()
 
-    js(IR) { browser() }
+    js { browser() }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
@@ -29,7 +29,7 @@ kotlin {
         // webMain et webTest sont créés automatiquement par applyDefaultHierarchyTemplate()
         // quand js + wasmJs sont déclarés ensemble. On les récupère avec `by getting`.
 
-        // Depuis le ticket #28, kadre-core expose les cibles js(IR) et wasmJs.
+        // Depuis le ticket #28, kadre-core expose les cibles js et wasmJs.
         // On peut donc en dépendre depuis commonMain (hérité par webMain, jsMain, wasmJsMain).
         commonMain {
             dependencies {

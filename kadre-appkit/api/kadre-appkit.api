@@ -93,7 +93,6 @@ public final class org/graphiks/kadre/appkit/KadreAppDelegate$Companion {
 
 public final class org/graphiks/kadre/appkit/KadreApplication : org/graphiks/kadre/appkit/bindings/NSApplication {
 	public static final field Companion Lorg/graphiks/kadre/appkit/KadreApplication$Companion;
-	public synthetic fun <init> (Ljava/lang/foreign/MemorySegment;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun setActivationPolicyRegular ()V
 }
 

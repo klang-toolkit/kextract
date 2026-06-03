@@ -17,7 +17,7 @@ kotlin {
     jvmToolchain(25)
 
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
-    abiValidation { enabled.set(true) }
+    abiValidation()
 
     jvm()
 

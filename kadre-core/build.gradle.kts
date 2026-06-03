@@ -1,7 +1,7 @@
 /**
  * Module kadre-core — interfaces et types Kotlin pur, aucune référence native.
  *
- * Cibles KMP : jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js(IR), wasmJs.
+ * Cibles KMP : jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js, wasmJs.
  * Ce module ne doit contenir aucun code dépendant d'une plateforme (pas de
  * java.*, platform.*, android.*) afin de rester 100 % commonMain.
  *
@@ -22,7 +22,7 @@ android {
 
 kotlin {
     // Cibles web — en plus des cibles iOS/JVM/Android du plugin de convention
-    js(IR) { browser() }
+    js { browser() }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
@@ -30,7 +30,7 @@ kotlin {
     // s'appuie sur le compilateur (pas d'ASM externe) → compatible JDK 25.
     // Tâches : updateKotlinAbi (régénère api/) et checkKotlinAbi (câblée dans check).
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
-    abiValidation { enabled.set(true) }
+    abiValidation()
 
     // Active les classes expect/actual (Beta) sans avertissement.
     // Nécessaire pour EventLoop (expect class avec actual par plateforme).

@@ -1,6 +1,6 @@
 [versions]
 # Core Tooling
-kotlin = "2.3.21"
+kotlin = "2.4.0"
 
 # kextract (CLI tool for Obj-C/FFM bindings) — version used for generation
 # Repo: https://github.com/klang-toolkit/kextract
