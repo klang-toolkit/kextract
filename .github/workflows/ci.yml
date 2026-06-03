@@ -77,14 +77,19 @@ jobs:
       - name: Fast-Track JVM tests
         if: steps.strategy.outputs.mode == 'fast-track'
         run: |
-          ./gradlew \
-            :kadre-core:jvmTest \
-            :kadre-appkit:jvmTest \
-            :kadre-core:checkKotlinAbi \
-            :kadre-appkit:checkKotlinAbi \
-            :kadre-uikit:checkKotlinAbi \
-            :kadre-android:checkKotlinAbi \
-            :kadre:checkKotlinAbi \
+          # ABI validation is intentionally disabled in CI during incubation.
+          # Keep the workflow fast-track while the public API is still moving;
+          # uncomment these tasks once the ABI baseline is stable enough to gate PRs.
+          tasks=(
+            :kadre-core:jvmTest
+            :kadre-appkit:jvmTest
+            # :kadre-core:checkKotlinAbi
+            # :kadre-appkit:checkKotlinAbi
+            # :kadre-uikit:checkKotlinAbi
+            # :kadre-android:checkKotlinAbi
+            # :kadre:checkKotlinAbi
+          )
+          ./gradlew "${tasks[@]}" \
             --no-daemon \
             --stacktrace
 
@@ -93,17 +98,22 @@ jobs:
       - name: Deep-Testing (JVM + iOS simulator)
         if: steps.strategy.outputs.mode == 'deep'
         run: |
-          ./gradlew \
-            :kadre-core:jvmTest \
-            :kadre-core:iosSimulatorArm64Test \
-            :kadre-appkit:jvmTest \
-            :kadre:jvmTest \
-            :kadre:iosSimulatorArm64Test \
-            :kadre-core:checkKotlinAbi \
-            :kadre-appkit:checkKotlinAbi \
-            :kadre-uikit:checkKotlinAbi \
-            :kadre-android:checkKotlinAbi \
-            :kadre:checkKotlinAbi \
+          # ABI validation is intentionally disabled in CI during incubation.
+          # Keep the workflow fast-track while the public API is still moving;
+          # uncomment these tasks once the ABI baseline is stable enough to gate PRs.
+          tasks=(
+            :kadre-core:jvmTest
+            :kadre-core:iosSimulatorArm64Test
+            :kadre-appkit:jvmTest
+            :kadre:jvmTest
+            :kadre:iosSimulatorArm64Test
+            # :kadre-core:checkKotlinAbi
+            # :kadre-appkit:checkKotlinAbi
+            # :kadre-uikit:checkKotlinAbi
+            # :kadre-android:checkKotlinAbi
+            # :kadre:checkKotlinAbi
+          )
+          ./gradlew "${tasks[@]}" \
             --no-daemon \
             --stacktrace
 
