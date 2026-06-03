@@ -26,6 +26,7 @@ package org.graphiks.kadre.web
 
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
@@ -69,6 +70,19 @@ internal fun CursorIcon.toCssCursorValue(): String = when (this) {
     CursorIcon.NwseResize     -> "nwse-resize"
     CursorIcon.ColResize      -> "col-resize"
     CursorIcon.RowResize      -> "row-resize"
+    CursorIcon.AllScroll      -> "all-scroll"
+    CursorIcon.ZoomIn         -> "zoom-in"
+    CursorIcon.ZoomOut        -> "zoom-out"
+    CursorIcon.Copy           -> "copy"
+    CursorIcon.Alias          -> "alias"
+    CursorIcon.ContextMenu    -> "context-menu"
+    CursorIcon.Cell           -> "cell"
+    CursorIcon.NoDrop         -> "no-drop"
+    CursorIcon.Help           -> "help"
+    CursorIcon.Hidden         -> "none"
+    CursorIcon.NoneReset      -> "default"
+    CursorIcon.WaitCursor     -> "wait"
+    CursorIcon.VerticalText   -> "vertical-text"
 }
 
 /**
@@ -341,6 +355,20 @@ class WebWindow(
      */
     override fun setCursor(cursor: CursorIcon) {
         bridge.setCssCursor(canvasElementId, cursor.toCssCursorValue())
+    }
+
+    /**
+     * Applies a previously created custom cursor via a CSS cursor URL.
+     *
+     * Resolves the data URL from [WebCustomCursorCache] and sets
+     * `cursor: url(<dataUrl>) <hx> <hy>, auto` on the canvas.
+     * Never throws.
+     */
+    override fun setCustomCursor(cursor: CustomCursor) {
+        try {
+            val dataUrl = WebCustomCursorCache.resolve(cursor.id) ?: return
+            bridge.setCssCursor(canvasElementId, "url($dataUrl) auto")
+        } catch (_: Throwable) {}
     }
 
     /**

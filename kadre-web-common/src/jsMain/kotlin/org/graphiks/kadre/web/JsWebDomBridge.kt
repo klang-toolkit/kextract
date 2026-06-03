@@ -356,6 +356,31 @@ class JsWebDomBridge : WebDomBridge {
         } catch (_: Throwable) {}
     }
 
+    // ── R5-CustomCursor ─────────────────────────────────────────────────────────
+
+    /**
+     * Creates a data URL from RGBA pixel data via an off-screen canvas.
+     *
+     * Creates a `<canvas>`, paints the RGBA pixels via `putImageData`,
+     * and returns `canvas.toDataURL("image/png")`.
+     */
+    override fun createCursorDataUrl(rgba: ByteArray, width: Int, height: Int, hotspotX: Int, hotspotY: Int): String {
+        try {
+            val canvas = document.createElement("canvas").asDynamic()
+            canvas.width = width
+            canvas.height = height
+            val ctx = canvas.getContext("2d").asDynamic()
+            val imageData = ctx.createImageData(width, height).asDynamic()
+            val data = imageData.data
+            for (i in rgba.indices) {
+                data[i] = rgba[i]
+            }
+            ctx.putImageData(imageData, 0.0, 0.0)
+            val url: String = canvas.toDataURL("image/png") as String
+            return url
+        } catch (_: Throwable) { return "" }
+    }
+
     /**
      * Calls `document.exitFullscreen()`.
      */

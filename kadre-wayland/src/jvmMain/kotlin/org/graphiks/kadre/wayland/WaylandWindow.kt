@@ -18,6 +18,7 @@ package org.graphiks.kadre.wayland
 
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
@@ -467,6 +468,16 @@ class WaylandWindow private constructor(
     }
 
     // ── R3: cursor, theme & appearance ───────────────────────────────────────
+
+    /**
+     * No-op on Wayland.
+     *
+     * TODO(R5-wayland-cursor): implement via wl_pointer.set_cursor with a
+     * custom wl_buffer created from the cursor image data.
+     */
+    override fun setCustomCursor(cursor: CustomCursor) {
+        // No-op on Wayland: custom cursor surfaces are not wired yet.
+    }
 
     /**
      * No-op on Wayland.

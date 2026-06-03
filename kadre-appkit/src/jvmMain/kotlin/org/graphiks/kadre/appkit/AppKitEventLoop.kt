@@ -15,6 +15,8 @@ import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.CursorImage
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
@@ -158,6 +160,19 @@ internal class AppKitEventLoop(
      */
     override fun listenDeviceEvents(mode: DeviceEvents) {
         // no-op on AppKit: all device events are always dispatched
+    }
+
+    // ── R5-CustomCursor ─────────────────────────────────────────────────────────
+
+    /**
+     * Creates a custom cursor from RGBA pixel data on AppKit.
+     *
+     * Delegates to [AppKitCursorHelper.createNSCursorFromImage] which uses
+     * CoreGraphics to create a CGImage, then wraps it in NSImage → NSCursor.
+     */
+    override fun createCustomCursor(image: CursorImage): CustomCursor? {
+        val nsCursor = AppKitCursorHelper.createNSCursorFromImage(image) ?: return null
+        return CustomCursor(id = nsCursor.address())
     }
 }
 

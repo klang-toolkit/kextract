@@ -20,6 +20,8 @@ package org.graphiks.kadre.win32
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.CursorImage
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
@@ -165,6 +167,19 @@ internal class Win32EventLoop : ActiveEventLoop {
      */
     override fun listenDeviceEvents(mode: DeviceEvents) {
         // no-op on Win32: device event filtering not implemented
+    }
+
+    // ── R5-CustomCursor ─────────────────────────────────────────────────────────
+
+    /**
+     * Creates a custom cursor from RGBA pixel data on Win32.
+     *
+     * Converts RGBA → BGRA + inverted-alpha AND mask and calls CreateIcon.
+     * On Win32, HICON handles are interchangeable with HCURSOR handles.
+     */
+    override fun createCustomCursor(image: CursorImage): CustomCursor? {
+        val hCursor = win32CreateCursorFromImage(image) ?: return null
+        return CustomCursor(id = hCursor.address())
     }
 
     // ── Message loop ──────────────────────────────────────────────────────────

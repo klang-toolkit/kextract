@@ -22,6 +22,7 @@ import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.InputCapabilities
@@ -653,6 +654,19 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     }
 
     /**
+     * Applies a previously created custom NSCursor to this window.
+     *
+     * Calls `[nsCursor set]` on the NSCursor whose pointer is stored
+     * in [cursor.id]. Never throws.
+     */
+    override fun setCustomCursor(cursor: CustomCursor) {
+        try {
+            val nsCursor = MemorySegment.ofAddress(cursor.id)
+            ObjCRuntime.msgSend(null, nsCursor, ObjCRuntime.sel("set"))
+        } catch (_: Throwable) {}
+    }
+
+    /**
      * Shows or hides the cursor via NSCursor.hide/unhide.
      */
     override fun setCursorVisible(visible: Boolean) {
@@ -1111,6 +1125,19 @@ private fun cursorSelectorName(cursor: CursorIcon): String = when (cursor) {
     CursorIcon.RowResize      -> "resizeUpDownCursor"
     CursorIcon.NeswResize     -> "resizeCursor"
     CursorIcon.NwseResize     -> "resizeCursor"
+    CursorIcon.AllScroll      -> "allScrollCursor"
+    CursorIcon.ZoomIn,
+    CursorIcon.ZoomOut        -> "crosshairCursor"     // No NSCursor equivalent
+    CursorIcon.Copy           -> "dragCopyCursor"
+    CursorIcon.Alias          -> "dragLinkCursor"
+    CursorIcon.ContextMenu    -> "contextualMenuCursor"
+    CursorIcon.Cell           -> "crosshairCursor"     // No direct NSCursor
+    CursorIcon.NoDrop         -> "operationNotAllowedCursor"
+    CursorIcon.Help           -> "_helpCursor"
+    CursorIcon.Hidden         -> "arrowCursor"         // Invisible; arrow is just placeholder
+    CursorIcon.NoneReset      -> "arrowCursor"         // Reset to default
+    CursorIcon.WaitCursor     -> "arrowCursor"         // Same as Wait
+    CursorIcon.VerticalText   -> "IBeamCursor"         // No vertical variant on macOS
 }
 
 internal fun appKitWindowIconIsSupported(): Boolean = false

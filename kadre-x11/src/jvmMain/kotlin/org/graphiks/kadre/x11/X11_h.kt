@@ -915,5 +915,7 @@ internal const val XC_top_right_corner: Int  = 136  // resize NE
 internal const val XC_top_left_corner: Int   = 134  // resize NW
 internal const val XC_bottom_right_corner: Int = 14 // resize SE
 internal const val XC_bottom_left_corner: Int = 12  // resize SW
+internal const val XC_question_arrow: Int     = 30   // help
+internal const val XC_plus: Int              = 58   // cell / plus (same shape as hand1)
 internal const val XC_sb_h_double_arrow: Int = 108  // EW resize
 internal const val XC_sb_v_double_arrow: Int = 116  // NS resize

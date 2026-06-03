@@ -1392,6 +1392,7 @@ internal const val IDC_SIZEALL: Long  = 32646L
 internal const val IDC_NO: Long       = 32648L
 internal const val IDC_HAND: Long     = 32649L
 internal const val IDC_APPSTARTING: Long = 32650L
+internal const val IDC_HELP: Long        = 32651L
 internal const val IDC_SIZENS: Long   = 32645L
 internal const val IDC_SIZEWE: Long   = 32644L
 internal const val IDC_SIZENWSE: Long = 32642L

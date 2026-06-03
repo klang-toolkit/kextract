@@ -11,3 +11,4 @@ __pycache__/
 
 # Kotlin compiler daemon session dir
 .kotlin/
+winit/

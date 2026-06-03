@@ -137,4 +137,23 @@ interface WebDomBridge {
      * Default: false (test / non-browser bridge).
      */
     fun prefersDarkColorScheme(): Boolean = false
+
+    // ── R5-CustomCursor ─────────────────────────────────────────────────────────
+
+    /**
+     * Creates a data URL from RGBA pixel data for use as a CSS custom cursor.
+     *
+     * The returned string can be used as `url(<dataUrl>) <hotspotX> <hotspotY>, auto`
+     * in a CSS cursor property.
+     *
+     * Default: empty string (test / non-browser bridge).
+     *
+     * @param rgba     Raw RGBA bytes (4 bytes per pixel, row-major, top-left origin).
+     * @param width    Image width in pixels.
+     * @param height   Image height in pixels.
+     * @param hotspotX Horizontal hot-spot offset from the left edge.
+     * @param hotspotY Vertical hot-spot offset from the top edge.
+     * @return A data URL string (e.g. "data:image/png;base64,...") or empty string on failure.
+     */
+    fun createCursorDataUrl(rgba: ByteArray, width: Int, height: Int, hotspotX: Int, hotspotY: Int): String = ""
 }

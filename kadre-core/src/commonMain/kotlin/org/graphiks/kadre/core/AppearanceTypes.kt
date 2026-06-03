@@ -83,6 +83,45 @@ enum class CursorIcon {
 
     /** Row resize cursor. */
     RowResize,
+
+    /** All-scroll / move-all-directions cursor. */
+    AllScroll,
+
+    /** Zoom-in cursor (magnifying glass with +). */
+    ZoomIn,
+
+    /** Zoom-out cursor (magnifying glass with -). */
+    ZoomOut,
+
+    /** Copy cursor (plus sign overlay). */
+    Copy,
+
+    /** Alias / link cursor (curved arrow). */
+    Alias,
+
+    /** Context-menu cursor. */
+    ContextMenu,
+
+    /** Cell selection cursor (thick plus). */
+    Cell,
+
+    /** No-drop cursor (hand with X / prohibition). */
+    NoDrop,
+
+    /** Help cursor (question mark). */
+    Help,
+
+    /** Hidden cursor — an invisible cursor shape (distinct from setCursorVisible(false)). */
+    Hidden,
+
+    /** Reset cursor to platform default (used to restore after a temporary override). */
+    NoneReset,
+
+    /** Wait cursor (alias for Wait). */
+    WaitCursor,
+
+    /** Vertical text I-beam cursor. */
+    VerticalText,
 }
 
 /**
@@ -178,7 +217,7 @@ data class CursorImage(
  *
  * @property id Platform-specific cursor identifier.
  */
-class CustomCursor internal constructor(internal val id: Long)
+class CustomCursor(val id: Long)
 
 // ── R5-MiscWindow ─────────────────────────────────────────────────────────────
 

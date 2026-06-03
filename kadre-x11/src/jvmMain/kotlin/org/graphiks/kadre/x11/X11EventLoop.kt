@@ -18,9 +18,11 @@
 package org.graphiks.kadre.x11
 
 import org.graphiks.kadre.core.ActiveEventLoop
-import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ButtonSource
+import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.CursorImage
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.KeyCode
@@ -265,6 +267,82 @@ class X11EventLoop internal constructor(
      */
     override fun listenDeviceEvents(mode: DeviceEvents) {
         // no-op on X11
+    }
+
+    // ── R5-CustomCursor ─────────────────────────────────────────────────────────
+
+    /**
+     * Creates a monochrome custom cursor from RGBA pixel data on X11.
+     *
+     * Computes 1-bit source/mask bitmaps (source = luminance>128, mask = alpha>0),
+     * then calls XCreateBitmapFromData + XCreatePixmapCursor with white foreground
+     * and black background. Both pixmaps are freed after cursor creation.
+     *
+     * This is a monochrome fallback — no XRender or ARGB cursor support yet.
+     * Returns null on failure (missing symbols, invalid image, or OOM).
+     */
+    override fun createCustomCursor(image: CursorImage): CustomCursor? {
+        val createBitmap = xCreateBitmapFromData ?: return null
+        val createPixmapCursor = xCreatePixmapCursor ?: return null
+        val freePixmap = xFreePixmap
+        val rootHandle = xRootWindow ?: return null
+
+        if (image.width <= 0 || image.height <= 0) return null
+        val pixelCount = image.width * image.height
+        val byteCount = pixelCount * 4
+        if (byteCount > Int.MAX_VALUE || image.rgba.size != byteCount) return null
+
+        val display = MemorySegment.ofAddress(displayPtr)
+
+        return try {
+            val root = rootHandle.invokeExact(display, screen) as Long
+            if (root == 0L) return null
+
+            Arena.ofConfined().use { arena ->
+                val srcBytes = ByteArray(pixelCount) { index ->
+                    val offset = index * 4
+                    val r = image.rgba[offset].toInt() and 0xFF
+                    val g = image.rgba[offset + 1].toInt() and 0xFF
+                    val b = image.rgba[offset + 2].toInt() and 0xFF
+                    val alpha = image.rgba[offset + 3].toInt() and 0xFF
+                    if ((r + g + b) / 3 > 128) 1 else 0
+                }
+                val maskBytes = ByteArray(pixelCount) { index ->
+                    val alpha = image.rgba[index * 4 + 3].toInt() and 0xFF
+                    if (alpha > 0) 1 else 0
+                }
+
+                val srcData = arena.allocate(srcBytes.size.toLong(), 1L)
+                val maskData = arena.allocate(maskBytes.size.toLong(), 1L)
+                for (i in srcBytes.indices) srcData.setAtIndex(ValueLayout.JAVA_BYTE, i.toLong(), srcBytes[i])
+                for (i in maskBytes.indices) maskData.setAtIndex(ValueLayout.JAVA_BYTE, i.toLong(), maskBytes[i])
+
+                val source = createBitmap.invokeExact(display, root, srcData, image.width, image.height) as Long
+                if (source == 0L) return@use null
+                val mask = createBitmap.invokeExact(display, root, maskData, image.width, image.height) as Long
+                if (mask == 0L) {
+                    if (freePixmap != null) freePixmap.invokeExact(display, source) as Int
+                    return@use null
+                }
+                try {
+                    val foreground = arena.allocate(X11_COLOR_SIZE_BYTES, X11_COLOR_ALIGN_BYTES)
+                    val background = arena.allocate(X11_COLOR_SIZE_BYTES, X11_COLOR_ALIGN_BYTES)
+                    foreground.setAtIndex(ValueLayout.JAVA_BYTE, 0L, 1)
+                    background.fill(0)
+                    val cursor = createPixmapCursor.invokeExact(
+                        display, source, mask, foreground, background,
+                        image.hotspotX, image.hotspotY,
+                    ) as Long
+                    if (cursor == 0L) return@use null
+                    CustomCursor(id = cursor)
+                } finally {
+                    if (freePixmap != null) {
+                        freePixmap.invokeExact(display, source) as Int
+                        freePixmap.invokeExact(display, mask) as Int
+                    }
+                }
+            }
+        } catch (_: Throwable) { null }
     }
 }
 

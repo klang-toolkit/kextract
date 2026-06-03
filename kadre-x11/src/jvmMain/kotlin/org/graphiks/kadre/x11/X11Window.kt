@@ -18,6 +18,7 @@ package org.graphiks.kadre.x11
 
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
@@ -674,6 +675,22 @@ class X11Window private constructor(
                 RequestError.OsError(t.message ?: t::class.simpleName ?: "X11 cursor hit-testing failed"),
             )
         }
+    }
+
+    /**
+     * Applies a previously created custom cursor to this window.
+     *
+     * Calls XDefineCursor with the cursor XID stored in [cursor.id].
+     * Never throws.
+     */
+    override fun setCustomCursor(cursor: CustomCursor) {
+        try {
+            val define = xDefineCursor ?: return
+            val display = MemorySegment.ofAddress(displayPtr)
+            define.invokeExact(display, xWindowId, cursor.id) as Int
+            val flush = xFlush
+            if (flush != null) flush.invokeExact(display) as Int
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -1389,6 +1406,19 @@ class X11Window private constructor(
         CursorIcon.RowResize      -> XC_sb_v_double_arrow
         CursorIcon.NeswResize     -> XC_top_right_corner
         CursorIcon.NwseResize     -> XC_top_left_corner
+    CursorIcon.AllScroll      -> XC_fleur
+    CursorIcon.ZoomIn,
+    CursorIcon.ZoomOut        -> XC_crosshair
+    CursorIcon.Copy,
+    CursorIcon.Alias          -> XC_left_ptr          // No standard X11 shape
+    CursorIcon.ContextMenu    -> XC_left_ptr          // No standard X11 shape
+    CursorIcon.Cell           -> XC_plus
+    CursorIcon.NoDrop         -> XC_X_cursor
+    CursorIcon.Help           -> XC_question_arrow
+    CursorIcon.Hidden         -> XC_left_ptr          // Arrow placeholder; invisible shape
+    CursorIcon.NoneReset      -> XC_left_ptr          // Reset to default
+    CursorIcon.WaitCursor     -> XC_watch             // Same as Wait
+    CursorIcon.VerticalText   -> XC_xterm             // No vertical variant on X11
     }
 
     // ── Companion ─────────────────────────────────────────────────────────────

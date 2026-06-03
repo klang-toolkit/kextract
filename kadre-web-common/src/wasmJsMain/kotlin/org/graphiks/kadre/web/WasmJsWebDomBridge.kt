@@ -123,6 +123,31 @@ private external fun wrapDoubleCallback(fn: (Double) -> Unit): JsAny
 @JsFun("(fn) => fn")
 private external fun wrapBoolSupplier(fn: () -> Boolean): JsAny
 
+/**
+ * Creates a data URL from RGBA pixel data via an off-screen canvas.
+ *
+ * Creates a `<canvas>`, paints the RGBA pixels via `putImageData`,
+ * and returns `canvas.toDataURL("image/png")`.
+ *
+ * The pixel data is passed as a hex-encoded string because wasmJs `@JsFun`
+ * interop does not support array types (`IntArray` / `ByteArray`).
+ */
+@JsFun("""(hex, width, height, hx, hy) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.createImageData(width, height);
+    const data = imageData.data;
+    const len = width * height * 4;
+    for (let i = 0; i < len; i++) {
+        data[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL('image/png');
+}""")
+private external fun createCursorDataUrlJs(hex: String, width: Int, height: Int, hx: Int, hy: Int): String
+
 // --- Touch field extraction (changedTouches is array-like) ---
 
 @JsFun("(e) => e.changedTouches.length")
@@ -469,5 +494,27 @@ class WasmJsWebDomBridge : WebDomBridge {
         try {
             jsExitFullscreen()
         } catch (_: Throwable) {}
+    }
+
+    // ── R5-CustomCursor ─────────────────────────────────────────────────────────
+
+    /**
+     * Creates a data URL from RGBA pixel data via an off-screen canvas.
+     *
+     * Encodes bytes as hex and delegates to [createCursorDataUrlJs] which
+     * creates a `<canvas>`, paints the pixels via `putImageData`,
+     * and returns `canvas.toDataURL("image/png")`.
+     */
+    override fun createCursorDataUrl(rgba: ByteArray, width: Int, height: Int, hotspotX: Int, hotspotY: Int): String {
+        try {
+            val hex = buildString(rgba.size * 2) {
+                for (b in rgba) {
+                    val v = b.toInt() and 0xFF
+                    append("0123456789abcdef"[v shr 4])
+                    append("0123456789abcdef"[v and 0xF])
+                }
+            }
+            return createCursorDataUrlJs(hex, width, height, hotspotX, hotspotY)
+        } catch (_: Throwable) { return "" }
     }
 }

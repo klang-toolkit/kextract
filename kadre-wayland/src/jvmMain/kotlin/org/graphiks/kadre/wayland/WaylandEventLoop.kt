@@ -19,6 +19,8 @@ package org.graphiks.kadre.wayland
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.CursorImage
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
@@ -171,6 +173,20 @@ class WaylandEventLoop internal constructor(
     override fun listenDeviceEvents(mode: DeviceEvents) {
         // no-op on Wayland
     }
+
+    // ── R5-CustomCursor ─────────────────────────────────────────────────────────
+
+    /**
+     * No-op on Wayland.
+     *
+     * Custom cursor images require wl_buffer + wl_surface + wl_pointer.set_cursor
+     * with shared memory buffers. This is significant extra work that depends on
+     * libwayland-cursor or direct wl_shm buffer allocation.
+     *
+     * TODO(R5-wayland-cursor): implement via wl_shm buffer creation +
+     * wl_pointer.set_cursor.
+     */
+    override fun createCustomCursor(image: CursorImage): CustomCursor? = null
 }
 
 internal fun routeWaylandInputEvent(

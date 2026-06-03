@@ -34,6 +34,8 @@ package org.graphiks.kadre.web
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.CursorImage
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
@@ -201,6 +203,28 @@ open class WebEventLoop : ActiveEventLoop {
         // no-op on Web: raw device events are not dispatched
     }
 
+    // ── R5-CustomCursor ─────────────────────────────────────────────────────────
+
+    /**
+     * Creates a custom cursor from RGBA pixel data on the Web.
+     *
+     * Delegates to [WebDomBridge.createCursorDataUrl] to produce a data URL,
+     * caches it by sequential id in [WebCustomCursorCache], and returns
+     * a [CustomCursor] with that id.
+     */
+    override fun createCustomCursor(image: CursorImage): CustomCursor? {
+        val bridge = primaryBridge ?: return null
+        val dataUrl = bridge.createCursorDataUrl(
+            rgba = image.rgba,
+            width = image.width,
+            height = image.height,
+            hotspotX = image.hotspotX,
+            hotspotY = image.hotspotY,
+        )
+        if (dataUrl.isEmpty()) return null
+        return WebCustomCursorCache.register(dataUrl)
+    }
+
     // ── R3: system theme ──────────────────────────────────────────────────────
 
     /**
@@ -336,6 +360,32 @@ open class WebEventLoop : ActiveEventLoop {
         override fun attach(targetElementId: String) {}
         override fun detach() {}
     }
+}
+
+/**
+ * Thread-safe cache of CSS cursor data URLs keyed by sequential [Long] ids.
+ *
+ * Used by [WebEventLoop.createCustomCursor] and [WebWindow.setCustomCursor]
+ * to decouple cursor creation from cursor application across the DOM bridge.
+ */
+internal object WebCustomCursorCache {
+
+    private var nextId: Long = 0L
+    private val map = mutableMapOf<Long, String>()
+
+    /**
+     * Registers [dataUrl] and returns a [CustomCursor] with a new unique id.
+     */
+    fun register(dataUrl: String): CustomCursor {
+        val id = nextId++
+        map[id] = dataUrl
+        return CustomCursor(id)
+    }
+
+    /**
+     * Resolves [cursorId] to its cached data URL, or null if unknown.
+     */
+    fun resolve(cursorId: Long): String? = map[cursorId]
 }
 
 /** Creates a synthetic [MonitorHandle] representing the browser window. */

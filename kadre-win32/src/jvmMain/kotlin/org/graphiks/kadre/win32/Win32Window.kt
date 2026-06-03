@@ -15,6 +15,8 @@ package org.graphiks.kadre.win32
 
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
+import org.graphiks.kadre.core.CursorImage
+import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.MonitorHandle
@@ -495,6 +497,17 @@ class Win32Window private constructor(
                 MemorySegment.NULL,
                 MemorySegment.ofAddress(id),
             ) as? MemorySegment ?: return
+            _cursorHandle = hCursor
+            setCursor?.invokeExact(hCursor) as? MemorySegment
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Applies a previously created custom cursor to this window.
+     */
+    override fun setCustomCursor(cursor: CustomCursor) {
+        try {
+            val hCursor = MemorySegment.ofAddress(cursor.id)
             _cursorHandle = hCursor
             setCursor?.invokeExact(hCursor) as? MemorySegment
         } catch (_: Throwable) {}
@@ -1208,6 +1221,19 @@ internal fun cursorIdcResource(cursor: CursorIcon): Long = when (cursor) {
     CursorIcon.Grabbing       -> IDC_SIZEALL
     CursorIcon.Wait           -> IDC_WAIT
     CursorIcon.Progress       -> IDC_APPSTARTING
+    CursorIcon.AllScroll      -> IDC_SIZEALL
+    CursorIcon.ZoomIn,
+    CursorIcon.ZoomOut        -> IDC_CROSS
+    CursorIcon.Copy,
+    CursorIcon.Alias          -> IDC_ARROW            // No dedicated IDC_
+    CursorIcon.ContextMenu    -> IDC_ARROW            // No dedicated IDC_
+    CursorIcon.Cell           -> IDC_CROSS
+    CursorIcon.NoDrop         -> IDC_NO
+    CursorIcon.Help           -> IDC_HELP
+    CursorIcon.Hidden         -> IDC_ARROW            // Just placeholder; invisible
+    CursorIcon.NoneReset      -> IDC_ARROW            // Reset to default
+    CursorIcon.WaitCursor     -> IDC_WAIT             // Same as Wait
+    CursorIcon.VerticalText   -> IDC_IBEAM            // No vertical-text on Win32
 }
 
 internal const val WIN32_STYLE_UPDATE_FLAGS: Int =
@@ -1390,4 +1416,64 @@ private fun win32DestroyIcon(handle: MemorySegment) {
     try {
         destroyIcon?.invokeExact(handle) as? Int
     } catch (_: Throwable) {}
+}
+
+/**
+ * Creates a Win32 HCURSOR (via CreateIcon, compatible with SetCursor)
+ * from RGBA pixel data.
+ *
+ * The image format matches [win32IconBuffers] — BGRA with inverted-alpha AND mask.
+ * Returns null on failure.
+ */
+internal fun win32CreateCursorFromImage(image: CursorImage): MemorySegment? {
+    val create = createIcon ?: return null
+    if (image.width <= 0 || image.height <= 0) return null
+    val pixelCount = image.width.toLong() * image.height.toLong()
+    val byteCount = pixelCount * 4L
+    if (byteCount > Int.MAX_VALUE || image.rgba.size.toLong() != byteCount) return null
+
+    val andMask = ByteArray(pixelCount.toInt())
+    val bgra = ByteArray(byteCount.toInt())
+    var source = 0
+    var target = 0
+    var pixel = 0
+    while (source < image.rgba.size) {
+        val red = image.rgba[source]
+        val green = image.rgba[source + 1]
+        val blue = image.rgba[source + 2]
+        val alpha = image.rgba[source + 3]
+        bgra[target] = blue
+        bgra[target + 1] = green
+        bgra[target + 2] = red
+        bgra[target + 3] = alpha
+        andMask[pixel] = ((alpha.toInt() and 0xFF) - 255).toByte()
+        source += 4
+        target += 4
+        pixel += 1
+    }
+
+    return Arena.ofConfined().use { arena ->
+        val andSeg = arena.allocate(andMask.size.toLong(), 1L)
+        val bgraSeg = arena.allocate(bgra.size.toLong(), 1L)
+        for (index in andMask.indices) {
+            andSeg.setAtIndex(ValueLayout.JAVA_BYTE, index.toLong(), andMask[index])
+        }
+        for (index in bgra.indices) {
+            bgraSeg.setAtIndex(ValueLayout.JAVA_BYTE, index.toLong(), bgra[index])
+        }
+        val hInstance = try {
+            val getModuleHandle = getModuleHandleW ?: return@use null
+            getModuleHandle.invokeExact(MemorySegment.NULL) as MemorySegment
+        } catch (_: Throwable) { return@use null }
+        val handle = create.invokeExact(
+            hInstance,
+            image.width,
+            image.height,
+            1.toByte(),
+            32.toByte(),
+            andSeg,
+            bgraSeg,
+        ) as MemorySegment
+        handle.takeUnless { it == MemorySegment.NULL }
+    }
 }
