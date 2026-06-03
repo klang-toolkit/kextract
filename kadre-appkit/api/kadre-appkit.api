@@ -30,9 +30,9 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun inputCapabilities ()Lorg/graphiks/kadre/core/InputCapabilities;
 	public fun isDecorated ()Z
 	public fun isMaximized ()Z
-	public fun isMinimized ()Z
+	public fun isMinimized ()Ljava/lang/Boolean;
 	public fun isResizable ()Z
-	public fun isVisible ()Z
+	public fun isVisible ()Ljava/lang/Boolean;
 	public fun prePresentNotify ()V
 	public fun primaryMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun recognizeDoubleTapGesture (Z)V
@@ -41,10 +41,10 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun recognizeRotationGesture (Z)V
 	public fun requestRedraw ()V
 	public fun requestSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)Lorg/graphiks/kadre/core/SurfaceSizeRequestResult;
-	public fun requestUserAttention (Lorg/graphiks/kadre/core/UserAttentionType;)V
+	public fun requestUserAttention (Lorg/graphiks/kadre/core/UserAttentionType;)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public fun resetDeadKeys ()V
 	public fun setBlur (Z)V
-	public fun setContentProtected (Z)V
+	public fun setContentProtected (Z)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public fun setCursor (Lorg/graphiks/kadre/core/CursorIcon;)V
 	public fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public fun setCursorHittest (Z)Lorg/graphiks/kadre/core/WindowRequestResult;

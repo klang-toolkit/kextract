@@ -9,9 +9,12 @@
 package org.graphiks.kadre.appkit
 
 import org.graphiks.kadre.appkit.bindings.NSBackingStoreType
+import org.graphiks.kadre.appkit.bindings.NSApplication
+import org.graphiks.kadre.appkit.bindings.NSRequestUserAttentionType
 import org.graphiks.kadre.appkit.bindings.NSRect
 import org.graphiks.kadre.appkit.bindings.NSView
 import org.graphiks.kadre.appkit.bindings.NSWindow
+import org.graphiks.kadre.appkit.bindings.NSWindowButton
 import org.graphiks.kadre.appkit.bindings.NSWindowSharingType
 import org.graphiks.kadre.appkit.bindings.NSWindowStyleMask
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
@@ -29,8 +32,10 @@ import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.Theme
+import org.graphiks.kadre.core.UserAttentionType
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.WindowRequestResult
@@ -58,6 +63,15 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     @Volatile
     private var _fullscreen: Fullscreen? = attrs.fullscreen
 
+    @Volatile
+    private var activeAttentionRequest: Long? = null
+
+    @Volatile
+    private var _enabledButtons: WindowButtons = attrs.enabledButtons
+
+    @Volatile
+    private var blurEffectViewPtr: MemorySegment = MemorySegment.NULL
+
     /**
      * NSWindowDelegate installed on this window.
      * Null until [setWindowDelegate] has been called.
@@ -79,6 +93,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         if (attrs.resizable && attrs.decorations) {
             styleMask = styleMask + NSWindowStyleMask.NSWindowStyleMaskResizable
         }
+        styleMask = appKitStyleMaskWithEnabledButtons(styleMask, attrs.enabledButtons)
 
         // 2. Window size (in logical points — scaleFactor is 1.0 at init time,
         //    before the window is attached to a screen)
@@ -137,6 +152,9 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
         // 7. Initial title
         nsWindow.setTitle(attrs.title)
+        applyEnabledButtons(attrs.enabledButtons)
+        setWindowLevel(attrs.windowLevel)
+        applyInitialAppearance(attrs)
 
         // 7b. Apply R1 attrs: minSize / maxSize / position / maximized
         attrs.minSize?.let { min ->
@@ -211,6 +229,15 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             ObjCRuntime.sel("addTrackingArea:"),
             trackingArea,
         )
+    }
+
+    private fun applyInitialAppearance(attrs: WindowAttributes) {
+        if (appKitShouldApplyInitialTransparency(attrs.transparent)) {
+            setTransparent(true)
+        }
+        if (appKitShouldApplyInitialBlur(attrs.blur)) {
+            setBlur(true)
+        }
     }
 
     override val rawWindowHandle: RawWindowHandle
@@ -303,10 +330,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             NSWindow(nsWindowPtr).titleAsString()
         } catch (_: Throwable) { "" }
 
-    override val isVisible: Boolean
+    override val isVisible: Boolean?
         get() = try {
             NSWindow(nsWindowPtr).isVisible()
-        } catch (_: Throwable) { false }
+        } catch (_: Throwable) { null }
 
     override fun setResizable(resizable: Boolean) {
         try {
@@ -332,10 +359,10 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         } catch (_: Throwable) {}
     }
 
-    override val isMinimized: Boolean
+    override val isMinimized: Boolean?
         get() = try {
             NSWindow(nsWindowPtr).isMiniaturized()
-        } catch (_: Throwable) { false }
+        } catch (_: Throwable) { null }
 
     override fun setMaximized(maximized: Boolean) {
         try {
@@ -351,16 +378,23 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
     override fun setDecorations(decorated: Boolean) {
         try {
-            val nsWindow = NSWindow(nsWindowPtr)
-            val newMask = if (decorated) {
-                NSWindowStyleMask.NSWindowStyleMaskTitled +
-                NSWindowStyleMask.NSWindowStyleMaskClosable +
-                NSWindowStyleMask.NSWindowStyleMaskMiniaturizable +
-                (if (isResizable) NSWindowStyleMask.NSWindowStyleMaskResizable else NSWindowStyleMask.NSWindowStyleMaskBorderless)
-            } else {
-                NSWindowStyleMask.NSWindowStyleMaskBorderless
+            AppKitMainThread.runSync {
+                val nsWindow = NSWindow(nsWindowPtr)
+                val newMask = if (decorated) {
+                    NSWindowStyleMask.NSWindowStyleMaskTitled +
+                    NSWindowStyleMask.NSWindowStyleMaskClosable +
+                    NSWindowStyleMask.NSWindowStyleMaskMiniaturizable +
+                    (if (isResizable) NSWindowStyleMask.NSWindowStyleMaskResizable else NSWindowStyleMask.NSWindowStyleMaskBorderless)
+                } else {
+                    NSWindowStyleMask.NSWindowStyleMaskBorderless
+                }
+                nsWindow.setStyleMask(newMask)
+                if (decorated) {
+                    applyEnabledButtons(_enabledButtons)
+                } else {
+                    setStandardWindowButtonEnabled(nsWindow, NSWindowButton.NSWindowZoomButton, false)
+                }
             }
-            nsWindow.setStyleMask(newMask)
         } catch (_: Throwable) {}
     }
 
@@ -368,6 +402,70 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         get() = try {
             NSWindowStyleMask.NSWindowStyleMaskTitled in NSWindow(nsWindowPtr).styleMask()
         } catch (_: Throwable) { true }
+
+    override fun setEnabledButtons(buttons: WindowButtons) {
+        _enabledButtons = buttons
+        try {
+            AppKitMainThread.runSync {
+                try {
+                    applyEnabledButtons(buttons)
+                } catch (_: Throwable) {}
+            }
+        } catch (_: Throwable) {}
+    }
+
+    override val enabledButtons: WindowButtons
+        get() = try {
+            AppKitMainThread.runSync {
+                try {
+                    val nsWindow = NSWindow(nsWindowPtr)
+                    val mask = nsWindow.styleMask()
+                    var buttons = WindowButtons.NONE
+                    if (NSWindowStyleMask.NSWindowStyleMaskClosable in mask) {
+                        buttons += WindowButtons.CLOSE
+                    }
+                    if (NSWindowStyleMask.NSWindowStyleMaskMiniaturizable in mask) {
+                        buttons += WindowButtons.MINIMIZE
+                    }
+                    if (isStandardWindowButtonEnabled(nsWindow, NSWindowButton.NSWindowZoomButton)) {
+                        buttons += WindowButtons.MAXIMIZE
+                    }
+                    buttons
+                } catch (_: Throwable) {
+                    _enabledButtons
+                }
+            }
+        } catch (_: Throwable) {
+            _enabledButtons
+        }
+
+    private fun applyEnabledButtons(buttons: WindowButtons) {
+        val nsWindow = NSWindow(nsWindowPtr)
+        val newMask = appKitStyleMaskWithEnabledButtons(nsWindow.styleMask(), buttons)
+        nsWindow.setStyleMask(newMask)
+        setStandardWindowButtonEnabled(
+            nsWindow,
+            NSWindowButton.NSWindowZoomButton,
+            buttons.contains(WindowButtons.MAXIMIZE),
+        )
+        _enabledButtons = buttons
+    }
+
+    private fun setStandardWindowButtonEnabled(nsWindow: NSWindow, button: NSWindowButton, enabled: Boolean) {
+        val buttonPtr = nsWindow.standardWindowButton(button)
+        if (buttonPtr == MemorySegment.NULL) return
+        ObjCRuntime.msgSend(null, buttonPtr, ObjCRuntime.sel("setEnabled:"), enabled)
+    }
+
+    private fun isStandardWindowButtonEnabled(nsWindow: NSWindow, button: NSWindowButton): Boolean {
+        val buttonPtr = nsWindow.standardWindowButton(button)
+        if (buttonPtr == MemorySegment.NULL) return true
+        return ObjCRuntime.msgSend(
+            ValueLayout.JAVA_BOOLEAN,
+            buttonPtr,
+            ObjCRuntime.sel("isEnabled"),
+        ) as Boolean
+    }
 
     override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {
         try {
@@ -512,12 +610,12 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
     override fun focusWindow() {
         try {
-            val nsWindow = NSWindow(nsWindowPtr)
-            activateApplicationForWindowFocus()
-            if (nsWindow.isVisible() && !nsWindow.isMiniaturized()) {
-                nsWindow.makeKeyAndOrderFront(MemorySegment.NULL)
-            } else {
-                nsWindow.makeKeyWindow()
+            AppKitMainThread.runSync {
+                val nsWindow = NSWindow(nsWindowPtr)
+                if (appKitShouldFocusWindow(nsWindow.isVisible(), nsWindow.isMiniaturized())) {
+                    activateApplicationForWindowFocus()
+                    nsWindow.makeKeyAndOrderFront(MemorySegment.NULL)
+                }
             }
         } catch (_: Throwable) {}
     }
@@ -621,6 +719,48 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "NSWindow cursor hit-testing failed"))
         }
 
+    /**
+     * Starts a native AppKit window drag using the current NSEvent.
+     *
+     * AppKit requires this to be called while processing a mouse event. When no
+     * current event exists we report a typed failure instead of silently no-oping.
+     */
+    override fun dragWindow(): WindowRequestResult =
+        try {
+            AppKitMainThread.runSync {
+                val nsAppClass = ObjCRuntime.getClass("NSApplication")
+                val nsApp = ObjCRuntime.msgSend(
+                    ValueLayout.ADDRESS,
+                    nsAppClass,
+                    ObjCRuntime.sel("sharedApplication"),
+                ) as MemorySegment
+                if (nsApp == MemorySegment.NULL) {
+                    return@runSync WindowRequestResult.Failure(RequestError.OsError("NSApplication.sharedApplication is unavailable"))
+                }
+                val event = ObjCRuntime.msgSend(
+                    ValueLayout.ADDRESS,
+                    nsApp,
+                    ObjCRuntime.sel("currentEvent"),
+                ) as MemorySegment
+                if (event == MemorySegment.NULL) {
+                    return@runSync WindowRequestResult.Failure(RequestError.Ignored("NSApplication.currentEvent is unavailable for window drag"))
+                }
+                NSWindow(nsWindowPtr).performWindowDragWithEvent(event)
+                WindowRequestResult.Success
+            }
+        } catch (t: Throwable) {
+            WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "AppKit window drag failed"))
+        }
+
+    /**
+     * No-op on AppKit, matching winit.
+     *
+     * macOS does not expose a native per-window system menu equivalent to the
+     * Win32/Wayland title-bar menu path. winit accepts this call and ignores it.
+     */
+    override fun showWindowMenu(position: PhysicalPosition<Int>): WindowRequestResult =
+        appKitShowWindowMenuResult(position)
+
     /** In-memory theme override. */
     @Volatile private var _theme: Theme? = attrs.preferredTheme
 
@@ -654,33 +794,34 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
      * - [WindowLevel.AlwaysOnBottom]: NSWindowLevel.normal - 1 (-1)
      */
     override fun setWindowLevel(level: WindowLevel) {
-        try {
-            val nsLevel: Long = when (level) {
-                WindowLevel.AlwaysOnTop    -> 3L   // NSFloatingWindowLevel
-                WindowLevel.Normal         -> 0L   // NSNormalWindowLevel
-                WindowLevel.AlwaysOnBottom -> -1L  // below normal
+        AppKitMainThread.runSync {
+            try {
+                ObjCRuntime.msgSend(
+                    null,
+                    nsWindowPtr,
+                    ObjCRuntime.sel("setLevel:"),
+                    appKitWindowLevelValue(level),
+                )
+            } catch (_: Throwable) {
             }
-            ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setLevel:"), nsLevel)
-        } catch (_: Throwable) {}
+        }
     }
 
     /**
      * Makes the window background transparent via NSWindow.
      *
-     * Sets opaque = false and backgroundColor = NSColor.clearColor.
+     * Sets opaque/backgroundColor together, matching winit AppKit.
      */
     override fun setTransparent(transparent: Boolean) {
         try {
             ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setOpaque:"), !transparent)
-            if (transparent) {
-                val nsColorClass = ObjCRuntime.getClass("NSColor")
-                val clearColor = ObjCRuntime.msgSend(
-                    ValueLayout.ADDRESS,
-                    nsColorClass,
-                    ObjCRuntime.sel("clearColor"),
-                ) as MemorySegment
-                ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setBackgroundColor:"), clearColor)
-            }
+            val nsColorClass = ObjCRuntime.getClass("NSColor")
+            val backgroundColor = ObjCRuntime.msgSend(
+                ValueLayout.ADDRESS,
+                nsColorClass,
+                ObjCRuntime.sel(appKitBackgroundColorSelectorForTransparency(transparent)),
+            ) as MemorySegment
+            ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setBackgroundColor:"), backgroundColor)
         } catch (_: Throwable) {}
     }
 
@@ -688,76 +829,104 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
      * Enables a blur effect behind the window via NSVisualEffectView.
      *
      * Inserts a full-size NSVisualEffectView as the first subview of contentView
-     * when enabled. Removing blur is a best-effort (no-op if the view was
-     * not inserted by this method). No-op on non-macOS.
+     * when enabled, and removes the inserted view when disabled.
      */
     override fun setBlur(blur: Boolean) {
+        AppKitMainThread.runSync {
+            try {
+                if (blur) {
+                    if (!appKitShouldInstallBlurEffectView(blurEffectViewPtr)) return@runSync
+                    installBlurEffectView()
+                } else if (appKitShouldRemoveBlurEffectView(blurEffectViewPtr)) {
+                    ObjCRuntime.msgSend(null, blurEffectViewPtr, ObjCRuntime.sel("removeFromSuperview"))
+                    blurEffectViewPtr = MemorySegment.NULL
+                }
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private fun installBlurEffectView() {
+        var vev = MemorySegment.NULL
         try {
-            if (blur) {
-                // Insert NSVisualEffectView behind content
-                val vevClass = ObjCRuntime.getClass("NSVisualEffectView")
-                val vev = ObjCRuntime.msgSend(
-                    ValueLayout.ADDRESS, vevClass, ObjCRuntime.sel("new"),
-                ) as MemorySegment
-                // Set frame to contentView bounds
-                val frame = NSView(contentViewPtr).frame()
-                ObjCRuntime.msgSend(null, vev, ObjCRuntime.sel("setFrame:"),
-                    ObjCRuntime.ObjCStructArg(frame, NS_RECT_LAYOUT))
-                // NSVisualEffectBlendingModeBehindWindow = 0
-                ObjCRuntime.msgSend(null, vev, ObjCRuntime.sel("setBlendingMode:"), 0L)
-                ObjCRuntime.msgSend(null, contentViewPtr, ObjCRuntime.sel("addSubview:positioned:relativeTo:"),
-                    vev, 0L /* NSWindowBelow */, MemorySegment.NULL)
+            val vevClass = ObjCRuntime.getClass("NSVisualEffectView")
+            vev = ObjCRuntime.msgSend(
+                ValueLayout.ADDRESS, vevClass, ObjCRuntime.sel("new"),
+            ) as MemorySegment
+            val frame = NSView(contentViewPtr).frame()
+            ObjCRuntime.msgSend(null, vev, ObjCRuntime.sel("setFrame:"),
+                ObjCRuntime.ObjCStructArg(frame, NS_RECT_LAYOUT))
+            ObjCRuntime.msgSend(null, vev, ObjCRuntime.sel("setBlendingMode:"), 0L)
+            ObjCRuntime.msgSend(null, contentViewPtr, ObjCRuntime.sel("addSubview:positioned:relativeTo:"),
+                vev, 0L /* NSWindowBelow */, MemorySegment.NULL)
+            blurEffectViewPtr = vev
+        } finally {
+            if (vev != MemorySegment.NULL) {
+                ObjCRuntime.msgSend(null, vev, ObjCRuntime.sel("release"))
             }
-            // No remove logic — application responsibility to recreate window if needed.
-        } catch (_: Throwable) {}
+        }
     }
 
     /**
-     * Sets the application icon via NSApp.applicationIconImage.
+     * No-op on AppKit, matching winit.
      *
-     * Converts the RGBA [Icon] to an NSImage and sets it on NSApplication.
-     * This is a best-effort operation — no-op if conversion fails.
+     * macOS does not expose a per-window icon. NSApplication.applicationIconImage
+     * is process-global and represented-file icons are semantically distinct, so
+     * `Window.setWindowIcon` intentionally does not mutate either of them.
      */
     override fun setWindowIcon(icon: Icon?) {
-        try {
-            val nsAppClass = ObjCRuntime.getClass("NSApplication")
-            val nsApp = ObjCRuntime.msgSend(
-                ValueLayout.ADDRESS, nsAppClass, ObjCRuntime.sel("sharedApplication"),
-            ) as MemorySegment
-            if (icon == null) {
-                ObjCRuntime.msgSend(null, nsApp, ObjCRuntime.sel("setApplicationIconImage:"), MemorySegment.NULL)
-                return
-            }
-            // Build NSBitmapImageRep from raw RGBA data
-            val nsImageClass = ObjCRuntime.getClass("NSImage")
-            val nsImage = ObjCRuntime.msgSend(
-                ValueLayout.ADDRESS, nsImageClass, ObjCRuntime.sel("new"),
-            ) as MemorySegment
-            // Best-effort: set size only; actual pixel data would require NSBitmapImageRep which
-            // requires more complex FFM calls. Using null image resets to default gracefully.
-            // TODO(R3-appkit-icon): implement full NSBitmapImageRep pixel upload.
-            Arena.ofConfined().use { a ->
-                val sizePtr = a.allocate(16L, 8L)
-                sizePtr.setAtIndex(ValueLayout.JAVA_DOUBLE, 0, icon.width.toDouble())
-                sizePtr.setAtIndex(ValueLayout.JAVA_DOUBLE, 1, icon.height.toDouble())
-                ObjCRuntime.msgSend(null, nsImage, ObjCRuntime.sel("setSize:"),
-                    ObjCRuntime.ObjCStructArg(sizePtr, NS_SIZE_LAYOUT))
-            }
-            ObjCRuntime.msgSend(null, nsApp, ObjCRuntime.sel("setApplicationIconImage:"), nsImage)
-        } catch (_: Throwable) {}
+        if (appKitWindowIconIsSupported()) {
+            // Kept as a branch instead of removing the parameter to make the
+            // platform policy testable while preserving the common API shape.
+            @Suppress("UNUSED_EXPRESSION")
+            icon
+        }
     }
 
-    override fun setContentProtected(protected: Boolean) {
-        try {
-            NSWindow(nsWindowPtr).setSharingType(
-                if (protected) {
-                    NSWindowSharingType.NSWindowSharingNone
-                } else {
-                    NSWindowSharingType.NSWindowSharingReadOnly
-                },
-            )
-        } catch (_: Throwable) {}
-    }
+    override fun requestUserAttention(requestType: UserAttentionType?): WindowRequestResult =
+        AppKitMainThread.runSync {
+            try {
+                val nsAppPtr = NSApplication.sharedApplication()
+                if (nsAppPtr == MemorySegment.NULL) {
+                    return@runSync WindowRequestResult.Failure(RequestError.OsError("NSApplication.sharedApplication is unavailable"))
+                }
+
+                val nsApp = NSApplication(nsAppPtr)
+                if (requestType == null) {
+                    // Match winit AppKit: None has no effect for attention requests.
+                    return@runSync WindowRequestResult.Success
+                }
+
+                activeAttentionRequest?.let { request ->
+                    nsApp.cancelUserAttentionRequest(request)
+                    activeAttentionRequest = null
+                }
+
+                val appKitRequest = when (requestType) {
+                    UserAttentionType.Critical -> NSRequestUserAttentionType.NSCriticalRequest
+                    UserAttentionType.Informational -> NSRequestUserAttentionType.NSInformationalRequest
+                }
+                activeAttentionRequest = nsApp.requestUserAttention(appKitRequest)
+                WindowRequestResult.Success
+            } catch (t: Throwable) {
+                WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "AppKit user attention failed"))
+            }
+        }
+
+    override fun setContentProtected(protected: Boolean): WindowRequestResult =
+        AppKitMainThread.runSync {
+            try {
+                NSWindow(nsWindowPtr).setSharingType(
+                    if (protected) {
+                        NSWindowSharingType.NSWindowSharingNone
+                    } else {
+                        NSWindowSharingType.NSWindowSharingReadOnly
+                    },
+                )
+                WindowRequestResult.Success
+            } catch (t: Throwable) {
+                WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "AppKit content protection failed"))
+            }
+        }
 
     /**
      * Installs a [KadreWindowDelegate] on this window.
@@ -837,6 +1006,48 @@ internal fun physicalSizeToAppKitResizeIncrements(
         increments.width / scale to increments.height / scale
     }
 
+internal fun appKitStyleMaskWithEnabledButtons(
+    styleMask: NSWindowStyleMask,
+    buttons: WindowButtons,
+): NSWindowStyleMask =
+    if (NSWindowStyleMask.NSWindowStyleMaskTitled in styleMask) {
+        styleMask
+            .withStyleFlag(NSWindowStyleMask.NSWindowStyleMaskClosable, buttons.contains(WindowButtons.CLOSE))
+            .withStyleFlag(NSWindowStyleMask.NSWindowStyleMaskMiniaturizable, buttons.contains(WindowButtons.MINIMIZE))
+    } else {
+        styleMask
+    }
+
+internal fun appKitShouldFocusWindow(isVisible: Boolean, isMiniaturized: Boolean): Boolean =
+    isVisible && !isMiniaturized
+
+internal fun appKitShouldApplyInitialTransparency(transparent: Boolean): Boolean = transparent
+
+internal fun appKitShouldApplyInitialBlur(blur: Boolean): Boolean = blur
+
+internal fun appKitBackgroundColorSelectorForTransparency(transparent: Boolean): String =
+    if (transparent) "clearColor" else "windowBackgroundColor"
+
+internal fun appKitShouldInstallBlurEffectView(currentBlurView: MemorySegment): Boolean =
+    currentBlurView == MemorySegment.NULL
+
+internal fun appKitShouldRemoveBlurEffectView(currentBlurView: MemorySegment): Boolean =
+    currentBlurView != MemorySegment.NULL
+
+internal fun appKitWindowLevelValue(level: WindowLevel): Long =
+    when (level) {
+        WindowLevel.AlwaysOnTop -> 3L
+        WindowLevel.Normal -> 0L
+        WindowLevel.AlwaysOnBottom -> -1L
+    }
+
+private fun NSWindowStyleMask.withStyleFlag(flag: NSWindowStyleMask, enabled: Boolean): NSWindowStyleMask =
+    if (enabled) {
+        NSWindowStyleMask(rawValue or flag.rawValue)
+    } else {
+        NSWindowStyleMask(rawValue and flag.rawValue.inv())
+    }
+
 private fun activateApplicationForWindowFocus() {
     val nsAppClass = ObjCRuntime.getClass("NSApplication")
     val nsApp = ObjCRuntime.msgSend(
@@ -901,6 +1112,12 @@ private fun cursorSelectorName(cursor: CursorIcon): String = when (cursor) {
     CursorIcon.NeswResize     -> "resizeCursor"
     CursorIcon.NwseResize     -> "resizeCursor"
 }
+
+internal fun appKitWindowIconIsSupported(): Boolean = false
+
+@Suppress("UNUSED_PARAMETER")
+internal fun appKitShowWindowMenuResult(position: PhysicalPosition<Int>): WindowRequestResult =
+    WindowRequestResult.Success
 
 /**
  * NSSize GroupLayout: struct { CGFloat width, CGFloat height }.

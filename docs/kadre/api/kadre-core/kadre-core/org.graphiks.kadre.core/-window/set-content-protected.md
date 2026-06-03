@@ -3,7 +3,7 @@
 # setContentProtected
 
 [common]\
-open fun [setContentProtected](set-content-protected.md)(protected: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html))
+open fun [setContentProtected](set-content-protected.md)(protected: [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)): [WindowRequestResult](../-window-request-result/index.md)
 
 Enables or disables screen-capture protection for this window.
 
@@ -14,9 +14,11 @@ When `true`, the window content is excluded from screenshots and screen recordin
 -
    AppKit : `NSWindow.sharingType = NSWindowSharingNone`.
 -
-   Others : no-op documented.
+   X11/Wayland: success no-op, matching winit; no portable capture-protection mechanism.
+-
+   Others : [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md).
 
-Default implementation is a no-op. Never throws. TODO R5-MiscWindow: wire in Win32 and AppKit backends.
+Default implementation returns [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws. AppKit and Win32 are wired; X11 and Wayland are success no-ops like winit.
 
 #### Parameters
 

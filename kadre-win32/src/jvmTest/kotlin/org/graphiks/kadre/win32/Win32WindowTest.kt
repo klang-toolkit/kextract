@@ -13,9 +13,13 @@
 package org.graphiks.kadre.win32
 
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowButtons
+import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.RawDisplayHandle
+import org.graphiks.kadre.core.Icon
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -72,6 +76,142 @@ class Win32WindowTest {
         assertEquals(0, SW_HIDE)
         assertEquals(0x0003, CS_HREDRAW_VREDRAW)
         assertEquals(0x0002, WM_DESTROY)
+    }
+
+    @Test
+    fun `enabled window buttons update minimize and maximize style bits`() {
+        val base = WS_OVERLAPPEDWINDOW
+
+        val closeOnly = win32StyleWithEnabledButtons(base, WindowButtons.CLOSE)
+        assertEquals(0, closeOnly and WS_MINIMIZEBOX)
+        assertEquals(0, closeOnly and WS_MAXIMIZEBOX)
+
+        val minimizeOnly = win32StyleWithEnabledButtons(base, WindowButtons.MINIMIZE)
+        assertTrue((minimizeOnly and WS_MINIMIZEBOX) != 0)
+        assertEquals(0, minimizeOnly and WS_MAXIMIZEBOX)
+
+        val maximizeOnly = win32StyleWithEnabledButtons(base, WindowButtons.MAXIMIZE)
+        assertEquals(0, maximizeOnly and WS_MINIMIZEBOX)
+        assertTrue((maximizeOnly and WS_MAXIMIZEBOX) != 0)
+
+        val all = win32StyleWithEnabledButtons(closeOnly, WindowButtons.ALL)
+        assertTrue((all and WS_MINIMIZEBOX) != 0)
+        assertTrue((all and WS_MAXIMIZEBOX) != 0)
+
+        val undecorated = win32StyleWithEnabledButtons(base, WindowButtons.ALL, decorated = false)
+        assertEquals(0, undecorated and WS_MINIMIZEBOX)
+        assertEquals(0, undecorated and WS_MAXIMIZEBOX)
+    }
+
+    @Test
+    fun `enabled window buttons use winit close menu flags`() {
+        assertEquals(MF_BYCOMMAND or MF_ENABLED, win32CloseMenuState(enabled = true))
+        assertEquals(MF_BYCOMMAND or MF_DISABLED, win32CloseMenuState(enabled = false))
+    }
+
+    @Test
+    fun `style updates preserve current position`() {
+        assertTrue((WIN32_STYLE_UPDATE_FLAGS and SWP_NOMOVE) != 0)
+        assertTrue((WIN32_STYLE_UPDATE_FLAGS and SWP_FRAMECHANGED) != 0)
+    }
+
+    @Test
+    fun `Win32 focus follows winit visible non-minimized non-foreground guard`() {
+        assertTrue(win32ShouldFocusWindow(isVisible = true, isMinimized = false, isForeground = false))
+        assertTrue(!win32ShouldFocusWindow(isVisible = false, isMinimized = false, isForeground = false))
+        assertTrue(!win32ShouldFocusWindow(isVisible = true, isMinimized = true, isForeground = false))
+        assertTrue(!win32ShouldFocusWindow(isVisible = true, isMinimized = false, isForeground = true))
+    }
+
+    @Test
+    fun `Win32 hasFocus requires active non-client area and keyboard focus`() {
+        val hwnd = 0xCAFE_BABEL
+
+        Win32FocusState.unregister(hwnd)
+        Win32FocusState.register(hwnd)
+        assertTrue(!Win32FocusState.hasActiveFocus(hwnd))
+
+        assertNull(Win32FocusState.setFocused(hwnd, true))
+        assertTrue(!Win32FocusState.hasActiveFocus(hwnd))
+
+        assertEquals(true, Win32FocusState.setActive(hwnd, true))
+        assertTrue(Win32FocusState.hasActiveFocus(hwnd))
+
+        assertNull(Win32FocusState.setActive(hwnd, true))
+        assertTrue(Win32FocusState.hasActiveFocus(hwnd))
+
+        assertEquals(false, Win32FocusState.setActive(hwnd, false))
+        assertTrue(!Win32FocusState.hasActiveFocus(hwnd))
+
+        assertNull(Win32FocusState.setFocused(hwnd, false))
+        assertTrue(!Win32FocusState.hasActiveFocus(hwnd))
+
+        Win32FocusState.unregister(hwnd)
+        assertTrue(!Win32FocusState.hasActiveFocus(hwnd))
+    }
+
+    @Test
+    fun `window levels map to winit Win32 insert-after handles`() {
+        assertEquals(HWND_TOPMOST.address(), win32WindowLevelInsertAfter(WindowLevel.AlwaysOnTop).address())
+        assertEquals(HWND_NOTOPMOST.address(), win32WindowLevelInsertAfter(WindowLevel.Normal).address())
+        assertEquals(HWND_BOTTOM.address(), win32WindowLevelInsertAfter(WindowLevel.AlwaysOnBottom).address())
+    }
+
+    @Test
+    fun `initial extended style includes layered only for transparent windows`() {
+        assertEquals(WS_EX_APPWINDOW, win32InitialExtendedStyle(transparent = false))
+        assertEquals(WS_EX_APPWINDOW or WS_EX_LAYERED, win32InitialExtendedStyle(transparent = true))
+    }
+
+    @Test
+    fun `DWM blur behind layout matches Win64 ABI and winit flags`() {
+        assertEquals(DWM_BB_ENABLE or DWM_BB_BLURREGION, win32TransparentBlurBehindFlags())
+        assertEquals(24L, DWM_BLURBEHIND_SIZE)
+        assertEquals(8L, DWM_BLURBEHIND_ALIGN)
+        assertEquals(0L, DWM_BLURBEHIND_OFFSET_DW_FLAGS)
+        assertEquals(4L, DWM_BLURBEHIND_OFFSET_F_ENABLE)
+        assertEquals(8L, DWM_BLURBEHIND_OFFSET_H_RGN_BLUR)
+        assertEquals(16L, DWM_BLURBEHIND_OFFSET_F_TRANSITION_ON_MAXIMIZED)
+    }
+
+    @Test
+    fun `window icon buffers convert RGBA to Win32 BGRA and inverted alpha mask`() {
+        val icon = Icon(
+            rgba = byteArrayOf(
+                0x11, 0x22, 0x33, 0xFF.toByte(),
+                0x44, 0x55, 0x66, 0x00,
+            ),
+            width = 2,
+            height = 1,
+        )
+
+        val buffers = win32IconBuffers(icon)
+
+        assertNotNull(buffers)
+        assertContentEquals(
+            byteArrayOf(
+                0x33, 0x22, 0x11, 0xFF.toByte(),
+                0x66, 0x55, 0x44, 0x00,
+            ),
+            buffers.bgra,
+        )
+        assertContentEquals(byteArrayOf(0x00, 0x01), buffers.andMask)
+    }
+
+    @Test
+    fun `Win32 INPUT layout matches supported 64-bit JVM target`() {
+        assertEquals(40L, INPUT_SIZE)
+        assertEquals(8L, INPUT_ALIGN)
+        assertEquals(0L, INPUT_OFFSET_TYPE)
+        assertEquals(8L, INPUT_OFFSET_KI_WVK)
+        assertEquals(10L, INPUT_OFFSET_KI_WSCAN)
+        assertEquals(12L, INPUT_OFFSET_KI_DWFLAGS)
+        assertEquals(16L, INPUT_OFFSET_KI_TIME)
+        assertEquals(24L, INPUT_OFFSET_KI_DWEXTRAINFO)
+        assertEquals(1, INPUT_KEYBOARD)
+        assertEquals(0xA4, VK_LMENU)
+        assertEquals(0x12, VK_MENU)
+        assertEquals(0, MAPVK_VK_TO_VSC)
     }
 
     @Test

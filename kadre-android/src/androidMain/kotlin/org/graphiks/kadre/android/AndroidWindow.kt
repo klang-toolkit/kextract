@@ -142,10 +142,9 @@ class AndroidWindow internal constructor(
     override val title: String get() = _title
 
     /**
-     * Android windows are always visible while the Activity is in the foreground.
-     * Returns true; calling [setVisible] has no effect.
+     * Android does not expose a reliable winit-style window visibility state.
      */
-    override val isVisible: Boolean get() = surfaceView.visibility == android.view.View.VISIBLE
+    override val isVisible: Boolean? get() = null
 
     /**
      * Android does not support programmatic resizing.
@@ -162,8 +161,8 @@ class AndroidWindow internal constructor(
      */
     override fun setMinimized(minimized: Boolean) { /* no-op: Android does not support programmatic minimization */ }
 
-    /** Android does not expose an isMinimized state. Always returns false. */
-    override val isMinimized: Boolean get() = false
+    /** Android does not expose a reliable minimized state. */
+    override val isMinimized: Boolean? get() = null
 
     /**
      * Android does not support programmatic maximization.

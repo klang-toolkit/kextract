@@ -86,8 +86,11 @@ interface Window {
 
     /**
      * Returns whether the window is currently visible.
+     *
+     * Returns `null` when the platform does not expose a reliable visibility
+     * state.
      */
-    val isVisible: Boolean
+    val isVisible: Boolean?
 
     /**
      * Closes the window.
@@ -120,8 +123,11 @@ interface Window {
 
     /**
      * Returns whether the window is currently minimized.
+     *
+     * Returns `null` when the platform does not expose a reliable minimized
+     * state.
      */
-    val isMinimized: Boolean
+    val isMinimized: Boolean?
 
     /**
      * Maximizes or restores the window.
@@ -306,6 +312,8 @@ interface Window {
      *
      * Backends that do not support a given mode return [WindowRequestResult.Failure]
      * with [RequestError.Unsupported]. Never throws.
+     * Wayland accepts [CursorGrabMode.None] as a success no-op like winit when
+     * pointer constraints are unavailable.
      *
      * @param mode New grab mode.
      */
@@ -388,11 +396,11 @@ interface Window {
     fun setBlur(blur: Boolean)
 
     /**
-     * Sets the application icon shown in the taskbar / dock.
+     * Sets the native window icon where the platform exposes one.
      *
      * Passing null resets to the default icon. Behaviour is best-effort:
-     * - AppKit: sets `NSApp.applicationIconImage`.
-     * - Win32:  sends `WM_SETICON`.
+     * - AppKit: no-op, matching winit: macOS has no per-window icon.
+     * - Win32:  sends `WM_SETICON` for `ICON_SMALL`.
      * - X11:    sets `_NET_WM_ICON`.
      * - Others: no-op.
      * Never throws.
@@ -471,15 +479,16 @@ interface Window {
      *
      * Platform behaviour:
      * - AppKit : `NSApp.requestUserAttention` / `cancelUserAttentionRequest`.
-     * - Win32  : `FlashWindowEx` (FLASHW_TRAY / FLASHW_TIMER).
-     * - Others : no-op documented.
+     * - Win32  : `FlashWindowEx` with winit-aligned `FLASHW_*` flags.
+     * - Others : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
-     * Default implementation is a no-op. Never throws.
-     * TODO R5-MiscWindow: wire in AppKit and Win32 backends.
+     * Backends that do not support user-attention requests return
+     * [WindowRequestResult.Failure] with [RequestError.Unsupported]. Never throws.
      *
      * @param requestType Attention level, or null to cancel the current request.
      */
-    fun requestUserAttention(requestType: UserAttentionType?) { /* no-op by default, TODO R5-MiscWindow */ }
+    fun requestUserAttention(requestType: UserAttentionType?): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("User attention is unsupported by this window"))
 
     /**
      * Enables or disables screen-capture protection for this window.
@@ -488,25 +497,28 @@ interface Window {
      * Platform behaviour:
      * - Win32  : `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`.
      * - AppKit : `NSWindow.sharingType = NSWindowSharingNone`.
-     * - Others : no-op documented.
+     * - X11/Wayland: success no-op, matching winit; no portable capture-protection mechanism.
+     * - Others : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
-     * Default implementation is a no-op. Never throws.
-     * TODO R5-MiscWindow: wire in Win32 and AppKit backends.
+     * Backends that neither implement native protection nor match a winit no-op return
+     * [WindowRequestResult.Failure] with [RequestError.Unsupported]. Never throws.
      *
      * @param protected `true` to enable content protection, `false` to disable.
      */
-    fun setContentProtected(protected: Boolean) { /* no-op by default, TODO R5-MiscWindow */ }
+    fun setContentProtected(protected: Boolean): WindowRequestResult =
+        WindowRequestResult.Failure(RequestError.Unsupported("Content protection is unsupported by this window"))
 
     /**
      * Shows the platform window menu (system / title-bar context menu) at the given position.
      *
      * Platform behaviour:
-     * - Win32  : `TrackPopupMenu(GetSystemMenu(...))` when implemented.
+     * - Win32  : `TrackPopupMenu(GetSystemMenu(...))`.
+     * - Wayland: `xdg_toplevel.show_window_menu` when an active pointer serial is available.
+     * - AppKit/X11: success no-op, matching winit.
      * - Others : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
      * Default implementation returns [WindowRequestResult.Failure] with
      * [RequestError.Unsupported]. Never throws.
-     * TODO R5-MiscWindow: wire in Win32 backend.
      *
      * @param position Position in physical pixels (window-relative) at which to show the menu.
      */
@@ -519,13 +531,16 @@ interface Window {
      * Intended to be called from a pointer-pressed event handler to allow dragging
      * a custom title bar.
      * Platform behaviour:
-     * - AppKit   : `NSWindow.performWindowDragWithEvent` when implemented.
-     * - Wayland  : `xdg_toplevel.move` when implemented.
+     * - AppKit   : marshals to the AppKit main queue and calls
+     *   `NSWindow.performWindowDragWithEvent(currentEvent)`; returns
+     *   [RequestError.Ignored] when no current event is available.
+     * - Win32    : posts a non-client move request to the window owner thread.
+     * - X11      : sends `_NET_WM_MOVERESIZE` with the move action to the WM.
+     * - Wayland  : sends `xdg_toplevel.move` with the latest pointer button serial.
      * - Others   : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
      * Default implementation returns [WindowRequestResult.Failure] with
      * [RequestError.Unsupported]. Never throws.
-     * TODO R5-MiscWindow: wire in AppKit and Wayland backends.
      */
     fun dragWindow(): WindowRequestResult =
         WindowRequestResult.Failure(RequestError.Unsupported("Window dragging is unsupported by this window"))
@@ -535,13 +550,13 @@ interface Window {
      *
      * Must be called from a pointer-pressed event handler.
      * Platform behaviour:
-     * - Wayland  : `xdg_toplevel.resize` with the matching edge when implemented.
+     * - Win32    : posts a non-client resize request to the window owner thread.
+     * - X11      : sends `_NET_WM_MOVERESIZE` with the matching resize action.
+     * - Wayland  : sends `xdg_toplevel.resize` with the latest pointer button serial.
      * - Others   : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
      * Default implementation returns [WindowRequestResult.Failure] with
      * [RequestError.Unsupported]. Never throws.
-     * TODO R5-MiscWindow: wire in Wayland (and potentially Win32) backend.
-     *
      * @param direction The window edge / corner to resize from.
      */
     fun dragResizeWindow(direction: ResizeDirection): WindowRequestResult =

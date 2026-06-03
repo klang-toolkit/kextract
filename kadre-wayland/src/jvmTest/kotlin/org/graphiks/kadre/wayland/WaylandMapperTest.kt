@@ -423,6 +423,29 @@ class WaylandTouchMapperTest {
         assertEquals(ButtonSource.Touch(FingerId(3L)), event.button)
     }
 
+    @Test
+    fun `mapWaylandTouchDown accepts non-zero primary finger`() {
+        val events = mapWaylandTouchDown(id = 42, xFixed = 0, yFixed = 0, primary = true)
+        assertIs<WindowEvent.PointerEntered>(events[0]).also { event ->
+            assertTrue(event.primary)
+        }
+        assertIs<WindowEvent.PointerButton>(events[1]).also { event ->
+            assertTrue(event.primary)
+            assertEquals(ButtonSource.Touch(FingerId(42L)), event.button)
+        }
+    }
+
+    @Test
+    fun `mapWaylandTouchDown can mark id zero as non-primary`() {
+        val events = mapWaylandTouchDown(id = 0, xFixed = 0, yFixed = 0, primary = false)
+        assertIs<WindowEvent.PointerEntered>(events[0]).also { event ->
+            assertFalse(event.primary)
+        }
+        assertIs<WindowEvent.PointerButton>(events[1]).also { event ->
+            assertFalse(event.primary)
+        }
+    }
+
     // ── mapWaylandTouchUp ─────────────────────────────────────────────────────
 
     @Test
@@ -443,6 +466,18 @@ class WaylandTouchMapperTest {
         assertEquals(ButtonSource.Touch(FingerId(5L)), event.button)
     }
 
+    @Test
+    fun `mapWaylandTouchUp preserves explicit primary flag`() {
+        val primary = assertIs<WindowEvent.PointerButton>(
+            mapWaylandTouchUp(id = 42, location = PhysicalPosition(1.0, 2.0), primary = true)[0],
+        )
+        val secondary = assertIs<WindowEvent.PointerButton>(
+            mapWaylandTouchUp(id = 0, location = PhysicalPosition(1.0, 2.0), primary = false)[0],
+        )
+        assertTrue(primary.primary)
+        assertFalse(secondary.primary)
+    }
+
     // ── mapWaylandTouchMotion ─────────────────────────────────────────────────
 
     @Test
@@ -458,6 +493,12 @@ class WaylandTouchMapperTest {
         val event = mapWaylandTouchMotion(id = 2, xFixed = 1280, yFixed = 1920)
         assertEquals(5.0, event.position.x)
         assertEquals(7.5, event.position.y)
+    }
+
+    @Test
+    fun `mapWaylandTouchMotion preserves explicit primary flag`() {
+        assertTrue(mapWaylandTouchMotion(id = 42, xFixed = 0, yFixed = 0, primary = true).primary)
+        assertFalse(mapWaylandTouchMotion(id = 0, xFixed = 0, yFixed = 0, primary = false).primary)
     }
 
     // ── mapWaylandTouchCancel ─────────────────────────────────────────────────

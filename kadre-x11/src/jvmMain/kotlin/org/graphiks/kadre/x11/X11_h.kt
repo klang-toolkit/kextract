@@ -48,6 +48,14 @@ internal val libX11: SymbolLookup? by lazy {
     }
 }
 
+internal val libXext: SymbolLookup? by lazy {
+    try {
+        SymbolLookup.libraryLookup("libXext.so.6", Arena.global())
+    } catch (e: Throwable) {
+        null
+    }
+}
+
 private val linker: Linker = Linker.nativeLinker()
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -338,6 +346,20 @@ internal val xMapWindow: MethodHandle? by lazy {
     )
 }
 
+/**
+ * int XRaiseWindow(Display *display, Window w);
+ */
+internal val xRaiseWindow: MethodHandle? by lazy {
+    libX11.downcall(
+        "XRaiseWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS,
+            ValueLayout.JAVA_LONG,
+        )
+    )
+}
+
 // ── XSendEvent ────────────────────────────────────────────────────────────────
 
 /**
@@ -455,6 +477,49 @@ internal val xChangeProperty: MethodHandle? by lazy {
     )
 }
 
+// ── XGetWindowProperty / XFree ───────────────────────────────────────────────
+
+/**
+ * int XGetWindowProperty(Display *display, Window w, Atom property,
+ *     long long_offset, long long_length, Bool delete, Atom req_type,
+ *     Atom *actual_type_return, int *actual_format_return,
+ *     unsigned long *nitems_return, unsigned long *bytes_after_return,
+ *     unsigned char **prop_return);
+ */
+internal val xGetWindowProperty: MethodHandle? by lazy {
+    libX11.downcall(
+        "XGetWindowProperty",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS,
+            ValueLayout.JAVA_LONG,
+            ValueLayout.JAVA_LONG,
+            ValueLayout.JAVA_LONG,
+            ValueLayout.JAVA_LONG,
+            ValueLayout.JAVA_INT,
+            ValueLayout.JAVA_LONG,
+            ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,
+        )
+    )
+}
+
+/**
+ * int XFree(void *data);
+ */
+internal val xFree: MethodHandle? by lazy {
+    libX11.downcall(
+        "XFree",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS,
+        )
+    )
+}
+
 // ── XGetGeometry ──────────────────────────────────────────────────────────────
 
 /**
@@ -480,6 +545,30 @@ internal val xGetGeometry: MethodHandle? by lazy {
             ValueLayout.ADDRESS,    // unsigned int* height_return
             ValueLayout.ADDRESS,    // unsigned int* border_width_return
             ValueLayout.ADDRESS,    // unsigned int* depth_return
+        )
+    )
+}
+
+// ── XTranslateCoordinates ────────────────────────────────────────────────────
+
+/**
+ * Bool XTranslateCoordinates(Display *display, Window src_w, Window dest_w,
+ *     int src_x, int src_y, int *dest_x_return, int *dest_y_return,
+ *     Window *child_return);
+ */
+internal val xTranslateCoordinates: MethodHandle? by lazy {
+    libX11.downcall(
+        "XTranslateCoordinates",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS,
+            ValueLayout.JAVA_LONG,
+            ValueLayout.JAVA_LONG,
+            ValueLayout.JAVA_INT,
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,
         )
     )
 }
@@ -589,6 +678,73 @@ internal val xUndefineCursor: MethodHandle? by lazy {
 }
 
 /**
+ * int XFreeCursor(Display* display, Cursor cursor);
+ */
+internal val xFreeCursor: MethodHandle? by lazy {
+    libX11.downcall(
+        "XFreeCursor",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS,
+            ValueLayout.JAVA_LONG,
+        )
+    )
+}
+
+/**
+ * Pixmap XCreateBitmapFromData(Display* display, Drawable d, const char* data,
+ *     unsigned int width, unsigned int height);
+ */
+internal val xCreateBitmapFromData: MethodHandle? by lazy {
+    libX11.downcall(
+        "XCreateBitmapFromData",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_LONG,  // Pixmap
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Drawable
+            ValueLayout.ADDRESS,    // const char*
+            ValueLayout.JAVA_INT,   // unsigned int width
+            ValueLayout.JAVA_INT,   // unsigned int height
+        )
+    )
+}
+
+/**
+ * Cursor XCreatePixmapCursor(Display* display, Pixmap source, Pixmap mask,
+ *     XColor* foreground_color, XColor* background_color,
+ *     unsigned int x, unsigned int y);
+ */
+internal val xCreatePixmapCursor: MethodHandle? by lazy {
+    libX11.downcall(
+        "XCreatePixmapCursor",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_LONG,  // Cursor
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Pixmap source
+            ValueLayout.JAVA_LONG,  // Pixmap mask
+            ValueLayout.ADDRESS,    // XColor* foreground
+            ValueLayout.ADDRESS,    // XColor* background
+            ValueLayout.JAVA_INT,   // unsigned int x
+            ValueLayout.JAVA_INT,   // unsigned int y
+        )
+    )
+}
+
+/**
+ * int XFreePixmap(Display* display, Pixmap pixmap);
+ */
+internal val xFreePixmap: MethodHandle? by lazy {
+    libX11.downcall(
+        "XFreePixmap",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS,
+            ValueLayout.JAVA_LONG,
+        )
+    )
+}
+
+/**
  * int XGrabPointer(Display*, Window, Bool, unsigned int, int, int, Window, Cursor, Time);
  *
  * Grabs the pointer (mouse). Returns GrabSuccess (0) on success.
@@ -627,6 +783,31 @@ internal val xUngrabPointer: MethodHandle? by lazy {
 }
 
 /**
+ * Bool XQueryPointer(Display* display, Window w,
+ *                    Window* root_return, Window* child_return,
+ *                    int* root_x_return, int* root_y_return,
+ *                    int* win_x_return, int* win_y_return,
+ *                    unsigned int* mask_return);
+ */
+internal val xQueryPointer: MethodHandle? by lazy {
+    libX11.downcall(
+        "XQueryPointer",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // Bool
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window
+            ValueLayout.ADDRESS,    // Window* root_return
+            ValueLayout.ADDRESS,    // Window* child_return
+            ValueLayout.ADDRESS,    // int* root_x_return
+            ValueLayout.ADDRESS,    // int* root_y_return
+            ValueLayout.ADDRESS,    // int* win_x_return
+            ValueLayout.ADDRESS,    // int* win_y_return
+            ValueLayout.ADDRESS,    // unsigned int* mask_return
+        )
+    )
+}
+
+/**
  * int XWarpPointer(Display*, Window src_w, Window dest_w, int src_x, int src_y,
  *                  unsigned int src_width, unsigned int src_height, int dest_x, int dest_y);
  */
@@ -644,6 +825,65 @@ internal val xWarpPointer: MethodHandle? by lazy {
             ValueLayout.JAVA_INT,   // unsigned src_height
             ValueLayout.JAVA_INT,   // int dest_x
             ValueLayout.JAVA_INT,   // int dest_y
+        )
+    )
+}
+
+/**
+ * XWMHints *XGetWMHints(Display *display, Window w);
+ */
+internal val xGetWMHints: MethodHandle? by lazy {
+    libX11.downcall(
+        "XGetWMHints",
+        FunctionDescriptor.of(
+            ValueLayout.ADDRESS,    // XWMHints*
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window
+        )
+    )
+}
+
+/**
+ * XWMHints *XAllocWMHints(void);
+ */
+internal val xAllocWMHints: MethodHandle? by lazy {
+    libX11.downcall(
+        "XAllocWMHints",
+        FunctionDescriptor.of(ValueLayout.ADDRESS)
+    )
+}
+
+/**
+ * void XSetWMHints(Display *display, Window w, XWMHints *wm_hints);
+ */
+internal val xSetWMHints: MethodHandle? by lazy {
+    libX11.downcall(
+        "XSetWMHints",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window
+            ValueLayout.ADDRESS,    // XWMHints*
+        )
+    )
+}
+
+/**
+ * void XShapeCombineRectangles(Display*, Window dest, int dest_kind, int x_off, int y_off,
+ *                              XRectangle* rectangles, int n_rects, int op, int ordering);
+ */
+internal val xShapeCombineRectangles: MethodHandle? by lazy {
+    libXext.downcall(
+        "XShapeCombineRectangles",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window
+            ValueLayout.JAVA_INT,   // dest_kind
+            ValueLayout.JAVA_INT,   // x_off
+            ValueLayout.JAVA_INT,   // y_off
+            ValueLayout.ADDRESS,    // XRectangle*
+            ValueLayout.JAVA_INT,   // n_rects
+            ValueLayout.JAVA_INT,   // op
+            ValueLayout.JAVA_INT,   // ordering
         )
     )
 }

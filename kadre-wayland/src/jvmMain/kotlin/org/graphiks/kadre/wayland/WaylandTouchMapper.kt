@@ -41,12 +41,12 @@ import org.graphiks.kadre.core.WindowEvent
  * @param yFixed Y coordinate in wl_fixed_t.
  * @return The corresponding pointer enter and press events.
  */
-fun mapWaylandTouchDown(id: Int, xFixed: Int, yFixed: Int): List<WindowEvent> {
+fun mapWaylandTouchDown(id: Int, xFixed: Int, yFixed: Int, primary: Boolean = id == 0): List<WindowEvent> {
     val fingerId = FingerId(id.toLong())
     val location = PhysicalPosition(wlFixedToDouble(xFixed), wlFixedToDouble(yFixed))
     return listOf(
-        WindowEvent.PointerEntered(null, location, primary = id == 0, kind = PointerKind.Touch),
-        WindowEvent.PointerButton(null, KeyState.Pressed, location, primary = id == 0, button = ButtonSource.Touch(fingerId)),
+        WindowEvent.PointerEntered(null, location, primary = primary, kind = PointerKind.Touch),
+        WindowEvent.PointerButton(null, KeyState.Pressed, location, primary = primary, button = ButtonSource.Touch(fingerId)),
     )
 }
 
@@ -58,11 +58,11 @@ fun mapWaylandTouchDown(id: Int, xFixed: Int, yFixed: Int): List<WindowEvent> {
  * @param id Contact identifier.
  * @return The corresponding pointer release and leave events.
  */
-fun mapWaylandTouchUp(id: Int, location: PhysicalPosition<Double>): List<WindowEvent> {
+fun mapWaylandTouchUp(id: Int, location: PhysicalPosition<Double>, primary: Boolean = id == 0): List<WindowEvent> {
     val fingerId = FingerId(id.toLong())
     return listOf(
-        WindowEvent.PointerButton(null, KeyState.Released, location, primary = id == 0, button = ButtonSource.Touch(fingerId)),
-        WindowEvent.PointerLeft(null, location, primary = id == 0, kind = PointerKind.Touch),
+        WindowEvent.PointerButton(null, KeyState.Released, location, primary = primary, button = ButtonSource.Touch(fingerId)),
+        WindowEvent.PointerLeft(null, location, primary = primary, kind = PointerKind.Touch),
     )
 }
 
@@ -74,11 +74,11 @@ fun mapWaylandTouchUp(id: Int, location: PhysicalPosition<Double>): List<WindowE
  * @param yFixed Y coordinate in wl_fixed_t.
  * @return The corresponding pointer moved event.
  */
-fun mapWaylandTouchMotion(id: Int, xFixed: Int, yFixed: Int): WindowEvent.PointerMoved =
+fun mapWaylandTouchMotion(id: Int, xFixed: Int, yFixed: Int, primary: Boolean = id == 0): WindowEvent.PointerMoved =
     WindowEvent.PointerMoved(
         deviceId = null,
         position = PhysicalPosition(wlFixedToDouble(xFixed), wlFixedToDouble(yFixed)),
-        primary = id == 0,
+        primary = primary,
         source = PointerSource.Touch(FingerId(id.toLong())),
     )
 
@@ -91,5 +91,5 @@ fun mapWaylandTouchMotion(id: Int, xFixed: Int, yFixed: Int): WindowEvent.Pointe
  * @param id Contact identifier.
  * @return The corresponding pointer release and leave events.
  */
-fun mapWaylandTouchCancel(id: Int, location: PhysicalPosition<Double>): List<WindowEvent> =
-    mapWaylandTouchUp(id, location)
+fun mapWaylandTouchCancel(id: Int, location: PhysicalPosition<Double>, primary: Boolean = id == 0): List<WindowEvent> =
+    mapWaylandTouchUp(id, location, primary)

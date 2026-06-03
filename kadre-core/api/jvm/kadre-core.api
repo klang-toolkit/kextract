@@ -1803,6 +1803,19 @@ public abstract interface class org/graphiks/kadre/core/RequestError {
 	public abstract fun getMessage ()Ljava/lang/String;
 }
 
+public final class org/graphiks/kadre/core/RequestError$Ignored : org/graphiks/kadre/core/RequestError {
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lorg/graphiks/kadre/core/RequestError$Ignored;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/core/RequestError$Ignored;Ljava/lang/String;ILjava/lang/Object;)Lorg/graphiks/kadre/core/RequestError$Ignored;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getMessage ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class org/graphiks/kadre/core/RequestError$OsError : org/graphiks/kadre/core/RequestError {
 	public fun <init> (Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
@@ -2057,9 +2070,9 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public fun inputCapabilities ()Lorg/graphiks/kadre/core/InputCapabilities;
 	public abstract fun isDecorated ()Z
 	public abstract fun isMaximized ()Z
-	public abstract fun isMinimized ()Z
+	public abstract fun isMinimized ()Ljava/lang/Boolean;
 	public abstract fun isResizable ()Z
-	public abstract fun isVisible ()Z
+	public abstract fun isVisible ()Ljava/lang/Boolean;
 	public abstract fun prePresentNotify ()V
 	public fun primaryMonitor ()Lorg/graphiks/kadre/core/MonitorHandle;
 	public fun recognizeDoubleTapGesture (Z)V
@@ -2068,10 +2081,10 @@ public abstract interface class org/graphiks/kadre/core/Window {
 	public fun recognizeRotationGesture (Z)V
 	public abstract fun requestRedraw ()V
 	public fun requestSurfaceSize (Lorg/graphiks/kadre/core/PhysicalSize;)Lorg/graphiks/kadre/core/SurfaceSizeRequestResult;
-	public fun requestUserAttention (Lorg/graphiks/kadre/core/UserAttentionType;)V
+	public fun requestUserAttention (Lorg/graphiks/kadre/core/UserAttentionType;)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public abstract fun resetDeadKeys ()V
 	public abstract fun setBlur (Z)V
-	public fun setContentProtected (Z)V
+	public fun setContentProtected (Z)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public abstract fun setCursor (Lorg/graphiks/kadre/core/CursorIcon;)V
 	public abstract fun setCursorGrab (Lorg/graphiks/kadre/core/CursorGrabMode;)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public abstract fun setCursorHittest (Z)Lorg/graphiks/kadre/core/WindowRequestResult;
@@ -2118,8 +2131,8 @@ public final class org/graphiks/kadre/core/Window$DefaultImpls {
 	public static fun recognizePinchGesture (Lorg/graphiks/kadre/core/Window;Z)V
 	public static fun recognizeRotationGesture (Lorg/graphiks/kadre/core/Window;Z)V
 	public static fun requestSurfaceSize (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/PhysicalSize;)Lorg/graphiks/kadre/core/SurfaceSizeRequestResult;
-	public static fun requestUserAttention (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/UserAttentionType;)V
-	public static fun setContentProtected (Lorg/graphiks/kadre/core/Window;Z)V
+	public static fun requestUserAttention (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/UserAttentionType;)Lorg/graphiks/kadre/core/WindowRequestResult;
+	public static fun setContentProtected (Lorg/graphiks/kadre/core/Window;Z)Lorg/graphiks/kadre/core/WindowRequestResult;
 	public static fun setCustomCursor (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/CustomCursor;)V
 	public static fun setEnabledButtons (Lorg/graphiks/kadre/core/Window;Lorg/graphiks/kadre/core/WindowButtons;)V
 	public static fun setImeAllowed (Lorg/graphiks/kadre/core/Window;Z)V

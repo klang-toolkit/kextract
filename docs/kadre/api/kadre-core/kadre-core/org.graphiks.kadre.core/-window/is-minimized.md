@@ -3,6 +3,8 @@
 # isMinimized
 
 [common]\
-abstract val [isMinimized](is-minimized.md): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)
+abstract val [isMinimized](is-minimized.md): [Boolean](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-boolean/index.html)?
 
 Returns whether the window is currently minimized.
+
+Returns `null` when the platform does not expose a reliable minimized state.

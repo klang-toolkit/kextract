@@ -80,13 +80,13 @@ class FakeWindow : Window {
     override val outerSize = PhysicalSize(800, 600)
     override val scaleFactor = 1.0
     override fun setVisible(visible: Boolean) {}
-    override val isVisible: Boolean get() = true
+    override val isVisible: Boolean? get() = true
     override fun close() {}
     // R1 no-ops
     override fun setResizable(resizable: Boolean) {}
     override val isResizable: Boolean get() = true
     override fun setMinimized(minimized: Boolean) {}
-    override val isMinimized: Boolean get() = false
+    override val isMinimized: Boolean? get() = false
     override fun setMaximized(maximized: Boolean) {}
     override val isMaximized: Boolean get() = false
     override fun setDecorations(decorated: Boolean) {}

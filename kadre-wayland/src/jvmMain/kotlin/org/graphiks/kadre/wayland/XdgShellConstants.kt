@@ -17,6 +17,9 @@ internal const val XDG_TOPLEVEL_DESTROY: Int = 0
 internal const val XDG_TOPLEVEL_SET_PARENT: Int = 1
 internal const val XDG_TOPLEVEL_SET_TITLE: Int = 2
 internal const val XDG_TOPLEVEL_SET_APP_ID: Int = 3
+internal const val XDG_TOPLEVEL_SHOW_WINDOW_MENU: Int = 4
+internal const val XDG_TOPLEVEL_MOVE: Int = 5
+internal const val XDG_TOPLEVEL_RESIZE: Int = 6
 internal const val XDG_TOPLEVEL_SET_MAX_SIZE: Int = 7
 internal const val XDG_TOPLEVEL_SET_MIN_SIZE: Int = 8
 internal const val XDG_TOPLEVEL_SET_MAXIMIZED: Int = 9
@@ -36,6 +39,17 @@ internal const val XDG_TOPLEVEL_DECORATION_SET_MODE: Int = 1
 // Decoration modes
 internal const val XDG_TOPLEVEL_DECORATION_MODE_CLIENT_SIDE: Int = 1
 internal const val XDG_TOPLEVEL_DECORATION_MODE_SERVER_SIDE: Int = 2
+
+// xdg_toplevel.resize edges
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_NONE: Int = 0
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_TOP: Int = 1
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM: Int = 2
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_LEFT: Int = 4
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT: Int = 5
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT: Int = 6
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_RIGHT: Int = 8
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT: Int = 9
+internal const val XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT: Int = 10
 
 // WL_MARSHAL_FLAG_DESTROY
 internal const val WL_MARSHAL_FLAG_DESTROY: Int = 1

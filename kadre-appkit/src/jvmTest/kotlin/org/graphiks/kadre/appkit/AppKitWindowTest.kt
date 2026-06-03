@@ -2,14 +2,22 @@ package org.graphiks.kadre.appkit
 
 import org.graphiks.kadre.appkit.bindings.NSView
 import org.graphiks.kadre.appkit.bindings.NSWindow
+import org.graphiks.kadre.appkit.bindings.NSWindowButton
 import org.graphiks.kadre.appkit.bindings.NSWindowSharingType
+import org.graphiks.kadre.appkit.bindings.NSWindowStyleMask
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.UserAttentionType
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowId
+import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.WindowRequestResult
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -111,7 +119,30 @@ class AppKitWindowTest {
         assertNotNull(appKitWindowClass.getMethod("setSurfaceResizeIncrements", PhysicalSize::class.java))
         assertNotNull(appKitWindowClass.getMethod("focusWindow"))
         assertNotNull(appKitWindowClass.getMethod("getHasFocus"))
-        assertNotNull(appKitWindowClass.getMethod("setContentProtected", Boolean::class.javaPrimitiveType))
+        assertNotNull(appKitWindowClass.getMethod("setEnabledButtons", WindowButtons::class.java))
+        assertNotNull(appKitWindowClass.getMethod("getEnabledButtons"))
+        val requestUserAttention = appKitWindowClass.getMethod("requestUserAttention", UserAttentionType::class.java)
+        assertTrue(
+            WindowRequestResult::class.java.isAssignableFrom(requestUserAttention.returnType),
+            "requestUserAttention must return WindowRequestResult",
+        )
+
+        val setContentProtected = appKitWindowClass.getMethod("setContentProtected", Boolean::class.javaPrimitiveType)
+        assertTrue(
+            WindowRequestResult::class.java.isAssignableFrom(setContentProtected.returnType),
+            "setContentProtected must return WindowRequestResult",
+        )
+
+        val showWindowMenu = appKitWindowClass.getMethod("showWindowMenu", PhysicalPosition::class.java)
+        assertTrue(
+            WindowRequestResult::class.java.isAssignableFrom(showWindowMenu.returnType),
+            "showWindowMenu must return WindowRequestResult",
+        )
+    }
+
+    @Test
+    fun `AppKit window menu is a success no-op like winit`() {
+        assertEquals(WindowRequestResult.Success, appKitShowWindowMenuResult(PhysicalPosition(10, 20)))
     }
 
     @Test
@@ -126,6 +157,7 @@ class AppKitWindowTest {
         assertNotNull(nsWindowClass.getMethod("isMiniaturized"))
         assertNotNull(nsWindowClass.getMethod("isVisible"))
         assertNotNull(nsWindowClass.getMethod("setSharingType", NSWindowSharingType::class.java))
+        assertNotNull(nsWindowClass.getMethod("standardWindowButton", NSWindowButton::class.java))
     }
 
     @Test
@@ -137,5 +169,75 @@ class AppKitWindowTest {
         assertTrue(physicalSizeToAppKitResizeIncrements(PhysicalSize(8, 16), scale = 2.0) == (4.0 to 8.0))
         assertTrue(physicalSizeToAppKitResizeIncrements(null, scale = 2.0) == (0.0 to 0.0))
         assertTrue(physicalSizeToAppKitResizeIncrements(PhysicalSize(8, 16), scale = 0.0) == (0.0 to 0.0))
+    }
+
+    @Test
+    fun `AppKit applies initial transparent and blur attributes only when requested`() {
+        assertTrue(appKitShouldApplyInitialTransparency(true))
+        assertTrue(!appKitShouldApplyInitialTransparency(false))
+        assertTrue(appKitShouldApplyInitialBlur(true))
+        assertTrue(!appKitShouldApplyInitialBlur(false))
+    }
+
+    @Test
+    fun `AppKit transparency selects clear or window background color like winit`() {
+        assertTrue(appKitBackgroundColorSelectorForTransparency(true) == "clearColor")
+        assertTrue(appKitBackgroundColorSelectorForTransparency(false) == "windowBackgroundColor")
+    }
+
+    @Test
+    fun `AppKit blur effect view install and remove decisions are idempotent`() {
+        assertTrue(appKitShouldInstallBlurEffectView(java.lang.foreign.MemorySegment.NULL))
+        assertTrue(!appKitShouldRemoveBlurEffectView(java.lang.foreign.MemorySegment.NULL))
+
+        val existingView = java.lang.foreign.MemorySegment.ofAddress(0xB10BL)
+        assertTrue(!appKitShouldInstallBlurEffectView(existingView))
+        assertTrue(appKitShouldRemoveBlurEffectView(existingView))
+    }
+
+    @Test
+    fun `AppKit enabled buttons update close and minimize style bits`() {
+        val base = NSWindowStyleMask.NSWindowStyleMaskTitled +
+            NSWindowStyleMask.NSWindowStyleMaskClosable +
+            NSWindowStyleMask.NSWindowStyleMaskMiniaturizable +
+            NSWindowStyleMask.NSWindowStyleMaskResizable
+
+        val maximizeOnly = appKitStyleMaskWithEnabledButtons(base, WindowButtons.MAXIMIZE)
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskTitled in maximizeOnly)
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskResizable in maximizeOnly)
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskClosable !in maximizeOnly)
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskMiniaturizable !in maximizeOnly)
+
+        val closeAndMinimize = appKitStyleMaskWithEnabledButtons(maximizeOnly, WindowButtons.CLOSE + WindowButtons.MINIMIZE)
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskClosable in closeAndMinimize)
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskMiniaturizable in closeAndMinimize)
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskResizable in closeAndMinimize)
+
+        val borderless = appKitStyleMaskWithEnabledButtons(
+            NSWindowStyleMask.NSWindowStyleMaskBorderless,
+            WindowButtons.ALL,
+        )
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskClosable !in borderless)
+        assertTrue(NSWindowStyleMask.NSWindowStyleMaskMiniaturizable !in borderless)
+    }
+
+    @Test
+    fun `AppKit focus follows winit visible and non-minimized guard`() {
+        assertTrue(appKitShouldFocusWindow(isVisible = true, isMiniaturized = false))
+        assertTrue(!appKitShouldFocusWindow(isVisible = false, isMiniaturized = false))
+        assertTrue(!appKitShouldFocusWindow(isVisible = true, isMiniaturized = true))
+        assertTrue(!appKitShouldFocusWindow(isVisible = false, isMiniaturized = true))
+    }
+
+    @Test
+    fun `AppKit window levels match winit hardcoded NSWindow levels`() {
+        assertTrue(appKitWindowLevelValue(WindowLevel.AlwaysOnTop) == 3L)
+        assertTrue(appKitWindowLevelValue(WindowLevel.Normal) == 0L)
+        assertTrue(appKitWindowLevelValue(WindowLevel.AlwaysOnBottom) == -1L)
+    }
+
+    @Test
+    fun `AppKit window icon is unsupported like winit`() {
+        assertTrue(!appKitWindowIconIsSupported())
     }
 }

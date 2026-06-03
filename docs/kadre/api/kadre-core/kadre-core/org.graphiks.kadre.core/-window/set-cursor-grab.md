@@ -15,6 +15,7 @@ Sets the cursor grab mode for this window.
    [CursorGrabMode.Locked](../-cursor-grab-mode/-locked/index.md)   — locks the cursor position (FPS mode).
 
 Backends that do not support a given mode return [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws.
+Wayland accepts [CursorGrabMode.None](../-cursor-grab-mode/-none/index.md) as a success no-op like winit when pointer constraints are unavailable; [CursorGrabMode.Confined](../-cursor-grab-mode/-confined/index.md) and [CursorGrabMode.Locked](../-cursor-grab-mode/-locked/index.md) remain unsupported until `zwp_pointer_constraints_v1` is wired.
 
 #### Parameters
 

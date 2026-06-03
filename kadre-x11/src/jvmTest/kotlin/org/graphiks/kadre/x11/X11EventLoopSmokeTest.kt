@@ -14,7 +14,10 @@ import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
+import java.lang.foreign.Arena
+import java.lang.foreign.ValueLayout
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -100,5 +103,20 @@ class X11EventLoopSmokeTest {
 
         // Must not throw an exception
         proxy.wakeUp()
+    }
+
+    @Test
+    fun `X11 event window xid uses LP64 offsets per event type`() {
+        Arena.ofConfined().use { arena ->
+            val event = arena.allocate(96L, 8L)
+            event.set(ValueLayout.JAVA_LONG, XANY_WINDOW_OFFSET, 10L)
+            event.set(ValueLayout.JAVA_LONG, 40L, 20L)
+
+            assertEquals(10L, x11EventWindowXid(event, FocusIn))
+            assertEquals(10L, x11EventWindowXid(event, VisibilityNotify))
+            assertEquals(10L, x11EventWindowXid(event, ClientMessage))
+            assertEquals(20L, x11EventWindowXid(event, ConfigureNotify))
+            assertEquals(20L, x11EventWindowXid(event, DestroyNotify))
+        }
     }
 }

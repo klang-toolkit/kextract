@@ -9,9 +9,14 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.WindowEvent
+import org.graphiks.kadre.core.WindowId
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class WaylandEventLoopSmokeTest {
 
@@ -80,5 +85,41 @@ class WaylandEventLoopSmokeTest {
             assertNotNull(nativeWrite, "nativeWrite must be non-null if libC is available")
             assertNotNull(nativeClose, "nativeClose must be non-null if libC is available")
         }
+    }
+
+    @Test
+    fun `routeWaylandInputEvent enqueues event for matching surface`() {
+        val window = WaylandWindow.createForTest(surface = 1001L)
+        val queue = ConcurrentLinkedQueue<Pair<WindowId, WindowEvent>>()
+        val event = WindowEvent.Focused(true)
+
+        val routed = routeWaylandInputEvent(
+            surfacePtr = 1001L,
+            event = event,
+            windows = mapOf(1001L to window),
+            eventQueue = queue,
+        )
+
+        assertTrue(routed)
+        val queued = queue.poll()
+        assertNotNull(queued)
+        assertEquals(window.id, queued.first)
+        assertEquals(event, queued.second)
+    }
+
+    @Test
+    fun `routeWaylandInputEvent drops unknown surface`() {
+        val window = WaylandWindow.createForTest(surface = 1001L)
+        val queue = ConcurrentLinkedQueue<Pair<WindowId, WindowEvent>>()
+
+        val routed = routeWaylandInputEvent(
+            surfacePtr = 2002L,
+            event = WindowEvent.Focused(true),
+            windows = mapOf(1001L to window),
+            eventQueue = queue,
+        )
+
+        assertFalse(routed)
+        assertTrue(queue.isEmpty())
     }
 }

@@ -48,10 +48,10 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 | CursorVisible | real | partial* | no-op* | no-op | real | no-op | no-op |
 | CursorPosition (warp) | partial* | real | real | no-op | no-op | no-op | no-op |
 | systemTheme() | real | real | null | null | real | real | real |
-| setTheme() per-window | real | real | no-op | no-op | no-op | no-op | no-op |
+| setTheme() per-window | real | real | real (_GTK_THEME_VARIANT) | no-op | no-op | no-op | no-op |
 | ThemeChanged event | real | real | — | — | — | — | — |
 | setBlur() | real | real | no-op | no-op | no-op | no-op | no-op |
-| setWindowIcon() | partial* | partial* | real | no-op | no-op | no-op | no-op |
+| setWindowIcon() | no-op | real | real | no-op | no-op | no-op | no-op |
 | ModifiersChanged event | real | real | real* | real* | real | real | real |
 | IME (setImeAllowed etc.) | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
 | DnD events | TODO | TODO | TODO | TODO | TODO | TODO | TODO |

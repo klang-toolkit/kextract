@@ -160,14 +160,14 @@ class ScriptedWindow(
     override val innerSize: PhysicalSize<Int> get() = size
     override val outerSize: PhysicalSize<Int> get() = size
     override fun setVisible(visible: Boolean) { this.visible = visible }
-    override val isVisible: Boolean get() = visible
+    override val isVisible: Boolean? get() = visible
     override fun close() { /* no-op in memory */ }
 
     // R1 implementations (in-memory)
     override fun setResizable(resizable: Boolean) { _isResizable = resizable }
     override val isResizable: Boolean get() = _isResizable
     override fun setMinimized(minimized: Boolean) { _isMinimized = minimized }
-    override val isMinimized: Boolean get() = _isMinimized
+    override val isMinimized: Boolean? get() = _isMinimized
     override fun setMaximized(maximized: Boolean) { _isMaximized = maximized }
     override val isMaximized: Boolean get() = _isMaximized
     override fun setDecorations(decorated: Boolean) { _isDecorated = decorated }

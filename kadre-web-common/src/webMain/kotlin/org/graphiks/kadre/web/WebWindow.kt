@@ -245,10 +245,9 @@ class WebWindow(
     override val title: String get() = _title
 
     /**
-     * Web windows are always visible while the page is open.
-     * CSS visibility could be toggled, but that is out of scope.
+     * Browsers do not expose a reliable winit-style window visibility state.
      */
-    override val isVisible: Boolean get() = true
+    override val isVisible: Boolean? get() = null
 
     /**
      * Web browsers do not support programmatic window resizing.
@@ -265,8 +264,8 @@ class WebWindow(
      */
     override fun setMinimized(minimized: Boolean) { /* no-op: Web does not support programmatic window minimization */ }
 
-    /** Web windows cannot be minimized programmatically. Always returns false. */
-    override val isMinimized: Boolean get() = false
+    /** Web browsers do not expose a reliable minimized state. */
+    override val isMinimized: Boolean? get() = null
 
     /**
      * Web browsers do not support programmatic window maximization.

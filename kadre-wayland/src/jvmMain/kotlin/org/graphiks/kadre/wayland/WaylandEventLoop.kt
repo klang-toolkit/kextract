@@ -34,6 +34,7 @@ import org.graphiks.kadre.core.WindowId
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
+import java.util.Queue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -169,6 +170,17 @@ class WaylandEventLoop internal constructor(
     }
 }
 
+internal fun routeWaylandInputEvent(
+    surfacePtr: Long,
+    event: WindowEvent,
+    windows: Map<Long, WaylandWindow>,
+    eventQueue: Queue<Pair<WindowId, WindowEvent>>,
+): Boolean {
+    val win = windows[surfacePtr] ?: return false
+    eventQueue.add(win.id to event)
+    return true
+}
+
 /** Creates a synthetic [MonitorHandle] for a Wayland output. */
 private fun syntheticWaylandMonitor(
     outputPtr: Long,
@@ -259,7 +271,7 @@ private fun runAppInternal(handler: ApplicationHandler) {
     )
 
     // ── 4b. Install seat / output listeners (keyboard, pointer, touch, scale) ─
-    // Route all input events into the eventQueue; events will be dispatched below in the main loop.
+    // Route all input events into the eventQueue by their source wl_surface.
     // The seat and output globals may be absent (0) — installSeatListeners tolerates that.
     installSeatListeners(
         displayPtr    = displayPtr,
@@ -267,11 +279,8 @@ private fun runAppInternal(handler: ApplicationHandler) {
         outputPtr     = globals.outputPtr,
         seatVersion   = globals.seatVersion,
         outputVersion = globals.outputVersion,
-        onEvent = { event ->
-            // Dispatch to the first available window (input events target the focused window;
-            // on Wayland, the compositor ensures the keyboard surface matches the focused one).
-            val win = eventLoop.windows.values.firstOrNull() ?: return@installSeatListeners
-            eventLoop.eventQueue.add(win.id to event)
+        onEvent = { surfacePtr, event ->
+            routeWaylandInputEvent(surfacePtr, event, eventLoop.windows, eventLoop.eventQueue)
         },
         onScaleChanged = { scale ->
             val factor = scale.toDouble()

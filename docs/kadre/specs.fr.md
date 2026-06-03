@@ -497,8 +497,10 @@ fun pumpEvents(controlFlow: ControlFlow) {
 | `wl_pointer.axis` | `WindowEvent.MouseWheel` |
 | `wl_keyboard.key` | `WindowEvent.KeyInput` (via libxkbcommon mapping) |
 | `wl_keyboard.enter`/`leave` | `WindowEvent.Focused` |
-| `wl_touch.down`/`up`/`motion` | `WindowEvent.Touch` |
+| `wl_touch.down`/`up`/`motion` | `WindowEvent.Pointer*` avec `PointerSource.Touch` |
 | `wl_output.scale` | `WindowEvent.ScaleFactorChanged` (per-output scale) |
+
+Les events d'input sont routés via le `wl_surface` source avant d'entrer dans la queue d'events Kadre. Les listeners pointer et clavier conservent la surface actuellement entrée/focalisée pour les callbacks protocole qui ne la répètent pas, tandis que le listener touch conserve la surface par contact actif.
 
 #### 3.4.4 RawWindowHandle
 
@@ -614,7 +616,8 @@ Sinon → fallback X11 ou erreur finale.
 | `outerPosition` / `setOuterPosition()` | Position du cadre fenêtre à l'écran |
 | `setMinSurfaceSize()` / `setMaxSurfaceSize()` | Contraintes de taille |
 | `isResizable` / `setResizable()` | Redimensionnement utilisateur |
-| `isMinimized` / `setMinimized()` | Minimiser / restaurer |
+| `isVisible: Boolean?` / `setVisible()` | Afficher / masquer ; `null` si la plateforme n'expose pas cet etat |
+| `isMinimized: Boolean?` / `setMinimized()` | Minimiser / restaurer ; `null` si la plateforme n'expose pas cet etat |
 | `isMaximized` / `setMaximized()` | Maximiser / restaurer |
 | `isDecorated` / `setDecorations()` | Décorations plateforme (barre de titre, bordures) |
 | `prePresentNotify()` | Hint au compositeur avant présentation de frame (optimisation Wayland, no-op ailleurs) |
@@ -652,7 +655,8 @@ Le plein écran se configure par fenêtre : `window.setFullscreen(Fullscreen.Bor
 | Fonctionnalité | appkit | win32 | x11 | wayland | web | android | uikit |
 |----------------|--------|-------|-----|---------|-----|---------|-------|
 | `setCursor(CursorIcon)` | réel | réel | réel | no-op (libwayland-cursor TODO) | réel (CSS cursor) | no-op | no-op |
-| `setCursorVisible()` | réel | partiel (`ShowCursor` non rééquilibré — DEFERRED.md) | no-op (XCreatePixmapCursor TODO) | no-op | réel (CSS) | no-op | no-op |
+| `setCursorVisible()` | réel | partiel (`ShowCursor` non rééquilibré — DEFERRED.md) | réel | no-op | réel (CSS) | no-op | no-op |
+| `setCursorGrab(None)` | réel | réel | réel | success no-op (parité winit) | réel | no-op | no-op |
 | `setCursorGrab(Confined)` | réel | réel | réel | unsupported (pointer-constraints TODO) | unsupported | unsupported | unsupported |
 | `setCursorGrab(Locked)` | réel | réel | réel | unsupported | unsupported (bridge Pointer Lock TODO) | unsupported | unsupported |
 | `setCursorPosition()` | partiel (CGWarpMouseCursorPosition, cast scalaire) | réel | réel | unsupported | unsupported | unsupported | unsupported |
@@ -664,17 +668,18 @@ Le plein écran se configure par fenêtre : `window.setFullscreen(Fullscreen.Bor
 | Fonctionnalité | appkit | win32 | x11 | wayland | web | android | uikit |
 |----------------|--------|-------|-----|---------|-----|---------|-------|
 | `systemTheme()` | réel (NSApp.effectiveAppearance) | réel (registre AppsUseLightTheme) | toujours null (pas de standard) | toujours null (portail TODO) | réel (matchMedia) | réel (UiModeManager) | réel (UITraitCollection) |
-| `setTheme(theme?)` | réel (NSAppearance par fenêtre) | réel | no-op | no-op | no-op | no-op | no-op |
+| `setTheme(theme?)` | réel (NSAppearance par fenêtre) | réel | réel (`_GTK_THEME_VARIANT`) | no-op | no-op | no-op | no-op |
 | Événement `ThemeChanged` | réel | réel | non émis | non émis | non émis | non émis | non émis |
 
 **Matrice plateforme — apparence :**
 
 | Fonctionnalité | appkit | win32 | x11 | wayland | web | android | uikit |
 |----------------|--------|-------|-----|---------|-----|---------|-------|
-| `setWindowLevel()` | réel | réel | réel | réel (xdg layer) | no-op | no-op | no-op |
-| `setTransparent()` | réel | réel | réel | réel | no-op | no-op | no-op |
+| `setWindowLevel()` | réel | réel | réel | no-op (parité Wayland winit) | no-op | no-op | no-op |
+| `setTheme()` | réel | réel | réel (`_GTK_THEME_VARIANT`) | no-op | no-op | no-op | no-op |
+| `setTransparent()` | réel | réel | no-op (parité winit) | réel | no-op | no-op | no-op |
 | `setBlur()` | réel (NSVisualEffectView) | réel (DwmEnableBlurBehind) | no-op | no-op | no-op | no-op | no-op |
-| `setWindowIcon()` | partiel (stub — DEFERRED.md) | partiel (stub WM_SETICON — DEFERRED.md) | réel (_NET_WM_ICON) | no-op | no-op | no-op | no-op |
+| `setWindowIcon()` | no-op (parité AppKit winit) | réel (WM_SETICON/ICON_SMALL) | réel (_NET_WM_ICON) | no-op | no-op | no-op | no-op |
 
 ### 3.9 Richesse clavier (R4/R6 incubation)
 
@@ -928,7 +933,7 @@ Points résiduels clés :
 - **Event Occluded** : API définie ; AppKit et Web prévoient de l'émettre.
 - **ModifiersChanged** : émis sur AppKit/Win32/Web/Android/UIKit/X11/Wayland pour les transitions de touches modificatrices ; la sémantique XKB locked/latched sous Linux reste future.
 - **Curseurs custom** (`createCustomCursor` / `setCustomCursor`) : no-op sur tous les backends (impl interface par défaut).
-- **Méthodes fenêtre diverses** : `showWindowMenu`, `dragWindow` et `dragResizeWindow` retournent maintenant `WindowRequestResult` et signalent `RequestError.Unsupported` par défaut ; `requestUserAttention` et `setContentProtected` restent no-op quand aucun backend ne les implémente.
+- **Méthodes fenêtre diverses** : `showWindowMenu`, `dragWindow`, `dragResizeWindow`, `requestUserAttention` et `setContentProtected` retournent maintenant `WindowRequestResult` et signalent `RequestError.Unsupported` par défaut ; AppKit câble l’attention Dock, la protection de contenu et les boutons de fenêtre activés, Win32 câble le menu natif, les drags move/resize, les boutons de fenêtre activés, l’attention utilisateur et la protection de contenu, X11 et Wayland signalent la protection de contenu en success no-op comme winit, AppKit et X11 signalent le menu fenetre en success no-op comme winit, et Wayland câble menu/move/resize localement.
 - **Couverture clavier** : le modèle public suit maintenant winit (`PhysicalKey` / `LogicalKey` / `NamedKey` / `Dead`), mais `KeyCode` et `NamedKey` ne sont pas encore exhaustifs et les champs riches restent dépendants des backends.
 - **Stylet / tablette** : non supporté (MouseInput + Touch conservés au lieu du modèle unifié PointerButton/PointerKind).
 
@@ -1037,11 +1042,11 @@ Points résiduels clés :
 | winit (Rust) | Kadre |
 |--------------|-------|
 | `WindowEvent::Occluded` | `WindowEvent.Occluded(occluded: Boolean)` — non émis (cf. DEFERRED.md) |
-| `Window::request_user_attention()` | `Window.requestUserAttention(requestType: UserAttentionType?)` — no-op (cf. DEFERRED.md) |
-| `Window::set_content_protected()` | `Window.setContentProtected(protected: Boolean)` — no-op (cf. DEFERRED.md) |
-| `Window::drag_window()` | `Window.dragWindow(): WindowRequestResult` — `RequestError.Unsupported` par défaut (cf. DEFERRED.md) |
-| `Window::drag_resize_window()` | `Window.dragResizeWindow(direction: ResizeDirection): WindowRequestResult` — `RequestError.Unsupported` par défaut (cf. DEFERRED.md) |
-| `Window::show_window_menu()` | `Window.showWindowMenu(position: PhysicalPosition<Int>): WindowRequestResult` — `RequestError.Unsupported` par défaut (cf. DEFERRED.md) |
+| `Window::request_user_attention()` | `Window.requestUserAttention(requestType: UserAttentionType?): WindowRequestResult` — `RequestError.Unsupported` par défaut; AppKit et Win32 sont câblés localement (cf. DEFERRED.md) |
+| `Window::set_content_protected()` | `Window.setContentProtected(protected: Boolean): WindowRequestResult` — `RequestError.Unsupported` par défaut; AppKit et Win32 sont câblés localement, tandis que X11 et Wayland sont des success no-op comme winit (cf. DEFERRED.md) |
+| `Window::drag_window()` | `Window.dragWindow(): WindowRequestResult` — `RequestError.Unsupported` par défaut; AppKit peut retourner `RequestError.Ignored`; Win32/X11/Wayland sont câblés localement (cf. DEFERRED.md) |
+| `Window::drag_resize_window()` | `Window.dragResizeWindow(direction: ResizeDirection): WindowRequestResult` — `RequestError.Unsupported` par défaut; Win32/X11/Wayland sont câblés localement (cf. DEFERRED.md) |
+| `Window::show_window_menu()` | `Window.showWindowMenu(position: PhysicalPosition<Int>): WindowRequestResult` — `RequestError.Unsupported` par défaut; Win32/Wayland sont câblés localement, tandis qu'AppKit/X11 sont des success no-op comme winit (cf. DEFERRED.md) |
 
 #### WindowAttributes (ajouts R3)
 

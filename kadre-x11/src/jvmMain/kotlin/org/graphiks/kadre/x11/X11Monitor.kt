@@ -170,6 +170,49 @@ internal fun selectPrimaryMonitor(
 ): X11MonitorHandle? =
     monitors.firstOrNull { it.isPrimary } ?: monitors.firstOrNull()
 
+internal data class X11WindowRect(
+    val position: PhysicalPosition<Int>,
+    val size: PhysicalSize<Int>,
+)
+
+internal fun selectX11MonitorForWindow(
+    monitors: List<X11MonitorHandle>,
+    windowRect: X11WindowRect?,
+): X11MonitorHandle? {
+    val default = monitors.firstOrNull() ?: return null
+    windowRect ?: return default
+
+    var largestOverlap = 0L
+    var matchedMonitor = default
+    for (monitor in monitors) {
+        val monitorRect = x11MonitorRect(monitor) ?: continue
+        val overlap = x11RectOverlapArea(windowRect, monitorRect)
+        if (overlap > largestOverlap) {
+            largestOverlap = overlap
+            matchedMonitor = monitor
+        }
+    }
+    return matchedMonitor
+}
+
+private fun x11MonitorRect(monitor: X11MonitorHandle): X11WindowRect? {
+    val size = monitor.currentVideoMode?.size ?: return null
+    if (size.width <= 0 || size.height <= 0) return null
+    return X11WindowRect(monitor.position, size)
+}
+
+internal fun x11RectOverlapArea(first: X11WindowRect, second: X11WindowRect): Long {
+    val xOverlap = (
+        minOf(first.position.x.toLong() + first.size.width.toLong(), second.position.x.toLong() + second.size.width.toLong()) -
+            maxOf(first.position.x.toLong(), second.position.x.toLong())
+        ).coerceAtLeast(0L)
+    val yOverlap = (
+        minOf(first.position.y.toLong() + first.size.height.toLong(), second.position.y.toLong() + second.size.height.toLong()) -
+            maxOf(first.position.y.toLong(), second.position.y.toLong())
+        ).coerceAtLeast(0L)
+    return xOverlap * yOverlap
+}
+
 // ── RANDR ─────────────────────────────────────────────────────────────────────
 
 // XRRScreenResources offsets (opaque struct — we read only the field we need):

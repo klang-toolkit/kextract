@@ -27,6 +27,8 @@ import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.RequestError
+import org.graphiks.kadre.core.ResizeDirection
+import org.graphiks.kadre.core.SurfaceSizeRequestResult
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
@@ -36,12 +38,20 @@ import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.WindowRequestResult
 import java.lang.foreign.MemorySegment
+import kotlin.math.roundToInt
 
 /** wl_compositor.create_surface opcode in the core Wayland protocol. */
 private const val WL_COMPOSITOR_CREATE_SURFACE_OPCODE: Int = 0
+private const val WL_COMPOSITOR_CREATE_REGION_OPCODE: Int = 1
 
 /** wl_surface.commit opcode in the core Wayland protocol. */
 private const val WL_SURFACE_COMMIT_OPCODE: Int = 6
+private const val WL_SURFACE_SET_OPAQUE_REGION_OPCODE: Int = 4
+private const val WL_SURFACE_SET_INPUT_REGION_OPCODE: Int = 5
+private const val WL_SURFACE_VERSION: Int = 1
+private const val WL_REGION_DESTROY_OPCODE: Int = 0
+private const val WL_REGION_ADD_OPCODE: Int = 1
+private const val WL_REGION_VERSION: Int = 1
 
 
 /**
@@ -95,8 +105,22 @@ class WaylandWindow private constructor(
     @Volatile
     private var _innerSize: PhysicalSize<Int> = attrs.size ?: PhysicalSize(800, 600)
 
+    @Volatile
+    private var lastConfigureStates: WaylandToplevelConfigureStates? = null
+
     override val innerSize: PhysicalSize<Int>
         get() = _innerSize
+
+    override val surfaceSize: PhysicalSize<Int>
+        get() = _innerSize
+
+    override fun requestSurfaceSize(size: PhysicalSize<Int>): SurfaceSizeRequestResult {
+        if (lastConfigureStates?.isStateless() != false) {
+            _innerSize = size
+            onWindowEvent?.invoke(WindowEvent.RedrawRequested)
+        }
+        return SurfaceSizeRequestResult.Applied(_innerSize)
+    }
 
     /**
      * Outer size (surface + WM decorations) in physical pixels.
@@ -118,6 +142,17 @@ class WaylandWindow private constructor(
     internal var _scaleFactor: Double = 1.0
 
     override val scaleFactor: Double get() = _scaleFactor
+
+    @Volatile
+    internal var transparentHint: Boolean = false
+        private set
+
+    @Volatile
+    internal var cursorVisible: Boolean = true
+        private set
+
+    @Volatile
+    private var _theme: Theme? = attrs.preferredTheme
 
     /**
      * Requests a redraw.
@@ -161,18 +196,13 @@ class WaylandWindow private constructor(
     }
 
     /**
-     * Makes the window visible or invisible.
+     * Ignored on Wayland, matching winit.
      *
-     * On Wayland, the visibility of a toplevel surface is controlled via
-     * xdg_surface / xdg_toplevel. The initial commit makes the surface visible;
-     * wl_surface.attach(NULL) + commit hides it.
-     * This implementation performs a commit to make it visible.
-     *
-     * @param visible true to show the window, false ignored (stub).
+     * xdg-shell does not expose a runtime show/hide request for toplevels. The initial surface
+     * commit controls mapping; subsequent `set_visible` calls are intentionally no-ops.
      */
     override fun setVisible(visible: Boolean) {
-        if (visible) requestRedraw()
-        // setInvisible requires wl_surface.attach(NULL) + commit — deferred to later
+        // no-op: Wayland runtime visibility changes are unsupported.
     }
 
     /**
@@ -206,15 +236,15 @@ class WaylandWindow private constructor(
 
     override val title: String get() = _title
 
-    override val isVisible: Boolean get() = xdg != null // true once xdg_shell handshake completes
+    override val isVisible: Boolean? get() = null
 
     @Volatile private var _isResizable: Boolean = attrs.resizable
 
     override val isResizable: Boolean get() = _isResizable
 
-    @Volatile private var _isMinimized: Boolean = false
+    @Volatile private var _isMinimized: Boolean? = null
 
-    override val isMinimized: Boolean get() = _isMinimized
+    override val isMinimized: Boolean? get() = _isMinimized
 
     @Volatile private var _isMaximized: Boolean = attrs.maximized
 
@@ -224,23 +254,20 @@ class WaylandWindow private constructor(
 
     override val isDecorated: Boolean get() = _isDecorated
 
+    @Volatile private var _minSurfaceSize: PhysicalSize<Int>? = attrs.minSize
+    @Volatile private var _maxSurfaceSize: PhysicalSize<Int>? = attrs.maxSize
+    @Volatile private var _surfaceResizeIncrements: PhysicalSize<Int>? = attrs.resizeIncrements
+
     override fun setResizable(resizable: Boolean) {
+        if (_isResizable == resizable) return
         _isResizable = resizable
-        // On Wayland, resizability is communicated via set_min_size / set_max_size:
-        // setting min == max prevents the compositor from suggesting a different size.
-        if (!resizable) {
-            val sz = _innerSize
-            xdg?.setMinSize(sz.width, sz.height)
-            xdg?.setMaxSize(sz.width, sz.height)
-        } else {
-            xdg?.setMinSize(0, 0)
-            xdg?.setMaxSize(0, 0)
-        }
+        applyWaylandSurfaceConstraints()
         flushDisplay()
+        onWindowEvent?.invoke(WindowEvent.RedrawRequested)
     }
 
     override fun setMinimized(minimized: Boolean) {
-        _isMinimized = minimized
+        _isMinimized = null
         if (minimized) {
             xdg?.setMinimized()
             flushDisplay()
@@ -249,30 +276,35 @@ class WaylandWindow private constructor(
     }
 
     override fun setMaximized(maximized: Boolean) {
-        _isMaximized = maximized
         xdg?.setMaximized(maximized)
         flushDisplay()
     }
 
     override fun setDecorations(decorated: Boolean) {
         _isDecorated = decorated
-        // Decoration mode is set at creation via zxdg_decoration_manager_v1.
-        // Runtime switching is not yet wired — no-op with a note.
-        // TODO: call zxdg_toplevel_decoration_v1.set_mode at runtime (R3 / future).
+        xdg?.setDecorations(decorated)
+        flushDisplay()
     }
 
     override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {
-        val w = size?.width ?: 0
-        val h = size?.height ?: 0
-        xdg?.setMinSize(w, h)
+        _minSurfaceSize = size
+        applyWaylandSurfaceConstraints()
         flushDisplay()
+        onWindowEvent?.invoke(WindowEvent.RedrawRequested)
     }
 
     override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) {
-        val w = size?.width ?: 0
-        val h = size?.height ?: 0
-        xdg?.setMaxSize(w, h)
+        _maxSurfaceSize = size
+        applyWaylandSurfaceConstraints()
         flushDisplay()
+        onWindowEvent?.invoke(WindowEvent.RedrawRequested)
+    }
+
+    override val surfaceResizeIncrements: PhysicalSize<Int>?
+        get() = _surfaceResizeIncrements
+
+    override fun setSurfaceResizeIncrements(increments: PhysicalSize<Int>?) {
+        _surfaceResizeIncrements = increments
     }
 
     /**
@@ -319,6 +351,9 @@ class WaylandWindow private constructor(
     override val fullscreen: Fullscreen?
         get() = _fullscreen
 
+    override val hasFocus: Boolean
+        get() = WaylandFocusState.hasFocus(surfacePtr)
+
     /**
      * Enters or exits borderless fullscreen via xdg_toplevel.set_fullscreen / unset_fullscreen.
      *
@@ -333,19 +368,16 @@ class WaylandWindow private constructor(
             null -> {
                 xdg?.setFullscreen(false)
                 flushDisplay()
-                _fullscreen = null
             }
             is Fullscreen.Borderless -> {
                 xdg?.setFullscreen(true)
                 flushDisplay()
-                _fullscreen = fullscreen
             }
             is Fullscreen.Exclusive -> {
                 // Exclusive fullscreen is not supported on Wayland (xdg-shell limitation).
                 // Fall back to borderless silently.
                 xdg?.setFullscreen(true)
                 flushDisplay()
-                _fullscreen = fullscreen // store requested mode for API parity
             }
         }
     }
@@ -375,6 +407,7 @@ class WaylandWindow private constructor(
 
     /** Convenience: flush the Wayland display connection. */
     private fun flushDisplay() {
+        if (displayPtr == 0L) return
         wlDisplayFlush?.let { flush ->
             try {
                 val displaySeg = MemorySegment.ofAddress(displayPtr)
@@ -383,15 +416,39 @@ class WaylandWindow private constructor(
         }
     }
 
+    private fun physicalToWaylandCoordinate(value: Int): Int {
+        val scale = scaleFactor.takeIf { it > 0.0 } ?: 1.0
+        return (value / scale).roundToInt()
+    }
+
     /**
      * Updates the inner size upon receiving an xdg_surface.configure event.
      *
      * @param width  New width suggested by the compositor in pixels (0 = leave unchanged).
      * @param height New height suggested by the compositor in pixels (0 = leave unchanged).
      */
-    fun onConfigure(width: Int, height: Int) {
+    fun onConfigure(width: Int, height: Int, applyResizeIncrements: Boolean = true) {
         if (width > 0 && height > 0) {
-            _innerSize = PhysicalSize(width, height)
+            val size = PhysicalSize(width, height)
+            _innerSize = if (applyResizeIncrements) {
+                waylandApplyResizeIncrements(
+                    size = size,
+                    minSize = _minSurfaceSize,
+                    increments = _surfaceResizeIncrements,
+                )
+            } else {
+                size
+            }
+        }
+    }
+
+    internal fun onToplevelStateConfigured(states: WaylandToplevelConfigureStates) {
+        lastConfigureStates = states
+        _isMaximized = states.maximized
+        _fullscreen = if (states.fullscreen) {
+            Fullscreen.Borderless(currentMonitor())
+        } else {
+            null
         }
     }
 
@@ -411,25 +468,28 @@ class WaylandWindow private constructor(
         // No-op on Wayland: cursor theme requires libwayland-cursor integration.
     }
 
-    /**
-     * No-op on Wayland.
-     *
-     * TODO(R3-wayland-cursor-visible): hide via wl_pointer.set_cursor(null).
-     */
     override fun setCursorVisible(visible: Boolean) {
-        // No-op on Wayland: cursor visibility requires libwayland-cursor integration.
+        cursorVisible = visible
+        WaylandPointerState.setCursorVisible(surfacePtr, visible)
+        if (!visible) {
+            WaylandPointerState.hideCursorForSurface(surfacePtr)
+            flushDisplay()
+        }
+        // Restoring visibility requires a cursor theme surface, which is not wired yet.
     }
 
     /**
-     * No-op on Wayland.
+     * Releases pointer grabs as a success no-op, matching winit.
      *
-     * Pointer confinement requires zwp_pointer_constraints_v1, which is an
-     * optional Wayland protocol extension not yet wired in this backend.
-     *
-     * TODO(R3-wayland-grab): implement via zwp_pointer_constraints_v1.
+     * Pointer confinement/locking requires zwp_pointer_constraints_v1, which is
+     * an optional Wayland protocol extension not yet wired in this backend.
      */
     override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
-        WindowRequestResult.Failure(RequestError.Unsupported("Wayland pointer constraints are not wired"))
+        if (mode == CursorGrabMode.None) {
+            WindowRequestResult.Success
+        } else {
+            WindowRequestResult.Failure(RequestError.Unsupported("Wayland pointer constraints are not wired"))
+        }
 
     /**
      * No-op on Wayland.
@@ -440,28 +500,78 @@ class WaylandWindow private constructor(
     override fun setCursorPosition(position: PhysicalPosition<Int>): WindowRequestResult =
         WindowRequestResult.Failure(RequestError.Unsupported("Wayland does not expose cursor warping"))
 
-    /**
-     * No-op on Wayland.
-     *
-     * TODO(R3-wayland-hittest): implement via the input-region protocol.
-     */
     override fun setCursorHittest(hittest: Boolean): WindowRequestResult =
-        WindowRequestResult.Failure(RequestError.Unsupported("Wayland input-region cursor hit-testing is not wired"))
+        if (applyWaylandInputRegionHittest(hittest)) {
+            WindowRequestResult.Success
+        } else {
+            WindowRequestResult.Failure(RequestError.Unsupported("Wayland input-region cursor hit-testing is unavailable"))
+        }
 
     /**
-     * Returns null on Wayland.
-     *
-     * Theme detection via org.freedesktop.portal.Settings is not yet wired.
-     *
-     * TODO(R3-wayland-theme): query org.freedesktop.portal.Settings via D-Bus.
+     * Shows the compositor-managed window menu via xdg_toplevel.show_window_menu.
      */
-    override val theme: Theme? get() = null
+    override fun showWindowMenu(position: PhysicalPosition<Int>): WindowRequestResult {
+        val toplevel = xdg ?: return WindowRequestResult.Failure(
+            RequestError.Unsupported("Wayland xdg_toplevel is unavailable"),
+        )
+        val pointer = WaylandPointerState.current(surfacePtr) ?: return WindowRequestResult.Success
+        val x = physicalToWaylandCoordinate(position.x)
+        val y = physicalToWaylandCoordinate(position.y)
+        return if (toplevel.showWindowMenu(pointer.seatPtr, pointer.serial, x, y)) {
+            flushDisplay()
+            WindowRequestResult.Success
+        } else {
+            WindowRequestResult.Failure(RequestError.OsError("xdg_toplevel.show_window_menu failed"))
+        }
+    }
 
     /**
-     * No-op on Wayland — no standard per-window theme control.
+     * Starts compositor-managed interactive window movement via xdg_toplevel.move.
      */
+    override fun dragWindow(): WindowRequestResult {
+        val toplevel = xdg ?: return WindowRequestResult.Failure(
+            RequestError.Unsupported("Wayland xdg_toplevel is unavailable"),
+        )
+        val pointer = WaylandPointerState.current(surfacePtr) ?: return WindowRequestResult.Success
+        return if (toplevel.move(pointer.seatPtr, pointer.serial)) {
+            flushDisplay()
+            WindowRequestResult.Success
+        } else {
+            WindowRequestResult.Failure(RequestError.OsError("xdg_toplevel.move failed"))
+        }
+    }
+
+    /**
+     * Starts compositor-managed interactive window resize via xdg_toplevel.resize.
+     */
+    override fun dragResizeWindow(direction: ResizeDirection): WindowRequestResult {
+        val toplevel = xdg ?: return WindowRequestResult.Failure(
+            RequestError.Unsupported("Wayland xdg_toplevel is unavailable"),
+        )
+        val pointer = WaylandPointerState.current(surfacePtr) ?: return WindowRequestResult.Success
+        val edge = when (direction) {
+            ResizeDirection.North -> XDG_TOPLEVEL_RESIZE_EDGE_TOP
+            ResizeDirection.West -> XDG_TOPLEVEL_RESIZE_EDGE_LEFT
+            ResizeDirection.NorthWest -> XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT
+            ResizeDirection.NorthEast -> XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT
+            ResizeDirection.East -> XDG_TOPLEVEL_RESIZE_EDGE_RIGHT
+            ResizeDirection.SouthWest -> XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT
+            ResizeDirection.SouthEast -> XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT
+            ResizeDirection.South -> XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM
+        }
+        return if (toplevel.resize(pointer.seatPtr, pointer.serial, edge)) {
+            flushDisplay()
+            WindowRequestResult.Success
+        } else {
+            WindowRequestResult.Failure(RequestError.OsError("xdg_toplevel.resize failed"))
+        }
+    }
+
+    override val theme: Theme?
+        get() = _theme
+
     override fun setTheme(theme: Theme?) {
-        // No-op on Wayland: no standard per-window theme API.
+        _theme = theme
     }
 
     /**
@@ -475,17 +585,15 @@ class WaylandWindow private constructor(
     }
 
     /**
-     * No-op on Wayland.
+     * Stores the renderer-side transparency hint.
      *
-     * Per-pixel alpha transparency requires the compositor to support the
-     * EGL_EXT_platform_wayland or similar; this is renderer-side and outside
-     * the window API scope.
-     *
-     * TODO(R3-wayland-transparent): set _NET_WM_WINDOW_OPACITY or use
-     * wl_surface with ARGB buffer format when the renderer supports it.
+     * Wayland transparency is expressed by attaching buffers with an alpha
+     * channel; there is no xdg_toplevel request for global window opacity. The
+     * hint is kept so creation/runtime calls preserve winit's state semantics.
      */
     override fun setTransparent(transparent: Boolean) {
-        // No-op on Wayland.
+        transparentHint = transparent
+        applyWaylandTransparencyHint()
     }
 
     /**
@@ -506,6 +614,16 @@ class WaylandWindow private constructor(
     override fun setWindowIcon(icon: Icon?) {
         // No-op on Wayland: window icons are not part of the Wayland protocol.
     }
+
+    /**
+     * No-op on Wayland, matching winit.
+     *
+     * The core Wayland/xdg-shell protocol has no portable screen-capture
+     * protection request. winit accepts this call and ignores it, so Kadre
+     * reports success instead of a platform-unsupported failure.
+     */
+    override fun setContentProtected(protected: Boolean): WindowRequestResult =
+        waylandContentProtectionResult(protected)
 
     // ── R4: keyboard ──────────────────────────────────────────────────────────
 
@@ -574,6 +692,7 @@ class WaylandWindow private constructor(
             }
 
             val window = WaylandWindow(display, compositor, xdgWmBase, surface, attrs)
+            window.setTransparent(attrs.transparent)
 
             // ── 2. xdg_shell handshake → real mapped toplevel + configure/close events ──
             if (surface != 0L && xdgWmBase != 0L && WaylandXdgLib.loaded) {
@@ -582,19 +701,21 @@ class WaylandWindow private constructor(
                     wmBasePtr = xdgWmBase,
                     surfacePtr = surface,
                     decorationManagerPtr = decorationManager,
-                    onResized = { w, h ->
-                        window._innerSize = PhysicalSize(w, h)
-                        window.onWindowEvent?.invoke(WindowEvent.Resized(PhysicalSize(w, h)))
+                    decorated = attrs.decorations,
+                    onResized = { w, h, applyResizeIncrements ->
+                        window.onConfigure(w, h, applyResizeIncrements)
+                        val size = window.innerSize
+                        window.onWindowEvent?.invoke(WindowEvent.Resized(size))
                         // Repaint once at the new size (on-demand rendering).
                         window.onWindowEvent?.invoke(WindowEvent.RedrawRequested)
                     },
+                    onStateConfigured = { states -> window.onToplevelStateConfigured(states) },
                     onClose = { window.onWindowEvent?.invoke(WindowEvent.CloseRequested) },
                 )
                 window.xdg?.setTitle(attrs.title)
                 // Apply R1 attrs
                 if (attrs.maximized) window.xdg?.setMaximized(true)
-                attrs.minSize?.let { window.xdg?.setMinSize(it.width, it.height) }
-                attrs.maxSize?.let { window.xdg?.setMaxSize(it.width, it.height) }
+                window.applyWaylandSurfaceConstraints()
                 if (attrs.fullscreen != null) window.xdg?.setFullscreen(true)
             }
 
@@ -624,6 +745,207 @@ class WaylandWindow private constructor(
             xdgWmBase: Long = 0L,
             surface: Long = 0L,
             attrs: WindowAttributes = WindowAttributes(),
-        ): WaylandWindow = WaylandWindow(display, compositor, xdgWmBase, surface, attrs)
+        ): WaylandWindow =
+            WaylandWindow(display, compositor, xdgWmBase, surface, attrs).also {
+                it.setTransparent(attrs.transparent)
+            }
     }
+
+    private fun applyWaylandSurfaceConstraints() {
+        if (!_isResizable) {
+            val size = _innerSize
+            xdg?.setMinSize(size.width, size.height)
+            xdg?.setMaxSize(size.width, size.height)
+            return
+        }
+        xdg?.setMinSize(_minSurfaceSize?.width ?: 0, _minSurfaceSize?.height ?: 0)
+        xdg?.setMaxSize(_maxSurfaceSize?.width ?: 0, _maxSurfaceSize?.height ?: 0)
+    }
+
+    internal fun applyWaylandTransparencyHint(): Boolean {
+        if (surfacePtr == 0L) return false
+        val surface = MemorySegment.ofAddress(surfacePtr)
+        val setOpaqueRegion = wlProxyMarshalFlagsObject ?: return false
+        val region = if (transparentHint) {
+            MemorySegment.NULL
+        } else {
+            createFullOpaqueRegion() ?: return false
+        }
+
+        return try {
+            setOpaqueRegion.invokeExact(
+                surface,
+                WL_SURFACE_SET_OPAQUE_REGION_OPCODE,
+                MemorySegment.NULL,
+                WL_SURFACE_VERSION,
+                0,
+                region,
+            )
+            flushDisplay()
+            true
+        } catch (_: Throwable) {
+            false
+        } finally {
+            if (region != MemorySegment.NULL) {
+                destroyWaylandRegion(region)
+            }
+        }
+    }
+
+    internal fun applyWaylandInputRegionHittest(hittest: Boolean): Boolean {
+        if (surfacePtr == 0L) return false
+        val setInputRegion = wlProxyMarshalFlagsObject ?: return false
+        val surface = MemorySegment.ofAddress(surfacePtr)
+        val region = if (hittest) {
+            MemorySegment.NULL
+        } else {
+            createEmptyInputRegion() ?: return false
+        }
+
+        return try {
+            setInputRegion.invokeExact(
+                surface,
+                WL_SURFACE_SET_INPUT_REGION_OPCODE,
+                MemorySegment.NULL,
+                WL_SURFACE_VERSION,
+                0,
+                region,
+            )
+            flushDisplay()
+            true
+        } catch (_: Throwable) {
+            false
+        } finally {
+            if (region != MemorySegment.NULL) {
+                destroyWaylandRegion(region)
+            }
+        }
+    }
+
+    private fun createFullOpaqueRegion(): MemorySegment? {
+        if (compositorPtr == 0L) return null
+        val createRegion = wlCompositorCreateRegion ?: return null
+        val regionInterface = wlRegionInterface ?: return null
+        val addRegion = wlProxyMarshalFlagsFourInt ?: return null
+        var region = MemorySegment.NULL
+        return try {
+            val compositor = MemorySegment.ofAddress(compositorPtr)
+            region = createRegion.invokeExact(
+                compositor,
+                WL_COMPOSITOR_CREATE_REGION_OPCODE,
+                regionInterface,
+                WL_REGION_VERSION,
+                0,
+                MemorySegment.NULL,
+            ) as MemorySegment
+            if (region == MemorySegment.NULL) return null
+            addRegion.invokeExact(
+                region,
+                WL_REGION_ADD_OPCODE,
+                MemorySegment.NULL,
+                WL_REGION_VERSION,
+                0,
+                0,
+                0,
+                WAYLAND_OPAQUE_REGION_EXTENT,
+                WAYLAND_OPAQUE_REGION_EXTENT,
+            )
+            region.also {
+                region = MemorySegment.NULL
+            }
+        } catch (_: Throwable) {
+            null
+        } finally {
+            if (region != MemorySegment.NULL) {
+                destroyWaylandRegion(region)
+            }
+        }
+    }
+
+    private fun createEmptyInputRegion(): MemorySegment? {
+        if (compositorPtr == 0L) return null
+        val createRegion = wlCompositorCreateRegion ?: return null
+        val regionInterface = wlRegionInterface ?: return null
+        val addRegion = wlProxyMarshalFlagsFourInt ?: return null
+        var region = MemorySegment.NULL
+        return try {
+            val compositor = MemorySegment.ofAddress(compositorPtr)
+            region = createRegion.invokeExact(
+                compositor,
+                WL_COMPOSITOR_CREATE_REGION_OPCODE,
+                regionInterface,
+                WL_REGION_VERSION,
+                0,
+                MemorySegment.NULL,
+            ) as MemorySegment
+            if (region == MemorySegment.NULL) return null
+            val rect = waylandEmptyInputRegionRect()
+            addRegion.invokeExact(
+                region,
+                WL_REGION_ADD_OPCODE,
+                MemorySegment.NULL,
+                WL_REGION_VERSION,
+                0,
+                rect.x,
+                rect.y,
+                rect.width,
+                rect.height,
+            )
+            region.also {
+                region = MemorySegment.NULL
+            }
+        } catch (_: Throwable) {
+            null
+        } finally {
+            if (region != MemorySegment.NULL) {
+                destroyWaylandRegion(region)
+            }
+        }
+    }
+
+    private fun destroyWaylandRegion(region: MemorySegment) {
+        try {
+            wlProxyMarshalFlagsVoid?.invokeExact(
+                region,
+                WL_REGION_DESTROY_OPCODE,
+                MemorySegment.NULL,
+                WL_REGION_VERSION,
+                WL_MARSHAL_FLAG_DESTROY,
+            )
+        } catch (_: Throwable) {}
+    }
+}
+
+internal const val WAYLAND_OPAQUE_REGION_EXTENT: Int = Int.MAX_VALUE
+
+internal data class WaylandRegionRect(
+    val x: Int,
+    val y: Int,
+    val width: Int,
+    val height: Int,
+)
+
+internal fun waylandEmptyInputRegionRect(): WaylandRegionRect =
+    WaylandRegionRect(x = 0, y = 0, width = 0, height = 0)
+
+@Suppress("UNUSED_PARAMETER")
+internal fun waylandContentProtectionResult(protected: Boolean): WindowRequestResult =
+    WindowRequestResult.Success
+
+internal fun waylandApplyResizeIncrements(
+    size: PhysicalSize<Int>,
+    minSize: PhysicalSize<Int>?,
+    increments: PhysicalSize<Int>?,
+): PhysicalSize<Int> {
+    increments ?: return size
+    val widthIncrement = increments.width.takeIf { it > 0 } ?: return size
+    val heightIncrement = increments.height.takeIf { it > 0 } ?: return size
+    val baseWidth = minSize?.width ?: 0
+    val baseHeight = minSize?.height ?: 0
+    val deltaWidth = (size.width - baseWidth).coerceAtLeast(0)
+    val deltaHeight = (size.height - baseHeight).coerceAtLeast(0)
+    return PhysicalSize(
+        baseWidth + (deltaWidth / widthIncrement) * widthIncrement,
+        baseHeight + (deltaHeight / heightIncrement) * heightIncrement,
+    )
 }

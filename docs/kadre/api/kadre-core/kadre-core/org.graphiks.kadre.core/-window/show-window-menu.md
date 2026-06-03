@@ -10,11 +10,15 @@ Shows the platform window menu (system / title-bar context menu) at the given po
 Platform behaviour:
 
 -
-   Win32  : `TrackPopupMenu(GetSystemMenu(...))` when implemented.
+   Win32  : `TrackPopupMenu(GetSystemMenu(...))`.
+-
+   Wayland: `xdg_toplevel.show_window_menu` when an active pointer serial is available.
+-
+   AppKit/X11: success no-op, matching winit.
 -
    Others : [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md).
 
-Default implementation returns [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws. TODO R5-MiscWindow: wire in Win32 backend.
+Default implementation returns [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws. AppKit and X11 are success no-ops like winit.
 
 #### Parameters
 

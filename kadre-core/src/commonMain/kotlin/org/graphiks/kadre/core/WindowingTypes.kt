@@ -21,6 +21,7 @@ sealed interface RequestError {
     val message: String
 
     data class Unsupported(override val message: String = "Unsupported on this platform") : RequestError
+    data class Ignored(override val message: String = "Request ignored") : RequestError
     data class PermissionDenied(override val message: String = "Permission denied") : RequestError
     data class OsError(override val message: String) : RequestError
 }

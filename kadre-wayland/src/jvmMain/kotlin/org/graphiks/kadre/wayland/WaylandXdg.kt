@@ -35,8 +35,11 @@ internal class XdgToplevel private constructor(
     private val displayPtr: Long,
     private val xdgSurfacePtr: Long,
     private val xdgToplevelPtr: Long,
+    private val xdgDecorationPtr: Long,
     private val version: Int,
-    private val onResized: (Int, Int) -> Unit,
+    private val decorationVersion: Int,
+    private val onResized: (Int, Int, Boolean) -> Unit,
+    private val onStateConfigured: (WaylandToplevelConfigureStates) -> Unit,
     private val onClose: () -> Unit,
     private val arena: Arena,
 ) {
@@ -61,7 +64,20 @@ internal class XdgToplevel private constructor(
     /** xdg_toplevel.configure(width, height, states): a (0,0) size means "pick your own". */
     @Suppress("UNUSED_PARAMETER")
     fun onToplevelConfigure(data: MemorySegment, tl: MemorySegment, width: Int, height: Int, states: MemorySegment) {
-        if (width > 0 && height > 0) onResized(width, height)
+        val configureStates = waylandToplevelConfigureStates(states)
+        onStateConfigured(configureStates)
+        if (width > 0 && height > 0) {
+            onResized(
+                width,
+                height,
+                waylandShouldApplyResizeIncrements(
+                    isResizing = configureStates.resizing,
+                    isMaximized = configureStates.maximized,
+                    isFullscreen = configureStates.fullscreen,
+                    isTiled = configureStates.tiled,
+                ),
+            )
+        }
     }
 
     /** xdg_toplevel.close(): the user/compositor asked to close the window. */
@@ -77,6 +93,10 @@ internal class XdgToplevel private constructor(
     /** xdg_toplevel.wm_capabilities (since v5) — available compositor actions; unused. */
     @Suppress("UNUSED_PARAMETER")
     fun onToplevelWmCapabilities(data: MemorySegment, tl: MemorySegment, caps: MemorySegment) { /* no-op */ }
+
+    /** zxdg_toplevel_decoration_v1.configure(mode): compositor chose a decoration mode. */
+    @Suppress("UNUSED_PARAMETER")
+    fun onDecorationConfigure(data: MemorySegment, decoration: MemorySegment, mode: Int) { /* no-op */ }
 
     /** Sets the minimum size via xdg_toplevel.set_min_size(width, height). */
     fun setMinSize(width: Int, height: Int) {
@@ -100,6 +120,42 @@ internal class XdgToplevel private constructor(
             )
             Unit
         }
+    }
+
+    /** Starts compositor-managed interactive window movement. */
+    fun move(seatPtr: Long, serial: Int): Boolean {
+        val handle = wlProxyMarshalFlagsObjectUint ?: return false
+        return runCatching {
+            handle.invokeExact(
+                MemorySegment.ofAddress(xdgToplevelPtr), XDG_TOPLEVEL_MOVE,
+                MemorySegment.NULL, version, 0, MemorySegment.ofAddress(seatPtr), serial,
+            )
+            true
+        }.getOrDefault(false)
+    }
+
+    /** Shows the compositor-managed window menu at a surface-local logical position. */
+    fun showWindowMenu(seatPtr: Long, serial: Int, x: Int, y: Int): Boolean {
+        val handle = wlProxyMarshalFlagsObjectUintTwoInt ?: return false
+        return runCatching {
+            handle.invokeExact(
+                MemorySegment.ofAddress(xdgToplevelPtr), XDG_TOPLEVEL_SHOW_WINDOW_MENU,
+                MemorySegment.NULL, version, 0, MemorySegment.ofAddress(seatPtr), serial, x, y,
+            )
+            true
+        }.getOrDefault(false)
+    }
+
+    /** Starts compositor-managed interactive window resize. */
+    fun resize(seatPtr: Long, serial: Int, edges: Int): Boolean {
+        val handle = wlProxyMarshalFlagsObjectTwoUint ?: return false
+        return runCatching {
+            handle.invokeExact(
+                MemorySegment.ofAddress(xdgToplevelPtr), XDG_TOPLEVEL_RESIZE,
+                MemorySegment.NULL, version, 0, MemorySegment.ofAddress(seatPtr), serial, edges,
+            )
+            true
+        }.getOrDefault(false)
     }
 
     /** Requests that the toplevel be maximized. */
@@ -157,10 +213,39 @@ internal class XdgToplevel private constructor(
         }
     }
 
+    /** Requests server-side or client-side decoration mode when xdg-decoration is available. */
+    fun setDecorations(decorated: Boolean): Boolean {
+        if (xdgDecorationPtr == 0L) return false
+        val setMode = wlProxyMarshalFlagsUint ?: return false
+        return runCatching {
+            setMode.invokeExact(
+                MemorySegment.ofAddress(xdgDecorationPtr),
+                XDG_TOPLEVEL_DECORATION_SET_MODE,
+                MemorySegment.NULL,
+                decorationVersion,
+                0,
+                waylandDecorationMode(decorated),
+            )
+            true
+        }.getOrDefault(false)
+    }
+
     /** Tears down the toplevel then the surface (reverse creation order), freeing the upcalls. */
     fun destroy() {
         val destroy = wlProxyMarshalFlagsVoid
         if (destroy != null) {
+            if (xdgDecorationPtr != 0L) {
+                runCatching {
+                    destroy.invokeExact(
+                        MemorySegment.ofAddress(xdgDecorationPtr),
+                        XDG_TOPLEVEL_DECORATION_DESTROY,
+                        MemorySegment.NULL,
+                        decorationVersion,
+                        0,
+                    )
+                    Unit
+                }
+            }
             runCatching {
                 destroy.invokeExact(
                     MemorySegment.ofAddress(xdgToplevelPtr), XDG_TOPLEVEL_DESTROY, MemorySegment.NULL, version, 0,
@@ -188,9 +273,11 @@ internal class XdgToplevel private constructor(
             displayPtr: Long,
             wmBasePtr: Long,
             surfacePtr: Long,
-            onResized: (Int, Int) -> Unit,
+            onResized: (Int, Int, Boolean) -> Unit,
+            onStateConfigured: (WaylandToplevelConfigureStates) -> Unit = {},
             onClose: () -> Unit,
             decorationManagerPtr: Long = 0L,
+            decorated: Boolean = true,
         ): XdgToplevel? {
             if (wmBasePtr == 0L || surfacePtr == 0L) return null
             if (!WaylandXdgLib.loaded) return null
@@ -202,6 +289,7 @@ internal class XdgToplevel private constructor(
             val commit = wlProxyMarshalFlagsVoid ?: return null
             val roundtrip = wlDisplayRoundtrip ?: return null
 
+            var decorationForCleanup = 0L
             return try {
                 val wmBase = MemorySegment.ofAddress(wmBasePtr)
                 val surface = MemorySegment.ofAddress(surfacePtr)
@@ -227,31 +315,63 @@ internal class XdgToplevel private constructor(
                 // Request server-side decorations (titlebar + close/resize) when the compositor
                 // supports zxdg_decoration_manager_v1. Without this, Weston leaves the toplevel
                 // undecorated (clients are expected to draw their own).
+                var xdgDecorationPtr = 0L
+                var decorationVersion = 1
                 if (decorationManagerPtr != 0L) {
                     runCatching {
                         val manager = MemorySegment.ofAddress(decorationManagerPtr)
+                        decorationVersion = (getVersion.invokeExact(manager) as Int).coerceAtLeast(1)
                         val decoration = getXdgSurface.invokeExact(
-                            manager, XDG_DECORATION_MANAGER_GET_TOPLEVEL_DECORATION,
-                            zxdg_toplevel_decoration_v1_interface, version, 0, MemorySegment.NULL, xdgToplevel,
+                            manager,
+                            XDG_DECORATION_MANAGER_GET_TOPLEVEL_DECORATION,
+                            zxdg_toplevel_decoration_v1_interface,
+                            decorationVersion,
+                            0,
+                            MemorySegment.NULL,
+                            xdgToplevel,
                         ) as MemorySegment
                         if (decoration.address() != 0L) {
-                            val setMode = wlProxyMarshalFlagsUint
-                            if (setMode != null) {
-                                setMode.invokeExact(
-                                    decoration, XDG_TOPLEVEL_DECORATION_SET_MODE, MemorySegment.NULL, version, 0,
-                                    XDG_TOPLEVEL_DECORATION_MODE_SERVER_SIDE,
-                                )
-                            }
+                            xdgDecorationPtr = decoration.address()
+                            decorationForCleanup = xdgDecorationPtr
                         }
                     }
                 }
 
                 val arena = Arena.ofShared()
                 val bridge = XdgToplevel(
-                    displayPtr, xdgSurface.address(), xdgToplevel.address(), version, onResized, onClose, arena,
+                    displayPtr,
+                    xdgSurface.address(),
+                    xdgToplevel.address(),
+                    xdgDecorationPtr,
+                    version,
+                    decorationVersion,
+                    onResized,
+                    onStateConfigured,
+                    onClose,
+                    arena,
                 )
                 val lookup = MethodHandles.lookup()
                 val ptr = ValueLayout.ADDRESS.byteSize()
+
+                if (xdgDecorationPtr != 0L) {
+                    val decorationConfigure = upcallStub(
+                        lookup.findVirtual(
+                            XdgToplevel::class.java, "onDecorationConfigure",
+                            MethodType.methodType(
+                                Void.TYPE,
+                                MemorySegment::class.java,
+                                MemorySegment::class.java,
+                                Int::class.javaPrimitiveType,
+                            ),
+                        ).bindTo(bridge),
+                        FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT),
+                        arena,
+                    )
+                    val decorationListener = arena.allocate(ptr)
+                    decorationListener.set(ValueLayout.ADDRESS, 0L, decorationConfigure)
+                    addListener.invokeExact(MemorySegment.ofAddress(xdgDecorationPtr), decorationListener, MemorySegment.NULL) as Int
+                    bridge.setDecorations(decorated)
+                }
 
                 // struct xdg_surface_listener { configure } — 1 pointer.
                 val surfaceConfigure = upcallStub(
@@ -323,8 +443,80 @@ internal class XdgToplevel private constructor(
 
                 bridge
             } catch (_: Throwable) {
+                if (decorationForCleanup != 0L) {
+                    runCatching {
+                        wlProxyDestroy?.invokeExact(MemorySegment.ofAddress(decorationForCleanup))
+                        Unit
+                    }
+                }
                 null
             }
         }
+    }
+}
+
+internal data class WaylandToplevelConfigureStates(
+    val maximized: Boolean = false,
+    val fullscreen: Boolean = false,
+    val resizing: Boolean = false,
+    val tiled: Boolean = false,
+) {
+    fun isStateless(): Boolean =
+        !maximized && !fullscreen && !tiled
+}
+
+internal fun waylandShouldApplyResizeIncrements(
+    isResizing: Boolean,
+    isMaximized: Boolean,
+    isFullscreen: Boolean,
+    isTiled: Boolean,
+    constrain: Boolean = false,
+): Boolean =
+    (constrain || isResizing) && !isMaximized && !isFullscreen && !isTiled
+
+internal fun waylandDecorationMode(decorated: Boolean): Int =
+    if (decorated) {
+        XDG_TOPLEVEL_DECORATION_MODE_SERVER_SIDE
+    } else {
+        XDG_TOPLEVEL_DECORATION_MODE_CLIENT_SIDE
+    }
+
+private const val WAYLAND_WL_ARRAY_SIZE_OFFSET: Long = 0L
+private const val WAYLAND_WL_ARRAY_DATA_OFFSET: Long = 16L
+private const val XDG_TOPLEVEL_STATE_MAXIMIZED_VALUE: Int = 1
+private const val XDG_TOPLEVEL_STATE_FULLSCREEN_VALUE: Int = 2
+private const val XDG_TOPLEVEL_STATE_RESIZING_VALUE: Int = 3
+private const val XDG_TOPLEVEL_STATE_TILED_LEFT_VALUE: Int = 5
+private const val XDG_TOPLEVEL_STATE_TILED_RIGHT_VALUE: Int = 6
+private const val XDG_TOPLEVEL_STATE_TILED_TOP_VALUE: Int = 7
+private const val XDG_TOPLEVEL_STATE_TILED_BOTTOM_VALUE: Int = 8
+
+internal fun waylandToplevelConfigureStates(states: MemorySegment): WaylandToplevelConfigureStates {
+    if (states == MemorySegment.NULL) return WaylandToplevelConfigureStates()
+    return try {
+        val size = states.get(ValueLayout.JAVA_LONG, WAYLAND_WL_ARRAY_SIZE_OFFSET)
+        if (size <= 0L) return WaylandToplevelConfigureStates()
+        val data = states.get(ValueLayout.ADDRESS, WAYLAND_WL_ARRAY_DATA_OFFSET)
+        if (data == MemorySegment.NULL) return WaylandToplevelConfigureStates()
+        val items = data.reinterpret(size)
+        var maximized = false
+        var fullscreen = false
+        var resizing = false
+        var tiled = false
+        val count = (size / 4L).toInt()
+        for (index in 0 until count) {
+            when (items.getAtIndex(ValueLayout.JAVA_INT, index.toLong())) {
+                XDG_TOPLEVEL_STATE_MAXIMIZED_VALUE -> maximized = true
+                XDG_TOPLEVEL_STATE_FULLSCREEN_VALUE -> fullscreen = true
+                XDG_TOPLEVEL_STATE_RESIZING_VALUE -> resizing = true
+                XDG_TOPLEVEL_STATE_TILED_LEFT_VALUE,
+                XDG_TOPLEVEL_STATE_TILED_RIGHT_VALUE,
+                XDG_TOPLEVEL_STATE_TILED_TOP_VALUE,
+                XDG_TOPLEVEL_STATE_TILED_BOTTOM_VALUE -> tiled = true
+            }
+        }
+        WaylandToplevelConfigureStates(maximized, fullscreen, resizing, tiled)
+    } catch (_: Throwable) {
+        WaylandToplevelConfigureStates()
     }
 }
