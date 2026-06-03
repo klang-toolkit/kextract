@@ -18,6 +18,7 @@
  *  - XSetWMProtocols   — sets the WM protocols (e.g. WM_DELETE_WINDOW)
  *  - XMapWindow        — makes a window visible
  *  - XSendEvent        — sends a synthetic event (wakeUp ClientMessage)
+ *  - XQueryKeymap      — snapshots currently pressed keys
  *
  * Reference: https://www.x.org/releases/current/doc/libX11/libX11/libX11.html
  */
@@ -161,6 +162,24 @@ internal val xSelectInput: MethodHandle? by lazy {
             ValueLayout.ADDRESS,    // Display*
             ValueLayout.JAVA_LONG,  // Window (XID)
             ValueLayout.JAVA_LONG,  // long event_mask
+        )
+    )
+}
+
+// ── XQueryKeymap ─────────────────────────────────────────────────────────────
+
+/**
+ * int XQueryKeymap(Display *display, char keys_return[32]);
+ *
+ * Writes a 256-bit snapshot of currently pressed keycodes into keys_return.
+ */
+internal val xQueryKeymap: MethodHandle? by lazy {
+    libX11.downcall(
+        "XQueryKeymap",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int return
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.ADDRESS,    // char[32] keys_return
         )
     )
 }

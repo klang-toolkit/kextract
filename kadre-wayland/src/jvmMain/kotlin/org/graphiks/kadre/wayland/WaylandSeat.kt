@@ -108,6 +108,8 @@ private class WlOutputListener(
 private class WlKeyboardListener(
     private val onEvent: (WindowEvent) -> Unit,
 ) {
+    private val modifiers = WaylandKeyboardModifierTracker()
+
     @Suppress("UNUSED_PARAMETER")
     fun onKeymap(
         data: MemorySegment, keyboard: MemorySegment,
@@ -119,7 +121,7 @@ private class WlKeyboardListener(
         data: MemorySegment, keyboard: MemorySegment,
         serial: Int, surface: MemorySegment, keys: MemorySegment,
     ) {
-        onEvent(mapWaylandKeyboardFocused(true))
+        modifiers.mapFocusGained(waylandPressedKeysFromArray(keys)).forEach(onEvent)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -127,7 +129,7 @@ private class WlKeyboardListener(
         data: MemorySegment, keyboard: MemorySegment,
         serial: Int, surface: MemorySegment,
     ) {
-        onEvent(mapWaylandKeyboardFocused(false))
+        modifiers.mapFocusLost().forEach(onEvent)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -135,7 +137,7 @@ private class WlKeyboardListener(
         data: MemorySegment, keyboard: MemorySegment,
         serial: Int, time: Int, key: Int, state: Int,
     ) {
-        onEvent(mapWaylandKeyEvent(keycode = key, state = state))
+        modifiers.mapKey(keycode = key, state = state).forEach(onEvent)
     }
 
     @Suppress("UNUSED_PARAMETER")

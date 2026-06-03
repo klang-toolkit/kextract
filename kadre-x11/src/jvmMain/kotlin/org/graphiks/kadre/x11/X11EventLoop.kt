@@ -27,6 +27,7 @@ import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyEvent
 import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.KeyboardModifierState
 import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.LogicalKey
 import org.graphiks.kadre.core.MonitorHandle
@@ -92,6 +93,8 @@ private const val X11_SHIFT_MASK: Int = 0x0001
 private const val X11_CONTROL_MASK: Int = 0x0004
 private const val X11_MOD1_MASK: Int = 0x0008  // Alt
 private const val X11_MOD4_MASK: Int = 0x0040  // Super / Meta
+private const val X11_KEYMAP_SIZE: Long = 32L
+private const val X11_KEYMAP_BITS: Int = 256
 
 // X11 buttons
 private const val X11_BUTTON1: Int = 1
@@ -165,6 +168,7 @@ class X11EventLoop internal constructor(
 
     /** Live windows: windowId (XID) → X11Window. */
     internal val windows = ConcurrentHashMap<Long, X11Window>()
+    internal val keyboardModifierTracker = X11KeyboardModifierTracker()
 
     @Volatile
     private var _isExiting = false
@@ -267,7 +271,7 @@ class X11EventLoop internal constructor(
  * @param keysym X11 keysym (INT in XKeyEvent.keycode, translated via XLookupKeysym).
  * @return The corresponding kadre key code, or null if unrecognized.
  */
-private fun keysymToKeyCode(keysym: Int): KeyCode? = when (keysym) {
+internal fun keysymToKeyCode(keysym: Int): KeyCode? = when (keysym) {
     // Letters a-z (keysyms = lowercase ASCII codes 0x61–0x7A)
     in 0x61..0x7A -> KeyCode.entries[KeyCode.KeyA.ordinal + (keysym - 0x61)]
 
@@ -332,6 +336,43 @@ internal fun x11StateToModifiers(state: Int): KeyboardModifiers {
     return KeyboardModifiers(bits)
 }
 
+internal fun x11ModifierStateFromPressedKeycodes(keycodes: Iterable<Int>): KeyboardModifierState {
+    var state = X11KeyMapper.initialModifierState()
+    keycodes.forEach { keycode ->
+        val keyCode = x11KeycodeToKeyCode(keycode)
+        if (X11KeyMapper.isModifierKey(keyCode)) {
+            state = X11KeyMapper.modifierStateFrom(state, keyCode, KeyState.Pressed)
+        }
+    }
+    return state
+}
+
+internal fun x11PressedKeycodesFromKeymap(keymap: MemorySegment): List<Int> {
+    val snapshot = keymap.reinterpret(X11_KEYMAP_SIZE)
+    return (0 until X11_KEYMAP_BITS).filter { keycode ->
+        val bits = snapshot.get(ValueLayout.JAVA_BYTE, (keycode / 8).toLong()).toInt() and 0xFF
+        bits and (1 shl (keycode % 8)) != 0
+    }
+}
+
+private fun queryX11ModifierState(displayPtr: Long): KeyboardModifierState? {
+    val handle = xQueryKeymap ?: return null
+    if (displayPtr == 0L) return null
+    return try {
+        Arena.ofConfined().use { arena ->
+            val keymap = arena.allocate(X11_KEYMAP_SIZE)
+            val result = handle.invokeExact(MemorySegment.ofAddress(displayPtr), keymap) as Int
+            if (result == 0) {
+                null
+            } else {
+                x11ModifierStateFromPressedKeycodes(x11PressedKeycodesFromKeymap(keymap))
+            }
+        }
+    } catch (_: Throwable) {
+        null
+    }
+}
+
 internal object X11LiveRepeatTracker {
     private val pressedKeycodes = mutableSetOf<Int>()
 
@@ -390,6 +431,8 @@ private fun x11KeyInput(
  * For example: keycode 38 → 'a' (keysym 0x61) on a QWERTY keyboard.
  * This heuristic works for standard PC keyboards.
  */
+internal fun x11KeycodeToKeyCode(keycode: Int): KeyCode? = keysymToKeyCode(keycodeToKeysym(keycode))
+
 private fun keycodeToKeysym(keycode: Int): Int {
     // X11 keycode mapping (hardware + 8) → approximate keysym for QWERTY
     // X11 keycodes are layout-dependent — this is an approximation
@@ -510,7 +553,9 @@ private fun dispatchEvent(
             val state   = eventBuf.get(ValueLayout.JAVA_INT, XKEY_STATE_OFFSET)
             val keysym  = keycodeToKeysym(keycode)
             val mappedCode = keysymToKeyCode(keysym)
-            val mods    = x11StateToModifiers(state)
+            val modifierState = loop.keyboardModifierTracker.modifierStateFor(mappedCode, KeyState.Pressed)
+            loop.keyboardModifierTracker.modifiersChangedIfNeeded(modifierState)?.let { handler.windowEvent(loop, windowId, it) }
+            val mods = modifierState?.logical ?: x11StateToModifiers(state)
             val repeat = X11LiveRepeatTracker.update(keycode, KeyState.Pressed)
             handler.windowEvent(loop, windowId, x11KeyInput(keycode, keysym, mappedCode, KeyState.Pressed, mods, repeat))
         }
@@ -520,7 +565,9 @@ private fun dispatchEvent(
             val state   = eventBuf.get(ValueLayout.JAVA_INT, XKEY_STATE_OFFSET)
             val keysym  = keycodeToKeysym(keycode)
             val mappedCode = keysymToKeyCode(keysym)
-            val mods    = x11StateToModifiers(state)
+            val modifierState = loop.keyboardModifierTracker.modifierStateFor(mappedCode, KeyState.Released)
+            loop.keyboardModifierTracker.modifiersChangedIfNeeded(modifierState)?.let { handler.windowEvent(loop, windowId, it) }
+            val mods = modifierState?.logical ?: x11StateToModifiers(state)
             X11LiveRepeatTracker.update(keycode, KeyState.Released)
             handler.windowEvent(loop, windowId, x11KeyInput(keycode, keysym, mappedCode, KeyState.Released, mods))
         }
@@ -576,6 +623,19 @@ private fun dispatchEvent(
 
         LeaveNotify -> {
             handler.windowEvent(loop, windowId, WindowEvent.PointerLeft(null, xCrossingPosition(eventBuf), primary = true, kind = PointerKind.Mouse))
+        }
+
+        FocusIn -> {
+            queryX11ModifierState(loop.displayPtr)
+                ?.let(loop.keyboardModifierTracker::initializeIfNeeded)
+                ?.let { handler.windowEvent(loop, windowId, it) }
+            handler.windowEvent(loop, windowId, WindowEvent.Focused(gained = true))
+        }
+
+        FocusOut -> {
+            X11LiveRepeatTracker.reset()
+            loop.keyboardModifierTracker.resetIfNeeded()?.let { handler.windowEvent(loop, windowId, it) }
+            handler.windowEvent(loop, windowId, WindowEvent.Focused(gained = false))
         }
 
         // ── Window destruction ────────────────────────────────────────────────

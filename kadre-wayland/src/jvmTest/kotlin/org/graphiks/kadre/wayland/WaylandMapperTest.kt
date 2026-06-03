@@ -5,6 +5,7 @@ import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.ModifierKeyState
 import org.graphiks.kadre.core.MouseButton
 import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.PhysicalKey
@@ -12,6 +13,8 @@ import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.PointerSource
 import org.graphiks.kadre.core.WindowEvent
+import java.lang.foreign.Arena
+import java.lang.foreign.ValueLayout
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -61,6 +64,146 @@ class WaylandMapperTest {
     fun `unknown keycode preserves native physical key`() {
         val event = mapWaylandKeyEvent(999, WL_KEY_PRESSED).event
         assertEquals(PhysicalKey.Native(NativeKeyCode.Wayland(999)), event.physicalKey)
+    }
+
+    @Test
+    fun `modifier state tracks pressed and released sides`() {
+        val initial = waylandInitialModifierState()
+        val leftShift = waylandModifierStateFrom(initial, 42, KeyState.Pressed)
+        val bothShift = waylandModifierStateFrom(leftShift, 54, KeyState.Pressed)
+        val rightReleased = waylandModifierStateFrom(bothShift, 54, KeyState.Released)
+        val allReleased = waylandModifierStateFrom(rightReleased, 42, KeyState.Released)
+
+        assertTrue(leftShift.logical.shift)
+        assertEquals(ModifierKeyState.Pressed, leftShift.physical.leftShift)
+        assertEquals(ModifierKeyState.Pressed, bothShift.physical.leftShift)
+        assertEquals(ModifierKeyState.Pressed, bothShift.physical.rightShift)
+        assertTrue(rightReleased.logical.shift)
+        assertEquals(ModifierKeyState.Pressed, rightReleased.physical.leftShift)
+        assertEquals(ModifierKeyState.Released, rightReleased.physical.rightShift)
+        assertFalse(allReleased.logical.shift)
+    }
+
+    @Test
+    fun `modifier state tracks ctrl alt and meta sides`() {
+        val initial = waylandInitialModifierState()
+
+        val leftCtrl = waylandModifierStateFrom(initial, 29, KeyState.Pressed)
+        val rightCtrl = waylandModifierStateFrom(initial, 97, KeyState.Pressed)
+        val leftAlt = waylandModifierStateFrom(initial, 56, KeyState.Pressed)
+        val rightAlt = waylandModifierStateFrom(initial, 100, KeyState.Pressed)
+        val leftMeta = waylandModifierStateFrom(initial, 125, KeyState.Pressed)
+        val rightMeta = waylandModifierStateFrom(initial, 126, KeyState.Pressed)
+
+        assertTrue(leftCtrl.logical.ctrl)
+        assertEquals(ModifierKeyState.Pressed, leftCtrl.physical.leftCtrl)
+        assertTrue(rightCtrl.logical.ctrl)
+        assertEquals(ModifierKeyState.Pressed, rightCtrl.physical.rightCtrl)
+        assertTrue(leftAlt.logical.alt)
+        assertEquals(ModifierKeyState.Pressed, leftAlt.physical.leftAlt)
+        assertTrue(rightAlt.logical.alt)
+        assertEquals(ModifierKeyState.Pressed, rightAlt.physical.rightAlt)
+        assertTrue(leftMeta.logical.meta)
+        assertEquals(ModifierKeyState.Pressed, leftMeta.physical.leftMeta)
+        assertTrue(rightMeta.logical.meta)
+        assertEquals(ModifierKeyState.Pressed, rightMeta.physical.rightMeta)
+    }
+
+    @Test
+    fun `unchanged modifier state can be deduplicated by caller`() {
+        val initial = waylandInitialModifierState()
+        val firstRelease = waylandModifierStateFrom(initial, 29, KeyState.Released)
+        val pressed = waylandModifierStateFrom(initial, 29, KeyState.Pressed)
+        val repeatedPress = waylandModifierStateFrom(pressed, 29, KeyState.Pressed)
+
+        assertEquals(initial, firstRelease)
+        assertEquals(pressed, repeatedPress)
+    }
+
+    @Test
+    fun `keyboard tracker emits ModifiersChanged before modifier KeyInput`() {
+        val events = WaylandKeyboardModifierTracker().mapKey(42, WL_KEY_PRESSED)
+
+        val modifiersChanged = assertIs<WindowEvent.ModifiersChanged>(events[0])
+        val keyInput = assertIs<WindowEvent.KeyInput>(events[1])
+        assertTrue(modifiersChanged.state.logical.shift)
+        assertEquals(ModifierKeyState.Pressed, modifiersChanged.state.physical.leftShift)
+        assertEquals(KeyboardModifiers.Shift, keyInput.event.modifiers)
+        assertEquals(KeyState.Pressed, keyInput.event.state)
+    }
+
+    @Test
+    fun `keyboard tracker avoids duplicate modifier change events`() {
+        val tracker = WaylandKeyboardModifierTracker()
+        tracker.mapKey(29, WL_KEY_PRESSED)
+
+        val repeatedEvents = tracker.mapKey(29, WL_KEY_REPEATED)
+        val releaseEvents = tracker.mapKey(97, WL_KEY_RELEASED)
+
+        assertEquals(1, repeatedEvents.size)
+        assertIs<WindowEvent.KeyInput>(repeatedEvents.single())
+        assertEquals(1, releaseEvents.size)
+        assertIs<WindowEvent.KeyInput>(releaseEvents.single())
+    }
+
+    @Test
+    fun `keyboard tracker applies modifiers to non modifier key events`() {
+        val tracker = WaylandKeyboardModifierTracker()
+        tracker.mapKey(42, WL_KEY_PRESSED)
+
+        val event = assertIs<WindowEvent.KeyInput>(tracker.mapKey(30, WL_KEY_PRESSED).single()).event
+
+        assertEquals(KeyboardModifiers.Shift, event.modifiers)
+    }
+
+    @Test
+    fun `keyboard tracker resets modifiers before focus lost`() {
+        val tracker = WaylandKeyboardModifierTracker()
+        tracker.mapKey(125, WL_KEY_PRESSED)
+
+        val events = tracker.mapFocusLost()
+
+        val modifiersChanged = assertIs<WindowEvent.ModifiersChanged>(events[0])
+        val focused = assertIs<WindowEvent.Focused>(events[1])
+        assertEquals(KeyboardModifiers.NONE, modifiersChanged.state.logical)
+        assertEquals(ModifierKeyState.Released, modifiersChanged.state.physical.leftMeta)
+        assertFalse(focused.gained)
+    }
+
+    @Test
+    fun `keyboard tracker does not emit reset when modifiers are already clear`() {
+        val events = WaylandKeyboardModifierTracker().mapFocusLost()
+
+        assertEquals(1, events.size)
+        assertFalse(assertIs<WindowEvent.Focused>(events.single()).gained)
+    }
+
+    @Test
+    fun `keyboard tracker initializes modifiers from focus enter pressed keys`() {
+        val events = WaylandKeyboardModifierTracker().mapFocusGained(listOf(42, 29))
+
+        val modifiersChanged = assertIs<WindowEvent.ModifiersChanged>(events[0])
+        val focused = assertIs<WindowEvent.Focused>(events[1])
+        assertTrue(modifiersChanged.state.logical.shift)
+        assertTrue(modifiersChanged.state.logical.ctrl)
+        assertEquals(ModifierKeyState.Pressed, modifiersChanged.state.physical.leftShift)
+        assertEquals(ModifierKeyState.Pressed, modifiersChanged.state.physical.leftCtrl)
+        assertTrue(focused.gained)
+    }
+
+    @Test
+    fun `pressed keys parser reads wl array keycodes`() {
+        Arena.ofConfined().use { arena ->
+            val keyData = arena.allocate(ValueLayout.JAVA_INT, 2)
+            keyData.set(ValueLayout.JAVA_INT, 0L, 42)
+            keyData.set(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT.byteSize(), 29)
+            val wlArray = arena.allocate(24L)
+            wlArray.set(ValueLayout.JAVA_LONG, 0L, ValueLayout.JAVA_INT.byteSize() * 2)
+            wlArray.set(ValueLayout.JAVA_LONG, 8L, ValueLayout.JAVA_INT.byteSize() * 2)
+            wlArray.set(ValueLayout.ADDRESS, 16L, keyData)
+
+            assertEquals(listOf(42, 29), waylandPressedKeysFromArray(wlArray))
+        }
     }
 }
 class WaylandFocusedMapperTest {

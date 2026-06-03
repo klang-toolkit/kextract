@@ -10,8 +10,11 @@ import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyEvent
 import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.KeyboardModifierState
 import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.LogicalKey
+import org.graphiks.kadre.core.ModifierKeyState
+import org.graphiks.kadre.core.ModifierKeys
 import org.graphiks.kadre.core.NativeKeyInfo
 import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.NativeLogicalKey
@@ -104,6 +107,60 @@ object X11KeyMapper {
         pressedKeys.clear()
     }
 
+    fun isModifierKey(keyCode: KeyCode?): Boolean = keyCode in modifierKeys
+
+    fun initialModifierState(): KeyboardModifierState =
+        KeyboardModifierState(
+            logical = KeyboardModifiers.NONE,
+            physical = ModifierKeys(
+                leftShift = ModifierKeyState.Released,
+                rightShift = ModifierKeyState.Released,
+                leftCtrl = ModifierKeyState.Released,
+                rightCtrl = ModifierKeyState.Released,
+                leftAlt = ModifierKeyState.Released,
+                rightAlt = ModifierKeyState.Released,
+                leftMeta = ModifierKeyState.Released,
+                rightMeta = ModifierKeyState.Released,
+            ),
+        )
+
+    fun modifierStateFrom(previousState: KeyboardModifierState, keyCode: KeyCode?, state: KeyState): KeyboardModifierState {
+        val keyState = when (state) {
+            KeyState.Pressed -> ModifierKeyState.Pressed
+            KeyState.Released -> ModifierKeyState.Released
+        }
+        val previous = previousState.physical
+        val physical = when (keyCode) {
+            KeyCode.ShiftLeft -> previous.copy(leftShift = keyState)
+            KeyCode.ShiftRight -> previous.copy(rightShift = keyState)
+            KeyCode.ControlLeft -> previous.copy(leftCtrl = keyState)
+            KeyCode.ControlRight -> previous.copy(rightCtrl = keyState)
+            KeyCode.AltLeft -> previous.copy(leftAlt = keyState)
+            KeyCode.AltRight -> previous.copy(rightAlt = keyState)
+            KeyCode.MetaLeft -> previous.copy(leftMeta = keyState)
+            KeyCode.MetaRight -> previous.copy(rightMeta = keyState)
+            else -> previous
+        }
+        return KeyboardModifierState(logical = logicalModifiersFrom(physical), physical = physical)
+    }
+
+    private fun logicalModifiersFrom(physical: ModifierKeys): KeyboardModifiers {
+        var mods = KeyboardModifiers.NONE
+        if (physical.leftShift == ModifierKeyState.Pressed || physical.rightShift == ModifierKeyState.Pressed) {
+            mods += KeyboardModifiers.Shift
+        }
+        if (physical.leftCtrl == ModifierKeyState.Pressed || physical.rightCtrl == ModifierKeyState.Pressed) {
+            mods += KeyboardModifiers.Ctrl
+        }
+        if (physical.leftAlt == ModifierKeyState.Pressed || physical.rightAlt == ModifierKeyState.Pressed) {
+            mods += KeyboardModifiers.Alt
+        }
+        if (physical.leftMeta == ModifierKeyState.Pressed || physical.rightMeta == ModifierKeyState.Pressed) {
+            mods += KeyboardModifiers.Meta
+        }
+        return mods
+    }
+
     fun fromXEvent(
         eventSegment: MemorySegment,
         eventType: Int,
@@ -122,7 +179,12 @@ object X11KeyMapper {
 
         val mappedCode = if (keysym != 0) KEYSYM_TABLE[keysym] else null
         val keyState = if (isPressed) KeyState.Pressed else KeyState.Released
-        val modifiers = stateToModifiers(state)
+        val modifierState = if (isModifierKey(mappedCode)) {
+            modifierStateFrom(initialModifierState(), mappedCode, keyState)
+        } else {
+            null
+        }
+        val modifiers = modifierState?.logical ?: stateToModifiers(state)
         val native = NativeKeyInfo(
             platform = KeyPlatform.X11,
             scanCode = keycode.toLong(),
@@ -145,5 +207,47 @@ object X11KeyMapper {
             ),
             deviceId = null,
         )
+    }
+
+    private val modifierKeys = setOf(
+        KeyCode.ShiftLeft,
+        KeyCode.ShiftRight,
+        KeyCode.ControlLeft,
+        KeyCode.ControlRight,
+        KeyCode.AltLeft,
+        KeyCode.AltRight,
+        KeyCode.MetaLeft,
+        KeyCode.MetaRight,
+    )
+}
+
+internal class X11KeyboardModifierTracker {
+    private var modifierState = X11KeyMapper.initialModifierState()
+
+    fun initializeIfNeeded(nextState: KeyboardModifierState): WindowEvent.ModifiersChanged? {
+        if (nextState == modifierState) return null
+        modifierState = nextState
+        return WindowEvent.ModifiersChanged(nextState)
+    }
+
+    fun modifierStateFor(keyCode: KeyCode?, state: KeyState): KeyboardModifierState? =
+        if (X11KeyMapper.isModifierKey(keyCode)) {
+            X11KeyMapper.modifierStateFrom(modifierState, keyCode, state)
+        } else {
+            null
+        }
+
+    fun modifiersChangedIfNeeded(nextState: KeyboardModifierState?): WindowEvent.ModifiersChanged? {
+        nextState ?: return null
+        if (nextState == modifierState) return null
+        modifierState = nextState
+        return WindowEvent.ModifiersChanged(nextState)
+    }
+
+    fun resetIfNeeded(): WindowEvent.ModifiersChanged? {
+        val initial = X11KeyMapper.initialModifierState()
+        if (modifierState == initial) return null
+        modifierState = initial
+        return WindowEvent.ModifiersChanged(initial)
     }
 }

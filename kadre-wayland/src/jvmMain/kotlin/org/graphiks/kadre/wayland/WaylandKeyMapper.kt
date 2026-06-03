@@ -11,8 +11,11 @@ import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyEvent
 import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.KeyboardModifierState
 import org.graphiks.kadre.core.KeyboardModifiers
 import org.graphiks.kadre.core.LogicalKey
+import org.graphiks.kadre.core.ModifierKeyState
+import org.graphiks.kadre.core.ModifierKeys
 import org.graphiks.kadre.core.NativeKeyInfo
 import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.NativeLogicalKey
@@ -20,6 +23,8 @@ import org.graphiks.kadre.core.PhysicalKey
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.defaultLogicalKey
 import org.graphiks.kadre.core.defaultText
+import java.lang.foreign.MemorySegment
+import java.lang.foreign.ValueLayout
 
 internal const val WL_KEY_RELEASED: Int = 0
 internal const val WL_KEY_PRESSED: Int = 1
@@ -99,6 +104,47 @@ private val KEYCODE_TABLE: Map<Int, KeyCode> = mapOf(
 
 fun linuxKeycodeToKeyCode(keycode: Int): KeyCode? = KEYCODE_TABLE[keycode]
 
+internal fun waylandInitialModifierState(): KeyboardModifierState =
+    KeyboardModifierState(
+        logical = KeyboardModifiers.NONE,
+        physical = ModifierKeys(
+            leftShift = ModifierKeyState.Released,
+            rightShift = ModifierKeyState.Released,
+            leftCtrl = ModifierKeyState.Released,
+            rightCtrl = ModifierKeyState.Released,
+            leftAlt = ModifierKeyState.Released,
+            rightAlt = ModifierKeyState.Released,
+            leftMeta = ModifierKeyState.Released,
+            rightMeta = ModifierKeyState.Released,
+        ),
+    )
+
+internal fun isWaylandModifierKey(keycode: Int): Boolean = keycode in MODIFIER_KEYCODES
+
+internal fun waylandModifierStateFrom(
+    previous: KeyboardModifierState,
+    keycode: Int,
+    state: KeyState,
+): KeyboardModifierState {
+    val keyState = when (state) {
+        KeyState.Pressed -> ModifierKeyState.Pressed
+        KeyState.Released -> ModifierKeyState.Released
+    }
+    val previousPhysical = previous.physical
+    val physical = when (keycode) {
+        KEY_LEFT_SHIFT -> previousPhysical.copy(leftShift = keyState)
+        KEY_RIGHT_SHIFT -> previousPhysical.copy(rightShift = keyState)
+        KEY_LEFT_CTRL -> previousPhysical.copy(leftCtrl = keyState)
+        KEY_RIGHT_CTRL -> previousPhysical.copy(rightCtrl = keyState)
+        KEY_LEFT_ALT -> previousPhysical.copy(leftAlt = keyState)
+        KEY_RIGHT_ALT -> previousPhysical.copy(rightAlt = keyState)
+        KEY_LEFT_META -> previousPhysical.copy(leftMeta = keyState)
+        KEY_RIGHT_META -> previousPhysical.copy(rightMeta = keyState)
+        else -> previousPhysical
+    }
+    return KeyboardModifierState(logical = waylandLogicalModifiersFrom(physical), physical = physical)
+}
+
 fun linuxKeycodeToPhysicalKey(keycode: Int): PhysicalKey = linuxKeycodeToKeyCode(keycode)?.let(PhysicalKey::Code)
     ?: PhysicalKey.Native(NativeKeyCode.Wayland(keycode.toLong()))
 
@@ -136,3 +182,117 @@ fun mapWaylandKeyEvent(
 }
 
 fun mapWaylandKeyboardFocused(focused: Boolean): WindowEvent.Focused = WindowEvent.Focused(focused)
+
+internal class WaylandKeyboardModifierTracker {
+    private var modifierState = waylandInitialModifierState()
+
+    fun mapFocusGained(pressedKeycodes: Iterable<Int>): List<WindowEvent> {
+        val nextModifierState = modifierStateFromPressedKeys(pressedKeycodes)
+        val events = mutableListOf<WindowEvent>()
+        if (nextModifierState != modifierState) {
+            modifierState = nextModifierState
+            events += WindowEvent.ModifiersChanged(nextModifierState)
+        }
+        events += mapWaylandKeyboardFocused(true)
+        return events
+    }
+
+    fun mapKey(keycode: Int, state: Int): List<WindowEvent> {
+        val keyState = waylandKeyStateToKeyState(state)
+        val nextModifierState = if (isWaylandModifierKey(keycode)) {
+            waylandModifierStateFrom(modifierState, keycode, keyState)
+        } else {
+            modifierState
+        }
+        val events = mutableListOf<WindowEvent>()
+        if (nextModifierState != modifierState) {
+            modifierState = nextModifierState
+            events += WindowEvent.ModifiersChanged(nextModifierState)
+        }
+        events += mapWaylandKeyEvent(
+            keycode = keycode,
+            state = state,
+            modifiers = modifierState.logical,
+        )
+        return events
+    }
+
+    fun mapFocusLost(): List<WindowEvent> {
+        val initial = waylandInitialModifierState()
+        return if (modifierState == initial) {
+            listOf(mapWaylandKeyboardFocused(false))
+        } else {
+            modifierState = initial
+            listOf(WindowEvent.ModifiersChanged(initial), mapWaylandKeyboardFocused(false))
+        }
+    }
+}
+
+internal fun waylandPressedKeysFromArray(keys: MemorySegment): List<Int> {
+    if (keys == MemorySegment.NULL || keys.address() == 0L) return emptyList()
+    return try {
+        val array = keys.reinterpret(WL_ARRAY_SIZE)
+        val size = array.get(ValueLayout.JAVA_LONG, WL_ARRAY_SIZE_OFFSET)
+        val data = array.get(ValueLayout.ADDRESS, WL_ARRAY_DATA_OFFSET)
+        if (size <= 0L || data == MemorySegment.NULL || data.address() == 0L) return emptyList()
+        val count = size / ValueLayout.JAVA_INT.byteSize()
+        if (count <= 0L) return emptyList()
+        val keyData = data.reinterpret(count * ValueLayout.JAVA_INT.byteSize())
+        (0 until count).map { index ->
+            keyData.get(ValueLayout.JAVA_INT, index * ValueLayout.JAVA_INT.byteSize())
+        }
+    } catch (_: Throwable) {
+        emptyList()
+    }
+}
+
+private fun modifierStateFromPressedKeys(pressedKeycodes: Iterable<Int>): KeyboardModifierState {
+    var state = waylandInitialModifierState()
+    pressedKeycodes.forEach { keycode ->
+        if (isWaylandModifierKey(keycode)) {
+            state = waylandModifierStateFrom(state, keycode, KeyState.Pressed)
+        }
+    }
+    return state
+}
+
+private fun waylandLogicalModifiersFrom(physical: ModifierKeys): KeyboardModifiers {
+    var mods = KeyboardModifiers.NONE
+    if (physical.leftShift == ModifierKeyState.Pressed || physical.rightShift == ModifierKeyState.Pressed) {
+        mods += KeyboardModifiers.Shift
+    }
+    if (physical.leftCtrl == ModifierKeyState.Pressed || physical.rightCtrl == ModifierKeyState.Pressed) {
+        mods += KeyboardModifiers.Ctrl
+    }
+    if (physical.leftAlt == ModifierKeyState.Pressed || physical.rightAlt == ModifierKeyState.Pressed) {
+        mods += KeyboardModifiers.Alt
+    }
+    if (physical.leftMeta == ModifierKeyState.Pressed || physical.rightMeta == ModifierKeyState.Pressed) {
+        mods += KeyboardModifiers.Meta
+    }
+    return mods
+}
+
+private const val KEY_LEFT_SHIFT = 42
+private const val KEY_RIGHT_SHIFT = 54
+private const val KEY_LEFT_CTRL = 29
+private const val KEY_RIGHT_CTRL = 97
+private const val KEY_LEFT_ALT = 56
+private const val KEY_RIGHT_ALT = 100
+private const val KEY_LEFT_META = 125
+private const val KEY_RIGHT_META = 126
+
+private val MODIFIER_KEYCODES = setOf(
+    KEY_LEFT_SHIFT,
+    KEY_RIGHT_SHIFT,
+    KEY_LEFT_CTRL,
+    KEY_RIGHT_CTRL,
+    KEY_LEFT_ALT,
+    KEY_RIGHT_ALT,
+    KEY_LEFT_META,
+    KEY_RIGHT_META,
+)
+
+private const val WL_ARRAY_SIZE_OFFSET = 0L
+private const val WL_ARRAY_DATA_OFFSET = 16L
+private const val WL_ARRAY_SIZE = 24L
