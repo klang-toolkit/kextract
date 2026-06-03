@@ -37,6 +37,10 @@ import java.lang.invoke.MethodHandle
 
 // ── Lazy loading of the libraries ─────────────────────────────────────────────
 
+private fun waylandNativeDisabled(): Boolean =
+    System.getenv("KADRE_WAYLAND_DISABLE_NATIVE") == "1" ||
+        System.getProperty("kadre.wayland.disableNative") == "true"
+
 /**
  * Lookup of libwayland-client.so.0 — null on non-Wayland platforms.
  *
@@ -45,6 +49,7 @@ import java.lang.invoke.MethodHandle
  * and we want the build to stay green in all cases.
  */
 internal val libWaylandClient: SymbolLookup? by lazy {
+    if (waylandNativeDisabled()) return@lazy null
     try {
         SymbolLookup.libraryLookup("libwayland-client.so.0", Arena.global())
     } catch (e: Throwable) {
@@ -65,6 +70,7 @@ internal val libC: SymbolLookup? by lazy {
  * Lookup of libxkbcommon.so.0 — null on non-Wayland platforms.
  */
 internal val libXkbCommon: SymbolLookup? by lazy {
+    if (waylandNativeDisabled()) return@lazy null
     try {
         SymbolLookup.libraryLookup("libxkbcommon.so.0", Arena.global())
     } catch (e: Throwable) {

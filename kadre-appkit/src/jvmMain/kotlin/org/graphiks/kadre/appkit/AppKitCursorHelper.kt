@@ -48,16 +48,19 @@ internal object AppKitCursorHelper {
     /**
      * Sets the cursor grab mode.
      *
-     * - [CursorGrabMode.Confined] / [CursorGrabMode.Locked]:
+     * - [CursorGrabMode.Locked]:
      *   calls `CGAssociateMouseAndMouseCursorPosition(false)` — raw delta mode.
      * - [CursorGrabMode.None]: calls `CGAssociateMouseAndMouseCursorPosition(true)`.
+     * - [CursorGrabMode.Confined]: unsupported, matching winit.
      */
     fun setGrabMode(mode: CursorGrabMode): WindowRequestResult =
         try {
+            val connected = cursorAssociationValue(mode) ?: return WindowRequestResult.Failure(
+                RequestError.Unsupported("AppKit confined cursor grab is unsupported"),
+            )
             val associate = cgAssociate ?: return WindowRequestResult.Failure(
                 RequestError.Unsupported("CoreGraphics cursor association is unavailable"),
             )
-            val connected = if (mode == CursorGrabMode.None) 1 else 0
             val result = associate.invokeExact(connected) as Int
             if (result == 0) {
                 WindowRequestResult.Success
@@ -66,6 +69,13 @@ internal object AppKitCursorHelper {
             }
         } catch (t: Throwable) {
             WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "CoreGraphics cursor grab failed"))
+        }
+
+    internal fun cursorAssociationValue(mode: CursorGrabMode): Int? =
+        when (mode) {
+            CursorGrabMode.None -> 1
+            CursorGrabMode.Locked -> 0
+            CursorGrabMode.Confined -> null
         }
 
     /**

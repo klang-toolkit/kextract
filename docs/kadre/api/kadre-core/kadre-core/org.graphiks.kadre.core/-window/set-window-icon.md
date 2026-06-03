@@ -16,7 +16,9 @@ Passing null resets to the default icon. Behaviour is best-effort:
 -
    X11:    sets `_NET_WM_ICON`.
 -
-   Others: no-op. Never throws.
+   Wayland: currently no-op in Kadre; winit can use `xdg_toplevel_icon_manager_v1` when the compositor exposes it.
+-
+   Web/mobile: no-op. Never throws.
 
 #### Parameters
 

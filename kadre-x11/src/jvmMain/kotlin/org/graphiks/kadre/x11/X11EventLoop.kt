@@ -94,10 +94,6 @@ private const val XDESTROY_WINDOW_OFFSET: Long = 40L // Window window
 // XVisibilityEvent offsets (type=VisibilityNotify)
 private const val XVISIBILITY_STATE_OFFSET: Long = 40L // int state
 
-// XClientMessageEvent offsets (type=ClientMessage)
-private const val XCLIENT_MESSAGE_TYPE_OFFSET: Long = 40L  // Atom message_type (unsigned long)
-private const val XCLIENT_DATA_L0_OFFSET: Long = 56L       // long data.l[0]
-
 // X11 modifiers
 private const val X11_SHIFT_MASK: Int = 0x0001
 private const val X11_CONTROL_MASK: Int = 0x0004
@@ -683,8 +679,8 @@ private fun dispatchEvent(
 
         // ── ClientMessage (WM close + wakeUp) ─────────────────────────────────
         ClientMessage -> {
-            val messageType = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_MESSAGE_TYPE_OFFSET)
-            if (messageType == wmDeleteWindow) {
+            val data0 = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L0_OFFSET)
+            if (data0 == wmDeleteWindow) {
                 handler.windowEvent(loop, windowId, WindowEvent.CloseRequested)
             }
             // The wakeUp ClientMessages (KADRE_WAKEUP_TYPE) are simply ignored —

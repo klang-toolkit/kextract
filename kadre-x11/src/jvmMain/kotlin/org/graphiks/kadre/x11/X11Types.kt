@@ -30,3 +30,11 @@ internal const val ExposureMask: Long = 32768L
 internal const val StructureNotifyMask: Long = 131072L
 internal const val SubstructureNotifyMask: Long = 524288L
 internal const val SubstructureRedirectMask: Long = 1048576L
+
+// XClientMessageEvent LP64 offsets within the XEvent union.
+internal const val XCLIENT_SEND_EVENT_OFFSET: Long = 16L
+internal const val XCLIENT_DISPLAY_OFFSET: Long = 24L
+internal const val XCLIENT_WINDOW_OFFSET: Long = 32L
+internal const val XCLIENT_MESSAGE_TYPE_OFFSET: Long = 40L
+internal const val XCLIENT_FORMAT_OFFSET: Long = 48L
+internal const val XCLIENT_DATA_L0_OFFSET: Long = 56L

@@ -7,6 +7,7 @@ import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.Theme
+import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowRequestResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -104,6 +105,14 @@ class X11WindowTest {
         assertEquals(false, x11TransparencyRequiresNativeUpdate(false))
         assertEquals(false, x11BlurRequiresNativeUpdate(true))
         assertEquals(false, x11BlurRequiresNativeUpdate(false))
+    }
+
+    @Test
+    fun `X11 enabled buttons are all after set like winit`() {
+        assertEquals(WindowButtons.ALL, x11EnabledButtons())
+        assertEquals(WindowButtons.ALL, x11EnabledButtonsAfterSet(WindowButtons.NONE))
+        assertEquals(WindowButtons.ALL, x11EnabledButtonsAfterSet(WindowButtons.CLOSE))
+        assertEquals(WindowButtons.ALL, x11EnabledButtonsAfterSet(WindowButtons.ALL))
     }
 
     @Test
@@ -410,6 +419,14 @@ class X11WindowTest {
         assertEquals(240L, hints.elements[6])
         assertEquals(1920L, hints.elements[7])
         assertEquals(1080L, hints.elements[8])
+    }
+
+    @Test
+    fun `X11 setResizable is a full no-op under Xfwm4 like winit`() {
+        assertNull(x11ResizableChangeAfterRequest(current = true, requested = false, isXfwm4 = true))
+        assertNull(x11ResizableChangeAfterRequest(current = false, requested = true, isXfwm4 = true))
+        assertEquals(false, x11ResizableChangeAfterRequest(current = true, requested = false, isXfwm4 = false))
+        assertEquals(true, x11ResizableChangeAfterRequest(current = false, requested = true, isXfwm4 = false))
     }
 
     @Test

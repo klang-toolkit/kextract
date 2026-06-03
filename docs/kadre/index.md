@@ -50,8 +50,8 @@ Goal: expose native handles (`NSView`, `UIView`, `android.view.Surface`) that a 
 | systemTheme() | real | real | null | null | real | real | real |
 | setTheme() per-window | real | real | real (_GTK_THEME_VARIANT) | no-op | no-op | no-op | no-op |
 | ThemeChanged event | real | real | — | — | — | — | — |
-| setBlur() | real | real | no-op | no-op | no-op | no-op | no-op |
-| setWindowIcon() | no-op | real | real | no-op | no-op | no-op | no-op |
+| setBlur() | real | no-op runtime | no-op | deferred optional protocol | no-op | no-op | no-op |
+| setWindowIcon() | no-op | real | real | deferred optional protocol | no-op | no-op | no-op |
 | ModifiersChanged event | real | real | real* | real* | real | real | real |
 | IME (setImeAllowed etc.) | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
 | DnD events | TODO | TODO | TODO | TODO | TODO | TODO | TODO |

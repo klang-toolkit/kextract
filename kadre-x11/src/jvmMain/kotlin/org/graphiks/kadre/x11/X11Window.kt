@@ -33,6 +33,7 @@ import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.UserAttentionType
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.WindowRequestResult
@@ -222,6 +223,20 @@ class X11Window private constructor(
 
     override val isResizable: Boolean get() = _isResizable
 
+    /**
+     * No-op on X11, matching winit.
+     *
+     * The local winit X11 backend accepts the request and continues reporting
+     * all window buttons enabled.
+     */
+    override fun setEnabledButtons(buttons: WindowButtons) {
+        @Suppress("UNUSED_EXPRESSION")
+        x11EnabledButtonsAfterSet(buttons)
+    }
+
+    override val enabledButtons: WindowButtons
+        get() = x11EnabledButtons()
+
     @Volatile private var _isMinimized: Boolean = false
 
     override val isMinimized: Boolean? get() =
@@ -252,9 +267,14 @@ class X11Window private constructor(
     }
 
     override fun setResizable(resizable: Boolean) {
-        _isResizable = resizable
+        val newResizable = x11ResizableChangeAfterRequest(
+            current = _isResizable,
+            requested = resizable,
+            isXfwm4 = isXfwm4WindowManager(),
+        ) ?: return
+        _isResizable = newResizable
         applyNormalHints()
-        setMotifMaximizable(resizable)
+        setMotifMaximizable(newResizable)
     }
 
     override fun setMinimized(minimized: Boolean) {
@@ -1887,6 +1907,23 @@ internal fun x11TransparencyRequiresNativeUpdate(transparent: Boolean): Boolean 
 
 @Suppress("UNUSED_PARAMETER")
 internal fun x11BlurRequiresNativeUpdate(blur: Boolean): Boolean = false
+
+@Suppress("UNUSED_PARAMETER")
+internal fun x11ResizableChangeAfterRequest(
+    current: Boolean,
+    requested: Boolean,
+    isXfwm4: Boolean,
+): Boolean? =
+    if (isXfwm4) {
+        null
+    } else {
+        requested
+    }
+
+@Suppress("UNUSED_PARAMETER")
+internal fun x11EnabledButtonsAfterSet(buttons: WindowButtons): WindowButtons = WindowButtons.ALL
+
+internal fun x11EnabledButtons(): WindowButtons = WindowButtons.ALL
 
 internal fun x11InitialPosition(position: PhysicalPosition<Int>?): PhysicalPosition<Int> =
     position ?: PhysicalPosition(0, 0)

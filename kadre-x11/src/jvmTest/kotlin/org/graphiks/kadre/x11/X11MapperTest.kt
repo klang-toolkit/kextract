@@ -415,10 +415,23 @@ class X11DrawMapperTest {
             val wmDelete = 0x1234_5678L
             val seg = xEventSegment(arena)
                 .setType(ClientMessage)
-                .setLong(64L, wmDelete)   // data.l[0] = wmDeleteWindow
+                .setLong(XCLIENT_DATA_L0_OFFSET, wmDelete)   // data.l[0] = wmDeleteWindow
 
             val event = X11DrawMapper.fromXEvent(seg, ClientMessage, null, wmDelete)
             assertEquals(WindowEvent.CloseRequested, event)
+        }
+    }
+
+    @Test
+    fun `ClientMessage ignores stale non-canonical data offset`() {
+        Arena.ofConfined().use { arena ->
+            val wmDelete = 0x1234_5678L
+            val seg = xEventSegment(arena)
+                .setType(ClientMessage)
+                .setLong(64L, wmDelete)
+
+            val event = X11DrawMapper.fromXEvent(seg, ClientMessage, null, wmDelete)
+            assertNull(event)
         }
     }
 
@@ -428,7 +441,7 @@ class X11DrawMapperTest {
             val wmDelete = 0x1234_5678L
             val seg = xEventSegment(arena)
                 .setType(ClientMessage)
-                .setLong(64L, 0x9999L)   // different from wmDeleteWindow
+                .setLong(XCLIENT_DATA_L0_OFFSET, 0x9999L)   // different from wmDeleteWindow
 
             val event = X11DrawMapper.fromXEvent(seg, ClientMessage, null, wmDelete)
             assertNull(event)

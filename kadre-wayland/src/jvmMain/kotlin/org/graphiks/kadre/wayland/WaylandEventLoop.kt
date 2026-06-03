@@ -142,9 +142,12 @@ class WaylandEventLoop internal constructor(
     }
 
     /**
-     * Returns the primary monitor (the single synthetic monitor).
+     * Returns null because Wayland has no global primary-monitor concept.
+     *
+     * This matches winit's Wayland backend. [availableMonitors] may still expose
+     * synthetic output data, but that must not be promoted to a primary monitor.
      */
-    override fun primaryMonitor(): MonitorHandle? = availableMonitors().firstOrNull()
+    override fun primaryMonitor(): MonitorHandle? = null
 
     // ── R3: system theme ──────────────────────────────────────────────────────
 

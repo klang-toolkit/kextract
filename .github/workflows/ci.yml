@@ -439,8 +439,12 @@ jobs:
         run: chmod +x gradlew
 
       # No display needed: the tests compile and run without a Wayland
-      # compositor (wl_display_connect returns null → tests skipped).
+      # compositor. Native Wayland loading is disabled because ubuntu-latest
+      # has libwayland-client installed but no compositor, which makes native
+      # smoke tests unsafe; compositor-backed tests live in visual workflows.
       - name: Build Wayland modules + JVM tests
+        env:
+          KADRE_WAYLAND_DISABLE_NATIVE: '1'
         run: |
           ./gradlew \
             :kadre-core:jvmTest \

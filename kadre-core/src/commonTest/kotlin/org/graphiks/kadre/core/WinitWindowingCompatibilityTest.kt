@@ -109,6 +109,18 @@ class WinitWindowingCompatibilityTest {
         assertNull(window.isMinimized)
     }
 
+    @Test
+    fun `Wayland optional appearance protocols are explicitly tracked`() {
+        val note = compatibilityMatrix.single {
+            it.winitApi == "Window appearance/state setters"
+        }.note
+
+        assertTrue(note.contains("xdg_activation_v1"))
+        assertTrue(note.contains("xdg_toplevel_icon_manager_v1"))
+        assertTrue(note.contains("ext_background_effect"))
+        assertTrue(note.contains("KWin blur"))
+    }
+
     private companion object {
         const val targetWinitCommit = "c4afadbfabf7b1e7989b40b493db1a4c7bd8ff4e"
 
@@ -199,7 +211,7 @@ class WinitWindowingCompatibilityTest {
                 winitApi = "Window appearance/state setters",
                 kadreApi = "setWindowLevel, requestUserAttention, setTheme, theme, setTransparent, setBlur, setWindowIcon, setContentProtected",
                 status = WinitWindowingStatus.Deferred,
-                note = "Kadre exposes these methods; requestUserAttention and setContentProtected now return typed WindowRequestResult failures on unsupported backends. setWindowIcon is implemented on Win32/X11 and intentionally no-op on AppKit like winit. X11 setTheme writes _GTK_THEME_VARIANT like winit while theme remains null; other appearance setters still need the same fallible-result audit.",
+                note = "Kadre exposes these methods; requestUserAttention and setContentProtected now return typed WindowRequestResult failures on unsupported backends. setWindowIcon is implemented on Win32/X11 and intentionally no-op on AppKit like winit. Wayland still lacks winit's optional xdg_activation_v1 attention path, xdg_toplevel_icon_manager_v1 icon path, and ext_background_effect / KWin blur protocols. X11 setTheme writes _GTK_THEME_VARIANT like winit while theme remains null; other appearance setters still need the same fallible-result audit.",
             ),
             WinitWindowingApi(
                 winitApi = "Window reset_dead_keys",

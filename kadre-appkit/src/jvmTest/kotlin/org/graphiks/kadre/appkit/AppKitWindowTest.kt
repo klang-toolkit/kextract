@@ -5,10 +5,12 @@ import org.graphiks.kadre.appkit.bindings.NSWindow
 import org.graphiks.kadre.appkit.bindings.NSWindowButton
 import org.graphiks.kadre.appkit.bindings.NSWindowSharingType
 import org.graphiks.kadre.appkit.bindings.NSWindowStyleMask
+import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
+import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.UserAttentionType
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -143,6 +145,17 @@ class AppKitWindowTest {
     @Test
     fun `AppKit window menu is a success no-op like winit`() {
         assertEquals(WindowRequestResult.Success, appKitShowWindowMenuResult(PhysicalPosition(10, 20)))
+    }
+
+    @Test
+    fun `AppKit cursor grab mapping follows winit`() {
+        assertEquals(1, AppKitCursorHelper.cursorAssociationValue(CursorGrabMode.None))
+        assertEquals(0, AppKitCursorHelper.cursorAssociationValue(CursorGrabMode.Locked))
+        assertNull(AppKitCursorHelper.cursorAssociationValue(CursorGrabMode.Confined))
+
+        val confined = AppKitCursorHelper.setGrabMode(CursorGrabMode.Confined)
+        assertTrue(confined is WindowRequestResult.Failure)
+        assertTrue(confined.error is RequestError.Unsupported)
     }
 
     @Test

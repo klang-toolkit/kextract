@@ -119,4 +119,25 @@ class X11EventLoopSmokeTest {
             assertEquals(20L, x11EventWindowXid(event, DestroyNotify))
         }
     }
+
+    @Test
+    fun `X11 client message LP64 offsets are canonical`() {
+        Arena.ofConfined().use { arena ->
+            val display = arena.allocate(8L, 8L)
+            val event = arena.allocate(96L, 8L)
+            event.set(ValueLayout.JAVA_INT, XCLIENT_SEND_EVENT_OFFSET, 1)
+            event.set(ValueLayout.ADDRESS, XCLIENT_DISPLAY_OFFSET, display)
+            event.set(ValueLayout.JAVA_LONG, XCLIENT_WINDOW_OFFSET, 10L)
+            event.set(ValueLayout.JAVA_LONG, XCLIENT_MESSAGE_TYPE_OFFSET, 20L)
+            event.set(ValueLayout.JAVA_INT, XCLIENT_FORMAT_OFFSET, 32)
+            event.set(ValueLayout.JAVA_LONG, XCLIENT_DATA_L0_OFFSET, 30L)
+
+            assertEquals(1, event.get(ValueLayout.JAVA_INT, 16L))
+            assertEquals(display.address(), event.get(ValueLayout.ADDRESS, 24L).address())
+            assertEquals(10L, event.get(ValueLayout.JAVA_LONG, 32L))
+            assertEquals(20L, event.get(ValueLayout.JAVA_LONG, 40L))
+            assertEquals(32, event.get(ValueLayout.JAVA_INT, 48L))
+            assertEquals(30L, event.get(ValueLayout.JAVA_LONG, 56L))
+        }
+    }
 }

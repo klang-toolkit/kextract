@@ -26,8 +26,12 @@
  * ```
  *  0 : type         (int,  4)
  * ...
- * 56 : message_type (Atom = long, 8)
- * 64 : data.l[0]   (long, 8) — first atom of the message
+ * 16 : send_event   (Bool = int, 4)
+ * 24 : display      (Display*, 8)
+ * 32 : window       (Window = long, 8)
+ * 40 : message_type (Atom = long, 8)
+ * 48 : format       (int, 4)
+ * 56 : data.l[0]    (long, 8) — first atom of the message
  * ```
  *
  * ## Reading Xft.dpi
@@ -54,10 +58,6 @@ private const val CONFIGURE_OFFSET_X: Long      = 24L
 private const val CONFIGURE_OFFSET_Y: Long      = 28L
 private const val CONFIGURE_OFFSET_WIDTH: Long  = 32L
 private const val CONFIGURE_OFFSET_HEIGHT: Long = 36L
-
-// ── XClientMessageEvent offsets ───────────────────────────────────────────────
-
-private const val CLIENT_MSG_OFFSET_DATA_L0: Long = 64L
 
 /**
  * Stateless mapper for Expose, ConfigureNotify and ClientMessage events.
@@ -156,7 +156,7 @@ object X11DrawMapper {
         eventSegment: MemorySegment,
         wmDeleteWindow: Long,
     ): WindowEvent? {
-        val atom = eventSegment.get(ValueLayout.JAVA_LONG, CLIENT_MSG_OFFSET_DATA_L0)
+        val atom = eventSegment.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L0_OFFSET)
         return if (atom == wmDeleteWindow) WindowEvent.CloseRequested else null
     }
 }

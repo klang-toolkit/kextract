@@ -16,6 +16,7 @@ import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.RequestError
 import org.graphiks.kadre.core.SurfaceSizeRequestResult
 import org.graphiks.kadre.core.Theme
+import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowRequestResult
 import org.graphiks.kadre.core.WindowAttributes
@@ -141,10 +142,7 @@ class WaylandWindowTest {
         window.setMinSurfaceSize(PhysicalSize(320, 200))
         window.setMaxSurfaceSize(PhysicalSize(1280, 720))
 
-        assertEquals(
-            listOf<WindowEvent>(WindowEvent.RedrawRequested, WindowEvent.RedrawRequested),
-            events,
-        )
+        assertEquals(listOf<WindowEvent>(WindowEvent.RedrawRequested, WindowEvent.RedrawRequested), events)
     }
 
     @Test
@@ -207,6 +205,14 @@ class WaylandWindowTest {
     fun `Wayland content protection is a success no-op like winit`() {
         assertEquals(WindowRequestResult.Success, waylandContentProtectionResult(true))
         assertEquals(WindowRequestResult.Success, waylandContentProtectionResult(false))
+    }
+
+    @Test
+    fun `Wayland enabled buttons are all after set like winit`() {
+        assertEquals(WindowButtons.ALL, waylandEnabledButtons())
+        assertEquals(WindowButtons.ALL, waylandEnabledButtonsAfterSet(WindowButtons.NONE))
+        assertEquals(WindowButtons.ALL, waylandEnabledButtonsAfterSet(WindowButtons.CLOSE))
+        assertEquals(WindowButtons.ALL, waylandEnabledButtonsAfterSet(WindowButtons.ALL))
     }
 
     @Test

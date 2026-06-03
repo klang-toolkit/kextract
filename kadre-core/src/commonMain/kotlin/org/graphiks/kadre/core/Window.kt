@@ -155,11 +155,16 @@ interface Window {
 
     /**
      * Enables or disables individual native window buttons where supported.
+     *
+     * X11 and Wayland accept the request as a no-op and continue reporting
+     * [WindowButtons.ALL], matching local winit.
      */
     fun setEnabledButtons(buttons: WindowButtons) { /* no-op by default */ }
 
     /**
      * Returns the enabled native window buttons, if tracked by the backend.
+     *
+     * X11 and Wayland return [WindowButtons.ALL], matching local winit.
      */
     val enabledButtons: WindowButtons get() = WindowButtons.ALL
 
@@ -312,6 +317,8 @@ interface Window {
      *
      * Backends that do not support a given mode return [WindowRequestResult.Failure]
      * with [RequestError.Unsupported]. Never throws.
+     * AppKit supports [CursorGrabMode.Locked] and [CursorGrabMode.None], but
+     * reports [RequestError.Unsupported] for [CursorGrabMode.Confined], matching winit.
      * Wayland accepts [CursorGrabMode.None] as a success no-op like winit when
      * pointer constraints are unavailable.
      *
@@ -388,7 +395,9 @@ interface Window {
      * Enables or disables a blur effect behind the window.
      *
      * Requires [setTransparent](true) to be meaningful. On backends that do
-     * not support blur (X11, Wayland, Web, Android) this is a no-op.
+     * not support blur (X11, Web, Android) this is a no-op. Wayland currently
+     * no-ops in Kadre, but winit can use compositor-specific optional
+     * protocols such as `ext_background_effect` or KWin blur when available.
      * Never throws.
      *
      * @param blur true to enable blur, false to disable it.
@@ -402,7 +411,9 @@ interface Window {
      * - AppKit: no-op, matching winit: macOS has no per-window icon.
      * - Win32:  sends `WM_SETICON` for `ICON_SMALL`.
      * - X11:    sets `_NET_WM_ICON`.
-     * - Others: no-op.
+     * - Wayland: currently no-op in Kadre; winit can use
+     *   `xdg_toplevel_icon_manager_v1` when the compositor exposes it.
+     * - Web/mobile: no-op.
      * Never throws.
      *
      * @param icon Icon data, or null to restore the default.
@@ -480,6 +491,9 @@ interface Window {
      * Platform behaviour:
      * - AppKit : `NSApp.requestUserAttention` / `cancelUserAttentionRequest`.
      * - Win32  : `FlashWindowEx` with winit-aligned `FLASHW_*` flags.
+     * - X11    : `WM_HINTS` urgency flag.
+     * - Wayland: currently unsupported in Kadre; winit can use
+     *   `xdg_activation_v1` when the compositor exposes it.
      * - Others : [WindowRequestResult.Failure] with [RequestError.Unsupported].
      *
      * Backends that do not support user-attention requests return

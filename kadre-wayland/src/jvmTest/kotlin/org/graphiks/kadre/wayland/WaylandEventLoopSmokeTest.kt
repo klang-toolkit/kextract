@@ -9,8 +9,10 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
+import org.graphiks.kadre.core.WindowAttributes
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -85,6 +87,25 @@ class WaylandEventLoopSmokeTest {
             assertNotNull(nativeWrite, "nativeWrite must be non-null if libC is available")
             assertNotNull(nativeClose, "nativeClose must be non-null if libC is available")
         }
+    }
+
+    @Test
+    fun `primaryMonitor stays null even when synthetic monitors are available`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            eventFd = -1,
+        )
+        val window = WaylandWindow.createForTest(
+            display = 77L,
+            surface = 1001L,
+            attrs = WindowAttributes(size = PhysicalSize(640, 480)),
+        )
+        loop.windows[window.id.value] = window
+
+        assertTrue(loop.availableMonitors().isNotEmpty())
+        assertEquals(null, loop.primaryMonitor())
     }
 
     @Test

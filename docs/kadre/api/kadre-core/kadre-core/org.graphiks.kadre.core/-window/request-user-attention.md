@@ -16,9 +16,13 @@ Platform behaviour:
 -
    Win32  : `FlashWindowEx` (FLASHW_TRAY / FLASHW_TIMERNOFG).
 -
+   X11    : `WM_HINTS` urgency flag.
+-
+   Wayland: currently unsupported in Kadre; winit can use `xdg_activation_v1` when the compositor exposes it.
+-
    Others : [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md).
 
-Default implementation returns [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws. AppKit and Win32 are wired.
+Default implementation returns [WindowRequestResult.Failure](../-window-request-result/-failure/index.md) with [RequestError.Unsupported](../-request-error/-unsupported/index.md). Never throws. AppKit, Win32, and X11 are wired.
 
 #### Parameters
 

@@ -175,6 +175,12 @@ class Win32WindowTest {
     }
 
     @Test
+    fun `runtime blur setter is a no native update like winit`() {
+        assertEquals(false, win32RuntimeBlurRequiresNativeUpdate(true))
+        assertEquals(false, win32RuntimeBlurRequiresNativeUpdate(false))
+    }
+
+    @Test
     fun `window icon buffers convert RGBA to Win32 BGRA and inverted alpha mask`() {
         val icon = Icon(
             rgba = byteArrayOf(

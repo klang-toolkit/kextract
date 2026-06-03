@@ -33,6 +33,7 @@ import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
@@ -355,6 +356,20 @@ class WaylandWindow private constructor(
         get() = WaylandFocusState.hasFocus(surfacePtr)
 
     /**
+     * No-op on Wayland, matching winit.
+     *
+     * Current xdg-shell does not expose per-button control; local winit accepts
+     * the request and continues reporting all buttons enabled.
+     */
+    override fun setEnabledButtons(buttons: WindowButtons) {
+        @Suppress("UNUSED_EXPRESSION")
+        waylandEnabledButtonsAfterSet(buttons)
+    }
+
+    override val enabledButtons: WindowButtons
+        get() = waylandEnabledButtons()
+
+    /**
      * Enters or exits borderless fullscreen via xdg_toplevel.set_fullscreen / unset_fullscreen.
      *
      * **Exclusive fullscreen is not supported on Wayland** — the xdg-shell protocol does not
@@ -407,7 +422,6 @@ class WaylandWindow private constructor(
 
     /** Convenience: flush the Wayland display connection. */
     private fun flushDisplay() {
-        if (displayPtr == 0L) return
         wlDisplayFlush?.let { flush ->
             try {
                 val displaySeg = MemorySegment.ofAddress(displayPtr)
@@ -597,22 +611,25 @@ class WaylandWindow private constructor(
     }
 
     /**
-     * No-op on Wayland.
+     * Deferred optional-protocol support on Wayland.
      *
-     * Blur requires compositor-specific protocols (e.g. org.kde.kwin.blur).
+     * winit can use compositor-specific blur protocols such as
+     * `ext_background_effect` or `org_kde_kwin_blur` when available. Kadre has
+     * not generated or bound those protocols yet, so this is a documented no-op.
      */
     override fun setBlur(blur: Boolean) {
-        // No-op on Wayland: no standard blur protocol.
+        // No-op until optional Wayland blur protocols are bound.
     }
 
     /**
-     * No-op on Wayland.
+     * Deferred optional-protocol support on Wayland.
      *
-     * Wayland does not support per-window application icons; the desktop
-     * file or XDG portal is the correct mechanism.
+     * winit can use `xdg_toplevel_icon_manager_v1` when the compositor exposes
+     * it. Kadre has not generated or bound that protocol yet, so this remains a
+     * documented no-op instead of claiming Wayland cannot support it.
      */
     override fun setWindowIcon(icon: Icon?) {
-        // No-op on Wayland: window icons are not part of the Wayland protocol.
+        // No-op until xdg_toplevel_icon_manager_v1 is bound.
     }
 
     /**
@@ -931,6 +948,11 @@ internal fun waylandEmptyInputRegionRect(): WaylandRegionRect =
 @Suppress("UNUSED_PARAMETER")
 internal fun waylandContentProtectionResult(protected: Boolean): WindowRequestResult =
     WindowRequestResult.Success
+
+@Suppress("UNUSED_PARAMETER")
+internal fun waylandEnabledButtonsAfterSet(buttons: WindowButtons): WindowButtons = WindowButtons.ALL
+
+internal fun waylandEnabledButtons(): WindowButtons = WindowButtons.ALL
 
 internal fun waylandApplyResizeIncrements(
     size: PhysicalSize<Int>,

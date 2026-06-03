@@ -796,10 +796,11 @@ class Win32Window private constructor(
      * No-op on Win32: blur requires third-party compositor extensions (ACRYLIC)
      * which are not exposed via standard Win32 API. Documented no-op.
      *
-     * TODO(R3-win32-blur): implement via DwmEnableBlurBehindWindow or
-     * SetWindowCompositionAttribute (undocumented Win10/11).
+     * Runtime setter intentionally stays no-op for winit parity; the initial
+     * transparent-window path may still use DwmEnableBlurBehindWindow.
      */
     override fun setBlur(blur: Boolean) {
+        if (!win32RuntimeBlurRequiresNativeUpdate(blur)) return
         // No-op: Win32 does not expose a standard blur API. DwmEnableBlurBehindWindow
         // was deprecated in Windows 8 and does not work on modern builds.
     }
@@ -1231,6 +1232,9 @@ internal fun win32InitialExtendedStyle(transparent: Boolean): Int =
 
 internal fun win32TransparentBlurBehindFlags(): Int =
     DWM_BB_ENABLE or DWM_BB_BLURREGION
+
+@Suppress("UNUSED_PARAMETER")
+internal fun win32RuntimeBlurRequiresNativeUpdate(blur: Boolean): Boolean = false
 
 internal fun enableWin32TransparentBlurBehind(hwnd: MemorySegment): Boolean {
     val createRegion = createRectRgn ?: return false

@@ -667,12 +667,12 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     }
 
     /**
-     * Confines or locks the cursor via CGAssociateMouseAndMouseCursorPosition.
+     * Locks the cursor via CGAssociateMouseAndMouseCursorPosition.
      *
-     * - [CursorGrabMode.Confined] / [CursorGrabMode.Locked]: calls
-     *   CGAssociateMouseAndMouseCursorPosition(false) to detach cursor movement from
-     *   pointer position (raw delta mode).
+     * - [CursorGrabMode.Locked]: calls CGAssociateMouseAndMouseCursorPosition(false)
+     *   to detach cursor movement from pointer position (raw delta mode).
      * - [CursorGrabMode.None]: re-associates.
+     * - [CursorGrabMode.Confined]: unsupported, matching winit AppKit.
      */
     override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
         AppKitCursorHelper.setGrabMode(mode)

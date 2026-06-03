@@ -74,17 +74,15 @@ class X11EventLoopProxy internal constructor(
                 val event = arena.allocate(96L, 8L)
                 // type = ClientMessage (33)
                 event.set(ValueLayout.JAVA_INT, 0L, ClientMessage)
-                // send_event = True (1) — field at offset 4
-                event.set(ValueLayout.JAVA_INT, 4L, 1)
-                // display — pointer at offset 8
-                event.set(ValueLayout.ADDRESS, 8L, displaySeg)
-                // window (XID) — offset 16 (XAnyEvent.window)
-                event.set(ValueLayout.JAVA_LONG, 16L, targetWindowId)
-                // message_type — offset 20 (arbitrary atom, 0 = None)
-                event.set(ValueLayout.JAVA_LONG, 20L, KADRE_WAKEUP_MESSAGE)
-                // format — offset 28 (32 bits)
-                event.set(ValueLayout.JAVA_INT, 28L, 32)
-                // data.l[0] = 0 (offset 32) — already zero by arena default
+                // XClientMessageEvent canonical LP64 layout:
+                // 16 send_event, 24 display, 32 window, 40 message_type,
+                // 48 format, 56 data.l[0].
+                event.set(ValueLayout.JAVA_INT, XCLIENT_SEND_EVENT_OFFSET, 1)
+                event.set(ValueLayout.ADDRESS, XCLIENT_DISPLAY_OFFSET, displaySeg)
+                event.set(ValueLayout.JAVA_LONG, XCLIENT_WINDOW_OFFSET, targetWindowId)
+                event.set(ValueLayout.JAVA_LONG, XCLIENT_MESSAGE_TYPE_OFFSET, KADRE_WAKEUP_MESSAGE)
+                event.set(ValueLayout.JAVA_INT, XCLIENT_FORMAT_OFFSET, 32)
+                // data.l[0] is already zero by arena default.
 
                 // XSendEvent(display, window, propagate=False, event_mask=0L, event)
                 sendHandle.invokeExact(
