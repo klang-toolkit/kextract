@@ -2,7 +2,9 @@ package org.graphiks.kadre.android
 
 import android.view.KeyEvent
 import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.ModifierKeyState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -86,5 +88,65 @@ class AndroidKeyMapperTest {
         assertTrue(mods.ctrl)
         assertFalse(mods.alt)
         assertFalse(mods.meta)
+    }
+
+    @Test
+    fun `isModifierKey identifies keyboard modifiers`() {
+        assertTrue(AndroidKeyMapper.isModifierKey(KeyEvent.KEYCODE_SHIFT_LEFT))
+        assertTrue(AndroidKeyMapper.isModifierKey(KeyEvent.KEYCODE_CTRL_RIGHT))
+        assertTrue(AndroidKeyMapper.isModifierKey(KeyEvent.KEYCODE_ALT_LEFT))
+        assertTrue(AndroidKeyMapper.isModifierKey(KeyEvent.KEYCODE_META_RIGHT))
+        assertFalse(AndroidKeyMapper.isModifierKey(KeyEvent.KEYCODE_A))
+    }
+
+    @Test
+    fun `modifierStateFrom decodes physical left and right modifiers`() {
+        val state = AndroidKeyMapper.modifierStateFrom(
+            KeyEvent.META_SHIFT_LEFT_ON or
+                KeyEvent.META_CTRL_RIGHT_ON or
+                KeyEvent.META_ALT_ON or
+                KeyEvent.META_ALT_LEFT_ON,
+        )
+
+        assertTrue(state.logical.shift)
+        assertTrue(state.logical.ctrl)
+        assertTrue(state.logical.alt)
+        assertEquals(ModifierKeyState.Pressed, state.physical.leftShift)
+        assertEquals(ModifierKeyState.Released, state.physical.rightShift)
+        assertEquals(ModifierKeyState.Released, state.physical.leftCtrl)
+        assertEquals(ModifierKeyState.Pressed, state.physical.rightCtrl)
+        assertEquals(ModifierKeyState.Pressed, state.physical.leftAlt)
+    }
+
+    @Test
+    fun `modifierStateFrom applies current key transition before logical aggregation`() {
+        val pressed = AndroidKeyMapper.modifierStateFrom(
+            metaState = 0,
+            keyCode = KeyEvent.KEYCODE_SHIFT_LEFT,
+            state = KeyState.Pressed,
+        )
+        assertTrue(pressed.logical.shift)
+        assertEquals(ModifierKeyState.Pressed, pressed.physical.leftShift)
+
+        val released = AndroidKeyMapper.modifierStateFrom(
+            metaState = KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON,
+            keyCode = KeyEvent.KEYCODE_SHIFT_LEFT,
+            state = KeyState.Released,
+        )
+        assertFalse(released.logical.shift)
+        assertEquals(ModifierKeyState.Released, released.physical.leftShift)
+    }
+
+    @Test
+    fun `modifierStateFrom keeps logical modifier active while the opposite side remains pressed`() {
+        val releasedLeft = AndroidKeyMapper.modifierStateFrom(
+            metaState = KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON or KeyEvent.META_SHIFT_RIGHT_ON,
+            keyCode = KeyEvent.KEYCODE_SHIFT_LEFT,
+            state = KeyState.Released,
+        )
+
+        assertTrue(releasedLeft.logical.shift)
+        assertEquals(ModifierKeyState.Released, releasedLeft.physical.leftShift)
+        assertEquals(ModifierKeyState.Pressed, releasedLeft.physical.rightShift)
     }
 }

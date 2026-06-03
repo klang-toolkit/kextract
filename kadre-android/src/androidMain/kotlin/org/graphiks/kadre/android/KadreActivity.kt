@@ -15,6 +15,7 @@ import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.KeyboardModifierState
 import org.graphiks.kadre.core.NativeKeyInfo
 import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.NativeLogicalKey
@@ -110,6 +111,9 @@ abstract class KadreActivity : ComponentActivity() {
      * Initialized in [onCreate] from the current display density.
      */
     private var lastScaleFactor: Double = 1.0
+
+    /** Last observed keyboard modifier state, used to suppress duplicate notifications. */
+    private var lastKeyboardModifierState = AndroidKeyMapper.initialModifierState()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -308,7 +312,14 @@ abstract class KadreActivity : ComponentActivity() {
             nativeCode = NativeKeyCode.Android(event.scanCode.toLong(), keyCode.toLong()),
             nativeKey = NativeLogicalKey.Android(keyCode.toLong()),
         )
+        val modifierState = if (AndroidKeyMapper.isModifierKey(keyCode)) {
+            AndroidKeyMapper.modifierStateFrom(event.metaState, keyCode, state)
+        } else {
+            null
+        }
+        val modifiers = modifierState?.logical ?: AndroidKeyMapper.modifiersFrom(event.metaState)
         val logicalKey = mappedCode.defaultLogicalKey()
+        dispatchModifiersChangedIfNeeded(window, modifierState)
         handler.windowEvent(
             eventLoop,
             window.id,
@@ -317,7 +328,7 @@ abstract class KadreActivity : ComponentActivity() {
                     physicalKey = AndroidKeyMapper.physicalKey(keyCode),
                     logicalKey = logicalKey,
                     state = state,
-                    modifiers = AndroidKeyMapper.modifiersFrom(event.metaState),
+                    modifiers = modifiers,
                     repeat = isRepeat,
                     text = mappedCode.defaultText(),
                     keyWithoutModifiers = logicalKey,
@@ -327,6 +338,17 @@ abstract class KadreActivity : ComponentActivity() {
             ),
         )
         return true
+    }
+
+    private fun dispatchModifiersChangedIfNeeded(window: AndroidWindow, modifierState: KeyboardModifierState?) {
+        modifierState ?: return
+        if (modifierState == lastKeyboardModifierState) return
+        lastKeyboardModifierState = modifierState
+        handler.windowEvent(
+            eventLoop,
+            window.id,
+            WindowEvent.ModifiersChanged(modifierState),
+        )
     }
 
     // ── Display density (scale factor) ────────────────────────────────────────
@@ -364,7 +386,15 @@ abstract class KadreActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         val window = eventLoop.pendingWindow
         if (destroyed || window == null) return
+        if (!hasFocus) resetKeyboardModifiersIfNeeded(window)
         handler.windowEvent(eventLoop, window.id, WindowEvent.Focused(hasFocus))
+    }
+
+    private fun resetKeyboardModifiersIfNeeded(window: AndroidWindow) {
+        val modifierState = AndroidKeyMapper.initialModifierState()
+        if (modifierState == lastKeyboardModifierState) return
+        lastKeyboardModifierState = modifierState
+        handler.windowEvent(eventLoop, window.id, WindowEvent.ModifiersChanged(modifierState))
     }
 
     override fun onDestroy() {

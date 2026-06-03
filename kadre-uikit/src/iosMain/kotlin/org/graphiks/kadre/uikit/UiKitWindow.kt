@@ -4,6 +4,7 @@ import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.KeyEvent
 import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.KeyboardModifierState
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.FingerId
@@ -99,6 +100,7 @@ class KadreMetalView(
     private var lastWidth: Int = -1
     private var lastHeight: Int = -1
     private var primaryFingerId: FingerId? = null
+    private var lastKeyboardModifierState = UiKitKeyMapper.initialModifierState()
     private val gestureProxy = UIKitGestureRecognizerProxy(this, onEvent)
     private var pinchRecognizer: UIPinchGestureRecognizer? = null
     private var panRecognizer: UIPanGestureRecognizer? = null
@@ -232,6 +234,13 @@ class KadreMetalView(
                 nativeCode = NativeKeyCode.UIKit(uiKey.keyCode),
                 nativeKey = NativeLogicalKey.UIKit(uiKey.keyCode, characters = text),
             )
+            val modifierState = if (UiKitKeyMapper.isModifierKey(uiKey.keyCode)) {
+                UiKitKeyMapper.modifierStateFrom(lastKeyboardModifierState, uiKey.keyCode, state)
+            } else {
+                null
+            }
+            val modifiers = modifierState?.logical ?: UiKitKeyMapper.modifiersFrom(uiKey.modifierFlags)
+            dispatchModifiersChangedIfNeeded(modifierState)
             val logicalKey = mappedCode.defaultLogicalKey()
             onEvent(
                 WindowEvent.KeyInput(
@@ -239,7 +248,7 @@ class KadreMetalView(
                         physicalKey = UiKitKeyMapper.physicalKey(uiKey.keyCode),
                         logicalKey = logicalKey,
                         state = state,
-                        modifiers = UiKitKeyMapper.modifiersFrom(uiKey.modifierFlags),
+                        modifiers = modifiers,
                         location = UiKitKeyMapper.physicalKey(uiKey.keyCode).location(),
                         repeat = false,
                         text = text ?: mappedCode.defaultText(),
@@ -251,6 +260,17 @@ class KadreMetalView(
             )
         }
         return handled
+    }
+
+    private fun dispatchModifiersChangedIfNeeded(modifierState: KeyboardModifierState?) {
+        modifierState ?: return
+        if (modifierState == lastKeyboardModifierState) return
+        lastKeyboardModifierState = modifierState
+        onEvent(WindowEvent.ModifiersChanged(modifierState))
+    }
+
+    internal fun resetKeyboardModifiersIfNeeded() {
+        dispatchModifiersChangedIfNeeded(UiKitKeyMapper.initialModifierState())
     }
 
     /**
@@ -461,6 +481,10 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
 
         // 6. Start the vsync-paced redraw loop.
         startDisplayLink()
+    }
+
+    internal fun resetKeyboardModifiersIfNeeded() {
+        metalView.resetKeyboardModifiersIfNeeded()
     }
 
     /**

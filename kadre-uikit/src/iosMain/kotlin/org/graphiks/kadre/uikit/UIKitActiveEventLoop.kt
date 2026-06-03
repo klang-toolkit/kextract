@@ -34,7 +34,10 @@ internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : 
      * that switch on [WindowEvent] (desktop/winit parity) also receive focus.
      */
     internal fun dispatchWindowFocused(gained: Boolean) {
-        windows.forEach { handler.windowEvent(this, it.id, WindowEvent.Focused(gained)) }
+        windows.forEach {
+            if (!gained) it.resetKeyboardModifiersIfNeeded()
+            handler.windowEvent(this, it.id, WindowEvent.Focused(gained))
+        }
     }
 
     /**

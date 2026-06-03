@@ -9,7 +9,11 @@
 package org.graphiks.kadre.uikit
 
 import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.KeyboardModifierState
 import org.graphiks.kadre.core.KeyboardModifiers
+import org.graphiks.kadre.core.KeyState
+import org.graphiks.kadre.core.ModifierKeyState
+import org.graphiks.kadre.core.ModifierKeys
 import org.graphiks.kadre.core.NativeKeyCode
 import org.graphiks.kadre.core.PhysicalKey
 
@@ -72,6 +76,8 @@ internal object UiKitKeyMapper {
     fun physicalKey(usage: Long): PhysicalKey = keyCode(usage)?.let(PhysicalKey::Code)
         ?: PhysicalKey.Native(NativeKeyCode.UIKit(usage))
 
+    fun isModifierKey(usage: Long): Boolean = keyCode(usage) in modifierKeys
+
     private val LETTER_KEYS = arrayOf(
         KeyCode.KeyA, KeyCode.KeyB, KeyCode.KeyC, KeyCode.KeyD, KeyCode.KeyE, KeyCode.KeyF,
         KeyCode.KeyG, KeyCode.KeyH, KeyCode.KeyI, KeyCode.KeyJ, KeyCode.KeyK, KeyCode.KeyL,
@@ -98,4 +104,71 @@ internal object UiKitKeyMapper {
         if (flags and MOD_COMMAND != 0L) mods += KeyboardModifiers.Meta
         return mods
     }
+
+    fun initialModifierState(): KeyboardModifierState =
+        KeyboardModifierState(
+            logical = KeyboardModifiers.NONE,
+            physical = ModifierKeys(
+                leftShift = ModifierKeyState.Released,
+                rightShift = ModifierKeyState.Released,
+                leftCtrl = ModifierKeyState.Released,
+                rightCtrl = ModifierKeyState.Released,
+                leftAlt = ModifierKeyState.Released,
+                rightAlt = ModifierKeyState.Released,
+                leftMeta = ModifierKeyState.Released,
+                rightMeta = ModifierKeyState.Released,
+            ),
+        )
+
+    fun modifierStateFrom(
+        previous: KeyboardModifierState,
+        usage: Long,
+        state: KeyState,
+    ): KeyboardModifierState {
+        val keyState = when (state) {
+            KeyState.Pressed -> ModifierKeyState.Pressed
+            KeyState.Released -> ModifierKeyState.Released
+        }
+        val previousPhysical = previous.physical
+        val physical = when (usage) {
+            HID_LSHIFT -> previousPhysical.copy(leftShift = keyState)
+            HID_RSHIFT -> previousPhysical.copy(rightShift = keyState)
+            HID_LCTRL -> previousPhysical.copy(leftCtrl = keyState)
+            HID_RCTRL -> previousPhysical.copy(rightCtrl = keyState)
+            HID_LALT -> previousPhysical.copy(leftAlt = keyState)
+            HID_RALT -> previousPhysical.copy(rightAlt = keyState)
+            HID_LMETA -> previousPhysical.copy(leftMeta = keyState)
+            HID_RMETA -> previousPhysical.copy(rightMeta = keyState)
+            else -> previousPhysical
+        }
+        return KeyboardModifierState(logical = logicalModifiersFrom(physical), physical = physical)
+    }
+
+    private fun logicalModifiersFrom(physical: ModifierKeys): KeyboardModifiers {
+        var mods = KeyboardModifiers.NONE
+        if (physical.leftShift == ModifierKeyState.Pressed || physical.rightShift == ModifierKeyState.Pressed) {
+            mods += KeyboardModifiers.Shift
+        }
+        if (physical.leftCtrl == ModifierKeyState.Pressed || physical.rightCtrl == ModifierKeyState.Pressed) {
+            mods += KeyboardModifiers.Ctrl
+        }
+        if (physical.leftAlt == ModifierKeyState.Pressed || physical.rightAlt == ModifierKeyState.Pressed) {
+            mods += KeyboardModifiers.Alt
+        }
+        if (physical.leftMeta == ModifierKeyState.Pressed || physical.rightMeta == ModifierKeyState.Pressed) {
+            mods += KeyboardModifiers.Meta
+        }
+        return mods
+    }
+
+    private val modifierKeys = setOf(
+        KeyCode.ShiftLeft,
+        KeyCode.ShiftRight,
+        KeyCode.ControlLeft,
+        KeyCode.ControlRight,
+        KeyCode.AltLeft,
+        KeyCode.AltRight,
+        KeyCode.MetaLeft,
+        KeyCode.MetaRight,
+    )
 }
