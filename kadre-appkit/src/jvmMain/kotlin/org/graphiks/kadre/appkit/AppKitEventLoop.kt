@@ -87,6 +87,39 @@ internal class AppKitEventLoop(
     }
 
     /**
+     * Creates a window with AppKit-specific attributes.
+     *
+     * Reuses the core [createWindow] and applies macOS-specific settings
+     * such as activation policy, tabbing identifier, shadow, titlebar
+     * transparency, and more.
+     */
+    fun createWindow(attrs: AppKitWindowAttributes): Window {
+        val window = createWindow(attrs.core) as AppKitWindow
+
+        // Apply activation policy (application-level, set once)
+        attrs.activationPolicy?.let { policy ->
+            val nsApp = objcSharedApplication()
+            ObjCRuntime.msgSend(
+                ValueLayout.JAVA_BOOLEAN,
+                nsApp,
+                ObjCRuntime.sel("setActivationPolicy:"),
+                NSApplicationActivationPolicy.fromValue(policy.toAppKitValue()),
+            )
+        }
+
+        // Apply AppKit-specific window settings
+        attrs.hasShadow?.let { window.setHasShadow(it) }
+        attrs.tabbingIdentifier?.let { window.setTabbingIdentifier(it) }
+        if (attrs.titlebarTransparent) window.setTitlebarTransparent(true)
+        if (attrs.titleHidden) window.setTitleHidden(true)
+        if (attrs.titlebarHidden) window.setTitlebarHidden(true)
+        if (attrs.fullSizeContentView) window.setFullSizeContentView(true)
+        if (attrs.movableByWindowBackground) window.setMovableByWindowBackground(true)
+
+        return window
+    }
+
+    /**
      * Requests shutdown of the AppKit event loop.
      *
      * Raises [isExiting] then calls `[NSApp terminate:nil]`, which triggers

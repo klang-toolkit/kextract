@@ -33,6 +33,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.WindowEvent
@@ -44,6 +45,15 @@ import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 
 private typealias RoutedWindowEventSink = (surfacePtr: Long, event: WindowEvent) -> Unit
+private typealias RoutedDeviceEventSink = (event: DeviceEvent) -> Unit
+
+/**
+ * Global XKB compose state for dead-key reset, lazily initialized from
+ * [WlKeyboardListener.onKeymap]. Written on the loop thread; read from
+ * [WaylandWindow.resetDeadKeys] on the same thread.
+ */
+@Volatile
+internal var waylandComposeState: Long = 0L
 
 // ── wl_seat opcodes ───────────────────────────────────────────────────────────
 
@@ -102,23 +112,98 @@ private class WlOutputListener(
 // ── wl_keyboard listener ──────────────────────────────────────────────────────
 
 /**
- * wl_keyboard listener that emits [WindowEvent.Focused] and [WindowEvent.KeyInput].
+ * wl_keyboard listener that emits [WindowEvent.Focused], [WindowEvent.KeyInput],
+ * [WindowEvent.ModifiersChanged], and [DeviceEvent.Key].
  *
  * wl_keyboard_listener vtable order:
  *   0: keymap, 1: enter, 2: leave, 3: key, 4: modifiers, 5: repeat_info.
  */
 private class WlKeyboardListener(
     private val onEvent: RoutedWindowEventSink,
+    private val onDeviceEvent: RoutedDeviceEventSink,
     private val seatPtr: Long,
 ) {
     private var focusedSurfacePtr: Long = 0L
     private val modifiers = WaylandKeyboardModifierTracker()
+    private var repeatRate: Int = 0
+    private var repeatDelay: Int = 0
+
+    private var xkbContext: Long = 0L
+    private var xkbKeymap: Long = 0L
+    private var xkbState: Long = 0L
+    private var xkbComposeTable: Long = 0L
+    private var xkbComposeState: Long = 0L
+
+    private fun cleanupXkbResources() {
+        if (xkbComposeState != 0L) {
+            try { xkbComposeStateUnref?.invokeExact(MemorySegment.ofAddress(xkbComposeState)) } catch (_: Throwable) {}
+            xkbComposeState = 0L
+        }
+        if (xkbComposeTable != 0L) {
+            try { xkbComposeTableUnref?.invokeExact(MemorySegment.ofAddress(xkbComposeTable)) } catch (_: Throwable) {}
+            xkbComposeTable = 0L
+        }
+        if (xkbState != 0L) {
+            try { xkbStateUnref?.invokeExact(MemorySegment.ofAddress(xkbState)) } catch (_: Throwable) {}
+            xkbState = 0L
+        }
+        if (xkbKeymap != 0L) {
+            try { xkbKeymapUnref?.invokeExact(MemorySegment.ofAddress(xkbKeymap)) } catch (_: Throwable) {}
+            xkbKeymap = 0L
+        }
+        if (xkbContext != 0L) {
+            try { xkbContextUnref?.invokeExact(MemorySegment.ofAddress(xkbContext)) } catch (_: Throwable) {}
+            xkbContext = 0L
+        }
+        waylandComposeState = 0L
+    }
 
     @Suppress("UNUSED_PARAMETER")
     fun onKeymap(
         data: MemorySegment, keyboard: MemorySegment,
         format: Int, fd: Int, size: Int,
-    ) { /* no-op — xkbcommon not wired yet */ }
+    ) {
+        cleanupXkbResources()
+        if (format != 0 || fd < 0 || size <= 0) return
+        val mmapSeg = try {
+            nativeMmap?.invokeExact(MemorySegment.NULL, size.toLong(), PROT_READ, MAP_SHARED, fd, 0L) as MemorySegment
+        } catch (_: Throwable) { MemorySegment.NULL }
+        try { nativeClose?.invokeExact(fd) } catch (_: Throwable) {}
+        if (mmapSeg.address() == MAP_FAILED_PTR || mmapSeg.address() == 0L) return
+
+        val ctx = try {
+            xkbContextNew?.invokeExact(0) as? MemorySegment
+        } catch (_: Throwable) { null } ?: run { try { nativeMunmap?.invokeExact(mmapSeg, size.toLong()) } catch (_: Throwable) {}; return }
+
+        val keymapStr = mmapSeg.reinterpret(size.toLong())
+        val km = try {
+            xkbKeymapNewFromString?.invokeExact(ctx, keymapStr, 0, 0) as? MemorySegment
+        } catch (_: Throwable) { null }
+        val st = try {
+            if (km != null && km.address() != 0L) xkbStateNew?.invokeExact(km) as? MemorySegment else null
+        } catch (_: Throwable) { null }
+
+        val locale = System.getenv("LANG") ?: "en_US.UTF-8"
+        val localeSeg = Arena.ofConfined().use { it.allocateFrom(locale) }
+        val ct = try {
+            if (xkbComposeTableNewFromLocale != null) xkbComposeTableNewFromLocale?.invokeExact(ctx, localeSeg, 0) as? MemorySegment else null
+        } catch (_: Throwable) { null }
+
+        val cs = try {
+            if (ct != null && ct.address() != 0L) xkbComposeStateNew?.invokeExact(ct, 0) as? MemorySegment else null
+        } catch (_: Throwable) { null }
+
+        xkbContext = ctx.address()
+        xkbKeymap = km?.address() ?: 0L
+        xkbState = st?.address() ?: 0L
+        xkbComposeTable = ct?.address() ?: 0L
+        xkbComposeState = cs?.address() ?: 0L
+        waylandComposeState = cs?.address() ?: 0L
+
+        try { nativeMunmap?.invokeExact(mmapSeg, size.toLong()) } catch (_: Throwable) {}
+
+        if (km == null || km.address() == 0L) cleanupXkbResources()
+    }
 
     @Suppress("UNUSED_PARAMETER")
     fun onEnter(
@@ -157,16 +242,24 @@ private class WlKeyboardListener(
         modifiers.mapKey(keycode = key, state = state).forEach { event ->
             onEvent(focusedSurfacePtr, event)
         }
+        onDeviceEvent(DeviceEvent.Key(linuxKeycodeToPhysicalKey(key), waylandKeyStateToKeyState(state)))
     }
 
     @Suppress("UNUSED_PARAMETER")
     fun onModifiers(
         data: MemorySegment, keyboard: MemorySegment,
         serial: Int, modsDepressed: Int, modsLatched: Int, modsLocked: Int, group: Int,
-    ) { /* no-op — modifier tracking not wired yet */ }
+    ) {
+        modifiers.mapModifiers(modsDepressed = modsDepressed).forEach { event ->
+            onEvent(focusedSurfacePtr, event)
+        }
+    }
 
     @Suppress("UNUSED_PARAMETER")
-    fun onRepeatInfo(data: MemorySegment, keyboard: MemorySegment, rate: Int, delay: Int) { /* no-op */ }
+    fun onRepeatInfo(data: MemorySegment, keyboard: MemorySegment, rate: Int, delay: Int) {
+        repeatRate = rate
+        repeatDelay = delay
+    }
 }
 
 // ── wl_pointer listener ───────────────────────────────────────────────────────
@@ -416,6 +509,7 @@ internal fun installSeatListeners(
     seatVersion: Int,
     outputVersion: Int,
     onEvent: RoutedWindowEventSink,
+    onDeviceEvent: RoutedDeviceEventSink = {},
     onScaleChanged: (Int) -> Unit,
 ) {
     val addListener = wlProxyAddListener ?: return
@@ -480,7 +574,7 @@ internal fun installSeatListeners(
                         ) as MemorySegment
                     }.getOrNull()
                     if (kbSeg != null && kbSeg.address() != 0L) {
-                        installKeyboardListener(kbSeg, addListener, lookup, arena, seatPtr, onEvent)
+                        installKeyboardListener(kbSeg, addListener, lookup, arena, seatPtr, onEvent, onDeviceEvent)
                         anyListenerInstalled = true
                     }
                 }
@@ -549,8 +643,9 @@ private fun installKeyboardListener(
     arena: Arena,
     seatPtr: Long,
     onEvent: RoutedWindowEventSink,
+    onDeviceEvent: RoutedDeviceEventSink,
 ) {
-    val listener = WlKeyboardListener(onEvent, seatPtr)
+    val listener = WlKeyboardListener(onEvent, onDeviceEvent, seatPtr)
     val ptr = ValueLayout.ADDRESS.byteSize()
 
     // vtable: keymap, enter, leave, key, modifiers, repeat_info — 6 entries.

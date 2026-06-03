@@ -799,13 +799,13 @@ data class KeyEvent(
     val synthetic: Boolean = false,
     val text: String? = null,
     val textWithAllModifiers: String? = null,
-    val keyWithoutModifiers: LogicalKey? = null,
+    val keyWithoutModifiers: String? = null,
     val native: NativeKeyInfo = NativeKeyInfo(),
 ) {
     val isPressed: Boolean get() = state == KeyState.Pressed
     val isReleased: Boolean get() = state == KeyState.Released
     val character: String? get() = (logicalKey as? LogicalKey.Character)?.text
-    val shortcutKey: LogicalKey get() = keyWithoutModifiers ?: logicalKey
+    val shortcutKey: LogicalKey get() = keyWithoutModifiers?.let { LogicalKey.Character(it) } ?: logicalKey
     val effectiveText: String? get() = textWithAllModifiers ?: text
 }
 
@@ -1595,18 +1595,14 @@ sealed interface DeviceEvent {
      * A physical keyboard key changed state before layout processing.
      */
     data class Key(val event: RawKeyEvent) : DeviceEvent {
-        constructor(scancode: Int, state: KeyState) : this(
+        constructor(physicalKey: PhysicalKey, state: KeyState) : this(
             RawKeyEvent(
-                physicalKey = PhysicalKey.Native(NativeKeyCode.PlatformCode(KeyPlatform.Unknown, scancode.toLong())),
+                physicalKey = physicalKey,
                 state = state,
-                native = NativeKeyInfo(
-                    scanCode = scancode.toLong(),
-                    nativeCode = NativeKeyCode.PlatformCode(KeyPlatform.Unknown, scancode.toLong()),
-                ),
             ),
         )
 
-        val scancode: Int? get() = event.scancode
+        val physicalKey: PhysicalKey get() = event.physicalKey
         val state: KeyState get() = event.state
     }
 

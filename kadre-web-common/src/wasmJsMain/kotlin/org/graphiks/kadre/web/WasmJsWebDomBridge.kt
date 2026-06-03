@@ -66,6 +66,14 @@ external interface JsWheelEvent : JsDomEvent {
     val deltaMode: JsNumber
 }
 
+/**
+ * Properties of a DOM CompositionEvent.
+ */
+@JsName("CompositionEvent")
+external interface JsCompositionEvent : JsDomEvent {
+    val data: JsString?
+}
+
 // ---------------------------------------------------------------------------
 // Wasm JS interop functions — global DOM access
 // ---------------------------------------------------------------------------
@@ -248,6 +256,8 @@ class WasmJsWebDomBridge : WebDomBridge {
 
     override var onWindowEvent: ((WebWindowEvent) -> Unit)? = null
 
+    override var preventDefaultEnabled: Boolean = true
+
     override fun readDevicePixelRatio(): Double = getDevicePixelRatio()
 
     override fun readCanvasPhysicalSize(canvasId: String): Pair<Int, Int> {
@@ -406,6 +416,24 @@ class WasmJsWebDomBridge : WebDomBridge {
             addDomListener(canvas, type) { e -> dispatchTouches(e) }
         }
 
+        // --- IME composition events (R5-IME) ---
+        addDomListener(canvas, "compositionstart") { _ ->
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Enabled))
+        }
+
+        addDomListener(canvas, "compositionupdate") { e ->
+            val ce = e.unsafeCast<JsCompositionEvent>()
+            val text = ce.data?.toString() ?: ""
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Preedit(text = text, cursorRange = null)))
+        }
+
+        addDomListener(canvas, "compositionend") { e ->
+            val ce = e.unsafeCast<JsCompositionEvent>()
+            val text = ce.data?.toString() ?: ""
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Commit(text = text)))
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Disabled))
+        }
+
         // --- Visibility ---
         val doc = getDocument()
         addDomListener(doc, "visibilitychange") { _ ->
@@ -448,8 +476,10 @@ class WasmJsWebDomBridge : WebDomBridge {
                 )
             )
         }
-        touchPreventDefault(e)
+        if (preventDefaultEnabled) touchPreventDefault(e)
     }
+
+    override fun getCanvasElement(): Any? = targetElement
 
     override fun detach() {
         // Stop the re-arming devicePixelRatio chain before tearing down listeners.

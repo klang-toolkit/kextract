@@ -68,6 +68,12 @@ open class WebEventLoop : ActiveEventLoop {
     private var _controlFlow: ControlFlow = ControlFlow.Wait
     private var _isExiting = false
 
+    /** Current polling strategy (defaults to [PollStrategy.IdleCallback]). */
+    internal var pollStrategy: PollStrategy = PollStrategy.IdleCallback
+
+    /** Current wait-until strategy (defaults to [WaitUntilStrategy.Scheduler]). */
+    internal var waitUntilStrategy: WaitUntilStrategy = WaitUntilStrategy.Scheduler
+
     /** List of active windows created by this loop. */
     private val windows = mutableListOf<WebWindow>()
 

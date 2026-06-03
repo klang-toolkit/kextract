@@ -95,6 +95,7 @@ class WaylandEventLoopSmokeTest {
             displayPtr = 77L,
             compositorPtr = 0L,
             xdgWmBasePtr = 0L,
+            shmPtr = 0L,
             eventFd = -1,
         )
         val window = WaylandWindow.createForTest(

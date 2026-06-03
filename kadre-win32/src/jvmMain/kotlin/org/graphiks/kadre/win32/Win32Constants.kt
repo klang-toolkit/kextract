@@ -429,3 +429,158 @@ internal const val WAIT_TIMEOUT: Int = 0x00000102
  */
 @Suppress("INTEGER_OVERFLOW")
 internal const val INFINITE: Int = -1  // 0xFFFFFFFF unsigned
+
+// ── IME message constants ─────────────────────────────────────────────────────
+
+/** WM_IME_STARTCOMPOSITION — IME started composing text. */
+internal const val WM_IME_STARTCOMPOSITION: Int = 0x010D
+
+/** WM_IME_ENDCOMPOSITION — IME ended composing text. */
+internal const val WM_IME_ENDCOMPOSITION: Int = 0x010E
+
+/** WM_IME_COMPOSITION — IME composition string changed. */
+internal const val WM_IME_COMPOSITION: Int = 0x010F
+
+/** WM_IME_SETCONTEXT — IME context was set for the window. */
+internal const val WM_IME_SETCONTEXT: Int = 0x0281
+
+/** WM_IME_NOTIFY — IME notification. */
+internal const val WM_IME_NOTIFY: Int = 0x0282
+
+/** WM_INPUTLANGCHANGE — input language changed. */
+internal const val WM_INPUTLANGCHANGE: Int = 0x0051
+
+// ── GCS_* flags (WM_IME_COMPOSITION lParam) ──────────────────────────────────
+
+/** GCS_COMPREADSTR — read composition string. */
+internal const val GCS_COMPREADSTR: Int = 0x0001
+
+/** GCS_COMPREADATTR — read composition attributes. */
+internal const val GCS_COMPREADATTR: Int = 0x0002
+
+/** GCS_COMPREADCLAUSE — read composition clause information. */
+internal const val GCS_COMPREADCLAUSE: Int = 0x0004
+
+/** GCS_COMPSTR — composition string. */
+internal const val GCS_COMPSTR: Int = 0x0008
+
+/** GCS_COMPATTR — composition attributes. */
+internal const val GCS_COMPATTR: Int = 0x0010
+
+/** GCS_COMPCLAUSE — composition clause information. */
+internal const val GCS_COMPCLAUSE: Int = 0x0020
+
+/** GCS_CURSORPOS — cursor position in the composition string. */
+internal const val GCS_CURSORPOS: Int = 0x0080
+
+/** GCS_DELTASTART — start of the delta. */
+internal const val GCS_DELTASTART: Int = 0x0100
+
+/** GCS_RESULTSTR — result string (committed text). */
+internal const val GCS_RESULTSTR: Int = 0x0800
+
+/** GCS_RESULTREADSTR — read result string. */
+internal const val GCS_RESULTREADSTR: Int = 0x1000
+
+// ── CPI_* constants ──────────────────────────────────────────────────────────
+
+/** CPI_SETCOMPOSITIONSTRING — set composition string. */
+internal const val CPI_SETCOMPOSITIONSTRING: Int = 0x0400
+
+/** CPI_SETCURSORPOS — set cursor position. */
+internal const val CPI_SETCURSORPOS: Int = 0x0001
+
+// ── CFS_* constants (COMPOSITIONFORM.dwStyle) ────────────────────────────────
+
+/** CFS_DEFAULT — use default composition window position. */
+internal const val CFS_DEFAULT: Int = 0x0000
+
+/** CFS_POINT — position using ptCurrentPos. */
+internal const val CFS_POINT: Int = 0x0001
+
+/** CFS_RECT — position using rcArea. */
+internal const val CFS_RECT: Int = 0x0002
+
+/** CFS_FORCE_POSITION — force the position even during composition. */
+internal const val CFS_FORCE_POSITION: Int = 0x0020
+
+/** CFS_EXCLUDE — exclude rcArea from the composition window. */
+internal const val CFS_EXCLUDE: Int = 0x0004
+
+// ── NIM_* constants (WM_IME_NOTIFY wParam) ───────────────────────────────────
+
+/** NIM_SETOPENSTATUS — set IME open status. */
+internal const val NIM_SETOPENSTATUS: Int = 0x0006
+
+/** NIM_OPENSTATUS — query IME open status. */
+internal const val NIM_OPENSTATUS: Int = 0x0007
+
+// ── IACE_* constants (ImmAssociateContextEx) ──────────────────────────────────
+
+/** IACE_DEFAULT — associate the default IMC. */
+internal const val IACE_DEFAULT: Int = 0x0010
+
+/** IACE_CHILDREN — disassociate / suppress IME for children. */
+internal const val IACE_CHILDREN: Int = 0x0001
+
+// ── SM_* constants (GetSystemMetrics) ─────────────────────────────────────────
+
+/** SM_IMMENABLED — non-zero if the system has an IME installed. */
+internal const val SM_IMMENABLED: Int = 0x0054
+
+// ── WM_IME_SETCONTEXT LPARAM flags ───────────────────────────────────────────
+
+/** ISC_SHOWUIALL — IME may show all UI windows. Clear this to prevent it. */
+internal const val ISC_SHOWUIALL: Long = 0x80000000L
+
+// ── COMPOSITIONFORM layout (Win64) ────────────────────────────────────────────
+
+/**
+ * COMPOSITIONFORM structure size in bytes on Win64.
+ * Layout:
+ *   DWORD dwStyle          (offset  0, 4 bytes)
+ *   POINT ptCurrentPos:
+ *     LONG x               (offset  4, 4 bytes)
+ *     LONG y               (offset  8, 4 bytes)
+ *   RECT  rcArea:
+ *     LONG left            (offset 12, 4 bytes)
+ *     LONG top             (offset 16, 4 bytes)
+ *     LONG right           (offset 20, 4 bytes)
+ *     LONG bottom          (offset 24, 4 bytes)
+ */
+internal const val COMPOSITIONFORM_SIZE: Long = 28L
+internal const val COMPOSITIONFORM_ALIGN: Long = 4L
+internal const val COMPOSITIONFORM_OFFSET_DWSTYLE: Long = 0L
+internal const val COMPOSITIONFORM_OFFSET_PT_X: Long = 4L
+internal const val COMPOSITIONFORM_OFFSET_PT_Y: Long = 8L
+internal const val COMPOSITIONFORM_OFFSET_RC_LEFT: Long = 12L
+internal const val COMPOSITIONFORM_OFFSET_RC_TOP: Long = 16L
+internal const val COMPOSITIONFORM_OFFSET_RC_RIGHT: Long = 20L
+internal const val COMPOSITIONFORM_OFFSET_RC_BOTTOM: Long = 24L
+
+// ── CANDIDATEFORM layout (Win64) ──────────────────────────────────────────────
+
+/**
+ * CANDIDATEFORM structure size in bytes on Win64.
+ * Layout:
+ *   DWORD dwIndex          (offset  0, 4 bytes)
+ *   DWORD dwStyle          (offset  4, 4 bytes)
+ *   POINT ptCurrentPos:
+ *     LONG x               (offset  8, 4 bytes)
+ *     LONG y               (offset 12, 4 bytes)
+ *   RECT  rcArea:
+ *     LONG left            (offset 16, 4 bytes)
+ *     LONG top             (offset 20, 4 bytes)
+ *     LONG right           (offset 24, 4 bytes)
+ *     LONG bottom          (offset 28, 4 bytes)
+ */
+internal const val CANDIDATEFORM_SIZE: Long = 32L
+internal const val CANDIDATEFORM_ALIGN: Long = 4L
+internal const val CANDIDATEFORM_OFFSET_DWINDEX: Long = 0L
+internal const val CANDIDATEFORM_OFFSET_DWSTYLE: Long = 4L
+internal const val CANDIDATEFORM_OFFSET_PT_X: Long = 8L
+internal const val CANDIDATEFORM_OFFSET_PT_Y: Long = 12L
+internal const val CANDIDATEFORM_OFFSET_RC_LEFT: Long = 16L
+internal const val CANDIDATEFORM_OFFSET_RC_TOP: Long = 20L
+internal const val CANDIDATEFORM_OFFSET_RC_RIGHT: Long = 24L
+internal const val CANDIDATEFORM_OFFSET_RC_BOTTOM: Long = 28L

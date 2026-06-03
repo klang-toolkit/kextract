@@ -19,6 +19,8 @@ package org.graphiks.kadre.wayland
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow
+import org.graphiks.kadre.core.DeviceEvent
+import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.CursorImage
 import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
@@ -65,6 +67,7 @@ class WaylandEventLoop internal constructor(
     internal val displayPtr: Long,
     internal val compositorPtr: Long,
     internal val xdgWmBasePtr: Long,
+    internal val shmPtr: Long,
     internal val eventFd: Int,
     internal val decorationManagerPtr: Long = 0L,
 ) : ActiveEventLoop {
@@ -77,6 +80,18 @@ class WaylandEventLoop internal constructor(
      * into [ApplicationHandler.windowEvent] from the loop thread after each pump.
      */
     internal val eventQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<WindowId, WindowEvent>>()
+
+    /**
+     * Default CSD preference for newly created windows.
+     * Set via [setPreferCsd] extension.
+     */
+    @Volatile
+    internal var _preferCsd: Boolean = false
+
+    /**
+     * Activation token for xdg_activation_v1, set via [setActivationToken] extension.
+     */
+    internal var _activationToken: String? = null
 
     @Volatile private var _isExiting = false
     override val isExiting: Boolean get() = _isExiting
@@ -103,6 +118,7 @@ class WaylandEventLoop internal constructor(
             display = displayPtr,
             compositor = compositorPtr,
             xdgWmBase = xdgWmBasePtr,
+            shmPtr = shmPtr,
             attrs = attributes,
             decorationManager = decorationManagerPtr,
         ) ?: error("WaylandWindow.create failed — libwayland-client.so.0 absent or display invalid")
@@ -111,6 +127,31 @@ class WaylandEventLoop internal constructor(
         windows[window.id.value] = window
         // Initial paint so the surface attaches a buffer and becomes visible. Subsequent repaints
         // are driven on demand (e.g. after a resize), not continuously — see the main loop.
+        eventQueue.add(window.id to org.graphiks.kadre.core.WindowEvent.RedrawRequested)
+        return window
+    }
+
+    /**
+     * Creates a window with Wayland-specific attributes.
+     *
+     * Merges [WaylandWindowAttributes] fields into the core [WindowAttributes]
+     * and applies platform-specific settings at creation time.
+     */
+    fun createWindow(attrs: WaylandWindowAttributes): Window {
+        val window = WaylandWindow.create(
+            display = displayPtr,
+            compositor = compositorPtr,
+            xdgWmBase = xdgWmBasePtr,
+            shmPtr = shmPtr,
+            attrs = attrs.core,
+            decorationManager = decorationManagerPtr,
+        ) ?: error("WaylandWindow.create failed — libwayland-client.so.0 absent")
+        window.onWindowEvent = { event -> eventQueue.add(window.id to event) }
+        windows[window.id.value] = window
+        // Apply platform extension settings
+        attrs.preferCsd?.let { window.setPreferCsd(it) }
+        attrs.activationToken?.let { window.setActivationToken(it) }
+        attrs.name?.let { /* TODO: set xdg_toplevel app_id */ }
         eventQueue.add(window.id to org.graphiks.kadre.core.WindowEvent.RedrawRequested)
         return window
     }
@@ -177,16 +218,18 @@ class WaylandEventLoop internal constructor(
     // ── R5-CustomCursor ─────────────────────────────────────────────────────────
 
     /**
-     * No-op on Wayland.
+     * Stores the [CursorImage] data and returns a [CustomCursor] handle.
      *
-     * Custom cursor images require wl_buffer + wl_surface + wl_pointer.set_cursor
-     * with shared memory buffers. This is significant extra work that depends on
-     * libwayland-cursor or direct wl_shm buffer allocation.
-     *
-     * TODO(R5-wayland-cursor): implement via wl_shm buffer creation +
-     * wl_pointer.set_cursor.
+     * The full cursor-surface path (wl_shm buffer + wl_pointer.set_cursor) is
+     * deferred. The returned handle can be passed to [Window.setCustomCursor]
+     * which will look up the stored image data and apply it when the cursor
+     * surface path is wired.
      */
-    override fun createCustomCursor(image: CursorImage): CustomCursor? = null
+    override fun createCustomCursor(image: CursorImage): CustomCursor? {
+        if (image.width <= 0 || image.height <= 0 || image.rgba.isEmpty()) return null
+        val id = WaylandCustomCursorStore.store(image)
+        return CustomCursor(id)
+    }
 }
 
 internal fun routeWaylandInputEvent(
@@ -286,12 +329,13 @@ private fun runAppInternal(handler: ApplicationHandler) {
     val globals = discoverGlobals(displayPtr)
 
     val eventLoop = WaylandEventLoop(
-        displayPtr, globals.compositorPtr, globals.xdgWmBasePtr, eventFd, globals.decorationManagerPtr,
+        displayPtr, globals.compositorPtr, globals.xdgWmBasePtr, globals.shmPtr, eventFd, globals.decorationManagerPtr,
     )
 
     // ── 4b. Install seat / output listeners (keyboard, pointer, touch, scale) ─
     // Route all input events into the eventQueue by their source wl_surface.
     // The seat and output globals may be absent (0) — installSeatListeners tolerates that.
+    // DeviceEvent.Key is dispatched directly to the handler for raw key events.
     installSeatListeners(
         displayPtr    = displayPtr,
         seatPtr       = globals.seatPtr,
@@ -300,6 +344,9 @@ private fun runAppInternal(handler: ApplicationHandler) {
         outputVersion = globals.outputVersion,
         onEvent = { surfacePtr, event ->
             routeWaylandInputEvent(surfacePtr, event, eventLoop.windows, eventLoop.eventQueue)
+        },
+        onDeviceEvent = { event ->
+            handler.deviceEvent(eventLoop, DeviceId(0L), event)
         },
         onScaleChanged = { scale ->
             val factor = scale.toDouble()
@@ -311,6 +358,17 @@ private fun runAppInternal(handler: ApplicationHandler) {
             }
         },
     )
+
+    // ── 4c. Create zwp_text_input_v3 for IME (if compositor exposes the protocol) ──
+    if (globals.textInputManagerPtr != 0L && globals.seatPtr != 0L) {
+        createTextInput(
+            managerPtr = globals.textInputManagerPtr,
+            display = displayPtr,
+            onEvent = { surfacePtr, event ->
+                routeWaylandInputEvent(surfacePtr, event, eventLoop.windows, eventLoop.eventQueue)
+            },
+        )
+    }
 
     try {
         // ── 5. Lifecycle: resumed ─────────────────────────────────────────────

@@ -38,6 +38,9 @@ internal data class WaylandGlobals(
     val seatVersion: Int = 0,
     val outputPtr: Long = 0L,
     val outputVersion: Int = 0,
+    val textInputManagerPtr: Long = 0L,
+    val shmPtr: Long = 0L,
+    val shmVersion: Int = 0,
 )
 
 /**
@@ -55,6 +58,10 @@ private class GlobalsCollector {
     var seatVersion: Int = 0
     var outputName: Int = -1
     var outputVersion: Int = 0
+    var textInputManagerName: Int = -1
+    var textInputManagerVersion: Int = 0
+    var shmName: Int = -1
+    var shmVersion: Int = 0
 
     /** C callback: void global(data, wl_registry*, uint32 name, const char* interface, uint32 version). */
     @Suppress("UNUSED_PARAMETER")
@@ -71,6 +78,9 @@ private class GlobalsCollector {
                 if (decorationManagerName < 0) { decorationManagerName = name; decorationManagerVersion = version }
             "wl_seat" -> if (seatName < 0) { seatName = name; seatVersion = version }
             "wl_output" -> if (outputName < 0) { outputName = name; outputVersion = version }
+            "zwp_text_input_manager_v3" ->
+                if (textInputManagerName < 0) { textInputManagerName = name; textInputManagerVersion = version }
+            "wl_shm" -> if (shmName < 0) { shmName = name; shmVersion = version }
         }
     }
 
@@ -236,6 +246,38 @@ internal fun discoverGlobals(displayPtr: Long): WaylandGlobals {
             }
         }
 
+        // 9. wl_registry.bind(zwp_text_input_manager_v3) for IME.
+        var textInputManagerPtr = 0L
+        if (collector.textInputManagerName >= 0) {
+            val iface = zwpTextInputManagerV3Interface
+            val namePtr = iface.reinterpret(ValueLayout.ADDRESS.byteSize()).get(ValueLayout.ADDRESS, 0L)
+            val boundVersion = collector.textInputManagerVersion.coerceAtMost(1)
+            textInputManagerPtr = runCatching {
+                (bind.invokeExact(
+                    registry, WL_REGISTRY_BIND, iface, boundVersion, 0,
+                    collector.textInputManagerName, namePtr, boundVersion, MemorySegment.NULL,
+                ) as MemorySegment).address()
+            }.getOrDefault(0L)
+        }
+
+        // 10. wl_registry.bind(wl_shm) for cursor buffer creation.
+        var shmPtr = 0L
+        var shmVersion = 0
+        if (collector.shmName >= 0) {
+            val iface = wlShmInterface
+            if (iface != null) {
+                val namePtr = iface.reinterpret(ValueLayout.ADDRESS.byteSize()).get(ValueLayout.ADDRESS, 0L)
+                val boundVersion = collector.shmVersion.coerceAtMost(1)
+                shmPtr = runCatching {
+                    (bind.invokeExact(
+                        registry, WL_REGISTRY_BIND, iface, boundVersion, 0,
+                        collector.shmName, namePtr, boundVersion, MemorySegment.NULL,
+                    ) as MemorySegment).address()
+                }.getOrDefault(0L)
+                shmVersion = boundVersion
+            }
+        }
+
         WaylandGlobals(
             compositorPtr        = compositor.address(),
             xdgWmBasePtr         = xdgWmBasePtr,
@@ -244,6 +286,9 @@ internal fun discoverGlobals(displayPtr: Long): WaylandGlobals {
             seatVersion          = seatVersion,
             outputPtr            = outputPtr,
             outputVersion        = outputVersion,
+            textInputManagerPtr  = textInputManagerPtr,
+            shmPtr               = shmPtr,
+            shmVersion           = shmVersion,
         )
     } catch (_: Throwable) {
         WaylandGlobals(0L, 0L)

@@ -75,11 +75,10 @@ jobs:
         working-directory: samples/hello-triangle-web/e2e
         run: npm install
 
-      - name: Install Chrome stable
-        working-directory: samples/hello-triangle-web/e2e
-        # Stable Chrome (release channel) installed by Playwright. No
-        # `--with-deps` (Linux-only, we are on macOS).
-        run: npx playwright install chrome
+      - name: Use system Chrome (macOS runners have it pre-installed)
+        run: |
+          echo "CHROME_PATH=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" >> "$GITHUB_ENV"
+          echo "Using system Chrome at $(ls -d /Applications/Google\ Chrome.app 2>/dev/null || echo 'not found')"
 
       - name: Run Playwright smoke + visual tests
         working-directory: samples/hello-triangle-web/e2e

@@ -174,7 +174,8 @@ fun mapWaylandKeyEvent(
             modifiers = modifiers,
             repeat = state == WL_KEY_REPEATED,
             text = mappedCode?.defaultText(),
-            keyWithoutModifiers = logicalKey,
+            textWithAllModifiers = mappedCode?.defaultText(),
+            keyWithoutModifiers = mappedCode?.defaultText(),
             native = native,
         ),
         deviceId = null,
@@ -182,6 +183,37 @@ fun mapWaylandKeyEvent(
 }
 
 fun mapWaylandKeyboardFocused(focused: Boolean): WindowEvent.Focused = WindowEvent.Focused(focused)
+
+/**
+ * Best-effort mapping from XKB modifier masks to [KeyboardModifiers] without xkbcommon.
+ *
+ * Standard XKB modifier indices used by essentially all Linux desktop keymaps:
+ * - Shift: index 0 → mask 0x01
+ * - Control: index 2 → mask 0x04
+ * - Mod1 (Alt): index 3 → mask 0x08
+ * - Mod4 (Super/Meta): index 6 → mask 0x40
+ */
+internal fun xkbModMaskToKeyboardModifiers(modsDepressed: Int): KeyboardModifiers {
+    var mods = KeyboardModifiers.NONE
+    if ((modsDepressed and 0x01) != 0) mods += KeyboardModifiers.Shift
+    if ((modsDepressed and 0x04) != 0) mods += KeyboardModifiers.Ctrl
+    if ((modsDepressed and 0x08) != 0) mods += KeyboardModifiers.Alt
+    if ((modsDepressed and 0x40) != 0) mods += KeyboardModifiers.Meta
+    return mods
+}
+
+internal fun xkbModMaskToModifierKeys(modsDepressed: Int): ModifierKeys {
+    val leftShift = if ((modsDepressed and 0x01) != 0) ModifierKeyState.Pressed else ModifierKeyState.Released
+    val leftCtrl = if ((modsDepressed and 0x04) != 0) ModifierKeyState.Pressed else ModifierKeyState.Released
+    val leftAlt = if ((modsDepressed and 0x08) != 0) ModifierKeyState.Pressed else ModifierKeyState.Released
+    val leftMeta = if ((modsDepressed and 0x40) != 0) ModifierKeyState.Pressed else ModifierKeyState.Released
+    return ModifierKeys(
+        leftShift = leftShift, rightShift = ModifierKeyState.Released,
+        leftCtrl = leftCtrl, rightCtrl = ModifierKeyState.Released,
+        leftAlt = leftAlt, rightAlt = ModifierKeyState.Released,
+        leftMeta = leftMeta, rightMeta = ModifierKeyState.Released,
+    )
+}
 
 internal class WaylandKeyboardModifierTracker {
     private var modifierState = waylandInitialModifierState()
@@ -215,6 +247,18 @@ internal class WaylandKeyboardModifierTracker {
             modifiers = modifierState.logical,
         )
         return events
+    }
+
+    fun mapModifiers(modsDepressed: Int): List<WindowEvent> {
+        val logical = xkbModMaskToKeyboardModifiers(modsDepressed)
+        val physical = xkbModMaskToModifierKeys(modsDepressed)
+        val nextState = KeyboardModifierState(logical = logical, physical = physical)
+        return if (nextState != modifierState) {
+            modifierState = nextState
+            listOf(WindowEvent.ModifiersChanged(nextState))
+        } else {
+            emptyList()
+        }
     }
 
     fun mapFocusLost(): List<WindowEvent> {

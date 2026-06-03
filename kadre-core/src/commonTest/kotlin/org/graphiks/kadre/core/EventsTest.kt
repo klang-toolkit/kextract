@@ -752,7 +752,7 @@ class EventsTest {
             state = KeyState.Pressed,
             modifiers = KeyboardModifiers.NONE,
             text = "z",
-            keyWithoutModifiers = LogicalKey.Character("z"),
+            keyWithoutModifiers = "z",
             native = NativeKeyInfo(platform = KeyPlatform.Web, keyCode = "KeyW", keyValue = "z"),
         )
 
@@ -773,7 +773,7 @@ class EventsTest {
             modifiers = KeyboardModifiers.Ctrl + KeyboardModifiers.Shift,
             text = null,
             textWithAllModifiers = "\u0013",
-            keyWithoutModifiers = LogicalKey.Character("s"),
+            keyWithoutModifiers = "s",
         )
 
         assertEquals(LogicalKey.Character("s"), event.shortcutKey)
@@ -1053,7 +1053,7 @@ class EventsTest {
             logicalKey = LogicalKey.Character("S"),
             state = KeyState.Pressed,
             modifiers = KeyboardModifiers.Ctrl,
-            keyWithoutModifiers = LogicalKey.Character("s"),
+            keyWithoutModifiers = "s",
         )
 
         assertTrue(chord.matches(event))
@@ -1268,13 +1268,11 @@ class EventsTest {
     }
 
     @Test
-    fun `DeviceEvent Key keeps legacy scancode constructor`() {
-        val key = DeviceEvent.Key(0x1E, KeyState.Pressed)
+    fun `DeviceEvent Key accepts PhysicalKey`() {
+        val key = DeviceEvent.Key(PhysicalKey.Code(KeyCode.KeyA), KeyState.Pressed)
 
-        assertEquals(PhysicalKey.Native(KeyPlatform.Unknown, 0x1E), key.event.physicalKey)
-        assertEquals(0x1E, key.scancode)
+        assertEquals(PhysicalKey.Code(KeyCode.KeyA), key.event.physicalKey)
         assertEquals(KeyState.Pressed, key.state)
-        assertEquals(NativeKeyCode.PlatformCode(KeyPlatform.Unknown, 0x1E), key.event.native.nativeCode)
     }
 
     @Test

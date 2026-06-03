@@ -744,9 +744,24 @@ internal fun Arena.allocateWString(value: String): MemorySegment {
 /** WS_OVERLAPPEDWINDOW = WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX */
 @Suppress("INTEGER_OVERFLOW")
 internal const val WS_OVERLAPPEDWINDOW: Int = 0x00CF0000
+/** BOOL EnableWindow(HWND hWnd, BOOL bEnable); */
+
+internal val enableWindow: MethodHandle? by lazy {
+    user32.downcall(
+        "EnableWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.JAVA_INT,   // BOOL
+        )
+    )
+}
 
 /** WS_EX_APPWINDOW — button in the taskbar */
 internal const val WS_EX_APPWINDOW: Int = 0x00040000
+
+/** WS_EX_TOOLWINDOW — tool window, no taskbar button */
+internal const val WS_EX_TOOLWINDOW: Int = 0x00000080
 
 /** SW_SHOW */
 internal const val SW_SHOW: Int = 5
@@ -1342,8 +1357,43 @@ internal val dwmEnableBlurBehindWindow: MethodHandle? by lazy {
     )
 }
 
+/**
+ * HRESULT DwmExtendFrameIntoClientArea(HWND hWnd, const MARGINS *pMargins);
+ *
+ * Used for undecorated window shadows. Pass MARGINS {-1, -1, -1, -1}
+ * to extend the glass frame (including shadow) into the client area.
+ */
+internal val dwmExtendFrameIntoClientArea: MethodHandle? by lazy {
+    dwmapi.downcall(
+        "DwmExtendFrameIntoClientArea",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // HRESULT
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.ADDRESS,    // const MARGINS*
+        )
+    )
+}
+
 /** DWMWA_USE_IMMERSIVE_DARK_MODE — enables dark title bar (Windows 11+). */
 internal const val DWMWA_USE_IMMERSIVE_DARK_MODE: Int = 20
+
+/** DWMWA_WINDOW_CORNER_PREFERENCE — window corner rounding (Windows 11 22000+). */
+internal const val DWMWA_WINDOW_CORNER_PREFERENCE: Int = 33
+
+/** DWMWA_BORDER_COLOR — border color (Windows 11 22000+). */
+internal const val DWMWA_BORDER_COLOR: Int = 34
+
+/** DWMWA_CAPTION_COLOR — title bar caption/background color (Windows 11 22000+). */
+internal const val DWMWA_CAPTION_COLOR: Int = 35
+
+/** DWMWA_TEXT_COLOR — title bar text color (Windows 11 22000+). */
+internal const val DWMWA_TEXT_COLOR: Int = 36
+
+/** DWMWA_SYSTEMBACKDROP_TYPE — system backdrop (Windows 11 22523+). */
+internal const val DWMWA_SYSTEMBACKDROP_TYPE: Int = 38
+
+/** DWMWA_MICA — legacy Mica effect (Windows 11 22000+). Replaced by DWMWA_SYSTEMBACKDROP_TYPE. */
+internal const val DWMWA_MICA: Int = 19
 
 internal const val DWM_BB_ENABLE: Int = 0x00000001
 internal const val DWM_BB_BLURREGION: Int = 0x00000002
@@ -1557,3 +1607,162 @@ internal const val FLASHW_CAPTION: Int = 0x00000001
 internal const val FLASHW_TRAY: Int = 0x00000002
 internal const val FLASHW_ALL: Int = FLASHW_CAPTION or FLASHW_TRAY
 internal const val FLASHW_TIMERNOFG: Int = 0x0000000C
+
+// ── IMM32 (IME) bindings ──────────────────────────────────────────────────────
+
+/**
+ * Lookup of imm32.dll — null on non-Windows platforms.
+ */
+internal val imm32: SymbolLookup? by lazy {
+    try { SymbolLookup.libraryLookup("imm32.dll", Arena.global()) } catch (_: Throwable) { null }
+}
+
+/**
+ * HIMC ImmGetContext(HWND hWnd);
+ *
+ * Retrieves the input method context handle for the specified window.
+ */
+internal val immGetContext: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmGetContext",
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    )
+}
+
+/**
+ * BOOL ImmReleaseContext(HWND hWnd, HIMC hIMC);
+ *
+ * Releases the input method context handle.
+ */
+internal val immReleaseContext: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmReleaseContext",
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    )
+}
+
+/**
+ * DWORD ImmGetCompositionStringW(HIMC hIMC, DWORD dwIndex, LPVOID lpBuf, DWORD dwBufLen);
+ *
+ * Retrieves the composition string, attributes, clause information, or cursor
+ * position from the IME. Pass NULL/0 for lpBuf/dwBufLen to query the required
+ * buffer size. Returns the number of bytes written (string modes), the cursor
+ * position (GCS_CURSORPOS), or a negative value on error.
+ */
+internal val immGetCompositionStringW: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmGetCompositionStringW",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, // HIMC
+            ValueLayout.JAVA_INT, // DWORD dwIndex
+            ValueLayout.ADDRESS,  // LPVOID lpBuf
+            ValueLayout.JAVA_INT, // DWORD dwBufLen
+        )
+    )
+}
+
+/**
+ * BOOL ImmSetCompositionStringW(HIMC hIMC, DWORD dwIndex, LPVOID lpComp,
+ *     DWORD dwCompLen, LPVOID lpRead, DWORD dwReadLen);
+ *
+ * Sets the composition string for the IME. Pass SCS_SETSTR (0x0001) for dwIndex
+ * to set the composition string.
+ */
+internal val immSetCompositionStringW: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmSetCompositionStringW",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, // HIMC
+            ValueLayout.JAVA_INT, // DWORD dwIndex
+            ValueLayout.ADDRESS,  // LPVOID lpComp
+            ValueLayout.JAVA_INT, // DWORD dwCompLen
+            ValueLayout.ADDRESS,  // LPVOID lpRead
+            ValueLayout.JAVA_INT, // DWORD dwReadLen
+        )
+    )
+}
+
+/**
+ * BOOL ImmNotifyIME(HIMC hIMC, DWORD dwAction, DWORD dwIndex, DWORD dwValue);
+ *
+ * Notifies the IME of changes to the input context, such as updating the
+ * composition status or cursor position.
+ */
+internal val immNotifyIME: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmNotifyIME",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, // HIMC
+            ValueLayout.JAVA_INT, // DWORD dwAction
+            ValueLayout.JAVA_INT, // DWORD dwIndex
+            ValueLayout.JAVA_INT, // DWORD dwValue
+        )
+    )
+}
+
+/**
+ * BOOL ImmSetCompositionWindow(HIMC hIMC, const COMPOSITIONFORM *lpCompForm);
+ *
+ * Sets the position of the composition window (where the pre-edit text is
+ * displayed inline).
+ */
+internal val immSetCompositionWindow: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmSetCompositionWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, // HIMC
+            ValueLayout.ADDRESS, // const COMPOSITIONFORM*
+        )
+    )
+}
+
+/**
+ * BOOL ImmSetCandidateWindow(HIMC hIMC, const CANDIDATEFORM *lpCandidateForm);
+ *
+ * Sets the position of the candidate window (the IME suggestion/selection UI).
+ */
+internal val immSetCandidateWindow: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmSetCandidateWindow",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, // HIMC
+            ValueLayout.ADDRESS, // const CANDIDATEFORM*
+        )
+    )
+}
+
+/**
+ * BOOL ImmAssociateContextEx(HWND hWnd, HIMC hIMC, DWORD dwFlags);
+ *
+ * Associates or disassociates an input method context with a window.
+ *   IACE_DEFAULT (0x0010) — associate the default IMC
+ *   IACE_CHILDREN (0x0001) — disassociate / suppress IME
+ */
+internal val immAssociateContextEx: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmAssociateContextEx",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, // HWND
+            ValueLayout.ADDRESS, // HIMC (NULL for default)
+            ValueLayout.JAVA_INT, // DWORD dwFlags
+        )
+    )
+}
+
+/**
+ * int GetSystemMetrics(int nIndex);
+ *
+ * Retrieves system metrics. SM_IMMENABLED (0x0054) checks if an IME is installed.
+ */
+internal val getSystemMetrics: MethodHandle? by lazy {
+    user32.downcall(
+        "GetSystemMetrics",
+        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT)
+    )
+}

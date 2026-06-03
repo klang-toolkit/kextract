@@ -21,6 +21,7 @@ import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.ImePurpose
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -39,7 +40,9 @@ import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.WindowRequestResult
+import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
+import java.lang.foreign.ValueLayout
 import kotlin.math.roundToInt
 
 /** wl_compositor.create_surface opcode in the core Wayland protocol. */
@@ -73,6 +76,7 @@ class WaylandWindow private constructor(
     private val compositorPtr: Long,
     private val xdgWmBasePtr: Long,
     private val surfacePtr: Long,
+    private val shmPtr: Long,
     private val attrs: WindowAttributes,
 ) : Window {
 
@@ -88,6 +92,25 @@ class WaylandWindow private constructor(
 
     /** The xdg_shell decoration (real toplevel), or null if xdg_shell is unavailable. */
     private var xdg: XdgToplevel? = null
+
+    /** wl_surface* for the cursor (created once per window, reused). */
+    private var cursorSurfacePtr: Long = 0L
+
+    /** wl_cursor_theme* handle for theme-based cursors, or 0 if not loaded. */
+    private var cursorTheme: Long = 0L
+
+    /** The pixel size (height) of the loaded cursor theme. */
+    private var cursorThemeSize: Int = 0
+
+    /** Last CursorIcon applied via setCursor, for visibility restoration. */
+    private var lastCursorIcon: CursorIcon? = null
+
+    /** Last custom cursor buffer (wl_buffer*) for cleanup when a new cursor replaces it. */
+    private var currentCursorBuffer: Long = 0L
+
+    /** Hotspot of the current custom cursor buffer. */
+    private var currentCursorHotspotX: Int = 0
+    private var currentCursorHotspotY: Int = 0
 
     override val rawWindowHandle: RawWindowHandle
         get() = RawWindowHandle.Wayland(surface = surfacePtr, display = displayPtr)
@@ -215,7 +238,16 @@ class WaylandWindow private constructor(
      * calls wl_proxy_destroy directly on the surface.
      */
     override fun close() {
-        // Tear down xdg_toplevel/xdg_surface first (reverse creation order).
+        destroyWaylandCursorTheme()
+        destroyWlBuffer(currentCursorBuffer)
+        currentCursorBuffer = 0L
+        if (cursorSurfacePtr != 0L) {
+            val handle = wlProxyDestroy ?: return
+            try {
+                handle.invokeExact(MemorySegment.ofAddress(cursorSurfacePtr))
+            } catch (_: Throwable) {}
+            cursorSurfacePtr = 0L
+        }
         xdg?.destroy()
         xdg = null
         if (surfacePtr == 0L) return
@@ -469,38 +501,226 @@ class WaylandWindow private constructor(
 
     // ── R3: cursor, theme & appearance ───────────────────────────────────────
 
-    /**
-     * No-op on Wayland.
-     *
-     * TODO(R5-wayland-cursor): implement via wl_pointer.set_cursor with a
-     * custom wl_buffer created from the cursor image data.
-     */
     override fun setCustomCursor(cursor: CustomCursor) {
-        // No-op on Wayland: custom cursor surfaces are not wired yet.
+        val image = WaylandCustomCursorStore.get(cursor.id) ?: return
+        if (!cursorVisible) return
+        val cursorCtx = WaylandPointerState.currentCursor(surfacePtr) ?: return
+        if (cursorSurfacePtr == 0L) {
+            cursorSurfacePtr = createWaylandCursorSurface() ?: return
+        }
+
+        // Destroy previous custom cursor buffer
+        destroyWlBuffer(currentCursorBuffer)
+        currentCursorBuffer = 0L
+
+        val bufPtr = applyCursorSurface(
+            cursorSurfacePtr, shmPtr, displayPtr,
+            image.width, image.height, image.rgba,
+            image.hotspotX, image.hotspotY,
+        )
+        if (bufPtr != 0L) {
+            currentCursorBuffer = bufPtr
+            currentCursorHotspotX = image.hotspotX
+            currentCursorHotspotY = image.hotspotY
+            setPointerCursor(cursorCtx, image.hotspotX, image.hotspotY)
+        }
+        lastCursorIcon = null
     }
 
-    /**
-     * No-op on Wayland.
-     *
-     * Cursor shape requires wl_pointer.set_cursor with a wl_surface carrying
-     * a cursor buffer from libwayland-cursor. This is significant extra work
-     * (loading cursor theme, creating a wl_surface, attaching a shm buffer).
-     *
-     * TODO(R3-wayland-cursor): implement via wl_cursor_theme_load +
-     * wl_pointer.set_cursor if libwayland-cursor is available.
-     */
     override fun setCursor(cursor: CursorIcon) {
-        // No-op on Wayland: cursor theme requires libwayland-cursor integration.
+        lastCursorIcon = cursor
+        if (!cursorVisible) return
+
+        if (cursor == CursorIcon.Hidden) {
+            hidePointerCursor()
+            return
+        }
+        if (cursor == CursorIcon.NoneReset) {
+            setCursor(CursorIcon.Default)
+            return
+        }
+
+        val cursorCtx = WaylandPointerState.currentCursor(surfacePtr) ?: return
+
+        val name = cursorIconToWaylandName(cursor)
+        val themeSize = (_scaleFactor * 24).roundToInt().coerceIn(16, 128)
+
+        // Load cursor theme
+        if (cursorTheme == 0L || cursorThemeSize != themeSize) {
+            loadWaylandCursorTheme(themeSize)
+        }
+        if (cursorTheme == 0L) return
+
+        applyThemeCursor(cursorCtx, name, themeSize)
     }
 
     override fun setCursorVisible(visible: Boolean) {
         cursorVisible = visible
         WaylandPointerState.setCursorVisible(surfacePtr, visible)
         if (!visible) {
-            WaylandPointerState.hideCursorForSurface(surfacePtr)
-            flushDisplay()
+            hidePointerCursor()
+        } else {
+            val icon = lastCursorIcon
+            if (icon != null && icon != CursorIcon.Hidden) {
+                setCursor(icon)
+            } else if (currentCursorBuffer != 0L) {
+                val cursorCtx = WaylandPointerState.currentCursor(surfacePtr) ?: return
+                wlSurfaceAttach(cursorSurfacePtr, currentCursorBuffer, 0, 0)
+                wlSurfaceDamage(cursorSurfacePtr, 0, 0, Int.MAX_VALUE, Int.MAX_VALUE)
+                wlSurfaceCommit(cursorSurfacePtr)
+                setPointerCursor(cursorCtx, currentCursorHotspotX, currentCursorHotspotY)
+            }
         }
-        // Restoring visibility requires a cursor theme surface, which is not wired yet.
+    }
+
+    /** Creates a dedicated wl_surface for the cursor (reused across cursor changes). */
+    private fun createWaylandCursorSurface(): Long? {
+        if (compositorPtr == 0L) return null
+        val createSurface = wlCompositorCreateSurface ?: return null
+        val surfaceInterface = wlSurfaceInterface ?: return null
+        return try {
+            val compositorSeg = MemorySegment.ofAddress(compositorPtr)
+            (createSurface.invokeExact(
+                compositorSeg,
+                WL_COMPOSITOR_CREATE_SURFACE_OPCODE,
+                surfaceInterface,
+                WL_COMPOSITOR_VERSION,
+                0,
+                MemorySegment.NULL,
+            ) as MemorySegment).address().takeIf { it != 0L }
+        } catch (_: Throwable) { null }
+    }
+
+    /** Destroys a wl_buffer via wl_buffer.destroy (opcode 0, destructor). */
+    private fun destroyWlBuffer(bufferPtr: Long) {
+        if (bufferPtr == 0L) return
+        val marshal = wlProxyMarshalFlagsVoid ?: return
+        try {
+            marshal.invokeExact(
+                MemorySegment.ofAddress(bufferPtr),
+                0,                       // opcode: wl_buffer.destroy
+                MemorySegment.NULL,
+                1,                       // version
+                WL_MARSHAL_FLAG_DESTROY, // flags
+            )
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Calls wl_pointer.set_cursor(serial, cursorSurface, hotspotX, hotspotY).
+     * Uses the wl_pointer and serial from the cursor request context.
+     */
+    private fun setPointerCursor(ctx: WaylandPointerState.CursorRequestContext, hx: Int, hy: Int) {
+        val marshal = wlProxyMarshalFlagsUintObjectTwoInt ?: return
+        try {
+            marshal.invokeExact(
+                MemorySegment.ofAddress(ctx.pointerPtr),
+                WL_POINTER_SET_CURSOR_OPCODE, // 0
+                MemorySegment.NULL,
+                WL_POINTER_VERSION,
+                0,
+                ctx.enterSerial,
+                MemorySegment.ofAddress(cursorSurfacePtr),
+                hx,
+                hy,
+            )
+            flushDisplay()
+        } catch (_: Throwable) {}
+    }
+
+    /** Hides the cursor by calling wl_pointer.set_cursor with NULL surface. */
+    private fun hidePointerCursor() {
+        val cursorCtx = WaylandPointerState.currentCursor(surfacePtr) ?: return
+        val marshal = wlProxyMarshalFlagsUintObjectTwoInt ?: return
+        try {
+            marshal.invokeExact(
+                MemorySegment.ofAddress(cursorCtx.pointerPtr),
+                WL_POINTER_SET_CURSOR_OPCODE,
+                MemorySegment.NULL,
+                WL_POINTER_VERSION,
+                0,
+                cursorCtx.enterSerial,
+                MemorySegment.NULL,
+                0,
+                0,
+            )
+            flushDisplay()
+        } catch (_: Throwable) {}
+    }
+
+    /** Loads (or reloads) the cursor theme at the given pixel size. */
+    private fun loadWaylandCursorTheme(size: Int) {
+        destroyWaylandCursorTheme()
+        val load = wlCursorThemeLoad ?: return
+        try {
+            val theme = load.invokeExact(MemorySegment.NULL, size, MemorySegment.ofAddress(shmPtr)) as MemorySegment
+            if (theme.address() != 0L) {
+                cursorTheme = theme.address()
+                cursorThemeSize = size
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /** Applies a theme cursor by name to the cursor surface. */
+    private fun applyThemeCursor(
+        ctx: WaylandPointerState.CursorRequestContext,
+        name: String,
+        size: Int,
+    ) {
+        val getCursor = wlCursorThemeGetCursor ?: return
+        val getBuffer = wlCursorImageGetBuffer ?: return
+
+        val cursorPtr: Long = Arena.ofConfined().use { arena ->
+            try {
+                val nameSeg = arena.allocateFrom(name)
+                (getCursor.invokeExact(
+                    MemorySegment.ofAddress(cursorTheme), nameSeg
+                ) as MemorySegment).address()
+            } catch (_: Throwable) { 0L }
+        }
+
+        if (cursorPtr == 0L) {
+            if (name != "left_ptr") {
+                applyThemeCursor(ctx, "left_ptr", size)
+            }
+            return
+        }
+
+        try {
+            val cursorSeg = MemorySegment.ofAddress(cursorPtr).reinterpret(24)
+            val imageCount = cursorSeg.get(ValueLayout.JAVA_INT, 0L)
+            if (imageCount <= 0) return
+
+            val imagesArray = cursorSeg.get(ValueLayout.ADDRESS, 8L).reinterpret(8)
+            val firstImage = imagesArray.get(ValueLayout.ADDRESS, 0L).reinterpret(20)
+            val hx = firstImage.get(ValueLayout.JAVA_INT, 8L)
+            val hy = firstImage.get(ValueLayout.JAVA_INT, 12L)
+            val buffer = getBuffer.invokeExact(firstImage) as MemorySegment
+            if (buffer.address() == 0L) return
+
+            if (cursorSurfacePtr == 0L) {
+                cursorSurfacePtr = createWaylandCursorSurface() ?: return
+            }
+
+            destroyWlBuffer(currentCursorBuffer)
+            currentCursorBuffer = 0L
+
+            wlSurfaceAttach(cursorSurfacePtr, buffer.address(), 0, 0)
+            wlSurfaceDamage(cursorSurfacePtr, 0, 0, Int.MAX_VALUE, Int.MAX_VALUE)
+            wlSurfaceCommit(cursorSurfacePtr)
+            setPointerCursor(ctx, hx, hy)
+        } catch (_: Throwable) {}
+    }
+
+    /** Destroys the cursor theme if loaded. */
+    private fun destroyWaylandCursorTheme() {
+        if (cursorTheme == 0L) return
+        val destroy = wlCursorThemeDestroy ?: return
+        try {
+            destroy.invokeExact(MemorySegment.ofAddress(cursorTheme))
+        } catch (_: Throwable) {}
+        cursorTheme = 0L
+        cursorThemeSize = 0
     }
 
     /**
@@ -656,15 +876,51 @@ class WaylandWindow private constructor(
     // ── R4: keyboard ──────────────────────────────────────────────────────────
 
     /**
-     * Resets dead-key state for this Wayland window.
+     * Resets dead-key / compose state for this window.
      *
-     * Best-effort: would require an xkb_compose_state pointer, which is not yet stored.
-     * Documented no-op.
-     *
-     * TODO(R4-wayland-dead-keys): store xkb_compose_state and call xkb_compose_state_reset.
+     * Best-effort: calls [xkb_compose_state_reset] on the global compose state
+     * that was initialized from [WlKeyboardListener.onKeymap].
+     * No-op if xkbcommon is unavailable or no keymap has been received.
      */
     override fun resetDeadKeys() {
-        // no-op: xkb_compose_state not yet wired (TODO R4-wayland-dead-keys)
+        val cs = waylandComposeState
+        if (cs != 0L) {
+            try { xkbComposeStateReset?.invokeExact(MemorySegment.ofAddress(cs)) } catch (_: Throwable) {}
+        }
+    }
+
+    // ── R5-IME: input method ──────────────────────────────────────────────────
+
+    /**
+     * Enables or disables IME for this window via `zwp_text_input_v3.enable/disable`.
+     *
+     * Only takes effect if the compositor supports `zwp_text_input_manager_v3`
+     * and this window's surface has text-input focus.
+     */
+    override fun setImeAllowed(allowed: Boolean) {
+        if (allowed) {
+            waylandTextInputEnable()
+        } else {
+            waylandTextInputDisable()
+        }
+    }
+
+    /**
+     * Updates the IME cursor rectangle via `zwp_text_input_v3.set_cursor_rectangle`.
+     *
+     * The compositor uses this to position the IME candidate window.
+     * Coordinates are converted from physical pixels to surface-local (buffer) coordinates
+     * using the current scale factor.
+     */
+    override fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) {
+        waylandTextInputSetCursorRectangle(position, size, _scaleFactor)
+    }
+
+    /**
+     * Hints the IME about the text-field purpose via `zwp_text_input_v3.set_input_purpose`.
+     */
+    override fun setImePurpose(purpose: ImePurpose) {
+        waylandTextInputSetPurpose(purpose)
     }
 
     // ── Companion ─────────────────────────────────────────────────────────────
@@ -688,6 +944,7 @@ class WaylandWindow private constructor(
             display: Long,
             compositor: Long,
             xdgWmBase: Long,
+            shmPtr: Long,
             attrs: WindowAttributes,
             decorationManager: Long = 0L,
         ): WaylandWindow? {
@@ -719,7 +976,7 @@ class WaylandWindow private constructor(
                 return null
             }
 
-            val window = WaylandWindow(display, compositor, xdgWmBase, surface, attrs)
+            val window = WaylandWindow(display, compositor, xdgWmBase, surface, shmPtr, attrs)
             window.setTransparent(attrs.transparent)
 
             // ── 2. xdg_shell handshake → real mapped toplevel + configure/close events ──
@@ -772,9 +1029,10 @@ class WaylandWindow private constructor(
             compositor: Long = 0L,
             xdgWmBase: Long = 0L,
             surface: Long = 0L,
+            shmPtr: Long = 0L,
             attrs: WindowAttributes = WindowAttributes(),
         ): WaylandWindow =
-            WaylandWindow(display, compositor, xdgWmBase, surface, attrs).also {
+            WaylandWindow(display, compositor, xdgWmBase, surface, shmPtr, attrs).also {
                 it.setTransparent(attrs.transparent)
             }
     }
@@ -818,6 +1076,28 @@ class WaylandWindow private constructor(
                 destroyWaylandRegion(region)
             }
         }
+    }
+
+    /** Returns the xdg_toplevel pointer, or 0 if not available. */
+    internal fun xdgToplevelPtr(): Long =
+        xdg?.xdgToplevelPtr ?: 0L
+
+    /**
+     * Sets the client-side decoration preference.
+     * When preferCsd=true, requests client-side decorations (CSD);
+     * when false, requests server-side decorations (SSD).
+     */
+    internal fun setPreferCsd(preferCsd: Boolean) {
+        xdg?.setDecorations(!preferCsd)
+        flushDisplay()
+    }
+
+    /**
+     * Sets the xdg_activation_v1 activation token for this window.
+     * Stub: xdg_activation_v1 protocol not yet wired in Kadre.
+     */
+    internal fun setActivationToken(token: String?) {
+        // no-op: xdg_activation_v1 is not yet bound.
     }
 
     internal fun applyWaylandInputRegionHittest(hittest: Boolean): Boolean {
@@ -981,4 +1261,45 @@ internal fun waylandApplyResizeIncrements(
         baseWidth + (deltaWidth / widthIncrement) * widthIncrement,
         baseHeight + (deltaHeight / heightIncrement) * heightIncrement,
     )
+}
+
+/** Maps [CursorIcon] to a libwayland-cursor theme name string. */
+internal fun cursorIconToWaylandName(cursor: CursorIcon): String = when (cursor) {
+    CursorIcon.Default -> "left_ptr"
+    CursorIcon.Pointer -> "hand2"
+    CursorIcon.Text -> "xterm"
+    CursorIcon.Crosshair -> "crosshair"
+    CursorIcon.Move -> "move"
+    CursorIcon.ResizeNorth -> "top_side"
+    CursorIcon.ResizeSouth -> "bottom_side"
+    CursorIcon.ResizeEast -> "right_side"
+    CursorIcon.ResizeWest -> "left_side"
+    CursorIcon.ResizeNorthEast -> "top_right_corner"
+    CursorIcon.ResizeNorthWest -> "top_left_corner"
+    CursorIcon.ResizeSouthEast -> "bottom_right_corner"
+    CursorIcon.ResizeSouthWest -> "bottom_left_corner"
+    CursorIcon.NotAllowed -> "not-allowed"
+    CursorIcon.Grab -> "openhand"
+    CursorIcon.Grabbing -> "grabbing"
+    CursorIcon.Wait -> "watch"
+    CursorIcon.Progress -> "left_ptr_watch"
+    CursorIcon.EwResize -> "ew-resize"
+    CursorIcon.NsResize -> "ns-resize"
+    CursorIcon.NeswResize -> "nesw-resize"
+    CursorIcon.NwseResize -> "nwse-resize"
+    CursorIcon.ColResize -> "col-resize"
+    CursorIcon.RowResize -> "row-resize"
+    CursorIcon.AllScroll -> "all-scroll"
+    CursorIcon.ZoomIn -> "zoom-in"
+    CursorIcon.ZoomOut -> "zoom-out"
+    CursorIcon.Copy -> "copy"
+    CursorIcon.Alias -> "alias"
+    CursorIcon.ContextMenu -> "context-menu"
+    CursorIcon.Cell -> "cell"
+    CursorIcon.NoDrop -> "no-drop"
+    CursorIcon.Help -> "help"
+    CursorIcon.Hidden -> "hidden"
+    CursorIcon.NoneReset -> "left_ptr"
+    CursorIcon.WaitCursor -> "watch"
+    CursorIcon.VerticalText -> "vertical-text"
 }

@@ -616,7 +616,7 @@ class NativeKeyboardSimulationTest {
                 modifiers = KeyboardModifiers.Ctrl + KeyboardModifiers.Shift,
             ) {
                 requiredModifiers = KeyboardModifiers.Ctrl
-                keyWithoutModifiers = LogicalKey.Character("s")
+                keyWithoutModifiers = "s"
             }
         }
 
@@ -628,7 +628,7 @@ class NativeKeyboardSimulationTest {
                         physicalKey = PhysicalKey.Code(KeyCode.KeyS),
                         logicalKey = LogicalKey.Character("s"),
                         modifiers = KeyboardModifiers.Ctrl + KeyboardModifiers.Shift,
-                        keyWithoutModifiers = LogicalKey.Character("s"),
+                        keyWithoutModifiers = "s",
                         native = NativeKeyInfo(
                             nativeCode = NativeKeyCode.Web("KeyS"),
                             nativeKey = NativeLogicalKey.Web("s"),
@@ -870,7 +870,7 @@ class NativeKeyboardSimulationTest {
         location: KeyLocation = KeyLocation.Standard,
         repeat: Boolean = false,
         text: String? = null,
-        keyWithoutModifiers: LogicalKey? = null,
+        keyWithoutModifiers: String? = null,
         native: NativeKeyInfo = NativeKeyInfo(),
     ): KeyEvent = KeyEvent(
         physicalKey = physicalKey,

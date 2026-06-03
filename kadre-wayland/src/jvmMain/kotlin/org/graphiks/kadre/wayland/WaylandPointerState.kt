@@ -4,8 +4,8 @@ import java.lang.foreign.MemorySegment
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-private const val WL_POINTER_SET_CURSOR_OPCODE: Int = 0
-private const val WL_POINTER_VERSION: Int = 1
+internal const val WL_POINTER_SET_CURSOR_OPCODE: Int = 0
+internal const val WL_POINTER_VERSION: Int = 1
 
 /**
  * Minimal shared pointer state needed by xdg_toplevel interactive requests.

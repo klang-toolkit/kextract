@@ -32,15 +32,25 @@ import org.graphiks.kadre.core.ResizeDirection
 import org.graphiks.kadre.core.SurfaceSizeRequestResult
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.UserAttentionType
+import org.graphiks.kadre.core.ActiveEventLoop
+import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.ImePurpose
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowButtons
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.WindowRequestResult
 import java.lang.foreign.Arena
+import java.lang.foreign.FunctionDescriptor
+import java.lang.foreign.Linker
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
+import java.lang.invoke.MethodHandles
+import java.lang.invoke.MethodType
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 
 
 /**
@@ -195,8 +205,9 @@ class X11Window private constructor(
     }
 
     override fun close() {
-        val handle = xDestroyWindow ?: return
         val display = MemorySegment.ofAddress(displayPtr)
+        disableIme()
+        val handle = xDestroyWindow ?: return
         handle.invokeExact(display, xWindowId) as Int
         freeCachedCursors(display)
         val flush = xFlush
@@ -260,6 +271,14 @@ class X11Window private constructor(
     @Volatile private var _hasFocus: Boolean = false
 
     override val hasFocus: Boolean get() = _hasFocus
+
+    // ── IME (Input Method Editor) state ────────────────────────────────────────
+
+    private var xic: MemorySegment = MemorySegment.NULL
+    private var ximArena: Arena? = null
+    private var clientDataSegment: MemorySegment = MemorySegment.NULL
+
+    internal val pendingImeEvents = ConcurrentLinkedQueue<WindowEvent.Ime>()
 
     override fun focusWindow() {
         val iconic = readWmStateIconic() ?: (isMinimized == true)
@@ -765,6 +784,70 @@ class X11Window private constructor(
         } catch (_: Throwable) {}
     }
 
+    // ── Platform extensions ────────────────────────────────────────────────────
+
+    /**
+     * Sets the EWMH _NET_WM_WINDOW_TYPE atom via XChangeProperty.
+     *
+     * Uses the standard ATOM type with format 32 (array of C longs on LP64).
+     */
+    internal fun setWindowType(type: WindowType): WindowRequestResult = try {
+        val display = MemorySegment.ofAddress(displayPtr)
+        val wmWindowTypeAtom = internAtom(displayPtr, "_NET_WM_WINDOW_TYPE")
+        val atomAtom = internAtom(displayPtr, "ATOM")
+        val typeAtom = internAtom(displayPtr, type.toNetWmWindowTypeAtom())
+        if (wmWindowTypeAtom == 0L || atomAtom == 0L || typeAtom == 0L) {
+            return WindowRequestResult.Failure(
+                RequestError.Unsupported("_NET_WM_WINDOW_TYPE atoms not available")
+            )
+        }
+        Arena.ofConfined().use { arena ->
+            val data = arena.allocate(ValueLayout.JAVA_LONG, 1L)
+            data.set(ValueLayout.JAVA_LONG, 0L, typeAtom)
+            xChangeProperty?.invokeExact(
+                display,
+                xWindowId,
+                wmWindowTypeAtom,
+                atomAtom,
+                32,
+                0,
+                data,
+                1,
+            ) as? Int
+            xFlush?.invokeExact(display) as? Int
+        }
+        WindowRequestResult.Success
+    } catch (t: Throwable) {
+        WindowRequestResult.Failure(
+            RequestError.OsError(t.message ?: t::class.simpleName ?: "X11 set window type failed")
+        )
+    }
+
+    /**
+     * Sets the override-redirect attribute via XChangeWindowAttributes.
+     *
+     * Uses CWOverrideRedirect valuemask and writes the Bool at the
+     * correct offset in the XSetWindowAttributes structure.
+     */
+    internal fun setOverrideRedirect(redirect: Boolean): WindowRequestResult = try {
+        val handle = xChangeWindowAttributes ?: return WindowRequestResult.Failure(
+            RequestError.Unsupported("XChangeWindowAttributes is unavailable")
+        )
+        val display = MemorySegment.ofAddress(displayPtr)
+        Arena.ofConfined().use { arena ->
+            val attrs = arena.allocate(XSETWINDOWATTRIBUTES_SIZE, XSETWINDOWATTRIBUTES_ALIGN)
+            attrs.fill(0)
+            attrs.set(ValueLayout.JAVA_INT, XSETWINDOWATTR_OVERRIDE_REDIRECT_OFFSET, if (redirect) 1 else 0)
+            handle.invokeExact(display, xWindowId, CWOverrideRedirect, attrs) as Int
+        }
+        xFlush?.invokeExact(display) as? Int
+        WindowRequestResult.Success
+    } catch (t: Throwable) {
+        WindowRequestResult.Failure(
+            RequestError.OsError(t.message ?: t::class.simpleName ?: "X11 set override redirect failed")
+        )
+    }
+
     /**
      * Sets the Z-order level via _NET_WM_STATE_ABOVE / _NET_WM_STATE_BELOW.
      */
@@ -938,6 +1021,142 @@ class X11Window private constructor(
      */
     override fun resetDeadKeys() {
         X11KeyMapper.resetState()
+    }
+
+    // ── R5-IME: XIM (X Input Method) ──────────────────────────────────────────
+
+    @Volatile private var _imeAllowed: Boolean = false
+
+    override fun setImeAllowed(allowed: Boolean) {
+        if (allowed == _imeAllowed) return
+        _imeAllowed = allowed
+        if (allowed) {
+            enableIme()
+        } else {
+            disableIme()
+        }
+    }
+
+    private fun enableIme() {
+        val im = X11Window.acquireXIM(displayPtr)
+        if (im == MemorySegment.NULL || im.address() == 0L) return
+
+        val arena = Arena.ofShared()
+        try {
+            val clientData = arena.allocate(ValueLayout.JAVA_LONG)
+            clientData.set(ValueLayout.JAVA_LONG, 0L, xWindowId)
+
+            val inputStyleVal = MemorySegment.ofAddress((XIMPreeditCallbacks or XIMStatusNothing).toLong())
+            val windowXidSeg = MemorySegment.ofAddress(xWindowId)
+
+            val inputStyleName = arena.allocateFrom(XNInputStyle)
+            val clientWindowName = arena.allocateFrom(XNClientWindow)
+            val focusWindowName = arena.allocateFrom(XNFocusWindow)
+            val psName = arena.allocateFrom(XNPreeditStartCallback)
+            val pdName = arena.allocateFrom(XNPreeditDrawCallback)
+            val pdDoneName = arena.allocateFrom(XNPreeditDoneCallback)
+            val cmName = arena.allocateFrom(XNCommitStringCallback)
+
+            val psCb = allocateXIMCallback(arena, clientData, X11Window.preeditStartUpcall)
+            val pdCb = allocateXIMCallback(arena, clientData, X11Window.preeditDrawUpcall)
+            val pdDoneCb = allocateXIMCallback(arena, clientData, X11Window.preeditDoneUpcall)
+            val cmCb = allocateXIMCallback(arena, clientData, X11Window.commitUpcall)
+
+            val handle = xCreateIC ?: return
+            val ic = handle.invokeExact(
+                im,
+                inputStyleName, inputStyleVal,
+                clientWindowName, windowXidSeg,
+                focusWindowName, windowXidSeg,
+                psName, psCb,
+                pdName, pdCb,
+                pdDoneName, pdDoneCb,
+                cmName, cmCb,
+                MemorySegment.NULL,
+            ) as MemorySegment
+
+            if (ic == MemorySegment.NULL || ic.address() == 0L) {
+                X11Window.releaseXIM()
+                arena.close()
+                return
+            }
+
+            this.xic = ic
+            this.ximArena = arena
+            this.clientDataSegment = clientData
+            X11Window.activeWindows[xWindowId] = this
+
+            if (_hasFocus) {
+                try {
+                    xSetICFocus?.invokeExact(ic)
+                } catch (_: Throwable) {}
+            }
+        } catch (t: Throwable) {
+            X11Window.releaseXIM()
+            arena.close()
+        }
+    }
+
+    private fun disableIme() {
+        val ic = xic
+        if (ic.address() != 0L) {
+            try {
+                xDestroyIC?.invokeExact(ic)
+            } catch (_: Throwable) {}
+            xic = MemorySegment.NULL
+        }
+        ximArena?.close()
+        ximArena = null
+        clientDataSegment = MemorySegment.NULL
+        X11Window.activeWindows.remove(xWindowId)
+        X11Window.releaseXIM()
+    }
+
+    override fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) {
+        val ic = xic
+        if (ic.address() == 0L) return
+        val setHandle = xSetICValues ?: return
+        try {
+            Arena.ofConfined().use { arena ->
+                val rect = arena.allocate(XRECTANGLE_SIZE, XRECTANGLE_ALIGN)
+                rect.set(ValueLayout.JAVA_SHORT, 0L, position.x.toShort())
+                rect.set(ValueLayout.JAVA_SHORT, 2L, position.y.toShort())
+                rect.set(ValueLayout.JAVA_SHORT, 4L, size.width.toShort())
+                rect.set(ValueLayout.JAVA_SHORT, 6L, size.height.toShort())
+
+                val point = arena.allocate(XPOINT_SIZE, XPOINT_ALIGN)
+                point.set(ValueLayout.JAVA_SHORT, 0L, position.x.toShort())
+                point.set(ValueLayout.JAVA_SHORT, 2L, position.y.toShort())
+
+                val areaName = arena.allocateFrom(XNArea)
+                val spotName = arena.allocateFrom(XNSpotLocation)
+
+                setHandle.invokeExact(
+                    ic,
+                    areaName, rect,
+                    spotName, point,
+                    MemorySegment.NULL,
+                )
+            }
+        } catch (_: Throwable) {}
+    }
+
+    override fun setImePurpose(purpose: ImePurpose) {
+        // No-op on X11: XIM has no concept of IME purpose hints.
+    }
+
+    internal fun drainImeEvents(handler: ApplicationHandler, loop: ActiveEventLoop, windowId: WindowId) {
+        while (true) {
+            val event = pendingImeEvents.poll() ?: break
+            handler.windowEvent(loop, windowId, event)
+        }
+    }
+
+    private fun allocateXIMCallback(arena: Arena, clientData: MemorySegment, callbackProc: MemorySegment): MemorySegment {
+        val cb = arena.allocate(XIM_CALLBACK_SIZE, 8L)
+        cb.set(ValueLayout.ADDRESS, XIM_CALLBACK_CLIENT_DATA_OFFSET, clientData)
+        cb.set(ValueLayout.ADDRESS, XIM_CALLBACK_PROC_OFFSET, callbackProc)
+        return cb
     }
 
     // ── X11 helper: intern atom ───────────────────────────────────────────────
@@ -1351,6 +1570,15 @@ class X11Window private constructor(
     fun onFocusChanged(focused: Boolean): Boolean {
         if (_hasFocus == focused) return false
         _hasFocus = focused
+        if (xic.address() != 0L) {
+            try {
+                if (focused) {
+                    xSetICFocus?.invokeExact(xic)
+                } else {
+                    xUnsetICFocus?.invokeExact(xic)
+                }
+            } catch (_: Throwable) {}
+        }
         return true
     }
 
@@ -1424,6 +1652,132 @@ class X11Window private constructor(
     // ── Companion ─────────────────────────────────────────────────────────────
 
     companion object {
+
+        // ── XIM global state ───────────────────────────────────────────────────
+
+        internal val activeWindows = ConcurrentHashMap<Long, X11Window>()
+
+        private var displayXIM: MemorySegment = MemorySegment.NULL
+        private var ximRefCount: Int = 0
+
+        @Synchronized
+        internal fun acquireXIM(displayPtr: Long): MemorySegment {
+            if (displayXIM.address() == 0L) {
+                val openHandle = xOpenIM ?: return MemorySegment.NULL
+                val display = MemorySegment.ofAddress(displayPtr)
+                try {
+                    displayXIM = openHandle.invokeExact(
+                        display,
+                        MemorySegment.NULL,
+                        MemorySegment.NULL,
+                        MemorySegment.NULL,
+                    ) as MemorySegment
+                } catch (_: Throwable) {
+                    return MemorySegment.NULL
+                }
+            }
+            if (displayXIM.address() != 0L) ximRefCount++
+            return displayXIM
+        }
+
+        @Synchronized
+        internal fun releaseXIM() {
+            if (ximRefCount > 0) ximRefCount--
+            if (ximRefCount == 0 && displayXIM.address() != 0L) {
+                try {
+                    xCloseIM?.invokeExact(displayXIM) as? Int
+                } catch (_: Throwable) {}
+                displayXIM = MemorySegment.NULL
+            }
+        }
+
+        // ── XIMProc upcall stubs ──────────────────────────────────────────────
+
+        private val imLinker: Linker = Linker.nativeLinker()
+
+        internal val preeditStartUpcall: MemorySegment by lazy {
+            createXimUpcall("onPreeditStart")
+        }
+        internal val preeditDrawUpcall: MemorySegment by lazy {
+            createXimUpcall("onPreeditDraw")
+        }
+        internal val preeditDoneUpcall: MemorySegment by lazy {
+            createXimUpcall("onPreeditDone")
+        }
+        internal val commitUpcall: MemorySegment by lazy {
+            createXimUpcall("onCommit")
+        }
+
+        private fun createXimUpcall(methodName: String): MemorySegment {
+            return try {
+                val handle = MethodHandles.lookup().findStatic(
+                    X11Window::class.java,
+                    methodName,
+                    MethodType.methodType(Void.TYPE, MemorySegment::class.java, MemorySegment::class.java, MemorySegment::class.java),
+                )
+                imLinker.upcallStub(handle, XIM_PROC_DESCRIPTOR, Arena.global())
+            } catch (_: Throwable) {
+                MemorySegment.NULL
+            }
+        }
+
+        @JvmStatic private fun onPreeditStart(im: MemorySegment, clientData: MemorySegment, callData: MemorySegment) {
+            if (clientData == MemorySegment.NULL) return
+            val xid = clientData.get(ValueLayout.JAVA_LONG, 0L)
+            val window = activeWindows[xid] ?: return
+            if (callData != MemorySegment.NULL) {
+                callData.set(ValueLayout.JAVA_SHORT, PRESTATE_COUNT_OFFSET, 100)
+            }
+            window.pendingImeEvents.add(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Enabled))
+        }
+
+        @JvmStatic private fun onPreeditDraw(im: MemorySegment, clientData: MemorySegment, callData: MemorySegment) {
+            if (clientData == MemorySegment.NULL) return
+            val xid = clientData.get(ValueLayout.JAVA_LONG, 0L)
+            val window = activeWindows[xid] ?: return
+            if (callData == MemorySegment.NULL) return
+
+            val caret = callData.get(ValueLayout.JAVA_INT, PREDRAW_CARET_OFFSET)
+            val textPtr = callData.get(ValueLayout.ADDRESS, PREDRAW_TEXT_PTR_OFFSET)
+            val text = readXIMTextContent(textPtr)
+
+            window.pendingImeEvents.add(WindowEvent.Ime(
+                WindowEvent.Ime.ImeEvent.Preedit(text = text, cursorRange = Pair(caret, caret)),
+            ))
+        }
+
+        @JvmStatic private fun onPreeditDone(im: MemorySegment, clientData: MemorySegment, callData: MemorySegment) {
+            if (clientData == MemorySegment.NULL) return
+            val xid = clientData.get(ValueLayout.JAVA_LONG, 0L)
+            activeWindows[xid]?.pendingImeEvents?.add(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Disabled))
+        }
+
+        @JvmStatic private fun onCommit(im: MemorySegment, clientData: MemorySegment, callData: MemorySegment) {
+            if (clientData == MemorySegment.NULL) return
+            val xid = clientData.get(ValueLayout.JAVA_LONG, 0L)
+            val window = activeWindows[xid] ?: return
+            val text = if (callData != MemorySegment.NULL) readXIMTextContent(callData) else ""
+            window.pendingImeEvents.add(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Commit(text)))
+        }
+
+        private fun readXIMTextContent(text: MemorySegment): String {
+            if (text == MemorySegment.NULL) return ""
+            val length = text.get(ValueLayout.JAVA_SHORT, XIMTEXT_LENGTH_OFFSET).toInt() and 0xFFFF
+            val isWchar = text.get(ValueLayout.JAVA_INT, XIMTEXT_ENCODING_IS_WCHAR_OFFSET) != 0
+            val stringPtr = text.get(ValueLayout.ADDRESS, XIMTEXT_STRING_PTR_OFFSET)
+            if (stringPtr == MemorySegment.NULL || length == 0) return ""
+            return if (isWchar) {
+                val codePoints = IntArray(length) { i ->
+                    stringPtr.get(ValueLayout.JAVA_INT, (i * 4).toLong())
+                }
+                String(codePoints, 0, length)
+            } else {
+                val bytes = ByteArray(length) { i ->
+                    stringPtr.get(ValueLayout.JAVA_BYTE, i.toLong())
+                }
+                bytes.toString(Charsets.UTF_8)
+            }
+        }
 
         /**
          * Creates a native X11 window.

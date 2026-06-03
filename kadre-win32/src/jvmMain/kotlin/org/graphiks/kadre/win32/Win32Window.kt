@@ -19,6 +19,7 @@ import org.graphiks.kadre.core.CursorImage
 import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.ImePurpose
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -818,6 +819,119 @@ class Win32Window private constructor(
         // was deprecated in Windows 8 and does not work on modern builds.
     }
 
+    // ── Platform extensions ────────────────────────────────────────────────────
+
+    /**
+     * Sets the system backdrop type via DwmSetWindowAttribute(DWMWA_SYSTEMBACKDROP_TYPE).
+     */
+    internal fun setSystemBackdrop(backdrop: SystemBackdrop): WindowRequestResult =
+        win32ApplyDwmAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, backdrop.toDwmValue())
+
+    /**
+     * Sets the window corner preference via DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE).
+     */
+    internal fun setCornerPreference(preference: CornerPreference): WindowRequestResult =
+        win32ApplyDwmAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, preference.toDwmValue())
+
+    /**
+     * Sets the window border color via DwmSetWindowAttribute(DWMWA_BORDER_COLOR).
+     */
+    internal fun setBorderColor(color: Long?): WindowRequestResult =
+        win32ApplyDwmAttribute(hwnd, DWMWA_BORDER_COLOR, (color ?: -1L).toInt())
+
+    /**
+     * Sets the title bar background color via DwmSetWindowAttribute(DWMWA_CAPTION_COLOR).
+     */
+    internal fun setTitleBackgroundColor(color: Long?): WindowRequestResult =
+        win32ApplyDwmAttribute(hwnd, DWMWA_CAPTION_COLOR, (color ?: -1L).toInt())
+
+    /**
+     * Sets the title bar text color via DwmSetWindowAttribute(DWMWA_TEXT_COLOR).
+     */
+    internal fun setTitleTextColor(color: Long?): WindowRequestResult =
+        win32ApplyDwmAttribute(hwnd, DWMWA_TEXT_COLOR, (color ?: -1L).toInt())
+
+    /**
+     * Shows or hides the window from the taskbar using WS_EX_TOOLWINDOW style.
+     */
+    internal fun setSkipTaskbar(skip: Boolean): WindowRequestResult = try {
+        val getStyle = getWindowLongPtrW ?: return WindowRequestResult.Failure(
+            RequestError.Unsupported("GetWindowLongPtrW is unavailable")
+        )
+        val setStyle = setWindowLongPtrW ?: return WindowRequestResult.Failure(
+            RequestError.Unsupported("SetWindowLongPtrW is unavailable")
+        )
+        val exStyle = getStyle.invokeExact(hwnd, GWL_EXSTYLE) as Long
+        val newStyle = if (skip) {
+            (exStyle and WS_EX_APPWINDOW.toLong().inv()) or WS_EX_TOOLWINDOW.toLong()
+        } else {
+            (exStyle and WS_EX_TOOLWINDOW.toLong().inv()) or WS_EX_APPWINDOW.toLong()
+        }
+        setStyle.invokeExact(hwnd, GWL_EXSTYLE, newStyle) as Long
+        // Force the window to be redrawn with the new style
+        setWindowPos?.invokeExact(
+            hwnd, MemorySegment.NULL, 0, 0, 0, 0,
+            SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER or SWP_FRAMECHANGED or SWP_NOACTIVATE,
+        ) as? Int
+        WindowRequestResult.Success
+    } catch (t: Throwable) {
+        WindowRequestResult.Failure(
+            RequestError.OsError(t.message ?: t::class.simpleName ?: "Win32 skip taskbar failed")
+        )
+    }
+
+    /**
+     * Shows or hides the shadow on undecorated windows via DwmExtendFrameIntoClientArea.
+     */
+    internal fun setUndecoratedShadow(show: Boolean): WindowRequestResult = try {
+        val handle = dwmExtendFrameIntoClientArea ?: return WindowRequestResult.Failure(
+            RequestError.Unsupported("DwmExtendFrameIntoClientArea is unavailable")
+        )
+        Arena.ofConfined().use { arena ->
+            val margins = arena.allocate(16L, 4L) // MARGINS: 4 INTs
+            if (show) {
+                // -1 margins extend the glass frame (including shadow) to the client area
+                margins.set(ValueLayout.JAVA_INT, 0L, -1)
+                margins.set(ValueLayout.JAVA_INT, 4L, -1)
+                margins.set(ValueLayout.JAVA_INT, 8L, -1)
+                margins.set(ValueLayout.JAVA_INT, 12L, -1)
+            } else {
+                // Zero margins = no glass frame extension
+                margins.set(ValueLayout.JAVA_INT, 0L, 0)
+                margins.set(ValueLayout.JAVA_INT, 4L, 0)
+                margins.set(ValueLayout.JAVA_INT, 8L, 0)
+                margins.set(ValueLayout.JAVA_INT, 12L, 0)
+            }
+            val hr = handle.invokeExact(hwnd, margins) as Int
+            if (hr >= 0) WindowRequestResult.Success
+            else WindowRequestResult.Failure(
+                RequestError.OsError("DwmExtendFrameIntoClientArea returned HRESULT=$hr")
+            )
+        }
+    } catch (t: Throwable) {
+        WindowRequestResult.Failure(
+            RequestError.OsError(t.message ?: t::class.simpleName ?: "Win32 undecorated shadow failed")
+        )
+    }
+
+    /**
+     * Enables or disables input to the window via EnableWindow.
+     */
+    internal fun setEnabled(enabled: Boolean): WindowRequestResult = try {
+        val handle = enableWindow ?: return WindowRequestResult.Failure(
+            RequestError.Unsupported("EnableWindow is unavailable")
+        )
+        val ok = handle.invokeExact(hwnd, if (enabled) 1 else 0) as Int
+        if (ok != 0) WindowRequestResult.Success
+        else WindowRequestResult.Failure(
+            RequestError.OsError("EnableWindow failed")
+        )
+    } catch (t: Throwable) {
+        WindowRequestResult.Failure(
+            RequestError.OsError(t.message ?: t::class.simpleName ?: "Win32 enable window failed")
+        )
+    }
+
     /**
      * Sets the window icon via WM_SETICON.
      *
@@ -913,6 +1027,87 @@ class Win32Window private constructor(
             // Best-effort only
         }
     }
+
+    // ── IME ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Enables or disables the IME for this window via ImmAssociateContextEx.
+     *
+     * When [allowed] is true, the default IME context is associated with the
+     * window and IME events (WM_IME_STARTCOMPOSITION, WM_IME_COMPOSITION, …)
+     * will be delivered. When false, the context is disassociated and IME input
+     * is suppressed.
+     */
+    override fun setImeAllowed(allowed: Boolean) {
+        val associate = immAssociateContextEx ?: return
+        try {
+            if (allowed) {
+                associate.invokeExact(hwnd, MemorySegment.NULL, IACE_DEFAULT) as Int
+            } else {
+                associate.invokeExact(hwnd, MemorySegment.NULL, IACE_CHILDREN) as Int
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Positions the IME composition and candidate windows.
+     *
+     * Calls ImmSetCompositionWindow and ImmSetCandidateWindow with the given
+     * cursor area rectangle. The composition window is positioned just below
+     * the cursor area (via CFS_POINT), and the candidate window is positioned
+     * to exclude the cursor area (via CFS_EXCLUDE).
+     *
+     * The IME context is obtained and released for each call.
+     */
+    override fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) {
+        val getCtx = immGetContext ?: return
+        val relCtx = immReleaseContext ?: return
+        val setComp = immSetCompositionWindow ?: return
+        val setCand = immSetCandidateWindow ?: return
+        val hwndSeg = hwnd
+        val himc: MemorySegment = try {
+            getCtx.invokeExact(hwndSeg) as MemorySegment
+        } catch (_: Throwable) { MemorySegment.NULL }
+        if (himc == MemorySegment.NULL) return
+        try {
+            java.lang.foreign.Arena.ofConfined().use { arena ->
+                // ── COMPOSITIONFORM — position inline composition below cursor ──
+                val cf = arena.allocate(COMPOSITIONFORM_SIZE, COMPOSITIONFORM_ALIGN)
+                cf.set(ValueLayout.JAVA_INT, COMPOSITIONFORM_OFFSET_DWSTYLE, CFS_POINT)
+                cf.set(ValueLayout.JAVA_INT, COMPOSITIONFORM_OFFSET_PT_X, position.x)
+                cf.set(ValueLayout.JAVA_INT, COMPOSITIONFORM_OFFSET_PT_Y, position.y + size.height)
+                cf.set(ValueLayout.JAVA_INT, COMPOSITIONFORM_OFFSET_RC_LEFT, position.x)
+                cf.set(ValueLayout.JAVA_INT, COMPOSITIONFORM_OFFSET_RC_TOP, position.y)
+                cf.set(ValueLayout.JAVA_INT, COMPOSITIONFORM_OFFSET_RC_RIGHT, position.x + size.width)
+                cf.set(ValueLayout.JAVA_INT, COMPOSITIONFORM_OFFSET_RC_BOTTOM, position.y + size.height)
+                setComp.invokeExact(himc, cf) as Int
+
+                // ── CANDIDATEFORM — exclude cursor area from candidate window ──
+                val cand = arena.allocate(CANDIDATEFORM_SIZE, CANDIDATEFORM_ALIGN)
+                cand.set(ValueLayout.JAVA_INT, CANDIDATEFORM_OFFSET_DWINDEX, 0)
+                cand.set(ValueLayout.JAVA_INT, CANDIDATEFORM_OFFSET_DWSTYLE, CFS_EXCLUDE)
+                cand.set(ValueLayout.JAVA_INT, CANDIDATEFORM_OFFSET_PT_X, position.x)
+                cand.set(ValueLayout.JAVA_INT, CANDIDATEFORM_OFFSET_PT_Y, position.y)
+                cand.set(ValueLayout.JAVA_INT, CANDIDATEFORM_OFFSET_RC_LEFT, position.x)
+                cand.set(ValueLayout.JAVA_INT, CANDIDATEFORM_OFFSET_RC_TOP, position.y)
+                cand.set(ValueLayout.JAVA_INT, CANDIDATEFORM_OFFSET_RC_RIGHT, position.x + size.width)
+                cand.set(ValueLayout.JAVA_INT, CANDIDATEFORM_OFFSET_RC_BOTTOM, position.y + size.height)
+                setCand.invokeExact(himc, cand) as Int
+            }
+        } catch (_: Throwable) {
+            // IME cursor area is best-effort
+        } finally {
+            try { relCtx.invokeExact(hwndSeg, himc) as Int } catch (_: Throwable) {}
+        }
+    }
+
+    /**
+     * Hints the IME about the intended purpose of the text field.
+     *
+     * No-op on Win32: Imm32 does not expose a purpose API. TSF would be
+     * required for finer-grained IME control.
+     */
+    override fun setImePurpose(purpose: ImePurpose) { /* no-op on Win32 */ }
 
     // ── Companion ─────────────────────────────────────────────────────────────
 

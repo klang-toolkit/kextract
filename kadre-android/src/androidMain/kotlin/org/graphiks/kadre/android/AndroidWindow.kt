@@ -1,11 +1,15 @@
 package org.graphiks.kadre.android
 
+import android.content.Context
 import android.view.SurfaceView
 import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.ImePurpose
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
@@ -44,7 +48,9 @@ import org.graphiks.kadre.core.WindowRequestResult
  * and must release the handle before [org.graphiks.kadre.core.ApplicationHandler.destroySurfaces].
  */
 class AndroidWindow internal constructor(
-    internal val surfaceView: SurfaceView,
+    internal val surfaceView: KadreImeSurfaceView,
+    private val eventLoop: AndroidEventLoop,
+    private val activity: KadreActivity,
 ) : Window {
 
     override val id: WindowId = WindowId(surfaceView.hashCode().toLong())
@@ -63,6 +69,28 @@ class AndroidWindow internal constructor(
      */
     internal fun onSurfaceAvailable(surface: android.view.Surface) {
         _surface = surface
+    }
+
+    /**
+     * Returns the visible content rectangle excluding system decoration areas.
+     *
+     * Uses [android.view.View.getWindowVisibleDisplayFrame] to compute the
+     * area not covered by the status bar, navigation bar, or cutouts.
+     */
+    internal fun contentRect(): android.graphics.Rect {
+        val rect = android.graphics.Rect()
+        surfaceView.getWindowVisibleDisplayFrame(rect)
+        return rect
+    }
+
+    /**
+     * Returns the current Android [android.content.res.Configuration] for the
+     * window's context.
+     *
+     * Provides orientation, night mode, screen layout, font scale, etc.
+     */
+    internal fun config(): android.content.res.Configuration {
+        return android.content.res.Configuration(surfaceView.context.resources.configuration)
     }
 
     /**
@@ -103,6 +131,9 @@ class AndroidWindow internal constructor(
     @Volatile
     internal var needsRedraw: Boolean = false
 
+    @Volatile
+    internal var handleVolumeKeys: Boolean = false
+
     override fun requestRedraw() {
         needsRedraw = true
     }
@@ -122,6 +153,71 @@ class AndroidWindow internal constructor(
 
     override fun close() {
         // No-op at the library level; closing is up to the app
+    }
+
+    // ── R5-IME: Input Method Editor ────────────────────────────────────────────
+
+    @Volatile
+    private var imeAllowed = false
+
+    @Volatile
+    private var currentImePurpose: ImePurpose = ImePurpose.Normal
+
+    override fun setImeAllowed(allowed: Boolean) {
+        imeAllowed = allowed
+        val ctx = surfaceView.context
+        val imm = ctx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        if (allowed) {
+            surfaceView.requestFocus()
+            surfaceView.imeConnectionFactory = { editorInfo ->
+                applyImePurposeToEditorInfo(currentImePurpose, editorInfo)
+                KadreInputConnection(
+                    dispatchEvent = { event ->
+                        activity.handler.windowEvent(eventLoop, id, event)
+                    },
+                    targetView = surfaceView,
+                    editorInfo = editorInfo,
+                )
+            }
+            imm.restartInput(surfaceView)
+            imm.showSoftInput(surfaceView, InputMethodManager.SHOW_IMPLICIT)
+        } else {
+            surfaceView.imeConnectionFactory = null
+            imm.hideSoftInputFromWindow(surfaceView.windowToken, 0)
+        }
+    }
+
+    override fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) {
+        // The IME positions its candidate window relative to the focused view
+        // automatically. No action required at this level.
+    }
+
+    override fun setImePurpose(purpose: ImePurpose) {
+        currentImePurpose = purpose
+        if (imeAllowed) {
+            val imm = surfaceView.context
+                .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.restartInput(surfaceView)
+        }
+    }
+
+    private fun applyImePurposeToEditorInfo(purpose: ImePurpose, editorInfo: EditorInfo) {
+        when (purpose) {
+            ImePurpose.Normal -> {
+                editorInfo.inputType = EditorInfo.TYPE_CLASS_TEXT
+                editorInfo.imeOptions = EditorInfo.IME_FLAG_NO_ENTER_ACTION
+            }
+            ImePurpose.Password -> {
+                editorInfo.inputType = EditorInfo.TYPE_CLASS_TEXT or
+                    EditorInfo.TYPE_TEXT_VARIATION_PASSWORD
+                editorInfo.imeOptions = EditorInfo.IME_FLAG_NO_ENTER_ACTION
+            }
+            ImePurpose.Terminal -> {
+                editorInfo.inputType = EditorInfo.TYPE_CLASS_TEXT or
+                    EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                editorInfo.imeOptions = EditorInfo.IME_FLAG_NO_ENTER_ACTION
+            }
+        }
     }
 
     // ── R1: window state & geometry — no-ops on Android ───────────────────────

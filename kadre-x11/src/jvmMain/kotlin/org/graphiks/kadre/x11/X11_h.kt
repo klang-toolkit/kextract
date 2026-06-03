@@ -888,6 +888,27 @@ internal val xShapeCombineRectangles: MethodHandle? by lazy {
     )
 }
 
+// ── XChangeWindowAttributes ────────────────────────────────────────────────────
+
+/**
+ * int XChangeWindowAttributes(Display *display, Window w, unsigned long valuemask, XSetWindowAttributes *attributes);
+ *
+ * Changes the attributes of a window. The valuemask indicates which attributes
+ * in the XSetWindowAttributes structure are to be changed.
+ */
+internal val xChangeWindowAttributes: MethodHandle? by lazy {
+    libX11.downcall(
+        "XChangeWindowAttributes",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // int return
+            ValueLayout.ADDRESS,    // Display*
+            ValueLayout.JAVA_LONG,  // Window (XID)
+            ValueLayout.JAVA_LONG,  // unsigned long valuemask
+            ValueLayout.ADDRESS,    // XSetWindowAttributes*
+        )
+    )
+}
+
 /**
  * int XChangeProperty(Display* display, Window w, Atom property, Atom type,
  *                     int format, int mode, const unsigned char* data, int nelements);
@@ -919,3 +940,195 @@ internal const val XC_question_arrow: Int     = 30   // help
 internal const val XC_plus: Int              = 58   // cell / plus (same shape as hand1)
 internal const val XC_sb_h_double_arrow: Int = 108  // EW resize
 internal const val XC_sb_v_double_arrow: Int = 116  // NS resize
+
+// ── XIM (X Input Method) constants (X11/Xlib.h, X11/XIM.h) ────────────────
+
+// XIM styles
+internal const val XIMPreeditArea: Int = 0x0001
+internal const val XIMPreeditCallbacks: Int = 0x0004
+internal const val XIMPreeditPosition: Int = 0x0008
+internal const val XIMPreeditNothing: Int = 0x0010
+internal const val XIMStatusNothing: Int = 0x0100
+
+// XN* attribute names (used as C strings in XIM varargs)
+internal val XNInputStyle: String = "inputStyle"
+internal val XNClientWindow: String = "clientWindow"
+internal val XNFocusWindow: String = "focusWindow"
+internal val XNPreeditAttributes: String = "preeditAttributes"
+internal val XNArea: String = "area"
+internal val XNAreaNeeded: String = "areaNeeded"
+internal val XNSpotLocation: String = "spotLocation"
+internal val XNPreeditStartCallback: String = "preeditStartCallback"
+internal val XNPreeditDrawCallback: String = "preeditDrawCallback"
+internal val XNPreeditDoneCallback: String = "preeditDoneCallback"
+internal val XNCommitStringCallback: String = "commitStringCallback"
+
+// ── XIM struct offset constants (LP64: Linux x86-64 / aarch64) ────────────
+
+// XIMCallback: XPointer client_data (8) + XIMProc callback (8) = 16 bytes
+internal const val XIM_CALLBACK_CLIENT_DATA_OFFSET: Long = 0L
+internal const val XIM_CALLBACK_PROC_OFFSET: Long = 8L
+internal const val XIM_CALLBACK_SIZE: Long = 16L
+
+// XRectangle: short x(2) + short y(2) + ushort width(2) + ushort height(2) = 8
+internal const val XRECTANGLE_SIZE: Long = 8L
+internal const val XRECTANGLE_ALIGN: Long = 2L
+
+// XPoint: short x(2) + short y(2) = 4
+internal const val XPOINT_SIZE: Long = 4L
+internal const val XPOINT_ALIGN: Long = 2L
+
+// XIMPreeditDrawCallbackStruct (LP64):
+//   int caret(4) + int chg_first(4) + int chg_length(4) + pad(4) + XIMText*(8) = 24
+internal const val PREDRAW_CARET_OFFSET: Long = 0L
+internal const val PREDRAW_CHG_FIRST_OFFSET: Long = 4L
+internal const val PREDRAW_CHG_LENGTH_OFFSET: Long = 8L
+internal const val PREDRAW_TEXT_PTR_OFFSET: Long = 16L
+
+// XIMText / XIMCommitStringCallbackStruct (LP64):
+//   ushort length(2) + pad(6) + feedback*(8) + Bool encoding(4) + pad(4) + string*(8) = 32
+internal const val XIMTEXT_LENGTH_OFFSET: Long = 0L
+internal const val XIMTEXT_FEEDBACK_OFFSET: Long = 8L
+internal const val XIMTEXT_ENCODING_IS_WCHAR_OFFSET: Long = 16L
+internal const val XIMTEXT_STRING_PTR_OFFSET: Long = 24L
+
+// XIMPreeditState: short count
+internal const val PRESTATE_COUNT_OFFSET: Long = 0L
+
+// XIMProc callback descriptor: void (*)(XIM, XPointer, XPointer)
+internal val XIM_PROC_DESCRIPTOR: FunctionDescriptor = FunctionDescriptor.ofVoid(
+    ValueLayout.ADDRESS,  // XIM
+    ValueLayout.ADDRESS,  // XPointer client_data
+    ValueLayout.ADDRESS,  // XPointer call_data
+)
+
+// ── XIM FFM bindings ──────────────────────────────────────────────────────
+
+/**
+ * XIM XOpenIM(Display* display, XrmDatabase db, char* res_name, char* res_class);
+ */
+internal val xOpenIM: MethodHandle? by lazy {
+    libX11.downcall(
+        "XOpenIM",
+        FunctionDescriptor.of(
+            ValueLayout.ADDRESS,   // XIM return
+            ValueLayout.ADDRESS,   // Display*
+            ValueLayout.ADDRESS,   // XrmDatabase (NULL)
+            ValueLayout.ADDRESS,   // char* res_name (NULL)
+            ValueLayout.ADDRESS,   // char* res_class (NULL)
+        )
+    )
+}
+
+/**
+ * Status XCloseIM(XIM im);
+ */
+internal val xCloseIM: MethodHandle? by lazy {
+    libX11.downcall(
+        "XCloseIM",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,  // Status
+            ValueLayout.ADDRESS,   // XIM
+        )
+    )
+}
+
+/**
+ * XIC XCreateIC(XIM im, ...) variadic.
+ *
+ * Uses firstVariadicArg(1) for correct variadic ABI.
+ * All variadic args passed as ADDRESS (on LP64 pointers and longs
+ * share the same register class for variadic calls).
+ */
+internal val xCreateIC: MethodHandle? by lazy {
+    val lookup = libX11 ?: return@lazy null
+    lookup.find("XCreateIC").map { symbol ->
+        linker.downcallHandle(symbol,
+            FunctionDescriptor.of(ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,  // XIM
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // inputStyle, value
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // clientWindow, value
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // focusWindow, value
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // preeditStartCallback, value
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // preeditDrawCallback, value
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // preeditDoneCallback, value
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // commitStringCallback, value
+                ValueLayout.ADDRESS, // NULL terminator
+            ),
+            Linker.Option.firstVariadicArg(1),
+        )
+    }.orElse(null)
+}
+
+/**
+ * void XDestroyIC(XIC ic);
+ */
+internal val xDestroyIC: MethodHandle? by lazy {
+    libX11.downcall(
+        "XDestroyIC",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,  // XIC
+        )
+    )
+}
+
+/**
+ * void XSetICFocus(XIC ic);
+ */
+internal val xSetICFocus: MethodHandle? by lazy {
+    libX11.downcall(
+        "XSetICFocus",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,  // XIC
+        )
+    )
+}
+
+/**
+ * void XUnsetICFocus(XIC ic);
+ */
+internal val xUnsetICFocus: MethodHandle? by lazy {
+    libX11.downcall(
+        "XUnsetICFocus",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,  // XIC
+        )
+    )
+}
+
+/**
+ * Bool XFilterEvent(XEvent* event, Window w);
+ *
+ * Returns non-zero if the event was consumed by the IME.
+ */
+internal val xFilterEvent: MethodHandle? by lazy {
+    libX11.downcall(
+        "XFilterEvent",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // Bool return
+            ValueLayout.ADDRESS,    // XEvent*
+            ValueLayout.JAVA_LONG,  // Window
+        )
+    )
+}
+
+/**
+ * char* XSetICValues(XIC ic, ...) variadic.
+ *
+ * Used to set XIC attributes (XNArea, XNSpotLocation, etc.).
+ * Returns NULL on success.
+ */
+internal val xSetICValues: MethodHandle? by lazy {
+    val lookup = libX11 ?: return@lazy null
+    lookup.find("XSetICValues").map { symbol ->
+        linker.downcallHandle(symbol,
+            FunctionDescriptor.of(ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,  // XIC
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // area, &rect
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, // spotLocation, &point
+                ValueLayout.ADDRESS, // NULL
+            ),
+            Linker.Option.firstVariadicArg(1),
+        )
+    }.orElse(null)
+}

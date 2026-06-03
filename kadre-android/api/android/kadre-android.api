@@ -1,3 +1,9 @@
+public final class org/graphiks/kadre/android/AndroidExtensionTypesKt {
+	public static final fun androidApp (Lorg/graphiks/kadre/core/ActiveEventLoop;)Landroidx/activity/ComponentActivity;
+	public static final fun config (Lorg/graphiks/kadre/core/Window;)Landroid/content/res/Configuration;
+	public static final fun contentRect (Lorg/graphiks/kadre/core/Window;)Landroid/graphics/Rect;
+}
+
 public final class org/graphiks/kadre/android/AndroidKadreRuntime {
 	public static final field INSTANCE Lorg/graphiks/kadre/android/AndroidKadreRuntime;
 	public final fun getCurrentHandler ()Lorg/graphiks/kadre/core/ApplicationHandler;
@@ -71,6 +77,21 @@ public final class org/graphiks/kadre/android/AndroidWindow : org/graphiks/kadre
 	public fun setWindowIcon (Lorg/graphiks/kadre/core/Icon;)V
 	public fun setWindowLevel (Lorg/graphiks/kadre/core/WindowLevel;)V
 	public fun showWindowMenu (Lorg/graphiks/kadre/core/PhysicalPosition;)Lorg/graphiks/kadre/core/WindowRequestResult;
+}
+
+public final class org/graphiks/kadre/android/AndroidWindowAttributes {
+	public fun <init> ()V
+	public fun <init> (Lorg/graphiks/kadre/core/WindowAttributes;Z)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/WindowAttributes;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/WindowAttributes;
+	public final fun component2 ()Z
+	public final fun copy (Lorg/graphiks/kadre/core/WindowAttributes;Z)Lorg/graphiks/kadre/android/AndroidWindowAttributes;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/android/AndroidWindowAttributes;Lorg/graphiks/kadre/core/WindowAttributes;ZILjava/lang/Object;)Lorg/graphiks/kadre/android/AndroidWindowAttributes;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCore ()Lorg/graphiks/kadre/core/WindowAttributes;
+	public final fun getHandleVolumeKeys ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public abstract class org/graphiks/kadre/android/KadreActivity : androidx/activity/ComponentActivity {

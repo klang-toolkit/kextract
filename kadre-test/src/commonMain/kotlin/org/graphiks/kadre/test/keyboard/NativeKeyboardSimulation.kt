@@ -523,7 +523,7 @@ data class ExpectedKeyEvent(
     val synthetic: Boolean? = null,
     val text: String? = null,
     val textWithAllModifiers: String? = null,
-    val keyWithoutModifiers: LogicalKey? = null,
+    val keyWithoutModifiers: String? = null,
     val nativeCode: NativeKeyCode? = null,
     val nativeKey: NativeLogicalKey? = null,
 ) {
@@ -651,7 +651,7 @@ class ExpectedKeyEventBuilder internal constructor(private val label: String) {
     var synthetic: Boolean? = null
     var text: String? = null
     var textWithAllModifiers: String? = null
-    var keyWithoutModifiers: LogicalKey? = null
+    var keyWithoutModifiers: String? = null
     var nativeCode: NativeKeyCode? = null
     var nativeKey: NativeLogicalKey? = null
 

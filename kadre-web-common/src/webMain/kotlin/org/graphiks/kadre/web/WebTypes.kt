@@ -161,6 +161,53 @@ enum class WebTouchPhase {
 }
 
 // ---------------------------------------------------------------------------
+// IME (Input Method Editor) events
+// ---------------------------------------------------------------------------
+
+/**
+ * IME composition event (web mirror of kadre-core [WindowEvent.Ime.ImeEvent]).
+ *
+ * Mirrors the DOM `CompositionEvent` lifecycle:
+ * 1. [Enabled]   — composition started (`compositionstart`)
+ * 2. [Preedit]   — composition updated (`compositionupdate`)
+ * 3. [Commit]    — text committed (`compositionend`)
+ * 4. [Disabled]  — composition ended (`compositionend` followed by disabled)
+ *
+ * @since R5-IME
+ */
+sealed interface WebImeEvent {
+
+    /** The IME context was activated (composition started). */
+    data object Enabled : WebImeEvent
+
+    /**
+     * The IME is composing text (pre-edit string).
+     *
+     * @property text         The current pre-edit string (may be empty).
+     * @property cursorRange  Byte range within [text] for the IME cursor, or null.
+     */
+    data class Preedit(val text: String, val cursorRange: Pair<Int, Int>?) : WebImeEvent
+
+    /**
+     * The IME committed a final string.
+     *
+     * @property text The committed text to insert.
+     */
+    data class Commit(val text: String) : WebImeEvent
+
+    /**
+     * The IME requests deletion of surrounding text.
+     *
+     * @property beforeBytes Bytes to delete before the cursor.
+     * @property afterBytes  Bytes to delete after the cursor.
+     */
+    data class DeleteSurrounding(val beforeBytes: Int, val afterBytes: Int) : WebImeEvent
+
+    /** The IME context was deactivated (composition ended). */
+    data object Disabled : WebImeEvent
+}
+
+// ---------------------------------------------------------------------------
 // Web window events
 // ---------------------------------------------------------------------------
 
@@ -280,4 +327,17 @@ sealed interface WebWindowEvent {
      * desktop window's `Destroyed`). No further event is emitted afterwards.
      */
     data object Destroyed : WebWindowEvent
+
+    // ── R5-IME ──────────────────────────────────────────────────────────────────
+
+    /**
+     * An IME (Input Method Editor) event occurred on this window.
+     *
+     * Emitted from DOM `CompositionEvent` handlers (`compositionstart`,
+     * `compositionupdate`, `compositionend`) when the browser's IME is active.
+     *
+     * @property ime The concrete IME event sub-type.
+     * @see WebImeEvent
+     */
+    data class Ime(val ime: WebImeEvent) : WebWindowEvent
 }

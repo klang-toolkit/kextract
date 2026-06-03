@@ -10,6 +10,7 @@ package org.graphiks.kadre.appkit
 
 import org.graphiks.kadre.appkit.bindings.NSBackingStoreType
 import org.graphiks.kadre.appkit.bindings.NSApplication
+import org.graphiks.kadre.appkit.bindings.NSWindowTitleVisibility
 import org.graphiks.kadre.appkit.bindings.NSRequestUserAttentionType
 import org.graphiks.kadre.appkit.bindings.NSRect
 import org.graphiks.kadre.appkit.bindings.NSView
@@ -25,6 +26,7 @@ import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.ImePurpose
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
@@ -37,6 +39,7 @@ import org.graphiks.kadre.core.UserAttentionType
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowButtons
+import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.WindowRequestResult
@@ -79,6 +82,33 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
      */
     var delegate: KadreWindowDelegate? = null
         private set
+
+    // ── IME state ─────────────────────────────────────────────────────────────
+
+    @Volatile
+    private var _imeAllowed: Boolean = false
+
+    @Volatile
+    private var _imePurpose: ImePurpose = ImePurpose.Normal
+
+    @Volatile
+    private var _handler: ApplicationHandler? = null
+
+    @Volatile
+    private var _eventLoop: ActiveEventLoop? = null
+
+    /**
+     * Pointer to the KadreTextInputView (the contentView).
+     * Set after [replaceContentViewWithImeView] is called during init.
+     */
+    private var textInputViewPtr: MemorySegment = MemorySegment.NULL
+
+    /**
+     * Persistent NSRect in screen coordinates (Cocoa bottom-left origin)
+     * for the IME cursor area. Updated by [setImeCursorArea] and read by
+     * `firstRectForCharacterRange:` on the IME thread.
+     */
+    private val imeCursorScreenRect: MemorySegment = Arena.global().allocate(32L, 8L)
 
     init {
         MainThreadCheck.require()
@@ -123,9 +153,13 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         nsWindowPtr = initializedPtr
         id = WindowId(nsWindowPtr.address())
 
-        // 4. Get the existing contentView of the NSWindow
+        // 4. Create a KadreTextInputView (NSTextInputClient-adopting NSView) as contentView
         val nsWindow = NSWindow(nsWindowPtr)
-        contentViewPtr = nsWindow.contentView()
+        val defaultContentFrame = NSView(nsWindow.contentView()).frame()
+        val imeViewPtr = AppKitImeTextInputClient.createInstance(defaultContentFrame)
+        textInputViewPtr = imeViewPtr
+        contentViewPtr = imeViewPtr
+        ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setContentView:"), imeViewPtr)
 
         // 5. Correct AppKit Metal pattern: layer = CAMetalLayer() THEN wantsLayer = YES
         //    Apple docs: "If you want to use a custom layer, you must call setLayer: BEFORE
@@ -961,6 +995,25 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         val del = KadreWindowDelegate(handler, eventLoop, id, nsWindowPtr, metalLayerPtr, appKitEventLoop.windows)
         NSWindow(nsWindowPtr).setDelegate(del.ptr)
         delegate = del
+
+        // Store handler/eventLoop for IME event dispatch
+        _handler = handler
+        _eventLoop = eventLoop
+
+        // Register the IME text input view in the callbacks table
+        // The imeCursorScreenRect segment is shared: setImeCursorArea writes to it,
+        // and the NSTextInputClient callback reads from the same segment.
+        if (textInputViewPtr != MemorySegment.NULL) {
+            AppKitImeTextInputClient.registerView(
+                textInputViewPtr,
+                ImeViewRecord(
+                    handler = handler,
+                    eventLoop = eventLoop,
+                    windowId = id,
+                    imeCursorScreenRect = imeCursorScreenRect,
+                ),
+            )
+        }
     }
 
     // ── R4: keyboard ─────────────────────────────────────────────────────────
@@ -987,11 +1040,249 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             // Best-effort only — no-op on failure
         }
     }
+
+    // ── R5-IME: input method support ──────────────────────────────────────────
+
+    /**
+     * Enables or disables IME (Input Method Editor) input for this window.
+     *
+     * When [allowed] is `true`, the KadreTextInputView is made first responder
+     * (so it acquires an active NSInputContext) and an [WindowEvent.Ime.ImeEvent.Enabled]
+     * event is dispatched. When `false`, the input context is suppressed and
+     * [WindowEvent.Ime.ImeEvent.Disabled] is dispatched.
+     *
+     * The actual IME composition events (Preedit, Commit) are delivered via
+     * the NSTextInputClient callbacks on the content view and dispatched by
+     * [AppKitImeTextInputClient.Callbacks].
+     */
+    override fun setImeAllowed(allowed: Boolean) {
+        _imeAllowed = allowed
+        val handler = _handler ?: return
+        val eventLoop = _eventLoop ?: return
+        try {
+            if (allowed) {
+                ObjCRuntime.msgSend(
+                    ValueLayout.JAVA_BOOLEAN,
+                    nsWindowPtr,
+                    ObjCRuntime.sel("makeFirstResponder:"),
+                    textInputViewPtr,
+                )
+                handler.windowEvent(
+                    eventLoop, id,
+                    WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Enabled),
+                )
+            } else {
+                handler.windowEvent(
+                    eventLoop, id,
+                    WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Disabled),
+                )
+            }
+        } catch (_: Throwable) {
+            // Best-effort only
+        }
+    }
+
+    /**
+     * Notifies the IME of the text cursor's current position and bounding box.
+     *
+     * Converts the window-relative physical pixel position to screen coordinates
+     * (Cocoa bottom-left origin) so that [AppKitImeTextInputClient.Callbacks.firstRectForCharacterRange_actualRange]
+     * returns the correct rect for the IME candidate window.
+     *
+     * Should be called whenever the cursor moves or the text layout changes.
+     */
+    override fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) {
+        try {
+            val scale = scaleFactor
+            val contentHeightPoints = innerSize.height / scale
+
+            // Convert from Kadre top-left px to Cocoa bottom-left points
+            val xPoints = position.x / scale
+            val yPoints = contentHeightPoints - (position.y / scale)
+            val wPoints = size.width / scale
+            val hPoints = size.height / scale
+
+            // Allocate a temporary NSRect and convert to screen coordinates
+            Arena.ofConfined().use { arena ->
+                val localRect = allocNSRect(arena, xPoints, yPoints, wPoints, hPoints)
+                val screenRect = NSWindow(nsWindowPtr).convertRectToScreen(localRect)
+
+                // Write the screen rect into the persistent segment
+                imeCursorScreenRect.setAtIndex(ValueLayout.JAVA_DOUBLE, 0,
+                    screenRect.getAtIndex(ValueLayout.JAVA_DOUBLE, 0))
+                imeCursorScreenRect.setAtIndex(ValueLayout.JAVA_DOUBLE, 1,
+                    screenRect.getAtIndex(ValueLayout.JAVA_DOUBLE, 1))
+                imeCursorScreenRect.setAtIndex(ValueLayout.JAVA_DOUBLE, 2,
+                    screenRect.getAtIndex(ValueLayout.JAVA_DOUBLE, 2))
+                imeCursorScreenRect.setAtIndex(ValueLayout.JAVA_DOUBLE, 3,
+                    screenRect.getAtIndex(ValueLayout.JAVA_DOUBLE, 3))
+            }
+
+            // Update the IME table record
+            if (textInputViewPtr != MemorySegment.NULL) {
+                AppKitImeTextInputClient.updateCursorRect(textInputViewPtr, imeCursorScreenRect)
+            }
+        } catch (_: Throwable) {
+            // Best-effort
+        }
+    }
+
+    /**
+     * Hints the IME about the intended purpose of the focused text field.
+     *
+     * On macOS 10.12+ this sets NSTextInputTrait properties on the content view
+     * (autocorrectionType, spellCheckingType, capitalizationType, etc.):
+     * - [ImePurpose.Password]: all suggestions and corrections disabled.
+     * - [ImePurpose.Terminal]: autocorrection, spell checking, smart dashes/quotes disabled.
+     * - [ImePurpose.Normal]: all traits reset to system default.
+     */
+    override fun setImePurpose(purpose: ImePurpose) {
+        _imePurpose = purpose
+        if (textInputViewPtr == MemorySegment.NULL) return
+        try {
+            when (purpose) {
+                ImePurpose.Normal -> {
+                    setTextInputTrait("setAutomaticSpellCorrectionEnabled:", true)
+                    setTextInputTrait("setAutomaticTextReplacementEnabled:", true)
+                    setTextInputTrait("setAutomaticQuoteSubstitutionEnabled:", true)
+                    setTextInputTrait("setAutomaticDashSubstitutionEnabled:", true)
+                }
+                ImePurpose.Password -> {
+                    setTextInputTrait("setAutomaticSpellCorrectionEnabled:", false)
+                    setTextInputTrait("setAutomaticTextReplacementEnabled:", false)
+                    setTextInputTrait("setAutomaticQuoteSubstitutionEnabled:", false)
+                    setTextInputTrait("setAutomaticDashSubstitutionEnabled:", false)
+                }
+                ImePurpose.Terminal -> {
+                    setTextInputTrait("setAutomaticSpellCorrectionEnabled:", false)
+                    setTextInputTrait("setAutomaticTextReplacementEnabled:", false)
+                    setTextInputTrait("setAutomaticQuoteSubstitutionEnabled:", false)
+                    setTextInputTrait("setAutomaticDashSubstitutionEnabled:", false)
+                }
+            }
+        } catch (_: Throwable) {
+            // Best-effort — older macOS versions may not support these selectors
+        }
+    }
+
+    private fun setTextInputTrait(selector: String, enabled: Boolean) {
+        ObjCRuntime.msgSend(null, textInputViewPtr, ObjCRuntime.sel(selector), enabled)
+    }
+
+    // ── Platform extension methods ───────────────────────────────────────────────
+
+    /**
+     * Toggles fullscreen via `[NSWindow toggleFullScreen:]`.
+     */
+    internal fun setSimpleFullscreen(enabled: Boolean) {
+        try {
+            AppKitMainThread.runSync {
+                if (enabled != NSWindow(nsWindowPtr).styleMask().contains(NSWindowStyleMask.NSWindowStyleMaskFullScreen)) {
+                    NSWindow(nsWindowPtr).toggleFullScreen(MemorySegment.NULL)
+                }
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Shows or hides the window's shadow via `[NSWindow setHasShadow:]`.
+     */
+    internal fun setHasShadow(hasShadow: Boolean) {
+        try {
+            NSWindow(nsWindowPtr).setHasShadow(hasShadow)
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Sets the tabbing identifier for NSWindow tab groups via `[NSWindow setTabbingIdentifier:]`.
+     * Pass null to clear the identifier (sets nil).
+     */
+    internal fun setTabbingIdentifier(identifier: String?) {
+        try {
+            val nsTabbingId = if (identifier != null) {
+                ObjCRuntime.newNSString(Arena.global(), identifier)
+            } else {
+                MemorySegment.NULL
+            }
+            NSWindow(nsWindowPtr).setTabbingIdentifier(nsTabbingId)
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Makes the titlebar transparent via `[NSWindow setTitlebarAppearsTransparent:]`.
+     */
+    internal fun setTitlebarTransparent(transparent: Boolean) {
+        try {
+            NSWindow(nsWindowPtr).setTitlebarAppearsTransparent(transparent)
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Hides the window title text via `[NSWindow setTitleVisibility:]`.
+     */
+    internal fun setTitleHidden(hidden: Boolean) {
+        try {
+            val visibility = if (hidden) {
+                NSWindowTitleVisibility.NSWindowTitleHidden
+            } else {
+                NSWindowTitleVisibility.NSWindowTitleVisible
+            }
+            NSWindow(nsWindowPtr).setTitleVisibility(visibility)
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Hides the entire titlebar area.
+     *
+     * Combines `titlebarAppearsTransparent = true` and `titleVisibility = .hidden`
+     * to achieve a titlebar-hidden appearance. This is the standard macOS approach
+     * for a chromeless-but-functional window.
+     */
+    internal fun setTitlebarHidden(hidden: Boolean) {
+        try {
+            val window = NSWindow(nsWindowPtr)
+            window.setTitlebarAppearsTransparent(hidden)
+            val visibility = if (hidden) {
+                NSWindowTitleVisibility.NSWindowTitleHidden
+            } else {
+                NSWindowTitleVisibility.NSWindowTitleVisible
+            }
+            window.setTitleVisibility(visibility)
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Extends the content view into the titlebar area by adding or removing
+     * `NSWindowStyleMaskFullSizeContentView` from the window's style mask.
+     */
+    internal fun setFullSizeContentView(enabled: Boolean) {
+        try {
+            val window = NSWindow(nsWindowPtr)
+            val current = window.styleMask()
+            val newMask = if (enabled) {
+                current + NSWindowStyleMask.NSWindowStyleMaskFullSizeContentView
+            } else {
+                NSWindowStyleMask(current.rawValue and NSWindowStyleMask.NSWindowStyleMaskFullSizeContentView.rawValue.inv())
+            }
+            window.setStyleMask(newMask)
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Enables or disables window dragging by its background via `[NSWindow setMovableByWindowBackground:]`.
+     */
+    internal fun setMovableByWindowBackground(movable: Boolean) {
+        try {
+            NSWindow(nsWindowPtr).setMovableByWindowBackground(movable)
+        } catch (_: Throwable) {}
+    }
 }
 
+// ── alloc helpers ──────────────────────────────────────────────────────────────
+
 /**
- * Allocates an NSSize (struct {CGFloat width, CGFloat height}) in the provided arena.
- */
+  * Allocates an NSSize (struct {CGFloat width, CGFloat height}) in the provided arena.
+  */
 private fun allocNSSize(arena: Arena, width: Double, height: Double): MemorySegment {
     val seg = arena.allocate(16L, 8L)
     seg.setAtIndex(ValueLayout.JAVA_DOUBLE, 0, width)

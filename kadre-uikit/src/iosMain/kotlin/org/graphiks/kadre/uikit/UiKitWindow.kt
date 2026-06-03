@@ -1,6 +1,7 @@
 package org.graphiks.kadre.uikit
 
 import org.graphiks.kadre.core.ButtonSource
+import org.graphiks.kadre.core.ImePurpose
 import org.graphiks.kadre.core.KeyEvent
 import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
@@ -40,11 +41,15 @@ import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.ObjCClass
 import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.useContents
+import platform.CoreGraphics.CGPoint
 import platform.CoreGraphics.CGRect
+import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGSizeMake
+import platform.Foundation.NSNotFound
 import platform.Foundation.NSRunLoop
 import platform.Foundation.NSRunLoopCommonModes
 import platform.Foundation.NSSelectorFromString
+import platform.Foundation._NSRange
 import platform.QuartzCore.CADisplayLink
 import platform.QuartzCore.CAMetalLayer
 import platform.UIKit.UIEvent
@@ -56,6 +61,7 @@ import platform.UIKit.UIGestureRecognizerStateChanged
 import platform.UIKit.UIGestureRecognizerStateEnded
 import platform.UIKit.UIGestureRecognizerStateFailed
 import platform.UIKit.UIKey
+import platform.UIKit.UIKeyInputProtocol
 import platform.UIKit.UIPanGestureRecognizer
 import platform.UIKit.UIPinchGestureRecognizer
 import platform.UIKit.UIPress
@@ -63,6 +69,12 @@ import platform.UIKit.UIPressesEvent
 import platform.UIKit.UIRotationGestureRecognizer
 import platform.UIKit.UIScreen
 import platform.UIKit.UITapGestureRecognizer
+import platform.UIKit.UITextInputProtocol
+import platform.UIKit.UITextInputDelegateProtocol
+import platform.UIKit.UITextInputTokenizerProtocol
+import platform.UIKit.UITextInputStringTokenizer
+import platform.UIKit.UITextPosition
+import platform.UIKit.UITextRange
 import platform.UIKit.UITouch
 import platform.UIKit.UITraitCollection
 import platform.UIKit.UIUserInterfaceStyle
@@ -89,7 +101,7 @@ import platform.darwin.NSObject
 class KadreMetalView(
     frame: CValue<CGRect>,
     private val onEvent: (WindowEvent) -> Unit = {},
-) : UIView(frame = frame) {
+) : UIView(frame = frame), UIKeyInputProtocol, UITextInputProtocol {
     companion object : UIViewMeta() {
         override fun layerClass(): ObjCClass = CAMetalLayer.`class`()!!
     }
@@ -113,6 +125,14 @@ class KadreMetalView(
      * ScaleFactorChanged is emitted on the first layout pass.
      */
     private var lastScale: Double = UIScreen.mainScreen.scale
+
+    // ── IME state ──────────────────────────────────────────────────────────
+    internal var imeCursorRect: CValue<CGRect> = CGRectMake(0.0, 0.0, 0.0, 0.0)
+    private val imeTokenizer: UITextInputTokenizerProtocol =
+        UITextInputStringTokenizer(textInput = this)
+    private var imeMarkedTextRange: UITextRange? = null
+    private val imeBeginningOfDocument = KadreTextPosition(0)
+    private val imeEndOfDocument = KadreTextPosition(0)
 
     fun recognizePinchGesture(shouldRecognize: Boolean) {
         if (shouldRecognize) {
@@ -195,6 +215,142 @@ class KadreMetalView(
     override fun touchesCancelled(touches: Set<*>, withEvent: UIEvent?) =
         dispatchTouches(touches, TouchPhase.Cancelled)
 
+    // ── IME: become/resign first responder → Enabled/Disabled ──────────────
+
+    override fun becomeFirstResponder(): Boolean {
+        val result = super.becomeFirstResponder()
+        if (result) {
+            onEvent(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Enabled))
+        }
+        return result
+    }
+
+    override fun resignFirstResponder(): Boolean {
+        val result = super.resignFirstResponder()
+        if (result) {
+            onEvent(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Disabled))
+        }
+        return result
+    }
+
+    // ── UIKeyInputProtocol ─────────────────────────────────────────────────
+
+    override fun hasText(): Boolean = true
+
+    override fun insertText(text: String) {
+        onEvent(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Commit(text)))
+    }
+
+    override fun deleteBackward() {
+        onEvent(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.DeleteSurrounding(1, 0)))
+    }
+
+    // ── UITextInputProtocol — IME lifecycle ─────────────────────────────────
+
+    override fun setMarkedText(markedText: String?, selectedRange: CValue<_NSRange>) {
+        val text = markedText ?: ""
+        val cursorRange: Pair<Int, Int>? = selectedRange.useContents {
+            if (location.toLong() != NSNotFound) {
+                Pair(location.toInt(), (location + length).toInt())
+            } else null
+        }
+        onEvent(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Preedit(text, cursorRange)))
+    }
+
+    override fun unmarkText() {
+        onEvent(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Disabled))
+    }
+
+    override fun replaceRange(range: UITextRange, withText: String) {
+        onEvent(WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Commit(withText)))
+    }
+
+    override fun textInRange(range: UITextRange): String? = null
+
+    override fun textRangeFromPosition(fromPosition: UITextPosition, toPosition: UITextPosition): UITextRange? {
+        return null
+    }
+
+    override fun positionFromPosition(position: UITextPosition, offset: Long): UITextPosition? {
+        val pos = (position as? KadreTextPosition)?.offset ?: return null
+        return KadreTextPosition(pos + offset.toInt())
+    }
+
+    override fun positionFromPosition(position: UITextPosition, inDirection: Long, offset: Long): UITextPosition? {
+        return positionFromPosition(position, offset)
+    }
+
+    override fun comparePosition(position: UITextPosition, toPosition: UITextPosition): Long {
+        val a = (position as? KadreTextPosition)?.offset ?: return 0
+        val b = (toPosition as? KadreTextPosition)?.offset ?: return 0
+        return (a - b).toLong()
+    }
+
+    override fun offsetFromPosition(from: UITextPosition, toPosition: UITextPosition): Long {
+        val a = (from as? KadreTextPosition)?.offset ?: return 0
+        val b = (toPosition as? KadreTextPosition)?.offset ?: return 0
+        return (b - a).toLong()
+    }
+
+    override fun positionWithinRange(range: UITextRange, farthestInDirection: Long): UITextPosition? {
+        return if (farthestInDirection != 0L) range.end else range.start
+    }
+
+    override fun characterRangeByExtendingPosition(position: UITextPosition, inDirection: Long): UITextRange? {
+        return null
+    }
+
+    override fun baseWritingDirectionForPosition(position: UITextPosition, inDirection: Long): Long = 0L
+
+    override fun setBaseWritingDirection(writingDirection: Long, forRange: UITextRange) {}
+
+    override fun firstRectForRange(range: UITextRange): CValue<CGRect> {
+        return convertRect(imeCursorRect, toView = null)
+    }
+
+    override fun caretRectForPosition(position: UITextPosition): CValue<CGRect> {
+        return imeCursorRect
+    }
+
+    override fun selectionRectsForRange(range: UITextRange): List<*> = emptyList<Any>()
+
+    override fun closestPositionToPoint(point: CValue<CGPoint>): UITextPosition? {
+        return imeBeginningOfDocument
+    }
+
+    override fun closestPositionToPoint(point: CValue<CGPoint>, withinRange: UITextRange): UITextPosition? {
+        return withinRange.start
+    }
+
+    override fun characterRangeAtPoint(point: CValue<CGPoint>): UITextRange? {
+        return null
+    }
+
+    // ── UITextInputProtocol — property accessors (required by interface) ────
+
+    private var imeSelectedTextRange: UITextRange? = null
+    override fun selectedTextRange(): UITextRange? = imeSelectedTextRange
+    override fun setSelectedTextRange(selectedTextRange: UITextRange?) {
+        imeSelectedTextRange = selectedTextRange
+    }
+
+    override fun markedTextRange(): UITextRange? = imeMarkedTextRange
+    override fun setMarkedTextStyle(markedTextStyle: Map<Any?, *>?) {}
+
+    override fun markedTextStyle(): Map<Any?, *>? = null
+
+    private var imeInputDelegate: UITextInputDelegateProtocol? = null
+    override fun inputDelegate(): UITextInputDelegateProtocol? = imeInputDelegate
+    override fun setInputDelegate(inputDelegate: UITextInputDelegateProtocol?) {
+        imeInputDelegate = inputDelegate
+    }
+
+    override fun tokenizer(): UITextInputTokenizerProtocol = imeTokenizer
+
+    override fun beginningOfDocument(): UITextPosition = imeBeginningOfDocument
+
+    override fun endOfDocument(): UITextPosition = imeEndOfDocument
+
     // ── Hardware keyboard / game controller keys (iOS 13.4+) ──────────────────
 
     /** The view must be first responder to receive key presses. */
@@ -252,7 +408,8 @@ class KadreMetalView(
                         location = UiKitKeyMapper.physicalKey(uiKey.keyCode).location(),
                         repeat = false,
                         text = text ?: mappedCode.defaultText(),
-                        keyWithoutModifiers = logicalKey,
+                        textWithAllModifiers = text,
+                        keyWithoutModifiers = mappedCode.defaultText(),
                         native = native,
                     ),
                     deviceId = null,
@@ -426,6 +583,23 @@ private class UIKitGestureRecognizerProxy(
 }
 
 /**
+ * Minimal UITextPosition subclass that wraps an integer offset.
+ */
+private class KadreTextPosition(val offset: Int) : UITextPosition()
+
+private const val UIStatusBarStyleDefault = 0L
+private const val UIStatusBarStyleLightContent = 1L
+private const val UIStatusBarStyleDarkContent = 3L
+
+private class UiKitRootViewController(
+    var statusBarHidden: Boolean = false,
+    var statusBarStyle: Long = UIStatusBarStyleDefault,
+) : UIViewController(nibName = null, bundle = null) {
+    override fun prefersStatusBarHidden(): Boolean = statusBarHidden
+    override fun preferredStatusBarStyle(): Long = statusBarStyle
+}
+
+/**
  * UiKitWindow — implements Window for iOS.
  *
  * Creates UIWindow → UIViewController → KadreMetalView (full screen).
@@ -467,8 +641,9 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         metalView.metalLayer.setContentsScale(screen.scale)
 
         // 3. Root view controller hosting the metal view
-        viewController = UIViewController(nibName = null, bundle = null)
-        viewController.setView(metalView)
+        viewController = UiKitRootViewController().also { vc ->
+            vc.setView(metalView)
+        }
 
         // 5. Wire root VC and show
         uiWindow.rootViewController = viewController
@@ -485,6 +660,37 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
 
     internal fun resetKeyboardModifiersIfNeeded() {
         metalView.resetKeyboardModifiersIfNeeded()
+    }
+
+    internal fun contentRect(): PhysicalSize<Int> {
+        val scale = UIScreen.mainScreen.scale
+        return metalView.bounds.useContents {
+            PhysicalSize(
+                (size.width * scale).toInt(),
+                (size.height * scale).toInt(),
+            )
+        }
+    }
+
+    internal fun setPrefersHomeIndicatorHidden(hidden: Boolean) {
+        // No-op: Kotlin/Native UIKit bindings do not expose
+        // prefersHomeIndicatorAutoHidden / setNeedsUpdateOfHomeIndicatorAutoHidden.
+        // TODO: implement via ObjC runtime messaging if needed.
+    }
+
+    internal fun setPrefersStatusBarHidden(hidden: Boolean) {
+        (viewController as? UiKitRootViewController)?.statusBarHidden = hidden
+        viewController.setNeedsStatusBarAppearanceUpdate()
+    }
+
+    internal fun setPreferredStatusBarStyle(style: StatusBarStyle?) {
+        (viewController as? UiKitRootViewController)?.statusBarStyle = when (style) {
+            StatusBarStyle.Default -> UIStatusBarStyleDefault
+            StatusBarStyle.LightContent -> UIStatusBarStyleLightContent
+            StatusBarStyle.DarkContent -> UIStatusBarStyleDarkContent
+            null -> UIStatusBarStyleDefault
+        }
+        viewController.setNeedsStatusBarAppearanceUpdate()
     }
 
     /**
@@ -781,6 +987,54 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
         // A more complete implementation would call UIViewController.prefersStatusBarHidden
         // but that requires overriding the view controller, which is out of scope for R2.
         // The state is stored so callers can read it back.
+    }
+
+    // ── R5-IME: input method ──────────────────────────────────────────────────
+
+    /**
+     * Enables or disables IME input by making the view first responder
+     * (showing the keyboard) or resigning first responder (hiding it).
+     *
+     * When allowed, the [KadreMetalView] becomes first responder, which triggers
+     * [KadreMetalView.becomeFirstResponder] → [WindowEvent.Ime.ImeEvent.Enabled].
+     * When disallowed, resigning first responder triggers
+     * [WindowEvent.Ime.ImeEvent.Disabled].
+     */
+    override fun setImeAllowed(allowed: Boolean) {
+        if (allowed) {
+            metalView.becomeFirstResponder()
+        } else {
+            metalView.resignFirstResponder()
+        }
+    }
+
+    /**
+     * Updates the IME cursor area used by [KadreMetalView.firstRectForRange]
+     * to position the IME candidate window. When the cursor moves or text
+     * layout changes, call this with the new cursor bounding box.
+     */
+    override fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) {
+        metalView.imeCursorRect = CGRectMake(
+            position.x.toDouble(),
+            position.y.toDouble(),
+            size.width.toDouble(),
+            size.height.toDouble(),
+        )
+    }
+
+    /**
+     * Hints the IME about the intended purpose of the focused text field.
+     *
+     * [UITextInputTraitsProtocol] properties (autocorrectionType,
+     * secureTextEntry, etc.) are final in the Kotlin/Native interop and
+     * cannot be set from Kotlin code directly. UIKit always uses default
+     * trait values for custom UITextInput views. The purpose is recorded
+     * for application use and future ObjC runtime wiring.
+     */
+    override fun setImePurpose(purpose: ImePurpose) {
+        // no-op: UITextInputTraits properties are final in Kotlin/Native.
+        // To set them, ObjC runtime method implementations would need to be
+        // added via class_addMethod / objc_msgSend.
     }
 
     // ── R4: keyboard ──────────────────────────────────────────────────────────

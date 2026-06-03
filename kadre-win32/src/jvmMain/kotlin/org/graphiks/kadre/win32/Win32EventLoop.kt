@@ -114,6 +114,31 @@ internal class Win32EventLoop : ActiveEventLoop {
     }
 
     /**
+     * Creates a window with Win32-specific attributes.
+     *
+     * Merges [Win32WindowAttributes] fields into the core [WindowAttributes]
+     * and applies platform-specific settings at creation time.
+     */
+    fun createWindow(attrs: Win32WindowAttributes): Window {
+        val window = Win32Window.create(attrs.core)
+            ?: error(
+                "Win32Window.create() a retourné null — les bindings Win32 (user32.dll) " +
+                "ne sont pas disponibles sur cette plateforme."
+            )
+        windows[window.id.value] = window
+        // Apply platform extension settings
+        if (attrs.skipTaskbar) window.setSkipTaskbar(true)
+        if (attrs.undecoratedShadow) window.setUndecoratedShadow(true)
+        attrs.systemBackdrop?.let { window.setSystemBackdrop(it) }
+        attrs.cornerPreference?.let { window.setCornerPreference(it) }
+        attrs.borderColor?.let { window.setBorderColor(it) }
+        attrs.titleBackgroundColor?.let { window.setTitleBackgroundColor(it) }
+        attrs.titleTextColor?.let { window.setTitleTextColor(it) }
+        if (!attrs.enabled) window.setEnabled(false)
+        return window
+    }
+
+    /**
      * Requests the Win32 event loop to stop.
      *
      * Sets [_isExiting] then calls PostQuitMessage(0) to insert WM_QUIT

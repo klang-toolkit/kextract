@@ -32,6 +32,8 @@ package org.graphiks.kadre.appkit
 import org.graphiks.kadre.appkit.bindings.NSApplication
 import org.graphiks.kadre.appkit.bindings.NSApplicationActivationPolicy
 import org.graphiks.kadre.appkit.bindings.NSEvent
+import org.graphiks.kadre.appkit.bindings.NSView
+import org.graphiks.kadre.appkit.bindings.NSWindow
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.DeviceEvent
@@ -205,6 +207,25 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                 // Find the AppKitWindow by NSWindow address (windowId.value == nsWindowPtr.address())
                 val appKitWindow = loop.windows[eventWindow.address()] ?: return
 
+                // ── IME check: for keyDown events, check if the input context handles it ──
+                if (isKeyDown) {
+                    val contentView = NSWindow(eventWindow).contentView()
+                    val inputContext = NSView(contentView).inputContext()
+                    if (inputContext != MemorySegment.NULL) {
+                        val imeHandled = ObjCRuntime.msgSend(
+                            ValueLayout.JAVA_BOOLEAN,
+                            inputContext,
+                            ObjCRuntime.sel("handleEvent:"),
+                            event,
+                        ) as Boolean
+                        if (imeHandled) {
+                            // IME consumed the event — it will have fired NSTextInputClient
+                            // callbacks synchronously. Do NOT dispatch a key event.
+                            return
+                        }
+                    }
+                }
+
                 // Get keyCode: [event keyCode] → Short
                 val keyCode = ObjCRuntime.msgSend(ValueLayout.JAVA_SHORT, event, ObjCRuntime.sel("keyCode")) as Short
 
@@ -255,7 +276,7 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                 loop.handler.deviceEvent(
                     loop,
                     DeviceId(0L),
-                    DeviceEvent.Key(keyCode.toInt(), state),
+                    DeviceEvent.Key(AppKitKeyMapper.physicalKey(keyCode), state),
                 )
 
                 loop.handler.windowEvent(
@@ -271,7 +292,8 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                             repeat = isRepeat,
                             synthetic = false,
                             text = text ?: mappedCode?.defaultText(),
-                            keyWithoutModifiers = logicalKey,
+                            textWithAllModifiers = text,
+                            keyWithoutModifiers = mappedCode?.defaultText(),
                             native = native,
                         ),
                         deviceId = DeviceId(0L),

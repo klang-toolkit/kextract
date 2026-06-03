@@ -104,7 +104,7 @@ class WebWindow(
      * [WebWindowAttributes]) for auto-creation.
      */
     private val canvasElementId: String,
-    private val bridge: WebDomBridge,
+    internal val bridge: WebDomBridge,
 ) : Window {
 
     constructor(canvasElementId: String, bridge: WebDomBridge)
@@ -466,6 +466,51 @@ class WebWindow(
      */
     override fun resetDeadKeys() {
         // no-op: browser IME state is not accessible from JavaScript
+    }
+
+    // ── R5-IME ──────────────────────────────────────────────────────────────────
+
+    /** Stored cursor area position for potential use. */
+    private var _imeCursorPosition: PhysicalPosition<Int> = PhysicalPosition(0, 0)
+
+    /** Stored cursor area size for potential use. */
+    private var _imeCursorSize: PhysicalSize<Int> = PhysicalSize(0, 0)
+
+    /**
+     * Enables or disables IME input.
+     *
+     * On the Web, IME is managed entirely by the browser when the canvas is
+     * focused. This override is informational — the browser controls IME
+     * composition independently of this flag.
+     */
+    override fun setImeAllowed(allowed: Boolean) {
+        bridge.setImeAllowed(allowed)
+    }
+
+    /**
+     * Notifies the IME of the text cursor's current position and bounding box.
+     *
+     * Stores the values so the bridge can retrieve them via [WebDomBridge.getImeCursorArea]
+     * if needed. On the Web the browser manages candidate-window positioning
+     * automatically, but the stored area is available for future use.
+     */
+    override fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) {
+        _imeCursorPosition = position
+        _imeCursorSize = size
+    }
+
+    /**
+     * Hints the IME about the intended purpose of the focused text field.
+     *
+     * On the Web this is informational — the browser does not expose a DOM API
+     * to control IME behaviour per-element without an actual `<input>` or
+     * `<textarea>`. The `ime-mode` CSS property (deprecated) is the closest
+     * approximation, but it is not wired in this version.
+     */
+    override fun setImePurpose(purpose: org.graphiks.kadre.core.ImePurpose) {
+        // No-op: Web does not expose a standard API to control IME purpose
+        // on a canvas element. The deprecated `ime-mode` CSS property could
+        // be applied via the bridge in a future milestone.
     }
 
     /**

@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.SurfaceHolder
-import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -95,7 +94,7 @@ abstract class KadreActivity : ComponentActivity() {
      * Exposed as `internal` so that [AndroidEventLoop.createWindow] can
      * instantiate [AndroidWindow] with this Activity's SurfaceView.
      */
-    internal lateinit var surfaceView: SurfaceView
+    internal lateinit var surfaceView: KadreImeSurfaceView
 
     /**
      * Guard against any callback dispatch after [onDestroy].
@@ -129,7 +128,7 @@ abstract class KadreActivity : ComponentActivity() {
         }
 
         // ── Full-screen SurfaceView ────────────────────────────────────────────
-        surfaceView = SurfaceView(this).apply {
+        surfaceView = KadreImeSurfaceView(this).apply {
             layoutParams = android.view.ViewGroup.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
@@ -331,7 +330,8 @@ abstract class KadreActivity : ComponentActivity() {
                     modifiers = modifiers,
                     repeat = isRepeat,
                     text = mappedCode.defaultText(),
-                    keyWithoutModifiers = logicalKey,
+                    textWithAllModifiers = mappedCode.defaultText(),
+                    keyWithoutModifiers = mappedCode.defaultText(),
                     native = native,
                 ),
                 deviceId = deviceId,

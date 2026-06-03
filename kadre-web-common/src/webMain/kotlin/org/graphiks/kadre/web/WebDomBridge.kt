@@ -85,6 +85,30 @@ interface WebDomBridge {
      */
     fun setDocumentTitle(title: String) { /* no-op by default */ }
 
+    // ── R5-IME: input method ──────────────────────────────────────────────────
+
+    /**
+     * Informs the bridge whether IME composition is allowed for this window.
+     *
+     * On the Web, IME is managed entirely by the browser when the canvas is
+     * focused. This method is informational — the bridge does not need to
+     * actively prevent IME since the browser controls composition lifecycle.
+     *
+     * Default: no-op (test / non-browser bridge).
+     */
+    fun setImeAllowed(allowed: Boolean) { /* no-op by default */ }
+
+    /**
+     * Returns the current cursor area (position + size) in physical pixels,
+     * or null if no cursor area has been set.
+     *
+     * On native platforms this is used to position the IME candidate window;
+     * on the Web the browser manages IME positioning automatically.
+     *
+     * Default: null (test / non-browser bridge).
+     */
+    fun getImeCursorArea(): Any? = null
+
     // ── R2: fullscreen API ─────────────────────────────────────────────────────
 
     /**
@@ -156,4 +180,26 @@ interface WebDomBridge {
      * @return A data URL string (e.g. "data:image/png;base64,...") or empty string on failure.
      */
     fun createCursorDataUrl(rgba: ByteArray, width: Int, height: Int, hotspotX: Int, hotspotY: Int): String = ""
+
+    // ── WebExtensionTypes runtime support ───────────────────────────────────
+
+    /**
+     * Returns the DOM canvas element used by this bridge, or null if the bridge
+     * has not yet been attached.
+     *
+     * Default: null (test / non-browser bridge).
+     */
+    fun getCanvasElement(): Any? = null
+
+    /**
+     * Whether [preventDefault][org.w3c.dom.events.Event.preventDefault] is
+     * called on DOM events (touch, wheel, keydown) dispatched through this
+     * bridge.
+     *
+     * Default: `true` — events are prevented. Set to `false` to let the
+     * browser handle the events natively after Kadre has processed them.
+     */
+    var preventDefaultEnabled: Boolean
+        get() = true
+        set(_) { /* no-op by default; overridden in JsWebDomBridge / WasmJsWebDomBridge */ }
 }

@@ -61,13 +61,13 @@ jobs:
       - name: Build samples/pong (production JS bundle)
         run: ./gradlew :samples:pong:jsBrowserDistribution --no-daemon --stacktrace
 
-      - name: Install E2E deps + Chrome stable
+      - name: Install E2E deps + ffmpeg (video recording)
         working-directory: samples/pong/e2e
         run: |
           npm install
-          # Stable Chrome (release channel) — not Chromium; no --with-deps
-          # (macOS does not need apt-get install for the native libs).
-          npx playwright install chrome
+          # ffmpeg for Playwright video recording (not bundled with @playwright/test).
+          # Chrome itself is the system Chrome at the default path.
+          npx playwright install ffmpeg
 
       - name: Run Playwright scenario
         working-directory: samples/pong/e2e

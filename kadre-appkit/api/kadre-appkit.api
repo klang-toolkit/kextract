@@ -1,5 +1,24 @@
+public final class org/graphiks/kadre/appkit/ActivationPolicy : java/lang/Enum {
+	public static final field Accessory Lorg/graphiks/kadre/appkit/ActivationPolicy;
+	public static final field Prohibited Lorg/graphiks/kadre/appkit/ActivationPolicy;
+	public static final field Regular Lorg/graphiks/kadre/appkit/ActivationPolicy;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lorg/graphiks/kadre/appkit/ActivationPolicy;
+	public static fun values ()[Lorg/graphiks/kadre/appkit/ActivationPolicy;
+}
+
 public final class org/graphiks/kadre/appkit/AppKitEventLoopKt {
 	public static final fun runApp (Lorg/graphiks/kadre/core/ApplicationHandler;)V
+}
+
+public final class org/graphiks/kadre/appkit/AppKitExtensionTypesKt {
+	public static final fun hideApplication (Lorg/graphiks/kadre/core/ActiveEventLoop;)V
+	public static final fun hideOtherApplications (Lorg/graphiks/kadre/core/ActiveEventLoop;)V
+	public static final fun setHasShadow (Lorg/graphiks/kadre/core/Window;Z)V
+	public static final fun setMovableByWindowBackground (Lorg/graphiks/kadre/core/Window;Z)V
+	public static final fun setSimpleFullscreen (Lorg/graphiks/kadre/core/Window;Z)V
+	public static final fun setTabbingIdentifier (Lorg/graphiks/kadre/core/Window;Ljava/lang/String;)V
+	public static final fun setTitlebarTransparent (Lorg/graphiks/kadre/core/Window;Z)V
 }
 
 public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/core/Window {
@@ -72,6 +91,37 @@ public final class org/graphiks/kadre/appkit/AppKitWindow : org/graphiks/kadre/c
 	public fun setWindowIcon (Lorg/graphiks/kadre/core/Icon;)V
 	public fun setWindowLevel (Lorg/graphiks/kadre/core/WindowLevel;)V
 	public fun showWindowMenu (Lorg/graphiks/kadre/core/PhysicalPosition;)Lorg/graphiks/kadre/core/WindowRequestResult;
+}
+
+public final class org/graphiks/kadre/appkit/AppKitWindowAttributes {
+	public fun <init> ()V
+	public fun <init> (Lorg/graphiks/kadre/core/WindowAttributes;Lorg/graphiks/kadre/appkit/ActivationPolicy;Ljava/lang/String;Ljava/lang/Boolean;ZZZZZZ)V
+	public synthetic fun <init> (Lorg/graphiks/kadre/core/WindowAttributes;Lorg/graphiks/kadre/appkit/ActivationPolicy;Ljava/lang/String;Ljava/lang/Boolean;ZZZZZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lorg/graphiks/kadre/core/WindowAttributes;
+	public final fun component10 ()Z
+	public final fun component2 ()Lorg/graphiks/kadre/appkit/ActivationPolicy;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/Boolean;
+	public final fun component5 ()Z
+	public final fun component6 ()Z
+	public final fun component7 ()Z
+	public final fun component8 ()Z
+	public final fun component9 ()Z
+	public final fun copy (Lorg/graphiks/kadre/core/WindowAttributes;Lorg/graphiks/kadre/appkit/ActivationPolicy;Ljava/lang/String;Ljava/lang/Boolean;ZZZZZZ)Lorg/graphiks/kadre/appkit/AppKitWindowAttributes;
+	public static synthetic fun copy$default (Lorg/graphiks/kadre/appkit/AppKitWindowAttributes;Lorg/graphiks/kadre/core/WindowAttributes;Lorg/graphiks/kadre/appkit/ActivationPolicy;Ljava/lang/String;Ljava/lang/Boolean;ZZZZZZILjava/lang/Object;)Lorg/graphiks/kadre/appkit/AppKitWindowAttributes;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAcceptsFirstMouse ()Z
+	public final fun getActivationPolicy ()Lorg/graphiks/kadre/appkit/ActivationPolicy;
+	public final fun getCore ()Lorg/graphiks/kadre/core/WindowAttributes;
+	public final fun getFullSizeContentView ()Z
+	public final fun getHasShadow ()Ljava/lang/Boolean;
+	public final fun getMovableByWindowBackground ()Z
+	public final fun getTabbingIdentifier ()Ljava/lang/String;
+	public final fun getTitleHidden ()Z
+	public final fun getTitlebarHidden ()Z
+	public final fun getTitlebarTransparent ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class org/graphiks/kadre/appkit/KadreAppDelegate {

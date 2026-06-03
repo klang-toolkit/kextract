@@ -217,6 +217,13 @@ data class CursorImage(
  *
  * @property id Platform-specific cursor identifier.
  */
+/**
+ * Maximum cursor size in pixels (both width and height).
+ *
+ * Custom cursor images larger than this limit will be rejected.
+ */
+const val MAX_CURSOR_SIZE: Int = 2048
+
 class CustomCursor(val id: Long)
 
 // ── R5-MiscWindow ─────────────────────────────────────────────────────────────

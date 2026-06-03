@@ -31,6 +31,14 @@ internal const val StructureNotifyMask: Long = 131072L
 internal const val SubstructureNotifyMask: Long = 524288L
 internal const val SubstructureRedirectMask: Long = 1048576L
 
+// XChangeWindowAttributes valuemask bits (X.h)
+internal const val CWOverrideRedirect: Long = 1L shl 9
+
+// XSetWindowAttributes struct size and override_redirect field offset (LP64)
+internal const val XSETWINDOWATTRIBUTES_SIZE: Long = 112L
+internal const val XSETWINDOWATTRIBUTES_ALIGN: Long = 8L
+internal const val XSETWINDOWATTR_OVERRIDE_REDIRECT_OFFSET: Long = 88L
+
 // XClientMessageEvent LP64 offsets within the XEvent union.
 internal const val XCLIENT_SEND_EVENT_OFFSET: Long = 16L
 internal const val XCLIENT_DISPLAY_OFFSET: Long = 24L

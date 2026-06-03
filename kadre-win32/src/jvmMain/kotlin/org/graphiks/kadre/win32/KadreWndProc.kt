@@ -334,6 +334,36 @@ object KadreWndProc {
                 0L
             }
 
+            // ── IME ───────────────────────────────────────────────────────────
+            WM_IME_SETCONTEXT.toUInt() -> {
+                // Clear ISC_SHOWUIALL to prevent the IME from drawing its own UI
+                // (composition window, candidate window). The application manages
+                // positioning via setImeCursorArea.
+                val lParamCleared = lParam and ISC_SHOWUIALL.inv()
+                defWindowProcW(hwnd, msg, wParam, lParamCleared)
+            }
+
+            WM_IME_STARTCOMPOSITION.toUInt() -> {
+                emit(hwnd, WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Enabled))
+                0L
+            }
+
+            WM_IME_COMPOSITION.toUInt() -> {
+                handleImeComposition(hwnd, lParam)
+                0L
+            }
+
+            WM_IME_ENDCOMPOSITION.toUInt() -> {
+                emit(hwnd, WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Disabled))
+                0L
+            }
+
+            WM_INPUTLANGCHANGE.toUInt() -> {
+                // Pass through — the keyboard layout changed, but kadre does
+                // not currently track HKL.
+                defWindowProcW(hwnd, msg, wParam, lParam)
+            }
+
             // ── Default ───────────────────────────────────────────────────────
             else -> defWindowProcW(hwnd, msg, wParam, lParam)
         }
@@ -422,7 +452,8 @@ object KadreWndProc {
                 modifiers = modifiers,
                 repeat = isRepeat,
                 text = mappedCode?.defaultText(),
-                keyWithoutModifiers = logicalKey,
+                textWithAllModifiers = mappedCode?.defaultText(),
+                keyWithoutModifiers = mappedCode?.defaultText(),
                 native = native,
             ),
             deviceId = null,
@@ -663,6 +694,84 @@ object KadreWndProc {
         } catch (_: Throwable) {
             null
         }
+    }
+
+    // ── IME helpers ───────────────────────────────────────────────────────────
+
+    /**
+     * Handles a WM_IME_COMPOSITION message: reads the composition and/or result
+     * strings from the IME context and emits [WindowEvent.Ime] events.
+     *
+     * @param hwnd   Integer address of the source HWND.
+     * @param lParam WM_IME_COMPOSITION lParam — GCS_* flags indicating which
+     *               information has changed.
+     */
+    private fun handleImeComposition(hwnd: Long, lParam: Long) {
+        val getCtx = immGetContext ?: return
+        val relCtx = immReleaseContext ?: return
+        val hwndSeg = MemorySegment.ofAddress(hwnd)
+        val himc: MemorySegment = try {
+            getCtx.invokeExact(hwndSeg) as MemorySegment
+        } catch (_: Throwable) { MemorySegment.NULL }
+        if (himc == MemorySegment.NULL) return
+        try {
+            val gcsFlags = lParam.toInt()
+            if (gcsFlags and GCS_RESULTSTR != 0) {
+                readImeString(himc, GCS_RESULTSTR)?.let { text ->
+                    emit(hwnd, WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Commit(text)))
+                }
+            }
+            if (gcsFlags and GCS_COMPSTR != 0) {
+                readImeString(himc, GCS_COMPSTR)?.let { text ->
+                    val cursorPos = readImeCursor(himc)
+                    val range = if (cursorPos != null) Pair(cursorPos, cursorPos) else null
+                    emit(hwnd, WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Preedit(text, range)))
+                }
+            }
+        } catch (_: Throwable) {
+            // IME composition handling is best-effort
+        } finally {
+            try { relCtx.invokeExact(hwndSeg, himc) as Int } catch (_: Throwable) {}
+        }
+    }
+
+    /**
+     * Reads an IME composition string (UTF-16) from the given HIMC for the
+     * specified [gcsMode] (GCS_COMPSTR or GCS_RESULTSTR).
+     *
+     * Returns null on error, empty string if the string is empty.
+     */
+    private fun readImeString(himc: MemorySegment, gcsMode: Int): String? {
+        val query = immGetCompositionStringW ?: return null
+        val size: Int = try {
+            query.invokeExact(himc, gcsMode, MemorySegment.NULL, 0) as Int
+        } catch (_: Throwable) { return null }
+        if (size < 0) return null
+        if (size == 0) return ""
+        return try {
+            java.lang.foreign.Arena.ofConfined().use { arena ->
+                val buf = arena.allocate(size.toLong(), 1L)
+                query.invokeExact(himc, gcsMode, buf, size) as Int
+                val chars = CharArray(size / 2) { i ->
+                    buf.getAtIndex(ValueLayout.JAVA_SHORT, i.toLong()).toInt().toChar()
+                }
+                String(chars)
+            }
+        } catch (_: Throwable) { null }
+    }
+
+    /**
+     * Reads the IME cursor position (character index within the composition
+     * string) via GCS_CURSORPOS.
+     *
+     * Returns null if not available or on error.
+     */
+    private fun readImeCursor(himc: MemorySegment): Int? {
+        val query = immGetCompositionStringW ?: return null
+        return try {
+            val cursor = query.invokeExact(himc, GCS_CURSORPOS, MemorySegment.NULL, 0) as Int
+            if (cursor >= 0) cursor else null
+        } catch (_: Throwable) { null }
     }
 
     private fun pointerButton(button: MouseButton, state: KeyState, lParam: Long): WindowEvent.PointerButton =

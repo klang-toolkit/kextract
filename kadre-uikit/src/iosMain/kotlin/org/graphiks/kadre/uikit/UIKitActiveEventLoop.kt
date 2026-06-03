@@ -6,6 +6,7 @@ import org.graphiks.kadre.core.*
 import platform.UIKit.UIScreen
 import platform.UIKit.UIUserInterfaceStyle
 
+
 /**
  * UIKit ActiveEventLoop — lightweight proxy to ApplicationHandler.
  *
@@ -23,6 +24,22 @@ internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : 
 
     override fun createWindow(attributes: WindowAttributes): Window =
         UiKitWindow(attributes, this).also { windows.add(it) }
+
+    fun createWindow(attrs: UiKitWindowAttributes): Window {
+        val window = createWindow(attrs.core) as UiKitWindow
+        attrs.scaleFactor?.let { /* scale override would be applied here */ }
+        // validOrientations: Kotlin/Native bindings do not expose
+        // UIViewController.supportedInterfaceOrientations override.
+        // TODO: implement via UIViewController subclass if bindings are extended.
+        if (attrs.prefersHomeIndicatorHidden) window.setPrefersHomeIndicatorHidden(true)
+        if (attrs.prefersStatusBarHidden) window.setPrefersStatusBarHidden(true)
+        attrs.preferredStatusBarStyle?.let { window.setPreferredStatusBarStyle(it) }
+        if (attrs.recognizePinchGesture) window.recognizePinchGesture(true)
+        if (attrs.recognizePanGesture) window.recognizePanGesture(true, 1, 2)
+        if (attrs.recognizeDoubleTapGesture) window.recognizeDoubleTapGesture(true)
+        if (attrs.recognizeRotationGesture) window.recognizeRotationGesture(true)
+        return window
+    }
 
     /**
      * Emits [WindowEvent.Focused] for every window.

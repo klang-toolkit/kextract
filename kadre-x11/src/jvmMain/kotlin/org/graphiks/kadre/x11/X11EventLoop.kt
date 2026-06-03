@@ -214,6 +214,25 @@ class X11EventLoop internal constructor(
     }
 
     /**
+     * Creates a window with X11-specific attributes.
+     *
+     * Merges [X11WindowAttributes] fields into the core [WindowAttributes]
+     * and applies platform-specific settings at creation time.
+     */
+    fun createWindow(attrs: X11WindowAttributes): Window {
+        val window = X11Window.create(displayPtr, screen, attrs.core)
+            ?: error(
+                "X11Window.create() a retourné null — les bindings libX11.so.6 " +
+                "ne sont pas disponibles sur cette plateforme."
+            )
+        windows[window.id.value] = window
+        // Apply platform extension settings
+        if (attrs.windowType != null) window.setWindowType(attrs.windowType)
+        if (attrs.overrideRedirect) window.setOverrideRedirect(true)
+        return window
+    }
+
+    /**
      * Requests the X11 event loop to stop.
      */
     override fun exit() {
@@ -499,7 +518,8 @@ private fun x11KeyInput(
             modifiers = modifiers,
             repeat = repeat,
             text = mappedCode?.defaultText(),
-            keyWithoutModifiers = logicalKey,
+            textWithAllModifiers = mappedCode?.defaultText(),
+            keyWithoutModifiers = mappedCode?.defaultText(),
             native = native,
         ),
         deviceId = null,
@@ -647,6 +667,19 @@ private fun dispatchEvent(
 
         // ── Keyboard ──────────────────────────────────────────────────────────
         KeyPress -> {
+            val window = loop.windows[windowXid]
+            if (window != null) {
+                val filterEvent = xFilterEvent
+                if (filterEvent != null) {
+                    try {
+                        val consumed = filterEvent.invokeExact(eventBuf, windowXid) as Int
+                        if (consumed != 0) {
+                            window.drainImeEvents(handler, loop, windowId)
+                            return
+                        }
+                    } catch (_: Throwable) {}
+                }
+            }
             val keycode = eventBuf.get(ValueLayout.JAVA_INT, XKEY_KEYCODE_OFFSET)
             val state   = eventBuf.get(ValueLayout.JAVA_INT, XKEY_STATE_OFFSET)
             val keysym  = keycodeToKeysym(keycode)

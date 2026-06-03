@@ -38,6 +38,8 @@ class JsWebDomBridge : WebDomBridge {
 
     override var onWindowEvent: ((WebWindowEvent) -> Unit)? = null
 
+    override var preventDefaultEnabled: Boolean = true
+
     override fun readDevicePixelRatio(): Double = window.devicePixelRatio
 
     override fun readCanvasPhysicalSize(canvasId: String): Pair<Int, Int> {
@@ -74,6 +76,7 @@ class JsWebDomBridge : WebDomBridge {
     }
 
     private var targetElement: Element? = null
+    private var canvasElement: Element? = null
     private val canvasListeners = mutableListOf<Pair<String, (Event) -> Unit>>()
     private val documentListeners = mutableListOf<Pair<String, (Event) -> Unit>>()
     private val windowListeners = mutableListOf<Pair<String, (Event) -> Unit>>()
@@ -85,6 +88,7 @@ class JsWebDomBridge : WebDomBridge {
     override fun attach(targetElementId: String) {
         val canvas = document.getElementById(targetElementId) ?: return
         targetElement = canvas
+        canvasElement = canvas
         attached = true
 
         // --- Keyboard ---
@@ -197,6 +201,22 @@ class JsWebDomBridge : WebDomBridge {
             addListener(canvas, type) { e -> dispatchTouches(e) }
         }
 
+        // --- IME composition events (R5-IME) ---
+        addListener(canvas, "compositionstart") { _ ->
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Enabled))
+        }
+
+        addListener(canvas, "compositionupdate") { e ->
+            val data = e.asDynamic().data as? String ?: ""
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Preedit(text = data, cursorRange = null)))
+        }
+
+        addListener(canvas, "compositionend") { e ->
+            val data = e.asDynamic().data as? String ?: ""
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Commit(text = data)))
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Disabled))
+        }
+
         // --- Page visibility → Suspended/Resumed via Focused ---
         addDocumentListener("visibilitychange") { _ ->
             val hidden: Boolean = js("document.hidden")
@@ -237,7 +257,7 @@ class JsWebDomBridge : WebDomBridge {
                 )
             )
         }
-        e.preventDefault()
+        if (preventDefaultEnabled) e.preventDefault()
     }
 
     /**
@@ -284,6 +304,8 @@ class JsWebDomBridge : WebDomBridge {
     fun dispatchResized(width: Int, height: Int) {
         dispatch(WebWindowEvent.Resized(width = width, height = height))
     }
+
+    override fun getCanvasElement(): Any? = canvasElement
 
     override fun detach() {
         // Stop the re-arming devicePixelRatio chain before tearing down listeners.

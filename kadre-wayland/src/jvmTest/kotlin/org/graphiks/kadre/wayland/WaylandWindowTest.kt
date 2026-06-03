@@ -475,6 +475,7 @@ class WaylandWindowTest {
             display = 0L,
             compositor = 0L,
             xdgWmBase = 0L,
+            shmPtr = 0L,
             attrs = WindowAttributes(),
         )
         // On non-Wayland, the binding is null and create() returns null

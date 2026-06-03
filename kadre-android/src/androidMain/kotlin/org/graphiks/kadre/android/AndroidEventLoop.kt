@@ -52,7 +52,7 @@ import org.graphiks.kadre.core.WindowEvent
  * [exit] terminates the parent Activity via [ComponentActivity.finish].
  */
 internal class AndroidEventLoop(
-    private val activity: ComponentActivity,
+    internal val activity: ComponentActivity,
 ) : ActiveEventLoop {
 
     @Volatile
@@ -90,8 +90,20 @@ internal class AndroidEventLoop(
      */
     override fun createWindow(attributes: WindowAttributes): Window {
         val kadreActivity = activity as KadreActivity
-        val window = AndroidWindow(kadreActivity.surfaceView)
+        val window = AndroidWindow(kadreActivity.surfaceView, this, kadreActivity)
         pendingWindow = window
+        return window
+    }
+
+    /**
+     * Creates a window with Android-specific attributes.
+     *
+     * Merges [AndroidWindowAttributes] fields into the core [WindowAttributes]
+     * and applies platform-specific settings at creation time.
+     */
+    fun createWindow(attrs: AndroidWindowAttributes): Window {
+        val window = createWindow(attrs.core) as AndroidWindow
+        window.handleVolumeKeys = attrs.handleVolumeKeys
         return window
     }
 

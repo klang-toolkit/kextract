@@ -34,7 +34,8 @@ private const val WL_SURFACE_COMMIT: Int = 6
 internal class XdgToplevel private constructor(
     private val displayPtr: Long,
     private val xdgSurfacePtr: Long,
-    private val xdgToplevelPtr: Long,
+    /** Returns the xdg_toplevel proxy pointer for platform extension use. */
+    val xdgToplevelPtr: Long,
     private val xdgDecorationPtr: Long,
     private val version: Int,
     private val decorationVersion: Int,
