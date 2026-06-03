@@ -926,7 +926,7 @@ Points résiduels clés :
 - **Events DnD** (DragEntered/Moved/Dropped/Left) : API définie, tous les backends = no-op.
 - **Events gestes** (Pinch/Pan/Rotation/DoubleTap/TouchpadPressure) : émis sur AppKit et sur UIKit après opt-in explicite ; les autres backends restent non câblés.
 - **Event Occluded** : API définie ; AppKit et Web prévoient de l'émettre.
-- **ModifiersChanged** : émis sur AppKit/Win32/Web ; non câblé sur X11/Wayland/Android/UIKit.
+- **ModifiersChanged** : émis sur AppKit/Win32/Web/Android/UIKit/X11/Wayland pour les transitions de touches modificatrices ; la sémantique XKB locked/latched sous Linux reste future.
 - **Curseurs custom** (`createCustomCursor` / `setCustomCursor`) : no-op sur tous les backends (impl interface par défaut).
 - **Méthodes fenêtre diverses** : `showWindowMenu`, `dragWindow` et `dragResizeWindow` retournent maintenant `WindowRequestResult` et signalent `RequestError.Unsupported` par défaut ; `requestUserAttention` et `setContentProtected` restent no-op quand aucun backend ne les implémente.
 - **Couverture clavier** : le modèle public suit maintenant winit (`PhysicalKey` / `LogicalKey` / `NamedKey` / `Dead`), mais `KeyCode` et `NamedKey` ne sont pas encore exhaustifs et les champs riches restent dépendants des backends.

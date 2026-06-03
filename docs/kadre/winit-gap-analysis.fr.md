@@ -87,8 +87,8 @@ Impact: ces touches tombent aujourd'hui dans `LogicalKey.Unidentified(native)` o
 | UIKit | HID usage pour hardware keyboard, map lettres/chiffres/F1-F12/navigation/modifiers. | Texte/logical layout limite; `textWithAllModifiers` non implemente; IME/hints incomplets. |
 | Android | Map hardware basique A-Z, digits, F1-F12, dpad, special, modifiers; `deviceId`, scancode et keycode natifs sont exposes. | Utiliser `unicodeChar`, `displayLabel`, `characters`, `isPrintingKey`, AltGraph/Caps/NumLock, `keyWithoutModifiers`, media/lang/gamepad coverage. |
 | Win32 | Map VK basique + repeat via lParam, native VK/scancode type. | Preferer scancode/MapVirtualKey pour physical layout complet; distinguer left/right generic VK proprement; alimenter `text`, `textWithAllModifiers`, `keyWithoutModifiers`, IME; synthetic release. |
-| X11 | Keycode/keysym table basique + repeat tracker. | Integrer xkbcommon/XKB pour layout, `key_without_modifiers`, dead keys, compose, AltGraph, lock modifiers, precise location. |
-| Wayland | evdev table basique + repeat state conventionnel. | Integrer xkbcommon pour layout/text/modifiers/compose; gerer repeat protocol; IME text-input v3; left/right modifiers souvent non observables. |
+| X11 | Keycode/keysym table basique + repeat tracker + `ModifiersChanged` avec rehydratation `XQueryKeymap` au focus. | Integrer xkbcommon/XKB pour layout, `key_without_modifiers`, dead keys, compose, AltGraph, lock modifiers, precise location. |
+| Wayland | evdev table basique + repeat state conventionnel + `ModifiersChanged` depuis transitions et touches pressees au focus enter. | Integrer xkbcommon pour layout/text/modifiers/compose; gerer repeat protocol; IME text-input v3; locked/latched modifiers via `wl_keyboard.modifiers`. |
 
 ## IME et texte
 
