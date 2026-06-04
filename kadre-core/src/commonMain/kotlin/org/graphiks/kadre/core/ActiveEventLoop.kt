@@ -167,4 +167,12 @@ interface ActiveEventLoop {
      * @param mode New filter mode.
      */
     fun listenDeviceEvents(mode: DeviceEvents)
+
+    // ── R6: gamepad ──────────────────────────────────────────────────────────
+
+    /**
+     * Returns the gamepad controller for this event loop, or null if gamepad
+     * input is not available on this platform.
+     */
+    val gamepadController: GamepadController? get() = null
 }

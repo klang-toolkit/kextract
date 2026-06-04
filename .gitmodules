@@ -4,3 +4,6 @@
 [submodule "third_party/kextract"]
 	path = third_party/kextract
 	url = https://github.com/klang-toolkit/kextract.git
+[submodule "gilrs"]
+	path = gilrs
+	url = https://github.com/Arvamer/gilrs.git
