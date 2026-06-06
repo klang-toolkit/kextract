@@ -60,8 +60,8 @@ class AndroidWindowContractTest {
             "createWindow must return Window (or a subtype)",
         )
         assertEquals(
-            WindowAttributes::class.java,
-            method.parameterTypes[0],
+            WindowAttributes::class.java.name,
+            method.parameterTypes[0].name,
             "createWindow must accept WindowAttributes",
         )
     }

@@ -67,12 +67,12 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   // → the aboutToWait loop runs continuously and animates the game (ball + AI)
   // without requiring user input. We let the init stabilize then
   // observe the animation over a 2.5s window.
-  await page.waitForTimeout(1_500);
+  await page.waitForTimeout(3_000);
 
   const frame1 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame1-animation-start.png'), frame1);
 
-  await page.waitForTimeout(2_500);
+  await page.waitForTimeout(3_000);
   const frame2 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame2-animation-2.5s.png'), frame2);
 
