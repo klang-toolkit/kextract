@@ -48108,3 +48108,23 @@ public final class org/graphiks/kadre/appkit/bindings/xpc_session_create_flags_t
 	public final fun fromValue (J)Lorg/graphiks/kadre/appkit/bindings/xpc_session_create_flags_t;
 }
 
+public final class org/graphiks/kadre/appkit/capture/AppKitCaptureSession : org/graphiks/kadre/core/capture/CaptureSession {
+	public fun <init> (Lorg/graphiks/kadre/core/capture/CaptureSource;Lorg/graphiks/kadre/core/capture/CaptureConfig;Ljava/lang/foreign/MemorySegment;)V
+	public fun close ()V
+	public final fun handleStreamOutput (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;J)V
+}
+
+public final class org/graphiks/kadre/appkit/capture/AppKitScreenCapturer : org/graphiks/kadre/core/capture/ScreenCapturer {
+	public fun <init> ()V
+	public fun createSession (Lorg/graphiks/kadre/core/capture/CaptureSource;Lorg/graphiks/kadre/core/capture/CaptureConfig;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun enumerateDisplays (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun enumerateWindows (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun permissionStatus ()Lorg/graphiks/kadre/core/capture/CapturePermission;
+	public fun requestPermission (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class org/graphiks/kadre/appkit/capture/CGDisplayCaptureSession : org/graphiks/kadre/core/capture/CaptureSession {
+	public fun <init> (Lorg/graphiks/kadre/core/capture/CaptureSource;Lorg/graphiks/kadre/core/capture/CaptureConfig;J)V
+	public fun close ()V
+}
+

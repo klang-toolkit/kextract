@@ -516,6 +516,16 @@ class HelloTriangleApp : ApplicationHandler {
  * `-XstartOnFirstThread` in [build.gradle.kts]).
  */
 fun main(args: Array<String>) {
+    // Native screen capture: `--native-capture <path>` captures the screen via
+    // ScreenCapturer API and writes a PNG.
+    val nativeCaptureIndex = args.indexOf("--native-capture")
+    if (nativeCaptureIndex >= 0) {
+        val path = args.getOrNull(nativeCaptureIndex + 1)
+            ?: error("--native-capture requiert un chemin de fichier : --native-capture <path>")
+        nativeCapture(path)
+        return
+    }
+
     // Offscreen GPU capture mode: `--capture <path>` renders the triangle into
     // a texture, reads back the framebuffer, writes a PNG, then exits — without opening a window.
     val captureIndex = args.indexOf("--capture")

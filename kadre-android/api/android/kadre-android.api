@@ -110,3 +110,17 @@ public abstract class org/graphiks/kadre/android/KadreActivity : androidx/activi
 	public fun onWindowFocusChanged (Z)V
 }
 
+public final class org/graphiks/kadre/android/capture/AndroidCaptureSession : org/graphiks/kadre/core/capture/CaptureSession {
+	public fun <init> (Lorg/graphiks/kadre/core/capture/CaptureSource$Display;Lorg/graphiks/kadre/core/capture/CaptureConfig;Landroid/media/projection/MediaProjection;Landroid/content/Context;)V
+	public fun close ()V
+}
+
+public final class org/graphiks/kadre/android/capture/AndroidScreenCapturer : org/graphiks/kadre/core/capture/ScreenCapturer {
+	public fun <init> (Landroidx/activity/ComponentActivity;)V
+	public fun createSession (Lorg/graphiks/kadre/core/capture/CaptureSource;Lorg/graphiks/kadre/core/capture/CaptureConfig;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun enumerateDisplays (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun enumerateWindows (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun permissionStatus ()Lorg/graphiks/kadre/core/capture/CapturePermission;
+	public fun requestPermission (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+

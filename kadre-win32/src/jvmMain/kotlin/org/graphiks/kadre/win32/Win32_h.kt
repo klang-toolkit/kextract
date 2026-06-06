@@ -1461,6 +1461,287 @@ internal val HWND_NOTOPMOST: MemorySegment = MemorySegment.ofAddress(-2L)
 /** HWND_BOTTOM = (HWND)(LONG_PTR)1 */
 internal val HWND_BOTTOM: MemorySegment = MemorySegment.ofAddress(1L)
 
+// ── GDI capture bindings ─────────────────────────────────────────────────────
+
+/**
+ * HDC GetDC(HWND hWnd);
+ *
+ * Returns a device context for the specified window or the entire screen (NULL).
+ * Use ReleaseDC to release.
+ */
+internal val getDC: MethodHandle? by lazy {
+    gdi32.downcall("GetDC", FunctionDescriptor.of(
+        ValueLayout.ADDRESS,    // HDC return
+        ValueLayout.ADDRESS,    // HWND (NULL = entire screen)
+    ))
+}
+
+/**
+ * HDC CreateCompatibleDC(HDC hdc);
+ *
+ * Creates a memory device context compatible with the specified DC.
+ */
+internal val createCompatibleDC: MethodHandle? by lazy {
+    gdi32.downcall("CreateCompatibleDC", FunctionDescriptor.of(
+        ValueLayout.ADDRESS,    // HDC return
+        ValueLayout.ADDRESS,    // HDC hdc
+    ))
+}
+
+/**
+ * HBITMAP CreateCompatibleBitmap(HDC hdc, int cx, int cy);
+ */
+internal val createCompatibleBitmap: MethodHandle? by lazy {
+    gdi32.downcall("CreateCompatibleBitmap", FunctionDescriptor.of(
+        ValueLayout.ADDRESS,    // HBITMAP return
+        ValueLayout.ADDRESS,    // HDC
+        ValueLayout.JAVA_INT,   // int cx
+        ValueLayout.JAVA_INT,   // int cy
+    ))
+}
+
+/**
+ * HGDIOBJ SelectObject(HDC hdc, HGDIOBJ h);
+ *
+ * Selects an object into the specified DC. Returns the previously selected object.
+ */
+internal val selectObject: MethodHandle? by lazy {
+    gdi32.downcall("SelectObject", FunctionDescriptor.of(
+        ValueLayout.ADDRESS,    // HGDIOBJ return (previous object)
+        ValueLayout.ADDRESS,    // HDC
+        ValueLayout.ADDRESS,    // HGDIOBJ
+    ))
+}
+
+/**
+ * BOOL BitBlt(HDC hdc, int x, int y, int cx, int cy, HDC hdcSrc, int x1, int y1, DWORD rop);
+ */
+internal val bitBlt: MethodHandle? by lazy {
+    gdi32.downcall("BitBlt", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // BOOL
+        ValueLayout.ADDRESS,    // HDC hdc (dest)
+        ValueLayout.JAVA_INT,   // int x
+        ValueLayout.JAVA_INT,   // int y
+        ValueLayout.JAVA_INT,   // int cx
+        ValueLayout.JAVA_INT,   // int cy
+        ValueLayout.ADDRESS,    // HDC hdcSrc
+        ValueLayout.JAVA_INT,   // int x1
+        ValueLayout.JAVA_INT,   // int y1
+        ValueLayout.JAVA_INT,   // DWORD rop
+    ))
+}
+
+/**
+ * int GetDIBits(HDC hdc, HBITMAP hbm, UINT start, UINT cLines,
+ *               LPVOID lpvBits, LPBITMAPINFO lpbmi, UINT usage);
+ *
+ * Retrieves the bits of the specified bitmap and copies them into a buffer.
+ */
+internal val getDIBits: MethodHandle? by lazy {
+    gdi32.downcall("GetDIBits", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // int return (scan lines copied)
+        ValueLayout.ADDRESS,    // HDC
+        ValueLayout.ADDRESS,    // HBITMAP
+        ValueLayout.JAVA_INT,   // UINT start
+        ValueLayout.JAVA_INT,   // UINT cLines
+        ValueLayout.ADDRESS,    // LPVOID lpvBits
+        ValueLayout.ADDRESS,    // LPBITMAPINFO lpbmi
+        ValueLayout.JAVA_INT,   // UINT usage
+    ))
+}
+
+/**
+ * int ReleaseDC(HWND hWnd, HDC hdc);
+ *
+ * Releases the device context. Returns 1 on success, 0 on failure.
+ */
+internal val releaseDC: MethodHandle? by lazy {
+    user32.downcall("ReleaseDC", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // int return
+        ValueLayout.ADDRESS,    // HWND (NULL for screen DC)
+        ValueLayout.ADDRESS,    // HDC
+    ))
+}
+
+/**
+ * BOOL DeleteDC(HDC hdc);
+ *
+ * Deletes the specified device context.
+ */
+internal val deleteDC: MethodHandle? by lazy {
+    gdi32.downcall("DeleteDC", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // BOOL
+        ValueLayout.ADDRESS,    // HDC
+    ))
+}
+
+/**
+ * int GetDeviceCaps(HDC hdc, int index);
+ *
+ * Retrieves device-specific capabilities for the specified DC.
+ */
+internal val getDeviceCaps: MethodHandle? by lazy {
+    gdi32.downcall("GetDeviceCaps", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // int return
+        ValueLayout.ADDRESS,    // HDC
+        ValueLayout.JAVA_INT,   // int index
+    ))
+}
+
+// ── User32 capture / enumeration bindings ────────────────────────────────────
+
+/**
+ * HWND GetDesktopWindow(void);
+ *
+ * Returns a handle to the desktop window.
+ */
+internal val getDesktopWindow: MethodHandle? by lazy {
+    user32.downcall("GetDesktopWindow", FunctionDescriptor.of(ValueLayout.ADDRESS))
+}
+
+/**
+ * HWND GetWindow(HWND hWnd, UINT uCmd);
+ *
+ * Retrieves a handle to a window with the specified relationship (GW_CHILD, GW_HWNDNEXT).
+ */
+internal val getWindow: MethodHandle? by lazy {
+    user32.downcall("GetWindow", FunctionDescriptor.of(
+        ValueLayout.ADDRESS,    // HWND return
+        ValueLayout.ADDRESS,    // HWND hWnd
+        ValueLayout.JAVA_INT,   // UINT uCmd
+    ))
+}
+
+/**
+ * BOOL EnumWindows(WNDENUMPROC lpEnumFunc, LPARAM lParam);
+ *
+ * Enumerates all top-level windows on the screen.
+ */
+internal val enumWindows: MethodHandle? by lazy {
+    user32.downcall("EnumWindows", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // BOOL
+        ValueLayout.ADDRESS,    // WNDENUMPROC (upcall stub)
+        ValueLayout.ADDRESS,    // LPARAM
+    ))
+}
+
+/**
+ * DWORD GetWindowThreadProcessId(HWND hWnd, LPDWORD lpdwProcessId);
+ *
+ * Retrieves the thread and process identifiers for the specified window.
+ */
+internal val getWindowThreadProcessId: MethodHandle? by lazy {
+    user32.downcall("GetWindowThreadProcessId", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // DWORD (thread id)
+        ValueLayout.ADDRESS,    // HWND
+        ValueLayout.ADDRESS,    // LPDWORD lpdwProcessId
+    ))
+}
+
+/**
+ * BOOL PrintWindow(HWND hWnd, HDC hdcBlt, UINT nFlags);
+ *
+ * Copies a visual image of the specified window into the specified DC.
+ */
+internal val printWindow: MethodHandle? by lazy {
+    user32.downcall("PrintWindow", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // BOOL
+        ValueLayout.ADDRESS,    // HWND
+        ValueLayout.ADDRESS,    // HDC hdcBlt
+        ValueLayout.JAVA_INT,   // UINT nFlags
+    ))
+}
+
+// ── Kernel32 process bindings ─────────────────────────────────────────────────
+
+/**
+ * HANDLE OpenProcess(DWORD dwDesiredAccess, BOOL bInheritHandle, DWORD dwProcessId);
+ */
+internal val openProcess: MethodHandle? by lazy {
+    kernel32.downcall("OpenProcess", FunctionDescriptor.of(
+        ValueLayout.ADDRESS,    // HANDLE return
+        ValueLayout.JAVA_INT,   // DWORD dwDesiredAccess
+        ValueLayout.JAVA_INT,   // BOOL bInheritHandle
+        ValueLayout.JAVA_INT,   // DWORD dwProcessId
+    ))
+}
+
+/**
+ * BOOL QueryFullProcessImageNameW(HANDLE hProcess, DWORD dwFlags,
+ *                                  LPWSTR lpExeName, PDWORD lpdwSize);
+ */
+internal val queryFullProcessImageNameW: MethodHandle? by lazy {
+    kernel32.downcall("QueryFullProcessImageNameW", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // BOOL
+        ValueLayout.ADDRESS,    // HANDLE
+        ValueLayout.JAVA_INT,   // DWORD dwFlags
+        ValueLayout.ADDRESS,    // LPWSTR lpExeName
+        ValueLayout.ADDRESS,    // PDWORD lpdwSize (in/out)
+    ))
+}
+
+/**
+ * BOOL CloseHandle(HANDLE hObject);
+ */
+internal val closeHandle: MethodHandle? by lazy {
+    kernel32.downcall("CloseHandle", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,   // BOOL
+        ValueLayout.ADDRESS,    // HANDLE
+    ))
+}
+
+// ── GetWindow / enumeration constants ─────────────────────────────────────────
+
+/** GW_CHILD — first child window for GetWindow. */
+internal const val GW_CHILD: Int = 5
+/** GW_HWNDNEXT — next sibling window for GetWindow. */
+internal const val GW_HWNDNEXT: Int = 2
+
+// ── GDI capture constants ─────────────────────────────────────────────────────
+
+/** SRCCOPY — BitBlt raster operation: copy source directly. */
+internal const val SRCCOPY: Int = 0x00CC0020
+/** DIB_RGB_COLORS — the color table contains literal RGB values. */
+internal const val DIB_RGB_COLORS: Int = 0
+/** PW_RENDERFULLCONTENT — render the full content of the window. */
+internal const val PW_RENDERFULLCONTENT: Int = 2
+
+// ── GetDeviceCaps indices ─────────────────────────────────────────────────────
+
+internal const val HORZRES: Int = 8
+internal const val VERTRES: Int = 10
+internal const val DESKTOPHORZRES: Int = 118
+internal const val DESKTOPVERTRES: Int = 117
+
+// ── GetSystemMetrics indices ───────────────────────────────────────────────────
+
+internal const val SM_CMONITORS: Int = 80
+internal const val SM_XVIRTUALSCREEN: Int = 76
+internal const val SM_YVIRTUALSCREEN: Int = 77
+internal const val SM_CXVIRTUALSCREEN: Int = 78
+internal const val SM_CYVIRTUALSCREEN: Int = 79
+
+// ── Process access flags ──────────────────────────────────────────────────────
+
+internal const val PROCESS_QUERY_INFORMATION: Int = 0x0400
+internal const val PROCESS_VM_READ: Int = 0x0010
+internal const val PROCESS_QUERY_LIMITED_INFORMATION: Int = 0x1000
+
+// ── BITMAPINFOHEADER layout (40 bytes) ────────────────────────────────────────
+
+internal const val BMIH_SIZE: Long = 40L
+internal const val BMIH_BI_SIZE_OFFSET: Long = 0L       // DWORD
+internal const val BMIH_BI_WIDTH_OFFSET: Long = 4L       // LONG
+internal const val BMIH_BI_HEIGHT_OFFSET: Long = 8L      // LONG
+internal const val BMIH_BI_PLANES_OFFSET: Long = 12L     // WORD
+internal const val BMIH_BI_BIT_COUNT_OFFSET: Long = 14L  // WORD
+internal const val BMIH_BI_COMPRESSION_OFFSET: Long = 16L // DWORD
+internal const val BMIH_BI_SIZE_IMAGE_OFFSET: Long = 20L // DWORD
+/** BI_RGB — no compression. */
+internal const val BI_RGB: Int = 0
+
+
+
 /** WM_SETICON message. */
 internal const val WM_SETICON: Int = 0x0080
 
