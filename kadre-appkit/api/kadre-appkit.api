@@ -13876,7 +13876,6 @@ public final class org/graphiks/kadre/appkit/bindings/ObjCRuntime {
 	public final fun getAutoreleasePoolPushHandle ()Ljava/lang/invoke/MethodHandle;
 	public final fun getClass (Ljava/lang/String;)Ljava/lang/foreign/MemorySegment;
 	public final fun getObjcMsgSendAddr ()Ljava/lang/foreign/MemorySegment;
-	public final fun getObjcMsgSendStretAddr ()Ljava/lang/foreign/MemorySegment;
 	public final fun msgSend (Ljava/lang/foreign/MemoryLayout;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;[Ljava/lang/Object;)Ljava/lang/Object;
 	public final fun msgSendStret (Ljava/lang/foreign/GroupLayout;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;[Ljava/lang/Object;)Ljava/lang/foreign/MemorySegment;
 	public final fun newNSString (Ljava/lang/foreign/Arena;Ljava/lang/String;)Ljava/lang/foreign/MemorySegment;

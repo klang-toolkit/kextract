@@ -25,25 +25,45 @@ internal object AppKitMainThread {
     private val nextTaskId = AtomicLong(1L)
     private val tasks = ConcurrentHashMap<Long, Task<*>>()
 
+    /**
+     * On macOS 26+ the dyld shared cache removes individual dylib files, so
+     * [SymbolLookup.libraryLookup] with paths like `/usr/lib/libSystem.B.dylib`
+     * fails.  We resolve all dispatch symbols via dlsym with `RTLD_DEFAULT` (-2),
+     * which searches every loaded image and the shared cache.
+     */
     private val linker = Linker.nativeLinker()
-    private val arena = Arena.global()
-    private val dispatchLib: SymbolLookup = run {
-        val loader = SymbolLookup.loaderLookup()
-        if (loader.find("dispatch_get_main_queue").isPresent) loader
-        else SymbolLookup.libraryLookup("/usr/lib/libSystem.B.dylib", arena)
+
+    /** RTLD_DEFAULT pseudo-handle – searches all loaded images + dyld cache. */
+    private val rtldDefault = MemorySegment.ofAddress(-2L)
+
+    private fun findDispatchSymbol(name: String): MemorySegment {
+        val dlsym = linker.downcallHandle(
+            linker.defaultLookup().find("dlsym").orElseThrow {
+                UnsatisfiedLinkError("dlsym not found in linker default lookup")
+            },
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+        )
+        val cStr = Arena.global().allocateFrom(name)
+        val sym = dlsym.invokeExact(rtldDefault, cStr) as MemorySegment
+        if (sym.address() == 0L) throw UnsatisfiedLinkError("$name not found via dlsym(RTLD_DEFAULT)")
+        return sym
     }
 
-    private val dispatchGetMainQueue = linker.downcallHandle(
-        dispatchLib.find("dispatch_get_main_queue").orElseThrow {
-            UnsatisfiedLinkError("dispatch_get_main_queue not found")
-        },
-        FunctionDescriptor.of(ValueLayout.ADDRESS),
-    )
+    /**
+     * The main dispatch queue.  `dispatch_get_main_queue()` is an inline function
+     * in the libdispatch header so there is no exported symbol for it.  Instead we
+     * use the address of the global `_dispatch_main_q` variable directly —
+     * `dispatch_sync_f` expects a `dispatch_queue_t`, which is a pointer.
+     * `_dispatch_main_q` is a `struct dispatch_queue_s`, so `&_dispatch_main_q`
+     * is the correct queue pointer value.
+     */
+    private val mainQueue: MemorySegment = run {
+        findDispatchSymbol("_dispatch_main_q")
+    }
 
+    private val dispatchSyncFAddr: MemorySegment = findDispatchSymbol("dispatch_sync_f")
     private val dispatchSyncF = linker.downcallHandle(
-        dispatchLib.find("dispatch_sync_f").orElseThrow {
-            UnsatisfiedLinkError("dispatch_sync_f not found")
-        },
+        dispatchSyncFAddr,
         FunctionDescriptor.ofVoid(
             ValueLayout.ADDRESS,
             ValueLayout.ADDRESS,
@@ -58,7 +78,7 @@ internal object AppKitMainThread {
             MethodType.methodType(Void.TYPE, MemorySegment::class.java),
         ),
         FunctionDescriptor.ofVoid(ValueLayout.ADDRESS),
-        arena,
+        Arena.global(),
     )
 
     fun <T> runSync(block: () -> T): T {
@@ -70,8 +90,7 @@ internal object AppKitMainThread {
         val task = Task(block)
         tasks[id] = task
         return try {
-            val queue = dispatchGetMainQueue.invokeExact() as MemorySegment
-            dispatchSyncF.invokeExact(queue, MemorySegment.ofAddress(id), callbackStub)
+            dispatchSyncF.invokeExact(mainQueue, MemorySegment.ofAddress(id), callbackStub)
             task.result()
         } finally {
             tasks.remove(id)

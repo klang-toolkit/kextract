@@ -55,10 +55,11 @@ object ObjCRuntime {
 
     private val ARCH: String = System.getProperty("os.arch", "")
 
-    /** Address of objc_msgSend_stret — only valid on x86-64; null on ARM64. */
-    val objcMsgSendStretAddr: MemorySegment? = if (ARCH == "x86_64")
-        objcLib.find("objc_msgSend_stret").orElse(null)
-    else null
+    private val objcObjectGetClassAddr: MemorySegment =
+        objcLib.find("object_getClass").orElseThrow { UnsatisfiedLinkError("object_getClass not found in libobjc") }
+
+    private val objcClassGetMethodImplAddr: MemorySegment =
+        objcLib.find("class_getMethodImplementation").orElseThrow { UnsatisfiedLinkError("class_getMethodImplementation not found in libobjc") }
 
     private val selRegisterNameHandle = linker.downcallHandle(
         selRegisterNameAddr,
@@ -68,6 +69,16 @@ object ObjCRuntime {
     private val objcGetClassHandle = linker.downcallHandle(
         objcGetClassAddr,
         FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    )
+
+    private val objectGetClassHandle = linker.downcallHandle(
+        objcObjectGetClassAddr,
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    )
+
+    private val classGetMethodImplHandle = linker.downcallHandle(
+        objcClassGetMethodImplAddr,
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS)
     )
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -140,21 +151,66 @@ object ObjCRuntime {
      * [ByteArray] to satisfy Panama's alignment constraints for `double`-containing structs such
      * as [NSRect].
      */
+    /**
+     * The maximum struct size (in bytes) that the System V AMD64 ABI and Apple
+     * ARM64 ABI return via registers rather than hidden-pointer + `objc_msgSend_stret`.
+     *
+     * On x86-64 macOS structs ≤ 16 bytes (two 8-byte registers or XMM0:XMM1)
+     * are returned via `objc_msgSend`.  Larger structs require `objc_msgSend_stret`.
+     * ARM64 has no `objc_msgSend_stret` — the caller always passes a hidden
+     * buffer pointer, but the entry point is still `objc_msgSend`.
+     */
+    private val MAX_REGISTER_RETURN_SIZE: Long = 16L
+
+    /**
+     * Each call to [msgSendStret] allocates a struct-return buffer from this
+     * shared arena.  A single global arena is safe because:
+     * - [SegmentAllocator.prefixAllocator] returns slices of the pre-allocated
+     *   segment so no new native allocations happen — just slicing.
+     * - The returned segment is a view over the global arena's memory and is
+     *   valid for the lifetime of [structReturnArena].
+     */
     fun msgSendStret(returnLayout: GroupLayout, receiver: MemorySegment, selector: MemorySegment, vararg args: Any): MemorySegment {
-        val addr = objcMsgSendStretAddr ?: objcMsgSendAddr
-        val argLayouts = args.map { layoutFor(it) }.toTypedArray()
-        val baseLayouts = arrayOf<MemoryLayout>(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
-        val desc = FunctionDescriptor.of(returnLayout, *baseLayouts, *argLayouts)
-        val handle = linker.downcallHandle(addr, desc)
-        // Allocate struct-return storage. DoubleArray guarantees 8-byte alignment so that
-        // structs containing `double` fields (NSRect, NSPoint, …) pass Panama's alignment check.
-        val byteSize = returnLayout.byteSize().toInt()
-        val heapDoubles = DoubleArray((byteSize + 7) / Double.SIZE_BYTES)
-        val heapSeg = MemorySegment.ofArray(heapDoubles).asSlice(0, byteSize.toLong())
-        val allocator = SegmentAllocator.prefixAllocator(heapSeg)
+        val byteSize = returnLayout.byteSize()
+        val arena = Arena.ofConfined()
+        val nativeSeg = arena.allocate(byteSize, ValueLayout.JAVA_DOUBLE.byteAlignment())
         val unwrapped = args.map { unwrap(it) }.toTypedArray()
-        // Panama inserts the allocator as the implicit first argument for GroupLayout returns.
-        return handle.invokeWithArguments(allocator, receiver, selector, *unwrapped) as MemorySegment
+        val argLayouts = args.map { layoutFor(it) }.toTypedArray()
+
+        // macOS 26 no longer exports objc_msgSend_stret.  On ARM64
+        // objc_msgSend handles struct returns transparently (buffer in x8).
+        // On x86_64 Panama's struct-return ABI (System V) puts the hidden
+        // buffer in RDI, but objc_msgSend expects self there — the registers
+        // collide.
+        //
+        // For small structs (≤ 16 bytes, register-return) Panama reads the
+        // result from XMM0:XMM1 / RAX:RDX so no buffer is involved, and
+        // objc_msgSend works with self in RDI as expected.
+        //
+        // For large structs (> 16 bytes, memory-return) we bypass objc_msgSend
+        // and call the IMP directly via class_getMethodImplementation.  With
+        // Panama's struct-return descriptor the ABI (System V) puts buffer=RDI,
+        // self=RSI, _cmd=RDX — exactly what the memory-return IMP expects.
+        if (ARCH == "x86_64" && byteSize > MAX_REGISTER_RETURN_SIZE) {
+            val cls = objectGetClassHandle.invokeExact(receiver) as MemorySegment
+            val imp = classGetMethodImplHandle.invokeExact(cls, selector) as MemorySegment
+            val baseLayouts = arrayOf<MemoryLayout>(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+            val desc = FunctionDescriptor.of(returnLayout, *baseLayouts, *argLayouts)
+            val allocator = SegmentAllocator.prefixAllocator(nativeSeg)
+            val handle = linker.downcallHandle(imp, desc)
+            handle.invokeWithArguments(allocator, receiver, selector, *unwrapped)
+        } else {
+            val baseLayouts = arrayOf<MemoryLayout>(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+            val desc = FunctionDescriptor.of(returnLayout, *baseLayouts, *argLayouts)
+            val handle = linker.downcallHandle(objcMsgSendAddr, desc)
+            val allocator = SegmentAllocator.prefixAllocator(nativeSeg)
+            handle.invokeWithArguments(allocator, receiver, selector, *unwrapped)
+        }
+
+        val copy = Arena.global().allocate(byteSize, ValueLayout.JAVA_DOUBLE.byteAlignment())
+        copy.copyFrom(nativeSeg)
+        arena.close()
+        return copy
     }
 
     // ── Autorelease pool ──────────────────────────────────────────────────────

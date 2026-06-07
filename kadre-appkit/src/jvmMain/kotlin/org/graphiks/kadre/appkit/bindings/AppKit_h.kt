@@ -32417,7 +32417,7 @@ open class NSWindow(val ptr: MemorySegment) {
     // @property styleMask
     fun styleMask(): NSWindowStyleMask {
         val sel = ObjCRuntime.sel("styleMask")
-        return ObjCRuntime.msgSend(ValueLayout.ADDRESS, ptr, sel) as NSWindowStyleMask
+        return NSWindowStyleMask(ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, ptr, sel) as Long)
     }
     fun setStyleMask(value: NSWindowStyleMask) {
         val sel = ObjCRuntime.sel("setStyleMask:")

@@ -97,7 +97,8 @@ private class CoroutineApplicationHandler(
 
     override fun aboutToWait(eventLoop: ActiveEventLoop) {
         // Drain coroutine work on the main thread, then drive continuous redraw.
-        dispatcher.pump()
+        val cf = dispatcher.pump()
         windows.values.forEach { it.window.requestRedraw() }
+        eventLoop.setControlFlow(cf)
     }
 }

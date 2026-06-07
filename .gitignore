@@ -12,3 +12,4 @@ __pycache__/
 # Kotlin compiler daemon session dir
 .kotlin/
 winit/
+hs_err_*.log
