@@ -1,8 +1,10 @@
-# Kadre Simulation Demo
+# simulation-demo
 
-Interactive demo application showcasing the [Kadre](https://kadre.dev) windowing toolkit across mouse, keyboard, touch, window, and integration scenarios.
+Interactive demo application showcasing the Kadre windowing toolkit across mouse, keyboard, touch, window, and integration scenarios.
 
 The demo runs as a true native window with a Compose UI renderer. Events can be injected **programmatically without AWT** — using first-class Kadre `WindowEvent` types (`KeyInput`, `PointerMoved`, `PointerButton`, etc.) delivered directly to the scenario's `onWindowEvent()` handler.
+
+A work in progress — see the design doc for details.
 
 ## Quick start
 
@@ -32,6 +34,10 @@ The demo runs as a true native window with a Compose UI renderer. Events can be 
 | `--info` | Show detailed info for a scenario |
 | `--interactive` | Launch the interactive GUI |
 | `-h`, `--help` | Show help |
+
+## Platforms
+
+- JVM (macOS, Windows, Linux)
 
 ## Scenarios
 
