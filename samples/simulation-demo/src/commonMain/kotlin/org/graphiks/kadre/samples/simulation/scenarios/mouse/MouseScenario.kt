@@ -39,10 +39,10 @@ abstract class MouseScenario(
     override fun onWindowEvent(event: WindowEvent) {
     }
 
-    override fun runHeadless(args: List<String>): ScenarioResult {
+    override fun collectResult(durationMs: Long): ScenarioResult {
         return ScenarioResult(
             success = true,
-            durationMs = 1000,
+            durationMs = durationMs,
             eventsReceived = mouseEventsReceived,
             eventsExpected = 50,
             platform = Platform.current()

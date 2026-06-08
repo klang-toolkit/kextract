@@ -5,7 +5,6 @@ object Cli {
     data class CliArgs(
         val action: Action = Action.INTERACTIVE,
         val scenarioId: String? = null,
-        val headless: Boolean = false,
         val output: String? = null,
         val duration: Int = 5,
         val info: Boolean = false,
@@ -39,7 +38,6 @@ object Cli {
                     }
                 }
                 "--all" -> result = result.copy(all = true)
-                "--headless" -> result = result.copy(headless = true)
                 "--output" -> {
                     i++
                     if (i < args.size) {
@@ -75,9 +73,8 @@ object Cli {
         return when (args.action) {
             Action.LIST -> executeList()
             Action.INFO -> executeInfo(args)
-            Action.RUN -> executeRun(args)
-            Action.RUN_ALL -> executeRunAll(args)
             Action.INTERACTIVE -> 1
+            Action.RUN, Action.RUN_ALL -> 1
         }
     }
 
@@ -126,54 +123,7 @@ object Cli {
         return 0
     }
 
-    private fun executeRun(args: CliArgs): Int {
-        val id = args.scenarioId ?: return printError("Usage: --scenario <id>")
-        val meta = ScenarioRegistry.get(id) ?: return printError("Scenario '$id' not found")
-
-        println("Running '${meta.scenario.title}'...")
-
-        val result = meta.scenario.runHeadless(listOf("--duration", args.duration.toString()))
-
-        printResult(result)
-
-        if (args.output != null) {
-            exportJson(result, args.output)
-        }
-
-        return if (result.success) 0 else 1
-    }
-
-    private fun executeRunAll(args: CliArgs): Int {
-        val scenarios = ScenarioRegistry.all()
-        val results = mutableListOf<Pair<ScenarioMetadata, ScenarioResult>>()
-        var exitCode = 0
-
-        println("=== Running all scenarios (headless) ===")
-        println()
-
-        scenarios.sortedByDescending { it.scenario.priority }.forEach { meta ->
-            print("Running '${meta.scenario.id}'... ")
-            val result = meta.scenario.runHeadless(
-                listOf("--duration", args.duration.toString())
-            )
-            results.add(meta to result)
-            println(if (result.success) "OK" else "FAILED")
-            if (!result.success) exitCode = 1
-        }
-
-        println()
-        println("=== Summary ===")
-        val successes = results.count { it.second.success }
-        println("$successes/${results.size} scenarios succeeded")
-
-        if (args.output != null) {
-            exportJsonResults(results, args.output)
-        }
-
-        return exitCode
-    }
-
-    private fun printResult(result: ScenarioResult) {
+    fun printResult(result: ScenarioResult) {
         println("  Success: ${result.success}")
         println("  Duration: ${result.durationMs}ms")
         println("  Events: ${result.eventsReceived}/${result.eventsExpected}")
@@ -188,13 +138,13 @@ object Cli {
         println("  Platform: ${result.platform}")
     }
 
-    private fun exportJson(result: ScenarioResult, path: String) {
+    fun exportJson(result: ScenarioResult, path: String) {
         val json = buildJson(result)
         writeFile(path, json)
         println("Result exported to $path")
     }
 
-    private fun exportJsonResults(
+    fun exportJsonResults(
         results: List<Pair<ScenarioMetadata, ScenarioResult>>,
         path: String
     ) {
@@ -248,8 +198,8 @@ Kadre Simulation Demo - CLI
 
 Usage:
   --list                    List all scenarios
-  --scenario <id>           Run a specific scenario
-  --all --headless          Run all scenarios in headless mode
+  --scenario <id>           Run a specific scenario (interactive)
+  --all                     Run all scenarios sequentially
   --duration <sec>          Scenario duration (default: 5s)
   --output <path>           Export results as JSON
   --info                    Show scenario info
@@ -258,8 +208,8 @@ Usage:
 
 Examples:
   ./gradlew :samples:simulation-demo:run --list
-  ./gradlew :samples:simulation-demo:run --scenario keyboard-basic
-  ./gradlew :samples:simulation-demo:run --all --headless --output results.json
+  ./gradlew :samples:simulation-demo:run --scenario keyboard-basic --duration 10
+  ./gradlew :samples:simulation-demo:run --all --output results.json
         """.trimIndent())
     }
 

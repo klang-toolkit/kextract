@@ -8,7 +8,6 @@ class CliTest {
     fun `parse empty args returns default INTERACTIVE`() {
         val args = Cli.parse(emptyList())
         assertEquals(Cli.Action.INTERACTIVE, args.action)
-        assertFalse(args.headless)
     }
 
     @Test
@@ -29,12 +28,6 @@ class CliTest {
         val args = Cli.parse(listOf("--scenario"))
         assertEquals(Cli.Action.INTERACTIVE, args.action)
         assertNull(args.scenarioId)
-    }
-
-    @Test
-    fun `parse --headless sets headless flag`() {
-        val args = Cli.parse(listOf("--headless"))
-        assertTrue(args.headless)
     }
 
     @Test
@@ -96,13 +89,11 @@ class CliTest {
     fun `parse complex args combination`() {
         val args = Cli.parse(listOf(
             "--scenario", "mouse-clicks",
-            "--headless",
             "--duration", "15",
             "--output", "out.json"
         ))
         assertEquals(Cli.Action.RUN, args.action)
         assertEquals("mouse-clicks", args.scenarioId)
-        assertTrue(args.headless)
         assertEquals(15, args.duration)
         assertEquals("out.json", args.output)
     }

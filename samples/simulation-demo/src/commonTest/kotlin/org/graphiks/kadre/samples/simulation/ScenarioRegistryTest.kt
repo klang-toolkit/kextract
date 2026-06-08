@@ -146,7 +146,7 @@ class SimpleScenario(
         onEvent: (ScenarioEvent) -> Unit
     ) {}
     override fun stop() {}
-    override fun runHeadless(args: List<String>): ScenarioResult {
-        return ScenarioResult(true, 0, 0, 0, platform = Platform.current())
+    override fun collectResult(durationMs: Long): ScenarioResult {
+        return ScenarioResult(true, durationMs, 0, 0, platform = Platform.current())
     }
 }

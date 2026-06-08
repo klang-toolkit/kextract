@@ -1,7 +1,10 @@
 package org.graphiks.kadre.samples.simulation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 enum class Screen {
     MENU,
@@ -11,7 +14,7 @@ enum class Screen {
 
 class NavigationState {
     private val _backStack = mutableListOf<Screen>()
-    var currentScreen: Screen = Screen.MENU
+    var currentScreen: Screen by mutableStateOf(Screen.MENU)
         private set
 
     val canGoBack: Boolean
@@ -36,5 +39,5 @@ class NavigationState {
 
 @Composable
 fun rememberNavigationState(): NavigationState {
-    return rememberSaveable { NavigationState() }
+    return remember { NavigationState() }
 }

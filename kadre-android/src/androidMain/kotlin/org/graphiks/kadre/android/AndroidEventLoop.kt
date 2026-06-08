@@ -101,7 +101,7 @@ internal class AndroidEventLoop(
      * Merges [AndroidWindowAttributes] fields into the core [WindowAttributes]
      * and applies platform-specific settings at creation time.
      */
-    fun createWindow(attrs: AndroidWindowAttributes): Window {
+    internal fun createWindow(attrs: AndroidWindowAttributes): Window {
         val window = createWindow(attrs.core) as AndroidWindow
         window.handleVolumeKeys = attrs.handleVolumeKeys
         return window

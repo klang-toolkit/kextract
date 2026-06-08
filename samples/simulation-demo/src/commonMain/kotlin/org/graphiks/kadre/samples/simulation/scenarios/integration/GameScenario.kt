@@ -40,20 +40,28 @@ class GameScenario : Scenario {
         this.totalShots = 0
         this.hits = 0
 
-        val rng = kotlin.random.Random
+        val pos = listOf(200f, 200f, 600f, 200f, 400f, 400f, 200f, 500f, 600f, 500f)
         for (i in 0 until 5) {
-            targets.add(Target(
-                x = rng.nextFloat() * 700f + 50f,
-                y = rng.nextFloat() * 500f + 50f,
-                id = i
-            ))
+            targets.add(Target(x = pos[i * 2], y = pos[i * 2 + 1], id = i))
         }
 
         onEvent(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
             message = "🎮 ZQSD/WASD: déplacement | Clic gauche: tirer sur les cibles",
-            data = mapOf("score" to 0, "player_x" to playerX.toInt(), "player_y" to playerY.toInt())
+            data = stateData()
         )))
+    }
+
+    private fun stateData(extra: Map<String, Any> = emptyMap()): Map<String, Any> {
+        val targetsX = targets.joinToString(",") { it.x.toInt().toString() }
+        val targetsY = targets.joinToString(",") { it.y.toInt().toString() }
+        return mapOf(
+            "player_x" to playerX.toInt(),
+            "player_y" to playerY.toInt(),
+            "score" to score,
+            "targets_x" to targetsX,
+            "targets_y" to targetsY,
+        ) + extra
     }
 
     override fun stop() {
@@ -81,13 +89,9 @@ class GameScenario : Scenario {
             PhysicalKey.Code(KeyCode.KeyR) -> {
                 score = 0
                 targets.clear()
-                val rng = kotlin.random.Random
+                val pos = listOf(200f, 200f, 600f, 200f, 400f, 400f, 200f, 500f, 600f, 500f)
                 for (i in 0 until 5) {
-                    targets.add(Target(
-                        x = rng.nextFloat() * 700f + 50f,
-                        y = rng.nextFloat() * 500f + 50f,
-                        id = i
-                    ))
+                    targets.add(Target(x = pos[i * 2], y = pos[i * 2 + 1], id = i))
                 }
             }
             else -> {}
@@ -99,7 +103,7 @@ class GameScenario : Scenario {
         onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
             message = "🎮 Position: (${playerX.toInt()}, ${playerY.toInt()}) | Score: $score",
-            data = mapOf("player_x" to playerX.toInt(), "player_y" to playerY.toInt(), "score" to score)
+            data = stateData()
         )))
     }
 
@@ -136,21 +140,21 @@ class GameScenario : Scenario {
             onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                 isRunning = true,
                 message = "🎯 Cible touchée! +10 points (Score: $score)",
-                data = mapOf("score" to score, "hit" to true)
+                data = stateData(mapOf("hit" to true))
             )))
         } else {
             onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                 isRunning = true,
                 message = "💨 Tir raté... (Score: $score)",
-                data = mapOf("score" to score, "hit" to false)
+                data = stateData(mapOf("hit" to false))
             )))
         }
     }
 
-    override fun runHeadless(args: List<String>): ScenarioResult {
+    override fun collectResult(durationMs: Long): ScenarioResult {
         return ScenarioResult(
             success = true,
-            durationMs = 2000,
+            durationMs = durationMs,
             eventsReceived = totalShots,
             eventsExpected = 10,
             errors = if (targets.isNotEmpty()) listOf("${targets.size} targets remaining") else emptyList(),

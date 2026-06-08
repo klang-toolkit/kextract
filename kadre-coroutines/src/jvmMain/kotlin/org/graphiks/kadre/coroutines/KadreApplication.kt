@@ -51,6 +51,9 @@ interface KadreAppScope : CoroutineScope {
     /** The main-thread dispatcher (also usable as a Compose recomposition dispatcher). */
     val dispatcher: EventLoopDispatcher
 
+    /** The underlying active event loop. */
+    val eventLoop: ActiveEventLoop
+
     /** Creates a window and exposes its events as a [Flow]. */
     fun createWindow(attributes: WindowAttributes): KadreWindow
 
@@ -68,6 +71,7 @@ private class CoroutineApplicationHandler(
 ) : ApplicationHandler, KadreAppScope {
 
     override val dispatcher = EventLoopDispatcher()
+    override val eventLoop: ActiveEventLoop get() = requireNotNull(loop) { "eventLoop not yet available" }
     private val job = SupervisorJob()
     override val coroutineContext: CoroutineContext get() = dispatcher + job
 

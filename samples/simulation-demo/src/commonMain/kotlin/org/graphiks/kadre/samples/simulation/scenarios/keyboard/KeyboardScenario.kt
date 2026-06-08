@@ -46,10 +46,10 @@ abstract class KeyboardScenario(
 
     protected open fun onKeyEvent(event: WindowEvent.KeyInput) {}
 
-    override fun runHeadless(args: List<String>): ScenarioResult {
+    override fun collectResult(durationMs: Long): ScenarioResult {
         return ScenarioResult(
             success = true,
-            durationMs = 1000,
+            durationMs = durationMs,
             eventsReceived = keyEventsReceived,
             eventsExpected = keyEventsExpected,
             platform = Platform.current()

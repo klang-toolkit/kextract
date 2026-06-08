@@ -13,7 +13,13 @@ interface Scenario {
     fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit)
     fun stop()
     fun onWindowEvent(event: WindowEvent) {}
-    fun runHeadless(args: List<String>): ScenarioResult
+    fun collectResult(durationMs: Long): ScenarioResult = ScenarioResult(
+        success = true,
+        durationMs = durationMs,
+        eventsReceived = 0,
+        eventsExpected = 0,
+        platform = Platform.current()
+    )
 }
 
 sealed class ScenarioEvent {

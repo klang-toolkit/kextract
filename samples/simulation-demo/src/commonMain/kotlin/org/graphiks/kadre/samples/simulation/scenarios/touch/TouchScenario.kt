@@ -38,10 +38,10 @@ abstract class TouchScenario(
     override fun onWindowEvent(event: WindowEvent) {
     }
 
-    override fun runHeadless(args: List<String>): ScenarioResult {
+    override fun collectResult(durationMs: Long): ScenarioResult {
         return ScenarioResult(
             success = true,
-            durationMs = 1000,
+            durationMs = durationMs,
             eventsReceived = eventsReceived,
             eventsExpected = 20,
             platform = Platform.current()

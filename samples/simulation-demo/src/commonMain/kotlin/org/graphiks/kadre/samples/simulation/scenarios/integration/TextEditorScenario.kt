@@ -129,10 +129,10 @@ class TextEditorScenario : Scenario {
         }
     }
 
-    override fun runHeadless(args: List<String>): ScenarioResult {
+    override fun collectResult(durationMs: Long): ScenarioResult {
         return ScenarioResult(
             success = wordCount > 0,
-            durationMs = 1500,
+            durationMs = durationMs,
             eventsReceived = keystrokeCount,
             eventsExpected = 20,
             warnings = if (wordCount == 0) listOf("No text was entered") else emptyList(),
