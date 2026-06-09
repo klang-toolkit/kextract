@@ -11,7 +11,7 @@ package org.graphiks.kadre.samples.pong
 import org.graphiks.kadre.EventLoop
 
 fun main() {
-    println("[pong-web] Démarrage — Kadre + wgpu4k Web Pong")
+    println("[pong-web] Starting — Kadre + wgpu4k Web Pong")
     // We use PongAppWeb instead of commonMain PongGame: the Web backend
     // dispatches WebWindowEvent.* (not WindowEvent.*) → PongGame
     // does not catch RedrawRequested and rendering never starts.

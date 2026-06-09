@@ -141,7 +141,7 @@ class HelloTriangleApp : ApplicationHandler {
      * 7. Shader module + render pipeline
      */
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
-        println("[hello-triangle] canCreateSurfaces — initialisation wgpu4k + pipeline")
+        println("[hello-triangle] canCreateSurfaces — initializing wgpu4k + pipeline")
 
         // 1. Kadre window
         val win = eventLoop.createWindow(
@@ -153,12 +153,12 @@ class HelloTriangleApp : ApplicationHandler {
             )
         )
         window = win
-        println("[hello-triangle] Fenêtre créée — windowId=${win.id.value}")
+        println("[hello-triangle] Window created — windowId=${win.id.value}")
 
         // 2. CAMetalLayer from the NSView
         val handle = win.rawWindowHandle
         if (handle !is RawWindowHandle.AppKit) {
-            println("[hello-triangle] Plateforme non supportée : $handle")
+            println("[hello-triangle] Unsupported platform: $handle")
             return
         }
         println("[hello-triangle] RawWindowHandle.AppKit — nsView=0x%x  nsWindow=0x%x"
@@ -174,7 +174,7 @@ class HelloTriangleApp : ApplicationHandler {
             getMetalLayerFromNsView(handle.nsView)
         }
         if (metalLayerAddr == 0L) {
-            println("[hello-triangle] Impossible d'obtenir le CAMetalLayer depuis le NSView")
+            println("[hello-triangle] Unable to obtain CAMetalLayer from NSView")
             return
         }
         println("[hello-triangle] CAMetalLayer = 0x%x".format(metalLayerAddr))
@@ -185,27 +185,27 @@ class HelloTriangleApp : ApplicationHandler {
         ffi.LibraryLoader.load()
         val wgpuInstance = WGPU.createInstance(WGPUInstanceBackend.Metal)
             ?: run {
-                println("[hello-triangle] Échec création WGPU Instance")
+                println("[hello-triangle] Failed to create WGPU Instance")
                 return
             }
         wgpu = wgpuInstance
-        println("[hello-triangle] WGPU Instance créée")
+        println("[hello-triangle] WGPU Instance created")
 
         // 4. Surface from the CAMetalLayer
         val metalLayerNativeAddr = JvmNativeAddress(MemorySegment.ofAddress(metalLayerAddr))
         val surf: NativeSurface = wgpuInstance.getSurfaceFromMetalLayer(metalLayerNativeAddr)
             ?: run {
-                println("[hello-triangle] Échec création Surface depuis CAMetalLayer")
+                println("[hello-triangle] Failed to create Surface from CAMetalLayer")
                 wgpuInstance.close()
                 return
             }
         surface = surf
-        println("[hello-triangle] Surface créée")
+        println("[hello-triangle] Surface created")
 
         // 5. Adapter
         val adapter = wgpuInstance.requestAdapter(surf)
             ?: run {
-                println("[hello-triangle] Échec acquisition Adapter")
+                println("[hello-triangle] Failed to acquire Adapter")
                 surf.close()
                 wgpuInstance.close()
                 return
@@ -213,20 +213,20 @@ class HelloTriangleApp : ApplicationHandler {
         println("[hello-triangle] Adapter — info=${adapter.info}")
 
         surf.computeSurfaceCapabilities(adapter)
-        println("[hello-triangle] Formats supportés   : ${surf.supportedFormats}")
-        println("[hello-triangle] Alpha modes supportés: ${surf.supportedAlphaMode}")
+        println("[hello-triangle] Supported formats   : ${surf.supportedFormats}")
+        println("[hello-triangle] Supported alpha modes: ${surf.supportedAlphaMode}")
 
         // 6. Device
         val device = runBlocking { adapter.requestDevice() }
             .getOrElse { err ->
-                println("[hello-triangle] Échec acquisition Device : $err")
+                println("[hello-triangle] Failed to acquire Device: $err")
                 adapter.close()
                 surf.close()
                 wgpuInstance.close()
                 return
             }
         gpuDevice = device
-        println("[hello-triangle] Device créé")
+        println("[hello-triangle] Device created")
 
         // 7a. Surface configuration
         val format = surf.supportedFormats
@@ -250,11 +250,11 @@ class HelloTriangleApp : ApplicationHandler {
             innerSize.width.toUInt(),
             innerSize.height.toUInt(),
         )
-        println("[hello-triangle] Surface configurée — format=$format  size=${innerSize.width}×${innerSize.height}  alpha=$alphaMode")
+        println("[hello-triangle] Surface configured — format=$format  size=${innerSize.width}×${innerSize.height}  alpha=$alphaMode")
 
         // 7b. Shader module
         val shaderModule = device.createShaderModule(ShaderModuleDescriptor(code = TRIANGLE_WGSL))
-        println("[hello-triangle] Shader module créé")
+        println("[hello-triangle] Shader module created")
 
         // 7c. Render pipeline
         val renderPipeline = device.createRenderPipeline(
@@ -269,7 +269,7 @@ class HelloTriangleApp : ApplicationHandler {
             )
         )
         pipeline = renderPipeline
-        println("[hello-triangle] Pipeline de rendu créé — prêt à dessiner (GRA-138)")
+        println("[hello-triangle] Render pipeline created — ready to draw (GRA-138)")
 
         // Release the shader module (no longer needed after pipeline creation)
         shaderModule.close()
@@ -314,7 +314,7 @@ class HelloTriangleApp : ApplicationHandler {
                 handleResize(inner.width, inner.height)
             }
             is WindowEvent.CloseRequested -> {
-                println("[hello-triangle] CloseRequested — libération des ressources")
+                println("[hello-triangle] CloseRequested — releasing resources")
                 releaseResources()
                 eventLoop.exit()
             }
@@ -346,7 +346,7 @@ class HelloTriangleApp : ApplicationHandler {
             width.toUInt(),
             height.toUInt(),
         )
-        println("[hello-triangle] Surface reconfigurée — ${width}×${height}")
+        println("[hello-triangle] Surface reconfigured — ${width}×${height}")
     }
 
     /**
@@ -406,7 +406,7 @@ class HelloTriangleApp : ApplicationHandler {
             // Terminal errors
             SurfaceTextureStatus.outOfMemory,
             SurfaceTextureStatus.deviceLost -> {
-                println("[hello-triangle] getCurrentTexture status=${surfaceTexture.status} — erreur terminale")
+                println("[hello-triangle] getCurrentTexture status=${surfaceTexture.status} — terminal error")
                 surfaceTexture.texture.close()
                 return
             }
@@ -456,7 +456,7 @@ class HelloTriangleApp : ApplicationHandler {
         val elapsed = now - fpsWindowStart
         if (elapsed >= 1_000L) {
             val fps = frameCount * 1_000.0 / elapsed
-            println("[hello-triangle] FPS : %.1f".format(fps))
+            println("[hello-triangle] FPS: %.1f".format(fps))
             frameCount = 0
             fpsWindowStart = now
         }
@@ -479,7 +479,7 @@ class HelloTriangleApp : ApplicationHandler {
         surface = null
         wgpu = null
         window = null
-        println("[hello-triangle] Ressources libérées")
+        println("[hello-triangle] Resources released")
     }
 
     // ---------------------------------------------------------------------------
@@ -521,7 +521,7 @@ fun main(args: Array<String>) {
     val nativeCaptureIndex = args.indexOf("--native-capture")
     if (nativeCaptureIndex >= 0) {
         val path = args.getOrNull(nativeCaptureIndex + 1)
-            ?: error("--native-capture requiert un chemin de fichier : --native-capture <path>")
+            ?: error("--native-capture requires a file path: --native-capture <path>")
         nativeCapture(path)
         return
     }
@@ -531,12 +531,12 @@ fun main(args: Array<String>) {
     val captureIndex = args.indexOf("--capture")
     if (captureIndex >= 0) {
         val path = args.getOrNull(captureIndex + 1)
-            ?: error("--capture requiert un chemin de fichier : --capture <path>")
+            ?: error("--capture requires a file path: --capture <path>")
         captureFrame(path)
         return
     }
 
-    println("[hello-triangle] Démarrage — Kadre + wgpu4k triangle RGB (GRA-138)")
+    println("[hello-triangle] Starting — Kadre + wgpu4k triangle RGB (GRA-138)")
     EventLoop().runApp(HelloTriangleApp())
-    println("[hello-triangle] Terminé")
+    println("[hello-triangle] Finished")
 }

@@ -1,11 +1,11 @@
 /**
- * Module kadre-uikit — backend iOS via Kotlin/Native + cinterop implicites.
+ * Module kadre-uikit — iOS backend via Kotlin/Native + implicit cinterop.
  *
- * Cibles KMP : iosX64, iosArm64, iosSimulatorArm64.
- * Les frameworks Apple (UIKit, Foundation, QuartzCore, CoreGraphics) sont
- * disponibles via les cinterops built-in de K/N — aucun fichier .def requis.
+ * KMP targets: iosX64, iosArm64, iosSimulatorArm64.
+ * Apple frameworks (UIKit, Foundation, QuartzCore, CoreGraphics) are
+ * available via K/N built-in cinterops — no .def files required.
  *
- * GRA-141 : setup initial du module.
+ * GRA-141: initial module setup.
  */
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
@@ -13,16 +13,16 @@ plugins {
 }
 
 kotlin {
-    // Validation de compatibilité ABI — intégrée au plugin Kotlin.
+    // ABI compatibility validation — integrated into the Kotlin plugin.
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
     abiValidation()
 
-    // Cibles iOS
+    // iOS targets
     iosX64()
     iosArm64()
     iosSimulatorArm64()
 
-    // La hiérarchie par défaut KMP 2.x crée automatiquement :
+    // The default KMP 2.x hierarchy automatically creates:
     //   commonMain → appleMain → iosMain → iosArm64Main / iosX64Main / iosSimulatorArm64Main
 
     sourceSets {
@@ -36,7 +36,7 @@ kotlin {
                 implementation(kotlin("test"))
             }
         }
-        // iosMain est auto-créé par la hiérarchie KMP — pas besoin de le déclarer
-        // sauf pour ajouter des dépendances spécifiques iOS
+        // iosMain is auto-created by the KMP hierarchy — no need to declare it
+        // except to add iOS-specific dependencies
     }
 }

@@ -1,13 +1,13 @@
 /**
- * Module kadre — façade publique KMP.
+ * Module kadre — public KMP facade.
  *
- * Ce module expose l'API Kadre aux consommateurs finaux via le mécanisme
- * expect/actual. Il délègue vers les backends spécifiques :
+ * This module exposes the Kadre API to end consumers via the expect/actual
+ * mechanism. It delegates to specific backends:
  *   - jvmMain     → kadre-appkit (macOS Desktop via FFM/kextract)
- *   - iosMain     → kadre-uikit (M3, hors scope M1)
- *   - androidMain → kadre-android (M3, hors scope M1)
- *   - jsMain      → kadre-web-common (stub — impl complète dans #24)
- *   - wasmJsMain  → kadre-web-common (stub — impl complète dans #24)
+ *   - iosMain     → kadre-uikit (M3, outside M1 scope)
+ *   - androidMain → kadre-android (M3, outside M1 scope)
+ *   - jsMain      → kadre-web-common (stub — full implementation in #24)
+ *   - wasmJsMain  → kadre-web-common (stub — full implementation in #24)
  *
  * Cibles KMP : jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js, wasmJs.
  */
@@ -24,12 +24,12 @@ android {
 }
 
 kotlin {
-    // Cibles web — en plus des cibles iOS/JVM/Android du plugin de convention
+    // Web targets — in addition to iOS/JVM/Android targets from the convention plugin
     js { browser() }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
-    // Validation de compatibilité ABI — intégrée au plugin Kotlin.
+    // ABI compatibility validation — integrated into the Kotlin plugin.
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
     abiValidation()
 

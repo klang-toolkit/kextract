@@ -131,86 +131,86 @@ class ApplicationHandlerTest {
 
     @Test
     fun deviceEventIsOverridable() {
-        var appelé = false
+        var called = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
             override fun deviceEvent(eventLoop: ActiveEventLoop, deviceId: DeviceId, event: DeviceEvent) {
-                appelé = true
+                called = true
             }
         }
         handler.deviceEvent(stubEventLoop, DeviceId(42L), DeviceEvent.Button(0, KeyState.Pressed))
-        assertTrue(appelé, "overridden deviceEvent must be called")
+        assertTrue(called, "overridden deviceEvent must be called")
     }
 
     @Test
     fun newEventsIsOverridable() {
-        var causReçue: StartCause? = null
+        var receivedCause: StartCause? = null
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
             override fun newEvents(eventLoop: ActiveEventLoop, startCause: StartCause) {
-                causReçue = startCause
+                receivedCause = startCause
             }
         }
         handler.newEvents(stubEventLoop, StartCause.Poll)
-        assertEquals(StartCause.Poll, causReçue)
+        assertEquals(StartCause.Poll, receivedCause)
     }
 
     @Test
     fun aboutToWaitIsOverridable() {
-        var appelé = false
+        var called = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
             override fun aboutToWait(eventLoop: ActiveEventLoop) {
-                appelé = true
+                called = true
             }
         }
         handler.aboutToWait(stubEventLoop)
-        assertTrue(appelé)
+        assertTrue(called)
     }
 
     @Test
     fun resumedIsOverridable() {
-        var appelé = false
+        var called = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
             override fun resumed(eventLoop: ActiveEventLoop) {
-                appelé = true
+                called = true
             }
         }
         handler.resumed(stubEventLoop)
-        assertTrue(appelé)
+        assertTrue(called)
     }
 
     @Test
     fun suspendedIsOverridable() {
-        var appelé = false
+        var called = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
             override fun suspended(eventLoop: ActiveEventLoop) {
-                appelé = true
+                called = true
             }
         }
         handler.suspended(stubEventLoop)
-        assertTrue(appelé)
+        assertTrue(called)
     }
 
     @Test
     fun destroySurfacesIsOverridable() {
-        var appelé = false
+        var called = false
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) = Unit
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
             override fun destroySurfaces(eventLoop: ActiveEventLoop) {
-                appelé = true
+                called = true
             }
         }
         handler.destroySurfaces(stubEventLoop)
-        assertTrue(appelé)
+        assertTrue(called)
     }
 
     // -------------------------------------------------------------------------
@@ -219,15 +219,15 @@ class ApplicationHandlerTest {
 
     @Test
     fun canCreateSurfacesReceivesEventLoop() {
-        var eventLoopReçu: ActiveEventLoop? = null
+        var receivedEventLoop: ActiveEventLoop? = null
         val handler = object : ApplicationHandler {
             override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
-                eventLoopReçu = eventLoop
+                receivedEventLoop = eventLoop
             }
             override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) = Unit
         }
         handler.canCreateSurfaces(stubEventLoop)
-        assertEquals(stubEventLoop, eventLoopReçu)
+        assertEquals(stubEventLoop, receivedEventLoop)
     }
 
     // -------------------------------------------------------------------------

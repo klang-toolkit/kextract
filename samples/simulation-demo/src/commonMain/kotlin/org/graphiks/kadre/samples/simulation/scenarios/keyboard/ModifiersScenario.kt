@@ -5,13 +5,13 @@ import org.graphiks.kadre.samples.simulation.*
 
 class ModifiersScenario : KeyboardScenario(
     id = "keyboard-modifiers",
-    title = "État des modifieurs",
-    description = "Visualise l'état des touches modifieurs (Shift, Ctrl, Alt, Meta/Cmd) en temps réel.",
+    title = "Modifier state",
+    description = "Displays the state of modifier keys (Shift, Ctrl, Alt, Meta/Cmd) in real time.",
     priority = 80
 ) {
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Appuyez sur Shift, Ctrl, Alt ou Cmd pour voir leur état", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Press Shift, Ctrl, Alt or Cmd to see their state", MessageSeverity.INFO))
     }
 
     override fun onKeyEvent(event: WindowEvent.KeyInput) {

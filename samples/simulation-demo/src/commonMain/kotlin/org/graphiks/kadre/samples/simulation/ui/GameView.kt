@@ -62,7 +62,7 @@ fun GameView(
                 style = MaterialTheme.typography.h4
             )
             Text(
-                text = "ZQSD/WASD: déplacement | Clic: tirer",
+                text = "ZQSD/WASD: move | Click: shoot",
                 style = MaterialTheme.typography.caption,
                 color = MaterialTheme.colors.onSurface.copy(alpha = 0.5f)
             )

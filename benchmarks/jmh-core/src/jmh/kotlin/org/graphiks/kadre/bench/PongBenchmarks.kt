@@ -1,8 +1,8 @@
 /**
- * Benchmarks JMH sur les composants purs de Pong et du moteur.
+ * JMH benchmarks on pure Pong and engine components.
  *
- * Mesure le temps moyen par opération (nanosecondes) des chemins chauds appelés
- * à chaque frame : tick physique, IA, rendu de texte bitmap, adaptateur d'entrée.
+ * Measures average time per operation (nanoseconds) for hot paths called
+ * each frame: physics tick, AI, bitmap text rendering, input adapter.
  */
 package org.graphiks.kadre.bench
 
@@ -94,7 +94,7 @@ open class PongBenchmarks {
         bh.consume(BitmapFont.renderNumber(98765, x = 0.0, y = 0.0, pixelSize = 0.05))
     }
 
-    // ── Adaptateur d'entrée ─────────────────────────────────────────────────────
+    // ── Input adapter ────────────────────────────────────────────────────────────
 
     @Benchmark
     fun inputOnKeyPress(): PaddleInput {

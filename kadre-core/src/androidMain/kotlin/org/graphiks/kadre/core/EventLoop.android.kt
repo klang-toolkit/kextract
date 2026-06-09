@@ -20,7 +20,7 @@ actual class EventLoop actual constructor() {
      */
     actual fun runApp(handler: ApplicationHandler) {
         throw UnsupportedOperationException(
-            "EventLoop Android non implémenté — en attente d'un ticket dédié."
+            "EventLoop Android not implemented — pending a dedicated ticket."
         )
     }
 }

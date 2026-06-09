@@ -17,14 +17,14 @@ const DIFF = path.join(RESULTS, 'hello-triangle-web.diff.png');
 const SUMMARY = path.join(RESULTS, 'visual-summary.md');
 const TOLERANCE = 0.02;
 
-test('régression visuelle hello-triangle-web (informatif)', async ({ page }) => {
+test('visual regression hello-triangle-web (informational)', async ({ page }) => {
   const logs = [];
   page.on('console', (m) => logs.push(m.text()));
 
   await page.goto('/');
   await expect(page.locator('#kadre-canvas')).toBeVisible();
   // Wait for full initialization + a few stable frames.
-  await expect.poll(() => logs.some((l) => l.includes('Pipeline prêt')), { timeout: 60_000 }).toBe(true);
+  await expect.poll(() => logs.some((l) => l.includes('Pipeline ready')), { timeout: 60_000 }).toBe(true);
   await page.waitForTimeout(1_500);
 
   const shot = await page.locator('#kadre-canvas').screenshot();
@@ -34,9 +34,9 @@ test('régression visuelle hello-triangle-web (informatif)', async ({ page }) =>
 
   const pct = (result.ratio * 100).toFixed(3);
   if (result.status === 'created') {
-    console.log(`[visual] baseline créée (${BASELINE}) — ${result.total} px`);
+    console.log(`[visual] baseline created (${BASELINE}) — ${result.total} px`);
   } else if (result.status === 'mismatch') {
-    console.warn(`[visual] ⚠️ diff ${pct}% > ${TOLERANCE * 100}% (${result.diffPixels}/${result.total} px) — diff archivé. ` +
+    console.warn(`[visual] ⚠️ diff ${pct}% > ${TOLERANCE * 100}% (${result.diffPixels}/${result.total} px) — diff archived. ` +
       `Si le changement est légitime : npm run update-baselines.`);
   } else {
     console.log(`[visual] OK — diff ${pct}% ≤ ${TOLERANCE * 100}%`);
@@ -46,11 +46,11 @@ test('régression visuelle hello-triangle-web (informatif)', async ({ page }) =>
   // directly on the run page, in addition to the artifacts).
   const icon = result.status === 'match' ? '✅' : result.status === 'created' ? '🆕' : '⚠️';
   const summary = [
-    '### Régression visuelle — hello-triangle-web',
+    '### Visual regression — hello-triangle-web',
     '',
     `${icon} statut **${result.status}** — diff **${pct}%** (tolérance ${TOLERANCE * 100}%, ${result.diffPixels}/${result.total} px)`,
     '',
-    '_Captures (baseline / courante / diff) disponibles dans les artefacts du run._',
+    '_Captures (baseline / current / diff) available in the run artifacts._',
     '',
   ].join('\n');
   fs.writeFileSync(SUMMARY, summary);

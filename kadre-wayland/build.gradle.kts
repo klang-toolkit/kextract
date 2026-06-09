@@ -1,14 +1,14 @@
 /**
  * Module kadre-wayland — backend Linux Wayland via FFM JVM 25.
  *
- * Cible : jvm uniquement.
- * Ce module implémente les interfaces de kadre-core pour Wayland
- * en utilisant la Foreign Function & Memory API (JEP 454).
+ * Target: jvm only.
+ * This module implements the kadre-core interfaces for Wayland
+ * using the Foreign Function & Memory API (JEP 454).
  *
- * Les bindings FFM sont chargés paresseusement (lazy) pour que le build
- * passe sur macOS/Windows sans libwayland-client.so.0 installé.
+ * FFM bindings are loaded lazily so the build
+ * passes on macOS/Windows without libwayland-client.so.0 installed.
  *
- * Dépendance amont : kadre-core (uniquement la sourceSet jvm via jvmMain).
+ * Upstream dependency: kadre-core (jvm sourceSet only, via jvmMain).
  */
 plugins {
     id("org.jetbrains.kotlin.multiplatform")

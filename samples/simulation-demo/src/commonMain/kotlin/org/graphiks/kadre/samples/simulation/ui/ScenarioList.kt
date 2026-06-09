@@ -22,7 +22,7 @@ fun ScenarioList(
             modifier = modifier.fillMaxSize()
         ) {
             Text(
-                text = "Aucun scénario disponible",
+                text = "No scenarios available",
                 color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
             )
         }

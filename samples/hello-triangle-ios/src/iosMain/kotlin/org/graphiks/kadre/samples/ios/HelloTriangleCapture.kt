@@ -80,19 +80,19 @@ class CaptureImage(val width: Int, val height: Int, val rgba: ByteArray)
  */
 fun captureTriangle(): CaptureImage {
     val instance = WGPU.createInstance(WGPUInstanceBackend.Metal)
-        ?: error("Échec création WGPU Instance (Metal)")
+        ?: error("Failed to create WGPU Instance (Metal)")
 
     // Offscreen CAMetalLayer, configured (Metal device + drawableSize) so that wgpu
     // finds a compatible adapter on the simulator. Rendering targets a texture.
     val layer = CAMetalLayer()
     layer.setDrawableSize(CGSizeMake(CAPTURE_WIDTH.toDouble(), CAPTURE_HEIGHT.toDouble()))
     val surface = instance.getSurfaceFromMetalLayer(NativeAddress(layer.objcPtr().toLong().toCPointer<ByteVar>()!!))
-        ?: run { instance.close(); error("Échec création Surface depuis CAMetalLayer") }
+        ?: run { instance.close(); error("Failed to create Surface from CAMetalLayer") }
 
     val adapter = instance.requestAdapter(surface)
-        ?: run { surface.close(); instance.close(); error("Échec acquisition Adapter") }
+        ?: run { surface.close(); instance.close(); error("Failed to acquire Adapter") }
     val device = runBlocking { adapter.requestDevice() }
-        .getOrElse { adapter.close(); surface.close(); instance.close(); error("Échec Device : $it") }
+        .getOrElse { adapter.close(); surface.close(); instance.close(); error("Failed Device: $it") }
 
     val texture = device.createTexture(
         TextureDescriptor(
@@ -153,7 +153,7 @@ fun captureTriangle(): CaptureImage {
     device.queue.submit(listOf(encoder.finish()))
 
     runBlocking { readback.mapAsync(setOf(GPUMapMode.Read), 0u, bufferSize) }
-        .getOrElse { error("Échec mapAsync : $it") }
+        .getOrElse { error("Failed mapAsync: $it") }
     val mapped = readback.getMappedRange(0u, bufferSize)
     val ptr = mapped.rawPointer.toLong().toCPointer<ByteVar>()!!
 

@@ -6,7 +6,7 @@ import org.graphiks.kadre.samples.simulation.*
 class MultiTouchScenario : TouchScenario(
     id = "touch-multi",
     title = "Multi-touch",
-    description = "Teste les événements multi-touch avec plusieurs doigts simultanés.",
+    description = "Tests multi-touch events with multiple simultaneous fingers.",
     priority = 90
 ) {
     override val requiredCapabilities: Set<Capability> = setOf(Capability.MULTI_TOUCH)
@@ -15,7 +15,7 @@ class MultiTouchScenario : TouchScenario(
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
         activeFingers.clear()
-        onEvent(ScenarioEvent.Message("Utilisez plusieurs doigts pour tester le multi-touch", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Use multiple fingers to test multi-touch", MessageSeverity.INFO))
     }
 
     override fun onWindowEvent(event: WindowEvent) {
@@ -31,7 +31,7 @@ class MultiTouchScenario : TouchScenario(
                 }
                 onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                     isRunning = true,
-                    message = "🖐️ Doigts actifs: ${activeFingers.size} | ID: ${fingerId.value} à (${event.position.x.toInt()}, ${event.position.y.toInt()})",
+                    message = "🖐️ Active fingers: ${activeFingers.size} | ID: ${fingerId.value} at (${event.position.x.toInt()}, ${event.position.y.toInt()})",
                     data = mapOf(
                         "active_fingers" to activeFingers.size,
                         "finger_id" to fingerId.value
@@ -45,7 +45,7 @@ class MultiTouchScenario : TouchScenario(
                 activeFingers[fingerId] = event.position
                 onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                     isRunning = true,
-                    message = "🖐️ Doigts actifs: ${activeFingers.size} | ID: $fingerId à (${event.position.x.toInt()}, ${event.position.y.toInt()})",
+                    message = "🖐️ Active fingers: ${activeFingers.size} | ID: $fingerId at (${event.position.x.toInt()}, ${event.position.y.toInt()})",
                     data = mapOf(
                         "active_fingers" to activeFingers.size,
                         "finger_id" to fingerId.value

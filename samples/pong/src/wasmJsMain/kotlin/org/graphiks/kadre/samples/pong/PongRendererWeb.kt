@@ -84,7 +84,7 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
 
     init {
         if (windowHandle !is RawWindowHandle.Web) {
-            println("[PongRendererWeb] Handle non supporté : $windowHandle")
+            println("[PongRendererWeb] Unsupported handle: $windowHandle")
         } else {
             // Cascading canvas resolution:
             //   1. canvasElementId from the handle (on the current Kadre Web, it is the `title` of WindowAttributes
@@ -94,10 +94,10 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
             val domCanvas = requestedId?.let { document.getElementById(it) }
                 ?: document.getElementById("kadre-canvas")
             if (domCanvas == null) {
-                println("[PongRendererWeb] Canvas introuvable (essayé '${requestedId}' puis 'kadre-canvas')")
+                println("[PongRendererWeb] Canvas not found (tried '${requestedId}' then 'kadre-canvas')")
             } else {
                 if (requestedId != null && document.getElementById(requestedId) == null) {
-                    println("[PongRendererWeb] Fallback canvas 'kadre-canvas' (id demandé '$requestedId' absent)")
+                    println("[PongRendererWeb] Fallback canvas 'kadre-canvas' (requested id '$requestedId' not found)")
                 }
                 val canvas = domCanvas.unsafeCast<io.ygdrasil.webgpu.HTMLCanvasElement>()
                 val canvasSurface = canvas.getCanvasSurface().let { CanvasSurface(it) }
@@ -110,11 +110,11 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
     private fun initWgpu(canvasSurface: CanvasSurface) {
         scope.launch {
             val adapter = requestAdapter().getOrElse { err ->
-                println("[PongRendererWeb] Échec adapter : $err")
+                println("[PongRendererWeb] Failed adapter: $err")
                 return@launch
             }
             val gpuDevice = adapter.requestDevice().getOrElse { err ->
-                println("[PongRendererWeb] Échec device : $err")
+                println("[PongRendererWeb] Failed device: $err")
                 adapter.close()
                 return@launch
             }
@@ -197,7 +197,7 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
             pipelineLayout.close()
             adapter.close()
             ready = true
-            println("[PongRendererWeb] Pipeline prêt — format=$format")
+            println("[PongRendererWeb] Pipeline ready — format=$format")
         }
     }
 
@@ -233,7 +233,7 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
 
         val drawCount = minOf(quads.size, uniformBuffers.size)
         if (quads.size > uniformBuffers.size) {
-            println("[PongRendererWeb] Pool insuffisant : ${quads.size} > $MAX_QUADS_PER_FRAME")
+            println("[PongRendererWeb] Insufficient pool: ${quads.size} > $MAX_QUADS_PER_FRAME")
         }
 
         // CRITICAL: all writeBuffer BEFORE beginRenderPass (WebGPU spec + cf. PR #129).
@@ -288,6 +288,6 @@ class PongRendererWeb(windowHandle: RawWindowHandle) : PongRendererInterface {
         device = null
         surface = null
         ready = false
-        println("[PongRendererWeb] Ressources libérées")
+        println("[PongRendererWeb] Resources released")
     }
 }

@@ -58,7 +58,7 @@ internal fun captureLinux(path: String) {
                 // Primary = Vulkan + GL: lets wgpu fall back to GL/EGL (llvmpipe) if
                 // Vulkan surface creation fails (lavapipe has limited WSI support).
                 val instance = WGPU.createInstance(WGPUInstanceBackend.Primary)
-                    ?: error("Échec création WGPU Instance (Primary)")
+                    ?: error("Failed to create WGPU Instance (Primary)")
 
                 val surface = when (val handle = window.rawWindowHandle) {
                     is RawWindowHandle.Wayland ->
@@ -73,11 +73,11 @@ internal fun captureLinux(path: String) {
                         )
                     else -> {
                         instance.close()
-                        error("RawWindowHandle non supporté pour la capture Linux : $handle")
+                        error("RawWindowHandle not supported for Linux capture: $handle")
                     }
                 } ?: run {
                     instance.close()
-                    error("Échec création Surface depuis le handle de fenêtre Linux")
+                    error("Failed to create Surface from Linux window handle")
                 }
 
                 renderSurfaceToPng(instance, surface, path)

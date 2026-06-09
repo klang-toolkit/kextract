@@ -1,12 +1,12 @@
 /**
  * Module kadre-x11 — backend Linux Desktop via FFM JVM 25.
  *
- * Cible : jvm uniquement.
- * Ce module implémente les interfaces de kadre-core pour X11 (Display,
- * XCreateSimpleWindow, boucle d'événements, etc.) en utilisant la Foreign
+ * Target: jvm only.
+ * This module implements the kadre-core interfaces for X11 (Display,
+ * XCreateSimpleWindow, event loop, etc.) using the Foreign
  * Function & Memory API (JEP 454).
  *
- * Dépendance amont : kadre-core (uniquement la sourceSet jvm via jvmMain).
+ * Upstream dependency: kadre-core (jvm sourceSet only, via jvmMain).
  */
 plugins {
     id("org.jetbrains.kotlin.multiplatform")

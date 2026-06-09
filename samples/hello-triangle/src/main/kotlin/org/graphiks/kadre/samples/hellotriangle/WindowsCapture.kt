@@ -91,13 +91,13 @@ private fun Arena.wideString(s: String): MemorySegment {
 @OptIn(WGPULowLevelApi::class)
 internal fun captureWindows(path: String) {
     val instance = WGPU.createInstance(WGPUInstanceBackend.Primary)
-        ?: error("Échec création WGPU Instance (Primary)")
+        ?: error("Failed to create WGPU Instance (Primary)")
 
     val createHandle = createWindowExW
     val moduleHandle = getModuleHandleW
     if (createHandle == null || moduleHandle == null) {
         instance.close()
-        error("Bindings Win32 indisponibles (user32/kernel32) — capture Windows impossible")
+        error("Win32 bindings unavailable (user32/kernel32) — Windows capture impossible")
     }
 
     Arena.ofConfined().use { arena ->
@@ -118,7 +118,7 @@ internal fun captureWindows(path: String) {
 
         if (hwnd.address() == 0L) {
             instance.close()
-            error("CreateWindowExW a échoué (HWND nul)")
+            error("CreateWindowExW failed (null HWND)")
         }
 
         val surface = instance.getSurfaceFromWindows(
@@ -127,7 +127,7 @@ internal fun captureWindows(path: String) {
         ) ?: run {
             destroyWindow?.invoke(hwnd)
             instance.close()
-            error("Échec création Surface depuis HWND")
+            error("Failed to create Surface from HWND")
         }
 
         try {

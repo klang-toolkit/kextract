@@ -5,8 +5,8 @@ import org.graphiks.kadre.samples.simulation.*
 
 class DragScenario : MouseScenario(
     id = "mouse-drag",
-    title = "Glisser-déposer",
-    description = "Teste les événements de drag : Press → Move → Release. Visualisez la trajectoire du glissement.",
+    title = "Drag and drop",
+    description = "Tests drag events: Press → Move → Release. Visualize the drag trajectory.",
     priority = 90
 ) {
     private var isDragging = false
@@ -16,7 +16,7 @@ class DragScenario : MouseScenario(
 
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Appuyez et maintenez le bouton, déplacez la souris, puis relâchez", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Press and hold the button, move the mouse, then release", MessageSeverity.INFO))
     }
 
     override fun onWindowEvent(event: WindowEvent) {
@@ -31,7 +31,7 @@ class DragScenario : MouseScenario(
                     mouseEventsReceived++
                     onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                         isRunning = true,
-                        message = "🟢 Début du glissement à (${startX.toInt()}, ${startY.toInt()})",
+                        message = "🟢 Drag start at (${startX.toInt()}, ${startY.toInt()})",
                         data = mapOf("drag_start_x" to startX.toInt(), "drag_start_y" to startY.toInt())
                     )))
                 } else {
@@ -42,7 +42,7 @@ class DragScenario : MouseScenario(
                         mouseEventsReceived++
                         onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                             isRunning = true,
-                            message = "🔴 Fin du glissement — déplacement total: (${dx.toInt()}, ${dy.toInt()})",
+                            message = "🔴 Drag end — total movement: (${dx.toInt()}, ${dy.toInt()})",
                             data = mapOf("total_dx" to dx.toInt(), "total_dy" to dy.toInt(), "total_steps" to dragCount)
                         )))
                     }
@@ -56,7 +56,7 @@ class DragScenario : MouseScenario(
                     mouseEventsReceived++
                     onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                         isRunning = true,
-                        message = "📐 Drag #$dragCount — déplacement: (${dx.toInt()}, ${dy.toInt()})",
+                        message = "📐 Drag #$dragCount — movement: (${dx.toInt()}, ${dy.toInt()})",
                         data = mapOf("dx" to dx.toInt(), "dy" to dy.toInt(), "drag_step" to dragCount)
                     )))
                 }

@@ -77,7 +77,7 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
     ): Boolean {
         println("[KadreAppDelegate] applicationDidFinishLaunching → canCreateSurfaces")
         val handler = KadreRegistry.handler
-            ?: error("[KadreAppDelegate] Aucun handler enregistré — appelez startKadreApplication avant UIApplicationMain")
+            ?: error("[KadreAppDelegate] No handler registered — call startKadreApplication before UIApplicationMain")
         val loop = UIKitActiveEventLoop(handler)
         eventLoop = loop
         handler.canCreateSurfaces(loop)

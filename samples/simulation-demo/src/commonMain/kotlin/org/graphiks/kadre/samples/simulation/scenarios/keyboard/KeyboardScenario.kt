@@ -9,7 +9,7 @@ abstract class KeyboardScenario(
     override val description: String,
     override val priority: Int = 0
 ) : Scenario {
-    override val category: String = "Clavier"
+    override val category: String = "Keyboard"
     override val requiredCapabilities: Set<Capability> = setOf(Capability.KEYBOARD)
 
     protected var window: Window? = null
@@ -29,7 +29,7 @@ abstract class KeyboardScenario(
 
         onEvent(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
-            message = "Appuyez sur des touches pour interagir..."
+            message = "Press keys to interact..."
         )))
     }
 

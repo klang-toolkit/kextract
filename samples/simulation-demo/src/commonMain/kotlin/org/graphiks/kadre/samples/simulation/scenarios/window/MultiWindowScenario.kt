@@ -5,8 +5,8 @@ import org.graphiks.kadre.samples.simulation.*
 
 class MultiWindowScenario : WindowScenario(
     id = "window-multi",
-    title = "Multi-fenêtres",
-    description = "Teste la création de fenêtres multiples. Appuyez sur N pour une nouvelle fenêtre.",
+    title = "Multi-window",
+    description = "Tests creating multiple windows. Press N for a new window.",
     priority = 80
 ) {
     override val requiredCapabilities: Set<Capability> = setOf(Capability.MULTI_WINDOW)
@@ -17,7 +17,7 @@ class MultiWindowScenario : WindowScenario(
         super.start(window, eventLoop, onEvent)
         extraWindows.clear()
         windowCount = 1
-        onEvent(ScenarioEvent.Message("Appuyez sur N pour créer une nouvelle fenêtre", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Press N to create a new window", MessageSeverity.INFO))
     }
 
     override fun stop() {
@@ -32,7 +32,7 @@ class MultiWindowScenario : WindowScenario(
             if (ke.isPressed && ke.physicalKey == PhysicalKey.Code(KeyCode.KeyN)) {
                 windowCount++
                 val newWindow = eventLoop?.createWindow(WindowAttributes(
-                    title = "Fenêtre #$windowCount - Simulation Demo",
+                    title = "Window #$windowCount - Simulation Demo",
                     size = PhysicalSize(400, 300),
                     resizable = true,
                     visible = true,
@@ -42,7 +42,7 @@ class MultiWindowScenario : WindowScenario(
                     eventsReceived++
                     onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                         isRunning = true,
-                        message = "🪟 Fenêtre #$windowCount créée (${extraWindows.size} au total)",
+                        message = "🪟 Window #$windowCount created (${extraWindows.size} total)",
                         data = mapOf("windows" to extraWindows.size, "new_window" to windowCount)
                     )))
                 }

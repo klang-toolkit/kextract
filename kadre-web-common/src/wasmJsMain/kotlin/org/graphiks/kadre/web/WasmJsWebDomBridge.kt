@@ -271,7 +271,7 @@ class WasmJsWebDomBridge : WebDomBridge {
         val existing = getElementById(id.toJsString())
         if (existing != null) return id
         if (!attrs.appendToBody) {
-            println("[WasmJsWebDomBridge] Canvas '$id' introuvable (appendToBody=false → pas de création)")
+            println("[WasmJsWebDomBridge] Canvas '$id' not found (appendToBody=false → no creation)")
             return id
         }
         val ok = ensureCanvasInDom(
@@ -283,7 +283,7 @@ class WasmJsWebDomBridge : WebDomBridge {
         if (!ok) {
             println("[WasmJsWebDomBridge] Aucun parent disponible (parentElementId='${attrs.parentElementId}', body absent)")
         } else {
-            println("[WasmJsWebDomBridge] Canvas '$id' (${attrs.width}×${attrs.height}) créé et ajouté")
+            println("[WasmJsWebDomBridge] Canvas '$id' (${attrs.width}×${attrs.height}) created and appended")
         }
         return id
     }

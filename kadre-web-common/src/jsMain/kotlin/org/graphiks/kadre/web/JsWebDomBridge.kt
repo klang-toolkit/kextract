@@ -55,7 +55,7 @@ class JsWebDomBridge : WebDomBridge {
         val existing = document.getElementById(id)
         if (existing != null) return id
         if (!attrs.appendToBody) {
-            println("[JsWebDomBridge] Canvas '$id' introuvable (appendToBody=false → pas de création)")
+            println("[JsWebDomBridge] Canvas '$id' not found (appendToBody=false → no creation)")
             return id
         }
         val canvas = document.createElement("canvas").asDynamic()
@@ -71,7 +71,7 @@ class JsWebDomBridge : WebDomBridge {
             return id
         }
         parent.appendChild(canvas)
-        println("[JsWebDomBridge] Canvas '$id' (${attrs.width}×${attrs.height}) créé et ajouté")
+        println("[JsWebDomBridge] Canvas '$id' (${attrs.width}×${attrs.height}) created and appended")
         return id
     }
 

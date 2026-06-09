@@ -90,7 +90,7 @@ private fun createOffscreenMetalLayer(): Long {
  */
 @OptIn(WGPULowLevelApi::class)
 fun captureFrame(path: String) {
-    println("[hello-triangle] Mode capture offscreen — cible=$path (${CAPTURE_WIDTH}×${CAPTURE_HEIGHT})")
+    println("[hello-triangle] Offscreen capture mode — target=$path (${CAPTURE_WIDTH}×${CAPTURE_HEIGHT})")
 
     ffi.LibraryLoader.load()
     val os = System.getProperty("os.name", "").lowercase()
@@ -98,7 +98,7 @@ fun captureFrame(path: String) {
         os.contains("mac")   -> captureMacOs(path)
         os.contains("win")   -> captureWindows(path)
         os.contains("nux")   -> captureLinux(path)
-        else -> error("Mode capture non supporté sur cet OS : '$os' (macOS, Windows, Linux).")
+        else -> error("Capture mode not supported on this OS: '$os' (macOS, Windows, Linux).")
     }
 }
 
@@ -109,17 +109,17 @@ fun captureFrame(path: String) {
 @OptIn(WGPULowLevelApi::class)
 private fun captureMacOs(path: String) {
     val instance = WGPU.createInstance(WGPUInstanceBackend.Metal)
-        ?: error("Échec création WGPU Instance (Metal)")
+        ?: error("Failed to create WGPU Instance (Metal)")
 
     val metalLayerAddr = createOffscreenMetalLayer()
     if (metalLayerAddr == 0L) {
         instance.close()
-        error("Impossible de créer un CAMetalLayer offscreen")
+        error("Unable to create an offscreen CAMetalLayer")
     }
     val surface = instance.getSurfaceFromMetalLayer(JvmNativeAddress(MemorySegment.ofAddress(metalLayerAddr)))
         ?: run {
             instance.close()
-            error("Échec création Surface depuis CAMetalLayer offscreen")
+            error("Failed to create Surface from offscreen CAMetalLayer")
         }
     renderSurfaceToPng(instance, surface, path)
 }
@@ -139,13 +139,13 @@ internal fun renderSurfaceToPng(
     val adapter = instance.requestAdapter(surface)
         ?: run {
             surface.close(); instance.close()
-            error("Échec acquisition Adapter (headless requiert une surface — cf. KDoc)")
+            error("Failed to acquire Adapter (headless requires a surface — see KDoc)")
         }
     println("[hello-triangle] Adapter — info=${adapter.info}")
     val device = runBlocking { adapter.requestDevice() }
         .getOrElse { err ->
             adapter.close(); surface.close(); instance.close()
-            error("Échec acquisition Device : $err")
+            error("Failed to acquire Device: $err")
         }
 
     // 4. Texture offscreen RGBA8Unorm (RenderAttachment + CopySrc)
@@ -217,7 +217,7 @@ internal fun renderSurfaceToPng(
 
     // 9. Map + read (mapAsync polls the device internally on wgpu4k 0.1.1)
     runBlocking { readbackBuffer.mapAsync(setOf(GPUMapMode.Read), 0u, bufferSize) }
-        .getOrElse { err -> error("Échec mapAsync du buffer de readback : $err") }
+        .getOrElse { err -> error("Failed to mapAsync readback buffer: $err") }
     val mapped = readbackBuffer.getMappedRange(0u, bufferSize)
     val rawPointer = mapped.rawPointer.toLong()
     val size = mapped.size.toLong()
@@ -243,7 +243,7 @@ internal fun renderSurfaceToPng(
     val outFile = File(path)
     outFile.parentFile?.mkdirs()
     ImageIO.write(image, "png", outFile)
-    println("[hello-triangle] PNG écrit : ${outFile.absolutePath} (${outFile.length()} octets)")
+    println("[hello-triangle] PNG written: ${outFile.absolutePath} (${outFile.length()} bytes)")
 
     // 11. Resource release
     readbackBuffer.close()
@@ -255,5 +255,5 @@ internal fun renderSurfaceToPng(
     adapter.close()
     surface.close()
     instance.close()
-    println("[hello-triangle] Capture terminée — ressources libérées")
+    println("[hello-triangle] Capture finished — resources released")
 }

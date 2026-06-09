@@ -49,8 +49,8 @@ actual class EventLoop actual constructor() {
             os.contains("win")   -> "org.graphiks.kadre.win32.Win32EventLoopKt"
             os.contains("linux") -> LinuxBackendDetector.detectBackendClass()
             else -> throw UnsupportedOperationException(
-                "Système d'exploitation non supporté par kadre-jvm : '$os'. " +
-                "Plateformes supportées : macOS, Windows, Linux."
+                "Operating system not supported by kadre-jvm: '$os'. " +
+                "Supported platforms: macOS, Windows, Linux."
             )
         }
 
@@ -63,8 +63,8 @@ actual class EventLoop actual constructor() {
                 else                 -> "kadre-appkit"
             }
             throw UnsupportedOperationException(
-                "$backendClass introuvable sur le classpath. " +
-                "Ajoutez la dépendance implementation(project(\":$module\")).",
+                "$backendClass not found on classpath. " +
+                "Add the dependency implementation(project(\":$module\")).",
                 e,
             )
         }

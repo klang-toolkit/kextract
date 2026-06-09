@@ -106,8 +106,7 @@ internal class Win32EventLoop : ActiveEventLoop {
     override fun createWindow(attributes: WindowAttributes): Window {
         val window = Win32Window.create(attributes)
             ?: error(
-                "Win32Window.create() a retourné null — les bindings Win32 (user32.dll) " +
-                "ne sont pas disponibles sur cette plateforme."
+                "Win32Window.create() returned null — Win32 (user32.dll) bindings are not available on this platform."
             )
         windows[window.id.value] = window
         return window
@@ -122,8 +121,7 @@ internal class Win32EventLoop : ActiveEventLoop {
     fun createWindow(attrs: Win32WindowAttributes): Window {
         val window = Win32Window.create(attrs.core)
             ?: error(
-                "Win32Window.create() a retourné null — les bindings Win32 (user32.dll) " +
-                "ne sont pas disponibles sur cette plateforme."
+                "Win32Window.create() returned null — Win32 (user32.dll) bindings are not available on this platform."
             )
         windows[window.id.value] = window
         // Apply platform extension settings
@@ -398,8 +396,7 @@ internal class Win32EventLoop : ActiveEventLoop {
  */
 fun runApp(handler: ApplicationHandler) {
     check(win32Running.compareAndSet(false, true)) {
-        "Win32EventLoop.runApp() ne peut être appelé qu'une seule fois par processus. " +
-        "Une boucle d'événements Win32 est déjà active."
+        "Win32EventLoop.runApp() can only be called once per process. A Win32 event loop is already active."
     }
 
     // Enable Per-Monitor-V2 before any window creation, otherwise Windows

@@ -5,15 +5,15 @@ import org.graphiks.kadre.samples.simulation.*
 
 class FullscreenScenario : WindowScenario(
     id = "window-fullscreen",
-    title = "Plein écran",
-    description = "Teste le passage en plein écran. Appuyez sur F pour basculer, Échap pour quitter.",
+    title = "Fullscreen",
+    description = "Tests fullscreen toggle. Press F to toggle, Esc to quit.",
     priority = 90
 ) {
     private var isMaximized = false
 
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Appuyez sur F pour basculer en plein écran (maximisé)", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Press F to toggle fullscreen (maximized)", MessageSeverity.INFO))
     }
 
     override fun onWindowEvent(event: WindowEvent) {
@@ -25,7 +25,7 @@ class FullscreenScenario : WindowScenario(
                 eventsReceived++
                 onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                     isRunning = true,
-                    message = if (isMaximized) "🖥️ Plein écran activé (maximisé)" else "🖥️ Plein écran désactivé",
+                    message = if (isMaximized) "🖥️ Fullscreen enabled (maximized)" else "🖥️ Fullscreen disabled",
                     data = mapOf("maximized" to isMaximized)
                 )))
             }

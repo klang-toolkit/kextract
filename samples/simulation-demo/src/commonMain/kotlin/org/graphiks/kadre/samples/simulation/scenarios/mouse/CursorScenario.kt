@@ -5,8 +5,8 @@ import org.graphiks.kadre.samples.simulation.*
 
 class CursorScenario : MouseScenario(
     id = "mouse-cursor",
-    title = "Position et visibilité du curseur",
-    description = "Teste le suivi de position du curseur, le grab et le changement de visibilité.",
+    title = "Cursor position and visibility",
+    description = "Tests cursor position tracking, grab and visibility changes.",
     priority = 70
 ) {
     override val requiredCapabilities: Set<Capability> = setOf(
@@ -16,7 +16,7 @@ class CursorScenario : MouseScenario(
 
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Déplacez la souris pour voir la position en temps réel", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Move the mouse to see the real-time position", MessageSeverity.INFO))
     }
 
     override fun onWindowEvent(event: WindowEvent) {

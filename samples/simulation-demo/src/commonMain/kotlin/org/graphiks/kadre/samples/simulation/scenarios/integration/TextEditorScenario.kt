@@ -5,9 +5,9 @@ import org.graphiks.kadre.samples.simulation.*
 
 class TextEditorScenario : Scenario {
     override val id = "text-editor"
-    override val title = "Éditeur de texte miniature"
-    override val description = "Mini éditeur de texte combinant saisie clavier, IME et gestion des raccourcis. Supporte le texte enrichi de base."
-    override val category = "Intégration"
+    override val title = "Mini text editor"
+    override val description = "Mini text editor combining keyboard input, IME and shortcut management. Supports basic rich text."
+    override val category = "Integration"
     override val requiredCapabilities: Set<Capability> = setOf(Capability.KEYBOARD)
     override val priority: Int = 90
 
@@ -33,7 +33,7 @@ class TextEditorScenario : Scenario {
 
         onEvent(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
-            message = "📝 Tapez du texte. Ctrl+S pour sauvegarder, Ctrl+Z pour annuler.",
+            message = "📝 Type text. Ctrl+S to save, Ctrl+Z to undo.",
             data = mapOf("text" to "", "words" to 0, "keys" to 0)
         )))
     }
@@ -64,11 +64,11 @@ class TextEditorScenario : Scenario {
         if (isCtrl) {
             when (ke.physicalKey) {
                 PhysicalKey.Code(KeyCode.KeyS) -> {
-                    onEvent?.invoke(ScenarioEvent.Message("💾 Texte sauvegardé (${textContent.length} caractères)", MessageSeverity.INFO))
+                    onEvent?.invoke(ScenarioEvent.Message("💾 Text saved (${textContent.length} characters)", MessageSeverity.INFO))
                     onEvent?.invoke(ScenarioEvent.Result(textContent.toString()))
                 }
                 PhysicalKey.Code(KeyCode.KeyZ) -> {
-                    onEvent?.invoke(ScenarioEvent.Message("↩️ Annulation (simulée)", MessageSeverity.INFO))
+                    onEvent?.invoke(ScenarioEvent.Message("↩️ Undo (simulated)", MessageSeverity.INFO))
                 }
                 else -> {}
             }
@@ -106,7 +106,7 @@ class TextEditorScenario : Scenario {
 
         onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
-            message = "📝 Mots: $wordCount | Caractères: ${textContent.length} | Touches: $keystrokeCount",
+            message = "📝 Words: $wordCount | Characters: ${textContent.length} | Keys: $keystrokeCount",
             data = mapOf(
                 "text_preview" to displayText,
                 "words" to wordCount,

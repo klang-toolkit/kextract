@@ -1,12 +1,12 @@
 /**
- * ScriptedEventLoop — boucle d'événements déterministe pour les tests.
+ * ScriptedEventLoop — deterministic event loop for tests.
  *
- * Permet de piloter un [ApplicationHandler] avec une séquence d'événements scriptée,
- * sans dépendre d'un backend natif (AppKit, Win32, X11…). Retourne la trace ordonnée
- * des callbacks invoqués, ce qui permet d'asserter l'ordre du cycle de vie, le
- * dispatch des événements, le flux de sortie, etc.
+ * Enables driving an [ApplicationHandler] with a scripted event sequence,
+ * without depending on a native backend (AppKit, Win32, X11…). Returns the ordered trace
+ * of invoked callbacks, allowing assertions on lifecycle order, event dispatch,
+ * output stream, etc.
  *
- * ## Exemple
+ * ## Example
  * ```kotlin
  * val trace = scriptedTest {
  *     physicalKeyPress(KeyCode.ArrowUp)
@@ -60,73 +60,73 @@ import org.graphiks.kadre.core.defaultLogicalKey
 import org.graphiks.kadre.core.location
 
 // ---------------------------------------------------------------------------
-// Trace de callbacks
+// Callback trace
 // ---------------------------------------------------------------------------
 
 /**
- * Élément de trace : un callback d'[ApplicationHandler] invoqué par la boucle scriptée.
+ * Trace element: an [ApplicationHandler] callback invoked by the scripted loop.
  *
- * Comparable par valeur (data) pour permettre des assertions d'égalité directes.
+ * Value-comparable (data) to allow direct equality assertions.
  */
 sealed interface Callback {
-    /** [ApplicationHandler.resumed] invoqué. */
+    /** [ApplicationHandler.resumed] invoked. */
     data object Resumed : Callback
 
-    /** [ApplicationHandler.canCreateSurfaces] invoqué. */
+    /** [ApplicationHandler.canCreateSurfaces] invoked. */
     data object CanCreateSurfaces : Callback
 
-    /** [ApplicationHandler.newEvents] invoqué avec la cause donnée. */
+    /** [ApplicationHandler.newEvents] invoked with the given cause. */
     data class NewEvents(val cause: StartCause) : Callback
 
-    /** [ApplicationHandler.windowEvent] invoqué. */
+    /** [ApplicationHandler.windowEvent] invoked. */
     data class WindowEventCb(val windowId: WindowId, val event: WindowEvent) : Callback
 
-    /** [ApplicationHandler.deviceEvent] invoqué. */
+    /** [ApplicationHandler.deviceEvent] invoked. */
     data class DeviceEventCb(val deviceId: DeviceId, val event: DeviceEvent) : Callback
 
-    /** [ApplicationHandler.aboutToWait] invoqué. */
+    /** [ApplicationHandler.aboutToWait] invoked. */
     data object AboutToWait : Callback
 
-    /** [ApplicationHandler.suspended] invoqué. */
+    /** [ApplicationHandler.suspended] invoked. */
     data object Suspended : Callback
 }
 
 // ---------------------------------------------------------------------------
-// Événements scriptés
+// Scripted events
 // ---------------------------------------------------------------------------
 
 /**
- * Un événement de la séquence scriptée, interprété par [ScriptedEventLoop].
+ * An event from the scripted sequence, interpreted by [ScriptedEventLoop].
  */
 sealed interface ScriptedEvent {
-    /** Déclenche [ApplicationHandler.canCreateSurfaces]. */
+    /** Triggers [ApplicationHandler.canCreateSurfaces]. */
     data object CanCreateSurfaces : ScriptedEvent
 
-    /** Dispatche un [WindowEvent] vers [ApplicationHandler.windowEvent]. */
+    /** Dispatches a [WindowEvent] to [ApplicationHandler.windowEvent]. */
     data class Window(val windowId: WindowId, val event: WindowEvent) : ScriptedEvent
 
-    /** Dispatche un événement périphérique vers [ApplicationHandler.deviceEvent]. */
+    /** Dispatches a device event to [ApplicationHandler.deviceEvent]. */
     data class Device(val deviceId: DeviceId, val event: DeviceEvent) : ScriptedEvent
 
     /**
-     * Simule une frame : [ApplicationHandler.newEvents] (Poll) →
+     * Simulates a frame: [ApplicationHandler.newEvents] (Poll) →
      * [WindowEvent.RedrawRequested] → [ApplicationHandler.aboutToWait].
      *
-     * @property dtMs Durée virtuelle écoulée (informative — la boucle est déterministe).
+     * @property dtMs Virtual elapsed time (informational — the loop is deterministic).
      */
     data class Tick(val dtMs: Long, val windowId: WindowId = WindowId(1L)) : ScriptedEvent
 }
 
 // ---------------------------------------------------------------------------
-// Fenêtre mockée
+// Mocked window
 // ---------------------------------------------------------------------------
 
 /**
- * Implémentation [Window] en mémoire pour les tests — aucun handle natif réel.
+ * In-memory [Window] implementation for tests — no real native handle.
  *
- * [requestRedraw] est enregistré (compteur [redrawRequests]) mais ne déclenche
- * pas de frame automatiquement : c'est le script ([ScriptedEvent.Tick]) qui pilote
- * les frames, pour rester déterministe.
+ * [requestRedraw] is recorded (counter [redrawRequests]) but does not trigger
+ * a frame automatically: the script ([ScriptedEvent.Tick]) drives frames
+ * to remain deterministic.
  */
 class ScriptedWindow(
     override val id: WindowId = WindowId(1L),
@@ -138,11 +138,11 @@ class ScriptedWindow(
         RawWindowHandle.Web(canvasElementId = "scripted-window-${id.value}")
     override val rawDisplayHandle: RawDisplayHandle = RawDisplayHandle.Web
 
-    /** Nombre d'appels à [requestRedraw] — utile pour asserter le rendu continu. */
+    /** Number of calls to [requestRedraw] — useful for asserting continuous rendering. */
     var redrawRequests: Int = 0
         private set
 
-    /** Visibilité courante. */
+    /** Current visibility. */
     var visible: Boolean = true
         private set
 
@@ -215,19 +215,19 @@ class ScriptedWindow(
 }
 
 // ---------------------------------------------------------------------------
-// Boucle scriptée
+// Scripted loop
 // ---------------------------------------------------------------------------
 
 /**
- * [ActiveEventLoop] déterministe qui rejoue une liste d'[ScriptedEvent] et
- * enregistre la trace des callbacks invoqués.
+ * Deterministic [ActiveEventLoop] that replays a list of [ScriptedEvent] and
+ * records the trace of invoked callbacks.
  *
- * Cycle : `resumed` → (chaque ScriptedEvent) → `suspended`. Si le handler appelle
- * [exit] pendant le traitement d'un événement, les événements restants sont ignorés
- * (mais `suspended` est tout de même invoqué).
+ * Cycle: `resumed` → (each ScriptedEvent) → `suspended`. If the handler calls
+ * [exit] while processing an event, remaining events are skipped
+ * (but `suspended` is still invoked).
  *
- * @property events  Séquence à rejouer.
- * @property window  Fenêtre mockée exposée par [createWindow].
+ * @property events  Sequence to replay.
+ * @property window  Mocked window exposed by [createWindow].
  */
 class ScriptedEventLoop(
     private val events: List<ScriptedEvent>,
@@ -241,7 +241,7 @@ class ScriptedEventLoop(
     private var firstWindowPending = true
     private var nextWindowIdValue: Long = window.id.value + 1
 
-    /** Fenêtres créées par la boucle, dans l'ordre déterministe de création. */
+    /** Windows created by the loop, in deterministic creation order. */
     val windows: List<ScriptedWindow> get() = windowsById.values.toList()
 
     // ── ActiveEventLoop ─────────────────────────────────────────────────────
@@ -265,7 +265,7 @@ class ScriptedEventLoop(
     override fun exit() { _isExiting = true }
     override val isExiting: Boolean get() = _isExiting
     override fun createProxy(): EventLoopProxy = object : EventLoopProxy {
-        override fun wakeUp() { /* no-op : exécution mono-thread déterministe */ }
+        override fun wakeUp() { /* no-op: deterministic single-thread execution */ }
     }
 
     // R2 stubs
@@ -278,13 +278,13 @@ class ScriptedEventLoop(
     // R4 stub — no-op, device-event filtering not simulated in scripted tests
     override fun listenDeviceEvents(mode: DeviceEvents) { /* no-op in scripted test */ }
 
-    // ── Exécution ───────────────────────────────────────────────────────────
+    // ── Execution ───────────────────────────────────────────────────────────
 
     /**
-     * Rejoue la séquence sur [handler] et retourne la trace ordonnée des callbacks.
+     * Replays the sequence on [handler] and returns the ordered trace of callbacks.
      *
-     * @param handler Gestionnaire à tester.
-     * @return Trace immuable des callbacks invoqués, dans l'ordre.
+     * @param handler Handler under test.
+     * @return Immutable list of invoked callbacks, in order.
      */
     fun run(handler: ApplicationHandler): List<Callback> {
         record(Callback.Resumed) { handler.resumed(this) }
@@ -330,17 +330,17 @@ class ScriptedEventLoop(
 // ---------------------------------------------------------------------------
 
 /**
- * Constructeur de séquence pour [scriptedTest]. Chaque méthode ajoute un
- * [ScriptedEvent] à la séquence dans l'ordre d'appel.
+ * Sequence builder for [scriptedTest]. Each method adds a
+ * [ScriptedEvent] to the sequence in call order.
  */
 class ScriptBuilder {
     private val events = mutableListOf<ScriptedEvent>()
     private val windowId = WindowId(1L)
 
-    /** Autorise la création de surfaces (déclenche `canCreateSurfaces`). */
+    /** Allows surface creation (triggers `canCreateSurfaces`). */
     fun canCreateSurfaces() { events += ScriptedEvent.CanCreateSurfaces }
 
-    /** Enfonce une touche physique. */
+    /** Presses a physical key. */
     fun physicalKeyPress(
         keyCode: KeyCode,
         modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
@@ -352,7 +352,7 @@ class ScriptBuilder {
         keyInput(keyCode, logicalKey, KeyState.Pressed, modifiers, text, repeat, windowId)
     }
 
-    /** Relâche une touche physique. */
+    /** Releases a physical key. */
     fun physicalKeyRelease(
         keyCode: KeyCode,
         modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
@@ -362,7 +362,7 @@ class ScriptBuilder {
         keyInput(keyCode, logicalKey, KeyState.Released, modifiers, text = null, repeat = false, windowId)
     }
 
-    /** Enfonce une touche logique sans contrainte sur la touche physique. */
+    /** Presses a logical key without constraining the physical key. */
     fun logicalKeyPress(
         logicalKey: LogicalKey,
         modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
@@ -385,7 +385,7 @@ class ScriptBuilder {
         )
     }
 
-    /** Relâche une touche logique sans contrainte sur la touche physique. */
+    /** Releases a logical key without constraining the physical key. */
     fun logicalKeyRelease(
         logicalKey: LogicalKey,
         modifiers: KeyboardModifiers = KeyboardModifiers.NONE,
@@ -431,7 +431,7 @@ class ScriptBuilder {
         )
     }
 
-    /** Déplace le pointeur. */
+    /** Moves the pointer. */
     fun pointerMove(x: Double, y: Double, windowId: WindowId = this.windowId) {
         events += ScriptedEvent.Window(
             windowId,
@@ -444,7 +444,7 @@ class ScriptBuilder {
         )
     }
 
-    /** Clic souris (press + release implicite selon [state]). */
+    /** Mouse click (implicit press + release depending on [state]). */
     fun pointerButton(
         button: MouseButton,
         state: KeyState,
@@ -464,12 +464,12 @@ class ScriptBuilder {
         )
     }
 
-    /** Alias de migration pour les anciens tests souris. */
+    /** Migration alias for legacy mouse tests. */
     fun mouseInput(button: MouseButton, state: KeyState, windowId: WindowId = this.windowId) {
         pointerButton(button, state, windowId = windowId)
     }
 
-    /** Scroll souris ou trackpad. */
+    /** Mouse or trackpad scroll. */
     fun mouseWheel(
         deltaX: Double,
         deltaY: Double,
@@ -479,27 +479,27 @@ class ScriptBuilder {
         events += ScriptedEvent.Window(windowId, WindowEvent.MouseWheel(null, deltaX, deltaY, phase))
     }
 
-    /** Redimensionne la fenêtre. */
+    /** Resizes the window. */
     fun resized(width: Int, height: Int, windowId: WindowId = this.windowId) {
         events += ScriptedEvent.Window(windowId, WindowEvent.Resized(PhysicalSize(width, height)))
     }
 
-    /** Changement de facteur d'échelle (DPI). */
+    /** Scale factor change (DPI). */
     fun scaleFactorChanged(factor: Double, windowId: WindowId = this.windowId) {
         events += ScriptedEvent.Window(windowId, WindowEvent.ScaleFactorChanged(factor))
     }
 
-    /** Simule une frame (newEvents → RedrawRequested → aboutToWait). */
+    /** Simulates a frame (newEvents → RedrawRequested → aboutToWait). */
     fun tick(dtMs: Long = 16L, windowId: WindowId = this.windowId) {
         events += ScriptedEvent.Tick(dtMs, windowId)
     }
 
-    /** Demande de fermeture de la fenêtre. */
+    /** Window close request. */
     fun closeRequested(windowId: WindowId = this.windowId) {
         events += ScriptedEvent.Window(windowId, WindowEvent.CloseRequested)
     }
 
-    /** Événement de fenêtre brut (échappatoire pour les cas non couverts). */
+    /** Raw window event (escape hatch for uncovered cases). */
     fun windowEvent(event: WindowEvent, windowId: WindowId = this.windowId) {
         events += ScriptedEvent.Window(windowId, event)
     }
@@ -510,8 +510,8 @@ class ScriptBuilder {
 private fun LogicalKey.defaultText(): String? = (this as? LogicalKey.Character)?.text
 
 /**
- * Point d'entrée du DSL : construit une [ScriptedEventLoop] à partir d'un bloc
- * de séquence. Appeler [ScriptedEventLoop.run] avec le handler à tester.
+ * DSL entry point: builds a [ScriptedEventLoop] from a sequence
+ * block. Call [ScriptedEventLoop.run] with the handler under test.
  *
  * ```kotlin
  * val trace = scriptedTest {

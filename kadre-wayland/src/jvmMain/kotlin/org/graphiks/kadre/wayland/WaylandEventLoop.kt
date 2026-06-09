@@ -270,7 +270,7 @@ private fun syntheticWaylandMonitor(
  */
 fun runApp(handler: ApplicationHandler) {
     if (!waylandRunning.compareAndSet(false, true)) {
-        error("WaylandEventLoop déjà en cours d'exécution")
+        error("WaylandEventLoop already running")
     }
     try {
         runAppInternal(handler)
@@ -284,19 +284,19 @@ fun runApp(handler: ApplicationHandler) {
 private fun runAppInternal(handler: ApplicationHandler) {
     // ── 1. Connect to the Wayland server ──────────────────────────────────────
     val connectHandle = wlDisplayConnect
-        ?: error("wl_display_connect non disponible — libwayland-client.so.0 absent")
+        ?: error("wl_display_connect not available — libwayland-client.so.0 missing")
 
     val displaySeg: MemorySegment = Arena.ofConfined().use { arena ->
         val nullSeg = MemorySegment.NULL
         try {
             connectHandle.invokeExact(nullSeg) as MemorySegment
         } catch (t: Throwable) {
-            error("wl_display_connect a levé une exception : $t")
+            error("wl_display_connect threw an exception: $t")
         }
     }
 
     if (displaySeg == MemorySegment.NULL || displaySeg.address() == 0L) {
-        error("wl_display_connect a retourné NULL — serveur Wayland non disponible (WAYLAND_DISPLAY ?)")
+        error("wl_display_connect returned NULL — Wayland server not available (WAYLAND_DISPLAY ?)")
     }
 
     val displayPtr = displaySeg.address()
@@ -304,7 +304,7 @@ private fun runAppInternal(handler: ApplicationHandler) {
     // ── 2. Wayland socket file descriptor ─────────────────────────────────────
     val displayFd: Int = try {
         val fdHandle = wlDisplayGetFd
-            ?: error("wl_display_get_fd non disponible")
+            ?: error("wl_display_get_fd not available")
         fdHandle.invokeExact(displaySeg) as Int
     } catch (t: Throwable) {
         // Clean disconnect before propagating
@@ -315,9 +315,9 @@ private fun runAppInternal(handler: ApplicationHandler) {
     // ── 3. Create the eventfd for wakeUp ──────────────────────────────────────
     val eventFd: Int = try {
         val efdHandle = nativeEventfd
-            ?: error("eventfd non disponible — libc.so.6 absent")
+            ?: error("eventfd not available — libc.so.6 missing")
         val fd = efdHandle.invokeExact(0, 0) as Int
-        if (fd < 0) error("eventfd() a retourné $fd")
+        if (fd < 0) error("eventfd() returned $fd")
         fd
     } catch (t: Throwable) {
         disconnectDisplay(displaySeg)

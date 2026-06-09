@@ -1,12 +1,12 @@
 /**
- * Point d'entrée de kadre pour la cible Kotlin/Wasm (wasmJs).
+ * Entry point for kadre targeting Kotlin/Wasm (wasmJs).
  *
- * Ce module expose l'API kadre aux consommateurs WebAssembly.
- * L'implémentation délègue vers kadre-web-common (WebEventLoop, WebWindow)
- * qui fournit la boucle d'événements basée sur requestAnimationFrame et
- * la gestion des événements DOM (clavier, souris, tactile).
+ * This module exposes the kadre API to WebAssembly consumers.
+ * The implementation delegates to kadre-web-common (WebEventLoop, WebWindow)
+ * which provides the requestAnimationFrame-based event loop and
+ * DOM event handling (keyboard, mouse, touch).
  *
- * ## Usage depuis Kotlin/Wasm
+ * ## Usage from Kotlin/Wasm
  * ```kotlin
  * import org.graphiks.kadre.wasm.KadreWasm
  *
@@ -15,21 +15,21 @@
  * }
  * ```
  *
- * GRA-32 : setup initial du module kadre-wasm.
+ * GRA-32: initial setup of the kadre-wasm module.
  */
 package org.graphiks.kadre.wasm
 
 /**
- * Objet singleton exposant les métadonnées et l'API d'initialisation de kadre-wasm.
+ * Singleton object exposing kadre-wasm metadata and initialization API.
  *
- * Stub — l'implémentation complète sera fournie dans un ticket ultérieur.
+ * Stub — full implementation will be provided in a later ticket.
  */
 object KadreWasm {
 
     /**
-     * Version du module kadre-wasm.
+     * Version of the kadre-wasm module.
      *
-     * Correspond à la version du projet définie dans `gradle.properties`.
+     * Corresponds to the project version defined in `gradle.properties`.
      */
     val version: String = "1.0.0"
 }

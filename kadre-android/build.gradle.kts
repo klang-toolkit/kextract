@@ -1,12 +1,12 @@
 /**
- * Module kadre-android — backend Android pour kadre.
+ * Module kadre-android — Android backend for kadre.
  *
- * Stratégie A : expose android.view.Surface brute, pas de JNI custom.
- * Cibles : androidTarget uniquement (pas de jvm ni iOS dans ce module).
+ * Strategy A: exposes raw android.view.Surface, no custom JNI.
+ * Targets: androidTarget only (no jvm or iOS in this module).
  *
- * Utilise kmp-library (qui ajoute jvm + iOS via convention) mais seule la
- * cible androidTarget a du code source. Les publications iOS/JVM sont désactivées
- * pour éviter les erreurs de klib manquant lors de publishToMavenLocal.
+ * Uses kmp-library (which adds jvm + iOS via convention) but only the
+ * androidTarget has source code. iOS/JVM publications are disabled
+ * to avoid missing klib errors during publishToMavenLocal.
  *
  * GRA-147 : setup module Android.
  * GRA-159 : publication Maven Central.
@@ -39,7 +39,7 @@ android {
 }
 
 kotlin {
-    // Validation de compatibilité ABI — intégrée au plugin Kotlin.
+    // ABI compatibility validation — integrated into the Kotlin plugin.
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
     abiValidation()
 

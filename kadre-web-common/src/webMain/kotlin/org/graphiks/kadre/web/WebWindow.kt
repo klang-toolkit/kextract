@@ -123,8 +123,8 @@ class WebWindow(
      * `WebEventLoop.createWindow(WebWindowAttributes)`.
      */
     @Deprecated(
-        "Convention title-as-canvasId. Utiliser WebEventLoop.createWindow(WebWindowAttributes) " +
-                "pour cibler explicitement un canvas DOM par son id.",
+        "Convention title-as-canvasId. Use WebEventLoop.createWindow(WebWindowAttributes) " +
+                "to explicitly target a DOM canvas by its id.",
     )
     constructor(attrs: WindowAttributes, bridge: WebDomBridge)
             : this(

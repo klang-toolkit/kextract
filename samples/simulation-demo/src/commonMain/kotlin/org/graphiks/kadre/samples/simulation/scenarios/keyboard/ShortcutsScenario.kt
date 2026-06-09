@@ -5,23 +5,23 @@ import org.graphiks.kadre.samples.simulation.*
 
 class ShortcutsScenario : KeyboardScenario(
     id = "keyboard-shortcuts",
-    title = "Raccourcis clavier",
-    description = "Teste les raccourcis clavier (Ctrl+C, Ctrl+V, etc.). Les événements sont filtrés par modifieurs.",
+    title = "Keyboard shortcuts",
+    description = "Tests keyboard shortcuts (Ctrl+C, Ctrl+V, etc.). Events are filtered by modifiers.",
     priority = 90
 ) {
     private val knownShortcuts = mapOf(
-        "ctrl+c" to "Copier",
-        "ctrl+v" to "Coller",
-        "ctrl+x" to "Couper",
-        "ctrl+z" to "Annuler",
-        "ctrl+s" to "Sauvegarder",
-        "ctrl+a" to "Tout sélectionner",
-        "shift+ctrl+c" to "Ouvrir les outils développeur"
+        "ctrl+c" to "Copy",
+        "ctrl+v" to "Paste",
+        "ctrl+x" to "Cut",
+        "ctrl+z" to "Undo",
+        "ctrl+s" to "Save",
+        "ctrl+a" to "Select all",
+        "shift+ctrl+c" to "Open developer tools"
     )
 
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Raccourcis activés - essayez Ctrl+C, Ctrl+V, Ctrl+S...", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Shortcuts enabled - try Ctrl+C, Ctrl+V, Ctrl+S...", MessageSeverity.INFO))
     }
 
     override fun onKeyEvent(event: WindowEvent.KeyInput) {
@@ -47,20 +47,20 @@ class ShortcutsScenario : KeyboardScenario(
             if (action != null) {
                 onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                     isRunning = true,
-                    message = "✅ Raccourci détecté : $shortcutKey → $action",
+                    message = "✅ Shortcut detected: $shortcutKey → $action",
                     data = mapOf("shortcut" to shortcutKey, "action" to action)
                 )))
             } else {
                 onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                     isRunning = true,
-                    message = "Raccourci non reconnu : $shortcutKey",
+                    message = "Unrecognized shortcut: $shortcutKey",
                     data = mapOf("shortcut" to shortcutKey)
                 )))
             }
         } else {
             onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                 isRunning = true,
-                message = "Utilisez un modifieur (Ctrl/Shift) pour tester les raccourcis"
+                message = "Use a modifier (Ctrl/Shift) to test shortcuts"
             )))
         }
     }

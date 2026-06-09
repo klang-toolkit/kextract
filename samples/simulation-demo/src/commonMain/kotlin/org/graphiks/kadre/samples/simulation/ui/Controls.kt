@@ -15,7 +15,7 @@ fun BackButton(
         onClick = onClick,
         modifier = modifier
     ) {
-        Text("\u2190 Retour")
+        Text("\u2190 Back")
     }
 }
 
@@ -32,6 +32,6 @@ fun StartButton(
         ),
         modifier = modifier
     ) {
-        Text("\u25B6 Démarrer le scénario")
+        Text("\u25B6 Start the scenario")
     }
 }

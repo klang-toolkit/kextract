@@ -98,7 +98,7 @@ sealed interface RawWindowHandle {
     ) : RawWindowHandle {
         init {
             require(canvasElementId != null || canvasElement != null) {
-                "RawWindowHandle.Web : au moins canvasElementId ou canvasElement doit être non-null"
+                "RawWindowHandle.Web: at least one of canvasElementId or canvasElement must be non-null"
             }
         }
     }

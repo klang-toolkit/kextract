@@ -7,7 +7,7 @@ import kotlin.math.sqrt
 class GesturesScenario : TouchScenario(
     id = "touch-gestures",
     title = "Gestes tactiles",
-    description = "Reconnaît des gestes simples : tap, double-tap, swipe.",
+    description = "Recognizes simple gestures: tap, double-tap, swipe.",
     priority = 80
 ) {
     override val requiredCapabilities: Set<Capability> = setOf(Capability.MULTI_TOUCH)
@@ -19,7 +19,7 @@ class GesturesScenario : TouchScenario(
 
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Essayez des gestes : tap, double-tap, swipe", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Try gestures: tap, double-tap, swipe", MessageSeverity.INFO))
     }
 
     override fun onWindowEvent(event: WindowEvent) {
@@ -34,7 +34,7 @@ class GesturesScenario : TouchScenario(
                     isTracking = true
                     onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                         isRunning = true,
-                        message = "🟢 Touch début à (${event.position.x.toInt()}, ${event.position.y.toInt()})",
+                        message = "🟢 Touch start at (${event.position.x.toInt()}, ${event.position.y.toInt()})",
                         data = mapOf("phase" to "started", "x" to event.position.x.toInt(), "y" to event.position.y.toInt())
                     )))
                 } else {
@@ -46,8 +46,8 @@ class GesturesScenario : TouchScenario(
                         val gestureName = if (distance > 50f) {
                             val direction = when {
                                 kotlin.math.abs(dx) > kotlin.math.abs(dy) ->
-                                    if (dx > 0) "swipe_droite" else "swipe_gauche"
-                                else -> if (dy > 0) "swipe_bas" else "swipe_haut"
+                                    if (dx > 0) "swipe_right" else "swipe_left"
+                                else -> if (dy > 0) "swipe_down" else "swipe_up"
                             }
                             direction
                         } else {
@@ -55,7 +55,7 @@ class GesturesScenario : TouchScenario(
                         }
                         onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                             isRunning = true,
-                            message = "✅ Geste #$gestureCount: $gestureName (${distance.toInt()}px)",
+                            message = "✅ Gesture #$gestureCount: $gestureName (${distance.toInt()}px)",
                             data = mapOf("gesture" to gestureName, "count" to gestureCount)
                         )))
                         isTracking = false
@@ -70,7 +70,7 @@ class GesturesScenario : TouchScenario(
                     val dy = event.position.y - gestureStartY
                     onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                         isRunning = true,
-                        message = "✋ Déplacement: (${dx.toInt()}, ${dy.toInt()})",
+                        message = "✋ Movement: (${dx.toInt()}, ${dy.toInt()})",
                         data = mapOf("phase" to "moved", "dx" to dx.toInt(), "dy" to dy.toInt())
                     )))
                 }

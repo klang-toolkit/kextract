@@ -26,7 +26,7 @@ fun InfoPanel(
     ) {
         if (metadata == null) {
             Text(
-                text = "Sélectionnez un scénario pour voir les détails",
+                text = "Select a scenario to see details",
                 color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f),
                 style = MaterialTheme.typography.body1
             )
@@ -50,22 +50,22 @@ fun InfoPanel(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Informations",
+            text = "Information",
             style = MaterialTheme.typography.subtitle2
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         MetadataRow("ID", metadata.scenario.id)
-        MetadataRow("Catégorie", metadata.scenario.category)
-        MetadataRow("Priorité", metadata.scenario.priority.toString())
+        MetadataRow("Category", metadata.scenario.category)
+        MetadataRow("Priority", metadata.scenario.priority.toString())
 
         Spacer(modifier = Modifier.height(16.dp))
         Divider()
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Capacités requises",
+            text = "Required capabilities",
             style = MaterialTheme.typography.subtitle2
         )
 
@@ -73,7 +73,7 @@ fun InfoPanel(
 
         if (metadata.scenario.requiredCapabilities.isEmpty()) {
             Text(
-                text = "Aucune",
+                text = "None",
                 style = MaterialTheme.typography.caption,
                 color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
             )
@@ -93,7 +93,7 @@ fun InfoPanel(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Support par plateforme",
+            text = "Platform support",
             style = MaterialTheme.typography.subtitle2
         )
 

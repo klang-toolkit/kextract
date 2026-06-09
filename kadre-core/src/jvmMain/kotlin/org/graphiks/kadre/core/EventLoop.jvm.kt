@@ -32,8 +32,8 @@ actual class EventLoop actual constructor() {
             Class.forName("org.graphiks.kadre.appkit.AppKitEventLoopKt")
         } catch (e: ClassNotFoundException) {
             throw UnsupportedOperationException(
-                "kadre-appkit introuvable sur le classpath. " +
-                "Ajoutez la dépendance implementation(project(\":kadre-appkit\")).",
+                "kadre-appkit not found on classpath. " +
+                "Add the dependency implementation(project(\":kadre-appkit\")).",
                 e,
             )
         }

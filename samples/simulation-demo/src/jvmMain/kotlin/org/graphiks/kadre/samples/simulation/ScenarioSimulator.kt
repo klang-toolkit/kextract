@@ -48,7 +48,7 @@ internal fun eventDesc(event: WindowEvent): String = when (event) {
  * to OS-delivered events.
  */
 suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDisplayState) {
-    state.scenarioMessage = "Génération d'événements..."
+    state.scenarioMessage = "Generating events..."
     state.clearEventLog()
     delay(300)
 
@@ -70,7 +70,7 @@ suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDis
     // Window-level scenarios use the Window API to trigger events naturally
     when (meta.scenario.id) {
         "window-resize" -> {
-            state.scenarioMessage = "Redimensionnement..."
+            state.scenarioMessage = "Resizing..."
             delay(200)
             window.requestSurfaceSize(PhysicalSize(800, 600))
             scenario.onWindowEvent(WindowEvent.Resized(PhysicalSize(800, 600)))
@@ -80,7 +80,7 @@ suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDis
             delay(300)
         }
         "window-fullscreen" -> {
-            state.scenarioMessage = "Plein écran..."
+            state.scenarioMessage = "Fullscreen..."
             delay(200)
             pressKey(scenario, KeyCode.KeyF, 'F')
             delay(1000)
@@ -88,7 +88,7 @@ suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDis
             delay(300)
         }
         "window-focus" -> {
-            state.scenarioMessage = "Manipulation fenêtre..."
+            state.scenarioMessage = "Window manipulation..."
             delay(200)
             window.setMinimized(true)
             scenario.onWindowEvent(WindowEvent.Focused(false))
@@ -101,7 +101,7 @@ suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDis
             delay(300)
         }
         "window-multi" -> {
-            state.scenarioMessage = "Création fenêtres..."
+            state.scenarioMessage = "Window creation..."
             delay(200)
             pressKey(scenario, KeyCode.KeyN, 'N')
             sleep(200)
@@ -111,7 +111,7 @@ suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDis
             delay(300)
         }
         "game-simple" -> {
-            state.scenarioMessage = "🎮 DÉPLACEMENT VERS LA CIBLE 1..."
+            state.scenarioMessage = "🎮 MOVING TO TARGET 1..."
             delay(1500)
             pressKey(scenario, KeyCode.KeyW, 'w'); sleep(200)
             pressKey(scenario, KeyCode.KeyI, 'i'); sleep(200)
@@ -120,36 +120,36 @@ suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDis
             pressKey(scenario, KeyCode.KeyA, 'a'); sleep(200)
             pressKey(scenario, KeyCode.KeyJ, 'j'); sleep(200)
 
-            state.scenarioMessage = "🎯 TIR SUR CIBLE 1..."
+            state.scenarioMessage = "🎯 SHOOTING AT TARGET 1..."
             delay(800)
             click(scenario, PhysicalPosition(200.0, 200.0)); sleep(600)
             delay(600)
 
-            state.scenarioMessage = "🎮 DÉPLACEMENT VERS LA CIBLE 2..."
+            state.scenarioMessage = "🎮 MOVING TO TARGET 2..."
             delay(1000)
             pressKey(scenario, KeyCode.KeyD, 'd'); sleep(200)
             pressKey(scenario, KeyCode.KeyL, 'l'); sleep(200)
             pressKey(scenario, KeyCode.KeyD, 'd'); sleep(200)
             pressKey(scenario, KeyCode.KeyL, 'l'); sleep(200)
 
-            state.scenarioMessage = "🎯 TIR SUR CIBLE 2..."
+            state.scenarioMessage = "🎯 SHOOTING AT TARGET 2..."
             delay(800)
             click(scenario, PhysicalPosition(600.0, 200.0)); sleep(600)
             delay(600)
 
-            state.scenarioMessage = "🎮 DÉPLACEMENT VERS LA CIBLE 3..."
+            state.scenarioMessage = "🎮 MOVING TO TARGET 3..."
             delay(1000)
             pressKey(scenario, KeyCode.KeyS, 's'); sleep(200)
             pressKey(scenario, KeyCode.KeyK, 'k'); sleep(200)
             pressKey(scenario, KeyCode.KeyS, 's'); sleep(200)
             pressKey(scenario, KeyCode.KeyK, 'k'); sleep(200)
 
-            state.scenarioMessage = "🎯 TIR SUR CIBLE 3..."
+            state.scenarioMessage = "🎯 SHOOTING AT TARGET 3..."
             delay(800)
             click(scenario, PhysicalPosition(400.0, 400.0)); sleep(600)
             delay(600)
 
-            state.scenarioMessage = "🎮 DÉPLACEMENT VERS LA CIBLE 4..."
+            state.scenarioMessage = "🎮 MOVING TO TARGET 4..."
             delay(1000)
             pressKey(scenario, KeyCode.KeyA, 'a'); sleep(200)
             pressKey(scenario, KeyCode.KeyJ, 'j'); sleep(200)
@@ -158,12 +158,12 @@ suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDis
             pressKey(scenario, KeyCode.KeyS, 's'); sleep(200)
             pressKey(scenario, KeyCode.KeyK, 'k'); sleep(200)
 
-            state.scenarioMessage = "🎯 TIR SUR CIBLE 4..."
+            state.scenarioMessage = "🎯 SHOOTING AT TARGET 4..."
             delay(800)
             click(scenario, PhysicalPosition(200.0, 500.0)); sleep(600)
             delay(600)
 
-            state.scenarioMessage = "🎮 DÉPLACEMENT VERS LA CIBLE 5..."
+            state.scenarioMessage = "🎮 MOVING TO TARGET 5..."
             delay(1000)
             pressKey(scenario, KeyCode.KeyD, 'd'); sleep(200)
             pressKey(scenario, KeyCode.KeyL, 'l'); sleep(200)
@@ -172,14 +172,14 @@ suspend fun simulateEvents(meta: ScenarioMetadata, window: Window, state: CliDis
             pressKey(scenario, KeyCode.KeyW, 'w'); sleep(200)
             pressKey(scenario, KeyCode.KeyI, 'i'); sleep(200)
 
-            state.scenarioMessage = "🎯 TIR SUR CIBLE 5..."
+            state.scenarioMessage = "🎯 SHOOTING AT TARGET 5..."
             delay(800)
             click(scenario, PhysicalPosition(600.0, 500.0)); sleep(600)
             delay(1000)
         }
     }
 
-    state.scenarioMessage = "Simulation terminée"
+    state.scenarioMessage = "Simulation finished"
     delay(200)
 }
 
@@ -255,19 +255,19 @@ private fun simulateMouse(scenario: Scenario, state: CliDisplayState) {
     // Move to center
     scenario.onWindowEvent(WindowEvent.PointerMoved(null, pos, true, PointerSource.Mouse))
     sleep(150)
-    state.scenarioMessage = "Clic gauche..."
+    state.scenarioMessage = "Left click..."
     click(scenario, pos)
     sleep(150)
 
     // Move right
-    state.scenarioMessage = "Clic droit..."
+    state.scenarioMessage = "Right click..."
     scenario.onWindowEvent(WindowEvent.PointerMoved(null, pos2, true, PointerSource.Mouse))
     sleep(150)
     rightClick(scenario, pos2)
     sleep(150)
 
     // Move and scroll
-    state.scenarioMessage = "Défilement..."
+    state.scenarioMessage = "Scrolling..."
     scenario.onWindowEvent(WindowEvent.PointerMoved(null, pos3, true, PointerSource.Mouse))
     sleep(100)
     scenario.onWindowEvent(WindowEvent.MouseWheel(null, 0.0, -3.0, TouchPhase.Moved))
@@ -276,7 +276,7 @@ private fun simulateMouse(scenario: Scenario, state: CliDisplayState) {
     sleep(100)
 
     // Drag
-    state.scenarioMessage = "Glisser-déposer..."
+    state.scenarioMessage = "Drag and drop..."
     dragBetween(scenario, pos2, PhysicalPosition(600.0, 400.0))
 }
 

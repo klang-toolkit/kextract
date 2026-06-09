@@ -6,12 +6,12 @@ import org.graphiks.kadre.samples.simulation.*
 class SingleTouchScenario : TouchScenario(
     id = "touch-single",
     title = "Touch simple",
-    description = "Teste les événements tactiles avec un seul doigt. Appuyez, déplacez, relâchez.",
+    description = "Tests touch events with a single finger. Press, move, release.",
     priority = 100
 ) {
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Touchez l'écran pour voir les événements", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Touch the screen to see events", MessageSeverity.INFO))
     }
 
     override fun onWindowEvent(event: WindowEvent) {
@@ -23,7 +23,7 @@ class SingleTouchScenario : TouchScenario(
                 val pos = "${event.position.x.toInt()},${event.position.y.toInt()}"
                 onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                     isRunning = true,
-                    message = "👆 Touch: $action à ($pos)",
+                    message = "👆 Touch: $action at ($pos)",
                     data = mapOf(
                         "phase" to action,
                         "x" to event.position.x.toInt(),
@@ -37,7 +37,7 @@ class SingleTouchScenario : TouchScenario(
                 val pos = "${event.position.x.toInt()},${event.position.y.toInt()}"
                 onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                     isRunning = true,
-                    message = "👆 Touch: moved à ($pos)",
+                    message = "👆 Touch: moved at ($pos)",
                     data = mapOf(
                         "phase" to "moved",
                         "x" to event.position.x.toInt(),

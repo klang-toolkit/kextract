@@ -11,8 +11,8 @@ fun register() {
         ModifiersScenario(),
         object : KeyboardScenario(
             id = "keyboard-repeat",
-            title = "Répétition de touches",
-            description = "Teste la répétition automatique des touches maintenues enfoncées. Observez les événements repeat.",
+            title = "Key repeat",
+            description = "Tests automatic key repeat for held-down keys. Observe repeat events.",
             priority = 70
         ) {
             override fun onKeyEvent(event: WindowEvent.KeyInput) {
@@ -24,10 +24,10 @@ fun register() {
                     is LogicalKey.Dead -> "dead:${lk.accent}"
                     is LogicalKey.Unidentified -> "?"
                 }
-                val repeatInfo = if (ke.repeat) "🔄 (répétition)" else "🆕 (première pression)"
+                val repeatInfo = if (ke.repeat) "🔄 (repeat)" else "🆕 (first press)"
                 onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                     isRunning = true,
-                    message = "$repeatInfo Touche: $keyDesc",
+                    message = "$repeatInfo Key: $keyDesc",
                     data = mapOf("repeat" to ke.repeat, "key" to keyDesc)
                 )))
             }

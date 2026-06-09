@@ -34,7 +34,7 @@ class HelloApp : ApplicationHandler {
      * Creates the main window and verifies that the layer is indeed a CAMetalLayer.
      */
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
-        println("[HelloApp] canCreateSurfaces — création de la fenêtre")
+        println("[HelloApp] canCreateSurfaces — creating window")
 
         val window = eventLoop.createWindow(
             WindowAttributes(
@@ -51,12 +51,12 @@ class HelloApp : ApplicationHandler {
                 "[HelloApp] RawWindowHandle.AppKit — nsView=0x%x, nsWindow=0x%x"
                     .format(handle.nsView, handle.nsWindow)
             )
-            println("[HelloApp] Le contentView est layer-backed (CAMetalLayer prêt pour rendu)")
+            println("[HelloApp] The contentView is layer-backed (CAMetalLayer ready for rendering)")
         } else {
             println("[HelloApp] rawWindowHandle : $handle")
         }
 
-        println("[HelloApp] Fenêtre prête — windowId=${window.id.value}")
+        println("[HelloApp] Window ready — windowId=${window.id.value}")
     }
 
     /**
@@ -68,7 +68,7 @@ class HelloApp : ApplicationHandler {
         println("[HelloApp] windowEvent($windowId) → $event")
 
         if (event is WindowEvent.CloseRequested) {
-            println("[HelloApp] CloseRequested — fermeture de l'application")
+            println("[HelloApp] CloseRequested — closing application")
             eventLoop.exit()
         }
     }
@@ -82,7 +82,7 @@ class HelloApp : ApplicationHandler {
  * the `-XstartOnFirstThread` JVM argument (added in build.gradle.kts).
  */
 fun main() {
-    println("[hello-metal] Démarrage — Kadre M1 POC")
+    println("[hello-metal] Starting — Kadre M1 POC")
     EventLoop().runApp(HelloApp())
-    println("[hello-metal] Terminé")
+    println("[hello-metal] Finished")
 }

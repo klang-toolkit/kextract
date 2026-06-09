@@ -1,12 +1,12 @@
 /**
- * Module kadre-test — utilitaires de test pour Kadre.
+ * Module kadre-test — test utilities for Kadre.
  *
- * Fournit [ScriptedEventLoop] et le DSL `scriptedTest { ... }` permettant de
- * piloter un [org.graphiks.kadre.core.ApplicationHandler] avec une séquence
- * d'événements déterministe, sans backend natif (NSApp, Activity, etc.).
+ * Provides [ScriptedEventLoop] and the `scriptedTest { ... }` DSL driving an
+ * [org.graphiks.kadre.core.ApplicationHandler] with a deterministic event
+ * sequence, without a native backend (NSApp, Activity, etc.).
  *
- * Module NON publié : helper de test réutilisable en commonTest par les samples
- * et les modules backend. Mêmes cibles que kadre-core pour une portabilité totale.
+ * Unpublished module: reusable test helper in commonTest for samples and
+ * backend modules. Same targets as kadre-core for full portability.
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 

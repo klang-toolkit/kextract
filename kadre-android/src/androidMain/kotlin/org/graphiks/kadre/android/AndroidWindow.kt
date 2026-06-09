@@ -116,9 +116,9 @@ class AndroidWindow internal constructor(
         get() = RawWindowHandle.Android(
             surface = _surface
                 ?: throw IllegalStateException(
-                    "Surface Android non disponible : rawWindowHandle ne peut être " +
-                    "appelé qu'après surfaceCreated et avant surfaceDestroyed. " +
-                    "Attendez le callback ApplicationHandler.canCreateSurfaces."
+                    "Android Surface not available: rawWindowHandle can only be called " +
+                    "after surfaceCreated and before surfaceDestroyed. " +
+                    "Wait for the ApplicationHandler.canCreateSurfaces callback."
                 )
         )
 

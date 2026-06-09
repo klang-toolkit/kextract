@@ -144,7 +144,7 @@ fun ScenarioScreen(
 
             if (appHandler.currentScenarioState.isRunning) {
                 Text(
-                    text = "Scénario en cours d'exécution...",
+                    text = "Scenario running...",
                     style = MaterialTheme.typography.body1,
                     color = MaterialTheme.colors.primary
                 )
@@ -169,7 +169,7 @@ fun ScenarioScreen(
 
         if (appHandler.results.isNotEmpty()) {
             Text(
-                text = "Résultats:",
+                text = "Results:",
                 style = MaterialTheme.typography.h6
             )
 
@@ -190,11 +190,11 @@ fun ResultCard(result: ScenarioResult) {
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = if (result.success) "✅ Succès" else "❌ Échec",
+                text = if (result.success) "✅ Success" else "❌ Failure",
                 style = MaterialTheme.typography.subtitle2
             )
             Text(
-                text = "Événements: ${result.eventsReceived}/${result.eventsExpected}",
+                text = "Events: ${result.eventsReceived}/${result.eventsExpected}",
                 style = MaterialTheme.typography.caption
             )
             if (result.errors.isNotEmpty()) {
@@ -260,7 +260,7 @@ fun CliScenarioDisplay(state: CliDisplayState) {
                     state.currentScenario?.let { meta ->
                         if (state.totalCount > 1) {
                             Text(
-                                text = "Scénario ${state.currentIndex}/${state.totalCount}",
+                                text = "Scenario ${state.currentIndex}/${state.totalCount}",
                                 style = MaterialTheme.typography.subtitle1,
                                 color = MaterialTheme.colors.primary
                             )
@@ -285,7 +285,7 @@ fun CliScenarioDisplay(state: CliDisplayState) {
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "État: ${if (state.isRunning) "▶ En cours..." else "⏹ Terminé"}",
+                                    text = "Status: ${if (state.isRunning) "▶ Running..." else "⏹ Finished"}",
                                     style = MaterialTheme.typography.h6
                                 )
                                 Spacer(Modifier.height(8.dp))
@@ -295,11 +295,11 @@ fun CliScenarioDisplay(state: CliDisplayState) {
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        text = "Temps restant: ${state.remainingTime}s",
+                                        text = "Remaining time: ${state.remainingTime}s",
                                         style = MaterialTheme.typography.body1
                                     )
                                     Text(
-                                        text = "Événements: ${state.results.lastOrNull()?.second?.eventsReceived ?: 0}",
+                                        text = "Events: ${state.results.lastOrNull()?.second?.eventsReceived ?: 0}",
                                         style = MaterialTheme.typography.body1
                                     )
                                 }
@@ -325,7 +325,7 @@ fun CliScenarioDisplay(state: CliDisplayState) {
                             )
                         } else if (state.eventLog.isNotEmpty()) {
                             Text(
-                                text = "Événements:",
+                                text = "Events:",
                                 style = MaterialTheme.typography.h6,
                                 modifier = Modifier.padding(bottom = 4.dp)
                             )
@@ -356,7 +356,7 @@ fun CliScenarioDisplay(state: CliDisplayState) {
                         if (state.results.isNotEmpty()) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "Résultats:",
+                text = "Results:",
                                 style = MaterialTheme.typography.h6
                             )
                             state.results.forEach { (_, result) ->
@@ -374,14 +374,14 @@ fun CliScenarioDisplay(state: CliDisplayState) {
 private fun AllDoneSummary(results: List<Pair<String, ScenarioResult>>) {
     Column(modifier = Modifier.fillMaxSize().padding(top = 16.dp)) {
         Text(
-            text = "✅ Tous les scénarios sont terminés",
+            text = "✅ All scenarios completed",
             style = MaterialTheme.typography.h5,
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
         val successes = results.count { it.second.success }
         Text(
-            text = "$successes/${results.size} scénarios réussis",
+            text = "$successes/${results.size} scenarios passed",
             style = MaterialTheme.typography.subtitle1
         )
 
@@ -397,16 +397,16 @@ private fun AllDoneSummary(results: List<Pair<String, ScenarioResult>>) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(text = id, style = MaterialTheme.typography.subtitle2)
                     Text(
-                        text = if (result.success) "✅ Succès" else "❌ Échec",
+                text = if (result.success) "✅ Success" else "❌ Failure",
                         style = MaterialTheme.typography.caption
                     )
                     Text(
-                        text = "Événements: ${result.eventsReceived}/${result.eventsExpected}",
+                text = "Events: ${result.eventsReceived}/${result.eventsExpected}",
                         style = MaterialTheme.typography.caption
                     )
                     if (result.errors.isNotEmpty()) {
                         Text(
-                            text = "Erreurs: ${result.errors.joinToString(", ")}",
+                    text = "Errors: ${result.errors.joinToString(", ")}",
                             style = MaterialTheme.typography.caption,
                             color = MaterialTheme.colors.error
                         )

@@ -9,7 +9,7 @@ abstract class WindowScenario(
     override val description: String,
     override val priority: Int = 0
 ) : Scenario {
-    override val category: String = "Fenêtre"
+    override val category: String = "Window"
     override val requiredCapabilities: Set<Capability> = emptySet()
 
     protected var window: Window? = null
@@ -28,7 +28,7 @@ abstract class WindowScenario(
 
         onEvent(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
-            message = "Scénario fenêtre activé..."
+            message = "Window scenario enabled..."
         )))
     }
 

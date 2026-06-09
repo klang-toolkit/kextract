@@ -39,7 +39,7 @@ fun nativeCapture(path: String) = runBlocking {
     val outFile = File(path)
     outFile.parentFile?.mkdirs()
     writePng(frame, path)
-    println("[native-capture] Saved to ${outFile.absolutePath} (${outFile.length()} octets)")
+    println("[native-capture] Saved to ${outFile.absolutePath} (${outFile.length()} bytes)")
 
     session.close()
 }

@@ -5,15 +5,15 @@ import org.graphiks.kadre.samples.simulation.*
 
 class ClicksScenario : MouseScenario(
     id = "mouse-clicks",
-    title = "Clics de souris",
-    description = "Teste les clics simple, double et triple avec tous les boutons (gauche, droit, milieu).",
+    title = "Mouse clicks",
+    description = "Tests single, double and triple clicks with all buttons (left, right, middle).",
     priority = 100
 ) {
     private var clickCount = 0
 
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Cliquez n'importe où pour tester les événements de clic", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Click anywhere to test click events", MessageSeverity.INFO))
     }
 
     override fun onWindowEvent(event: WindowEvent) {
@@ -33,7 +33,7 @@ class ClicksScenario : MouseScenario(
                     clickCount++
                     onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                         isRunning = true,
-                        message = "🖱️ Clic #$clickCount — bouton: $buttonName à ($pos)",
+                        message = "🖱️ Click #$clickCount — button: $buttonName at ($pos)",
                         data = mapOf(
                             "click_count" to clickCount,
                             "button" to buttonName,
@@ -44,7 +44,7 @@ class ClicksScenario : MouseScenario(
                 } else {
                     onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                         isRunning = true,
-                        message = "🔄 Relâché: $buttonName",
+                        message = "🔄 Released: $buttonName",
                         data = mapOf("released" to buttonName)
                     )))
                 }

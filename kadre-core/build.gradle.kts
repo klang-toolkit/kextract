@@ -1,12 +1,12 @@
 /**
- * Module kadre-core — interfaces et types Kotlin pur, aucune référence native.
+ * Module kadre-core — pure Kotlin interfaces and types, no native references.
  *
- * Cibles KMP : jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js, wasmJs.
- * Ce module ne doit contenir aucun code dépendant d'une plateforme (pas de
- * java.*, platform.*, android.*) afin de rester 100 % commonMain.
+ * KMP targets: jvm, androidTarget, iosX64, iosArm64, iosSimulatorArm64, js, wasmJs.
+ * This module must not contain any platform-dependent code (no java.*,
+ * platform.*, android.*) to remain 100% commonMain.
  *
- * Les cibles web (js, wasmJs) ont été ajoutées dans le ticket #28 pour permettre
- * à la façade `kadre` d'exposer EventLoop aux cibles navigateur.
+ * Web targets (js, wasmJs) were added in ticket #28 to allow the `kadre`
+ * facade to expose EventLoop to browser targets.
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
@@ -21,19 +21,19 @@ android {
 }
 
 kotlin {
-    // Cibles web — en plus des cibles iOS/JVM/Android du plugin de convention
+    // Web targets — in addition to the iOS/JVM/Android targets from the convention plugin
     js { browser() }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
-    // Validation de compatibilité ABI — intégrée au plugin Kotlin,
-    // s'appuie sur le compilateur (pas d'ASM externe) → compatible JDK 25.
-    // Tâches : updateKotlinAbi (régénère api/) et checkKotlinAbi (câblée dans check).
+    // ABI compatibility validation — integrated into the Kotlin plugin,
+    // relies on the compiler (no external ASM) → compatible with JDK 25.
+    // Tasks: updateKotlinAbi (regenerates api/) and checkKotlinAbi (wired into check).
     @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
     abiValidation()
 
-    // Active les classes expect/actual (Beta) sans avertissement.
-    // Nécessaire pour EventLoop (expect class avec actual par plateforme).
+    // Enables expect/actual classes (Beta) without warning.
+    // Required for EventLoop (expect class with actual per platform).
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
     }

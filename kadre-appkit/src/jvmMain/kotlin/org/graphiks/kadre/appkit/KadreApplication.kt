@@ -183,8 +183,8 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
             // 2. Retrieve the event loop via sharedApp (NSApp as? KadreApplication).
             val kadreApp = sharedApp
                 ?: throw IllegalStateException(
-                    "KadreApplication.sharedApp est null dans sendEvent: — " +
-                        "initialize() doit être appelé avant NSApp.run()"
+                    "KadreApplication.sharedApp is null in sendEvent: — " +
+                        "initialize() must be called before NSApp.run()"
                 )
             val loop = kadreApp.eventLoop
                 ?: throw IllegalStateException(

@@ -5,9 +5,9 @@ import org.graphiks.kadre.samples.simulation.*
 
 class GameScenario : Scenario {
     override val id = "game-simple"
-    override val title = "Jeu simple (clavier + souris)"
-    override val description = "Démonstration d'un mini-jeu combinant clavier (ZQSD/ WASD pour déplacement) et souris (clic pour tir)."
-    override val category = "Intégration"
+    override val title = "Simple game (keyboard + mouse)"
+    override val description = "Demonstration of a mini-game combining keyboard (ZQSD/WASD for movement) and mouse (click to shoot)."
+    override val category = "Integration"
     override val requiredCapabilities: Set<Capability> = setOf(Capability.KEYBOARD, Capability.MOUSE)
     override val priority: Int = 100
 
@@ -47,7 +47,7 @@ class GameScenario : Scenario {
 
         onEvent(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
-            message = "🎮 ZQSD/WASD: déplacement | Clic gauche: tirer sur les cibles",
+            message = "🎮 ZQSD/WASD: move | Left click: shoot at targets",
             data = stateData()
         )))
     }
@@ -139,13 +139,13 @@ class GameScenario : Scenario {
 
             onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                 isRunning = true,
-                message = "🎯 Cible touchée! +10 points (Score: $score)",
+                            message = "🎯 Target hit! +10 points (Score: $score)",
                 data = stateData(mapOf("hit" to true))
             )))
         } else {
             onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
                 isRunning = true,
-                message = "💨 Tir raté... (Score: $score)",
+                message = "💨 Missed shot... (Score: $score)",
                 data = stateData(mapOf("hit" to false))
             )))
         }

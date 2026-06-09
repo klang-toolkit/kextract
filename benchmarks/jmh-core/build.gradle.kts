@@ -1,8 +1,8 @@
 /**
- * Module benchmarks/jmh-core — suite JMH sur les composants purs de Kadre.
+ * Module benchmarks/jmh-core — JMH benchmark suite for pure Kadre components.
  *
- * JVM-only. Mesure les composants commonMain critiques : tick physique du jeu,
- * rendu BitmapFont, IA, adaptateur d'entrée. Lancer : `./gradlew :benchmarks:jmh-core:jmh`.
+ * JVM-only. Benchmarks the critical commonMain components: game physics tick,
+ * BitmapFont renderer, AI, input adapter. Run: `./gradlew :benchmarks:jmh-core:jmh`.
  */
 plugins {
     kotlin("jvm")
@@ -17,8 +17,8 @@ dependencies {
 }
 
 jmh {
-    // Profil rapide (CI ~2-3 min) : itérations courtes. Pour des mesures fines en
-    // local, augmenter warmup / timeOnIteration / iterations.
+    // Fast profile (CI ~2-3 min): short iterations. For fine-grained local
+    // measurements, increase warmup / timeOnIteration / iterations.
     warmupIterations.set(2)
     iterations.set(3)
     warmup.set("1s")

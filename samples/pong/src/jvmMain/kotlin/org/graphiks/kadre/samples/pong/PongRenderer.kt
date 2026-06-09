@@ -106,19 +106,19 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
         ffi.LibraryLoader.load()
 
         val wgpuInstance = WGPU.createInstance(WGPUInstanceBackend.Metal)
-            ?: error("[PongRenderer] Échec création WGPU Instance")
+            ?: error("[PongRenderer] Failed to create WGPU Instance")
         wgpu = wgpuInstance
 
         val surf = createSurface(wgpuInstance, windowHandle)
-            ?: error("[PongRenderer] Impossible de créer la surface wgpu")
+            ?: error("[PongRenderer] Unable to create wgpu surface")
         surface = surf
 
         val adapter = wgpuInstance.requestAdapter(surf)
-            ?: error("[PongRenderer] Échec acquisition Adapter")
+            ?: error("[PongRenderer] Failed to acquire Adapter")
         surf.computeSurfaceCapabilities(adapter)
 
         val device = runBlocking { adapter.requestDevice() }
-            .getOrElse { err -> error("[PongRenderer] Échec acquisition Device : $err") }
+            .getOrElse { err -> error("[PongRenderer] Failed to acquire Device: $err") }
         gpuDevice = device
 
         val format = surf.supportedFormats
@@ -205,7 +205,7 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
         pipelineLayout.close()
         adapter.close()
 
-        println("[PongRenderer] Initialisé — format=$format alpha=$alphaMode")
+        println("[PongRenderer] Initialized — format=$format alpha=$alphaMode")
     }
 
     // -------------------------------------------------------------------------
@@ -223,7 +223,7 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
                 )
             }
             else -> {
-                println("[PongRenderer] Handle non supporté pour wgpu4k : $handle")
+                println("[PongRenderer] Unsupported handle for wgpu4k: $handle")
                 null
             }
         }
@@ -327,7 +327,7 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
         val drawCount = minOf(quads.size, uniformBuffers.size)
         if (quads.size > uniformBuffers.size) {
             System.err.println(
-                "[PongRenderer] Pool insuffisant : ${quads.size} quads > $MAX_QUADS_PER_FRAME"
+                "[PongRenderer] Insufficient pool: ${quads.size} quads > $MAX_QUADS_PER_FRAME"
             )
         }
 
@@ -382,6 +382,6 @@ class PongRenderer(windowHandle: RawWindowHandle) : PongRendererInterface {
         gpuDevice = null
         surface = null
         wgpu = null
-        println("[PongRenderer] Ressources libérées")
+        println("[PongRenderer] Resources released")
     }
 }

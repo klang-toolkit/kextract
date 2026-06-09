@@ -1,14 +1,14 @@
 /**
- * Module kadre-web-common — code partagé entre les cibles JS et wasmJs.
+ * Module kadre-web-common — code shared between JS and wasmJs targets.
  *
- * Cibles KMP : js + wasmJs, avec un source set intermédiaire webMain
- * qui dépend de commonMain et regroupe le code commun aux deux backends web.
+ * KMP targets: js + wasmJs, with an intermediate webMain source set
+ * that depends on commonMain and groups code common to both web backends.
  *
- * Contrainte : webMain ne doit contenir AUCUN import DOM.
- * Les imports kotlinx.browser et org.w3c.dom.* sont réservés à jsMain.
- * Les interops JS Wasm sont réservées à wasmJsMain.
+ * Constraint: webMain must NOT contain any DOM imports.
+ * kotlinx.browser and org.w3c.dom.* imports are reserved for jsMain.
+ * Wasm JS interops are reserved for wasmJsMain.
  *
- * setup initial du module.
+ * Initial module setup.
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
@@ -17,8 +17,8 @@ plugins {
 }
 
 kotlin {
-    // Le template de hiérarchie KMP 2.x crée automatiquement webMain et webTest
-    // quand js + wasmJs sont déclarés ensemble, sans dependsOn() explicites.
+    // The KMP 2.x hierarchy template automatically creates webMain and webTest
+    // when js + wasmJs are declared together, without explicit dependsOn().
     applyDefaultHierarchyTemplate()
 
     js { browser() }
@@ -26,11 +26,11 @@ kotlin {
     wasmJs { browser() }
 
     sourceSets {
-        // webMain et webTest sont créés automatiquement par applyDefaultHierarchyTemplate()
-        // quand js + wasmJs sont déclarés ensemble. On les récupère avec `by getting`.
+        // webMain and webTest are automatically created by applyDefaultHierarchyTemplate()
+        // when js + wasmJs are declared together. We retrieve them with `by getting`.
 
-        // Depuis le ticket #28, kadre-core expose les cibles js et wasmJs.
-        // On peut donc en dépendre depuis commonMain (hérité par webMain, jsMain, wasmJsMain).
+        // Since ticket #28, kadre-core exposes the js and wasmJs targets.
+        // We can therefore depend on it from commonMain (inherited by webMain, jsMain, wasmJsMain).
         commonMain {
             dependencies {
                 api(project(":kadre-core"))

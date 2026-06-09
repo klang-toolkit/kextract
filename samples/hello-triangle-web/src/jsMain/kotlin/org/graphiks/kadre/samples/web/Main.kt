@@ -117,7 +117,7 @@ class HelloTriangleWebApp : ApplicationHandler {
      * 5. Surface configuration + pipeline (reuses [TRIANGLE_WGSL])
      */
     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
-        println("[hello-triangle-web] canCreateSurfaces — initialisation wgpu4k Web")
+        println("[hello-triangle-web] canCreateSurfaces — initializing wgpu4k Web")
 
         val win = eventLoop.createWindow(
             WindowAttributes(
@@ -129,13 +129,13 @@ class HelloTriangleWebApp : ApplicationHandler {
 
         val handle = win.rawWindowHandle
         if (handle !is RawWindowHandle.Web) {
-            println("[hello-triangle-web] Plateforme non supportée : $handle")
+            println("[hello-triangle-web] Unsupported platform: $handle")
             return
         }
         val canvasId = handle.canvasElementId ?: "kadre-canvas"
         val domCanvas = document.getElementById(canvasId)
         if (domCanvas == null) {
-            println("[hello-triangle-web] Canvas '$canvasId' introuvable dans le DOM")
+            println("[hello-triangle-web] Canvas '$canvasId' not found in DOM")
             return
         }
         // `getCanvasSurface()` is defined by wgpu4k on its own external type
@@ -150,16 +150,16 @@ class HelloTriangleWebApp : ApplicationHandler {
 
         val canvasSurface = canvas.getCanvasSurface().let { CanvasSurface(it) }
         surface = canvasSurface
-        println("[hello-triangle-web] CanvasSurface créée")
+        println("[hello-triangle-web] CanvasSurface created")
 
         // Adapter + Device are suspend (navigator.gpu) → coroutine.
         scope.launch {
             val adapter = requestAdapter().getOrElse { err ->
-                println("[hello-triangle-web] Échec acquisition Adapter : $err")
+                println("[hello-triangle-web] Failed to acquire Adapter: $err")
                 return@launch
             }
             val gpuDevice = adapter.requestDevice().getOrElse { err ->
-                println("[hello-triangle-web] Échec acquisition Device : $err")
+                println("[hello-triangle-web] Failed to acquire Device: $err")
                 adapter.close()
                 return@launch
             }
@@ -182,7 +182,7 @@ class HelloTriangleWebApp : ApplicationHandler {
             )
             adapter.close()
             ready = true
-            println("[hello-triangle-web] Pipeline prêt — format=$format")
+            println("[hello-triangle-web] Pipeline ready — format=$format")
             win.requestRedraw()
         }
     }
@@ -256,7 +256,7 @@ class HelloTriangleWebApp : ApplicationHandler {
                 if (s != null && d != null) configureSurface(s, d)
             }
             is WindowEvent.CloseRequested -> {
-                println("[hello-triangle-web] CloseRequested — libération des ressources")
+                println("[hello-triangle-web] CloseRequested — releasing resources")
                 releaseResources()
                 eventLoop.exit()
             }
@@ -323,6 +323,6 @@ class HelloTriangleWebApp : ApplicationHandler {
  * Entry point of the hello-triangle-web sample (JS/IR).
  */
 fun main() {
-    println("[hello-triangle-web] Démarrage — Kadre + wgpu4k Web triangle RGB")
+    println("[hello-triangle-web] Starting — Kadre + wgpu4k Web triangle RGB")
     EventLoop().runApp(HelloTriangleWebApp())
 }

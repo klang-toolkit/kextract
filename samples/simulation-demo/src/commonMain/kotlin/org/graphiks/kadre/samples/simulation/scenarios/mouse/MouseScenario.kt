@@ -9,7 +9,7 @@ abstract class MouseScenario(
     override val description: String,
     override val priority: Int = 0
 ) : Scenario {
-    override val category: String = "Souris"
+    override val category: String = "Mouse"
     override val requiredCapabilities: Set<Capability> = setOf(Capability.MOUSE)
 
     protected var window: Window? = null
@@ -28,7 +28,7 @@ abstract class MouseScenario(
 
         onEvent(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
-            message = "Interagissez avec la souris..."
+            message = "Interact with the mouse..."
         )))
     }
 

@@ -20,7 +20,7 @@ actual class EventLoop actual constructor() {
      */
     actual fun runApp(handler: ApplicationHandler) {
         throw UnsupportedOperationException(
-            "EventLoop iOS x64 non implémenté — en attente d'un ticket dédié."
+            "EventLoop iOS x64 not implemented — pending a dedicated ticket."
         )
     }
 }

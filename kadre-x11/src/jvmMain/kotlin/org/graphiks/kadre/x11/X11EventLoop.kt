@@ -206,8 +206,7 @@ class X11EventLoop internal constructor(
     override fun createWindow(attributes: WindowAttributes): Window {
         val window = X11Window.create(displayPtr, screen, attributes)
             ?: error(
-                "X11Window.create() a retourné null — les bindings libX11.so.6 " +
-                "ne sont pas disponibles sur cette plateforme."
+                "X11Window.create() returned null — libX11.so.6 bindings are not available on this platform."
             )
         windows[window.id.value] = window
         return window
@@ -222,8 +221,7 @@ class X11EventLoop internal constructor(
     fun createWindow(attrs: X11WindowAttributes): Window {
         val window = X11Window.create(displayPtr, screen, attrs.core)
             ?: error(
-                "X11Window.create() a retourné null — les bindings libX11.so.6 " +
-                "ne sont pas disponibles sur cette plateforme."
+                "X11Window.create() returned null — libX11.so.6 bindings are not available on this platform."
             )
         windows[window.id.value] = window
         // Apply platform extension settings
@@ -956,8 +954,7 @@ private fun dispatchWaitUntil(
  */
 fun runApp(handler: ApplicationHandler) {
     check(x11Running.compareAndSet(false, true)) {
-        "X11EventLoop.runApp() ne peut être appelé qu'une seule fois par processus. " +
-        "Une boucle d'événements X11 est déjà active."
+        "X11EventLoop.runApp() can only be called once per process. An X11 event loop is already active."
     }
 
     try {

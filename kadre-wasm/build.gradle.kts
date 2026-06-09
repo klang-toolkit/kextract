@@ -1,12 +1,12 @@
 /**
- * Module kadre-wasm — façade kadre pour la cible Kotlin/Wasm (wasmJs).
+ * Module kadre-wasm — kadre facade for the Kotlin/Wasm (wasmJs) target.
  *
- * Expose l'API kadre aux consommateurs WebAssembly via la cible wasmJs.
- * Délègue vers kadre-web-common pour l'implémentation partagée web (JS + wasmJs).
+ * Exposes the kadre API to WebAssembly consumers via the wasmJs target.
+ * Delegates to kadre-web-common for the shared web implementation (JS + wasmJs).
  *
- * Cible KMP : wasmJs + browser uniquement.
+ * KMP target: wasmJs + browser only.
  *
- * GRA-32 : setup initial du module kadre-wasm.
+ * GRA-32: initial setup of the kadre-wasm module.
  */
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 

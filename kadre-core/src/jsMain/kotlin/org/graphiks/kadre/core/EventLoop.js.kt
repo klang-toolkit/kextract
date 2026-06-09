@@ -22,7 +22,7 @@ actual class EventLoop actual constructor() {
      */
     actual fun runApp(handler: ApplicationHandler) {
         throw UnsupportedOperationException(
-            "EventLoop JS non implémenté — en attente du ticket #24 (WebEventLoop)."
+            "EventLoop JS not implemented — pending ticket #24 (WebEventLoop)."
         )
     }
 }

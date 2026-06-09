@@ -221,7 +221,7 @@ internal class AppKitEventLoop(
  */
 fun runApp(handler: ApplicationHandler) {
     check(appKitRunning.compareAndSet(false, true)) {
-        "AppKitEventLoop.runApp() ne peut être appelé qu'une seule fois par processus. Une boucle d'événements AppKit est déjà active."
+        "AppKitEventLoop.runApp() can only be called once per process. An AppKit event loop is already active."
     }
 
     MainThreadCheck.require()

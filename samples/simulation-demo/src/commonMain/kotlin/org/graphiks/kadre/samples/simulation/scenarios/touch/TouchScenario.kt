@@ -27,7 +27,7 @@ abstract class TouchScenario(
 
         onEvent(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
-            message = "Scénario touch activé..."
+            message = "Touch scenario enabled..."
         )))
     }
 

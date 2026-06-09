@@ -18,7 +18,7 @@ package org.graphiks.kadre
  * ```kotlin
  * EventLoop().runApp(object : ApplicationHandler {
  *     override fun canCreateSurfaces(eventLoop: ActiveEventLoop) {
- *         val window = eventLoop.createWindow(WindowAttributes(title = "Mon App"))
+ *         val window = eventLoop.createWindow(WindowAttributes(title = "My App"))
  *     }
  *     override fun windowEvent(eventLoop: ActiveEventLoop, windowId: WindowId, event: WindowEvent) {
  *         if (event is WindowEvent.CloseRequested) eventLoop.exit()

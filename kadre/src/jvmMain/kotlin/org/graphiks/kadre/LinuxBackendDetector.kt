@@ -39,8 +39,8 @@ internal object LinuxBackendDetector {
                 "wayland" -> WAYLAND_CLASS
                 "x11" -> X11_CLASS
                 else -> error(
-                    "KADRE_LINUX_BACKEND invalide: '$override'. " +
-                    "Valeurs acceptées : 'x11', 'wayland'."
+                    "Invalid KADRE_LINUX_BACKEND: '$override'. " +
+                    "Accepted values: 'x11', 'wayland'."
                 )
             }
         }
@@ -60,9 +60,9 @@ internal object LinuxBackendDetector {
         }
 
         error(
-            "Aucun backend Linux disponible. " +
-            "Installez libX11-dev OU libwayland-dev et ajoutez kadre-x11 ou " +
-            "kadre-wayland au classpath. " +
+            "No Linux backend available. " +
+            "Install libX11-dev OR libwayland-dev and add kadre-x11 or " +
+            "kadre-wayland to the classpath. " +
             "[WAYLAND_DISPLAY=$waylandDisplay, DISPLAY=$display, XDG_SESSION_TYPE=$xdgSession]"
         )
     }

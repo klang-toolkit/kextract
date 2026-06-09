@@ -74,13 +74,13 @@ fun captureTriangle(): CaptureImage {
     val windowPtr = Helper.nativeWindowFromSurface(surface)
 
     val instance = WGPU.createInstance(WGPUInstanceBackend.Vulkan)
-        ?: error("Échec création WGPU Instance (Vulkan)")
+        ?: error("Failed to create WGPU Instance (Vulkan)")
     val wgpuSurface = instance.getSurfaceFromAndroidWindow(Pointer(windowPtr))
-        ?: run { instance.close(); error("Échec création Surface depuis ANativeWindow") }
+        ?: run { instance.close(); error("Failed to create Surface from ANativeWindow") }
     val adapter = instance.requestAdapter(wgpuSurface)
-        ?: run { instance.close(); error("Échec acquisition Adapter") }
+        ?: run { instance.close(); error("Failed to acquire Adapter") }
     val device = runBlocking { adapter.requestDevice() }
-        .getOrElse { error("Échec Device : $it") }
+        .getOrElse { error("Failed Device: $it") }
 
     val texture = device.createTexture(
         TextureDescriptor(
@@ -139,7 +139,7 @@ fun captureTriangle(): CaptureImage {
     device.queue.submit(listOf(encoder.finish()))
 
     runBlocking { readback.mapAsync(setOf(GPUMapMode.Read), 0u, bufferSize) }
-        .getOrElse { error("Échec mapAsync : $it") }
+        .getOrElse { error("Failed mapAsync: $it") }
     val padded = ByteArray(bufferSize.toInt())
     readback.mapInto(padded, 0uL)
     readback.unmap()

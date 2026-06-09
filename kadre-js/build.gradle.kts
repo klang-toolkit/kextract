@@ -1,12 +1,12 @@
 /**
- * Module kadre-js — façade kadre pour la cible Kotlin/JS (IR).
+ * Module kadre-js — kadre facade for the Kotlin/JS (IR) target.
  *
- * Expose l'API kadre aux consommateurs JavaScript/TypeScript via la cible js.
- * Délègue vers kadre-web-common pour l'implémentation partagée web (JS + wasmJs).
+ * Exposes the kadre API to JavaScript/TypeScript consumers via the js target.
+ * Delegates to kadre-web-common for the shared web implementation (JS + wasmJs).
  *
- * Cible KMP : js + browser uniquement.
+ * KMP target: js + browser only.
  *
- * GRA-30 : setup initial du module kadre-js.
+ * GRA-30: initial setup of the kadre-js module.
  */
 plugins {
     id("org.jetbrains.kotlin.multiplatform")

@@ -6,7 +6,7 @@ import org.graphiks.kadre.samples.simulation.*
 class ImeScenario : KeyboardScenario(
     id = "keyboard-ime",
     title = "Saisie internationale (IME)",
-    description = "Teste la saisie avec Input Method Editor pour les caractères accentués, le CJK et autres systèmes d'écriture.",
+    description = "Tests input with Input Method Editor for accented characters, CJK and other writing systems.",
     priority = 50
 ) {
     override val requiredCapabilities: Set<Capability> = setOf(Capability.KEYBOARD, Capability.IME)
@@ -15,7 +15,7 @@ class ImeScenario : KeyboardScenario(
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
         inputBuffer.clear()
-        onEvent(ScenarioEvent.Message("IME activé - tapez du texte avec des caractères accentués (é, ü, ñ, ç...)", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("IME enabled - type text with accented characters (é, ü, ñ, ç...)", MessageSeverity.INFO))
     }
 
     override fun onKeyEvent(event: WindowEvent.KeyInput) {

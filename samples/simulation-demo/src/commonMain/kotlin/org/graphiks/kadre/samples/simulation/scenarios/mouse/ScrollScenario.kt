@@ -5,8 +5,8 @@ import org.graphiks.kadre.samples.simulation.*
 
 class ScrollScenario : MouseScenario(
     id = "mouse-scroll",
-    title = "Défilement (scroll)",
-    description = "Teste les événements de défilement horizontal et vertical avec la molette.",
+    title = "Scrolling",
+    description = "Tests horizontal and vertical scroll events with the mouse wheel.",
     priority = 80
 ) {
     private var scrollY = 0.0
@@ -14,7 +14,7 @@ class ScrollScenario : MouseScenario(
 
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Utilisez la molette de la souris pour voir les événements de scroll", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Use the mouse wheel to see scroll events", MessageSeverity.INFO))
     }
 
     override fun onWindowEvent(event: WindowEvent) {

@@ -42,7 +42,7 @@ function hasKeyLog(logs, keyCode, state) {
   );
 }
 
-test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ page }, testInfo) => {
+test('Pong Web — scripted scenario: animation + keyboard + video', async ({ page }, testInfo) => {
   fs.mkdirSync(RESULTS, { recursive: true });
 
   const logs = [];
@@ -56,12 +56,12 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   await page.goto('/');
   await expect(page.locator('#kadre-canvas')).toBeVisible();
   await expect
-    .poll(() => logs.some((l) => l.includes('Pipeline prêt')), { timeout: 60_000 })
+    .poll(() => logs.some((l) => l.includes('Pipeline ready')), { timeout: 60_000 })
     .toBe(true);
 
   // WebGPU acquisition must not have failed.
-  const acquisitionFailure = logs.find((l) => l.includes('Échec acquisition'));
-  expect(acquisitionFailure, `Échec WebGPU : ${acquisitionFailure}`).toBeUndefined();
+  const acquisitionFailure = logs.find((l) => l.includes('Acquisition failed'));
+  expect(acquisitionFailure, `WebGPU acquisition failure: ${acquisitionFailure}`).toBeUndefined();
 
   // PongAppWeb forces `setControlFlow(ControlFlow.Poll)` in canCreateSurfaces
   // → the aboutToWait loop runs continuously and animates the game (ball + AI)
@@ -86,8 +86,8 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   console.log(`[scenario] diff animation (2.5s) = ${(animationDiff * 100).toFixed(2)}%`);
   expect(
     animationDiff,
-    `Animation absente : frame1 et frame2 (2.5s d'écart) sont quasi identiques (diff ${(animationDiff * 100).toFixed(2)}%). ` +
-      `Attendu : > 0.3% (balle + IA en mouvement).`,
+    `No animation detected: frame1 and frame2 (2.5s apart) are nearly identical (diff ${(animationDiff * 100).toFixed(2)}%). ` +
+      `Expected: > 0.3% (ball + AI moving).`,
   ).toBeGreaterThan(0.003);
 
   // -------------------------------------------------------------------------
@@ -111,9 +111,9 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   const downReleased = hasKeyLog(logs, 'ArrowDown', 'Released');
   expect(
     downPressed,
-    `Event ArrowDown Pressed jamais reçu par PongAppWeb. Logs : ${logs.filter((l) => l.includes('key')).join(' | ')}`,
+    `Event ArrowDown Pressed never received by PongAppWeb. Logs: ${logs.filter((l) => l.includes('key')).join(' | ')}`,
   ).toBe(true);
-  expect(downReleased, 'Event ArrowDown Released jamais reçu').toBe(true);
+  expect(downReleased, 'Event ArrowDown Released never received').toBe(true);
 
   const frame3 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame3-after-arrowdown.png'), frame3);
@@ -125,7 +125,7 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   await page.waitForTimeout(300);
 
   const upPressed = hasKeyLog(logs, 'ArrowUp', 'Pressed');
-  expect(upPressed, 'Event ArrowUp Pressed jamais reçu').toBe(true);
+  expect(upPressed, 'Event ArrowUp Pressed never received').toBe(true);
 
   const frame4 = await page.locator('#kadre-canvas').screenshot();
   fs.writeFileSync(path.join(RESULTS, 'frame4-after-arrowup.png'), frame4);
@@ -141,28 +141,28 @@ test('Pong Web — scénario scripté : animation + clavier + vidéo', async ({ 
   // animation gives 0.3–1.0% over this window, we keep a safety margin.
   expect(
     inputDiff,
-    `Inputs clavier sans effet visible : frame3 (post-ArrowDown) ≈ frame4 (post-ArrowUp), diff ${(inputDiff * 100).toFixed(2)}%`,
+    `Keyboard inputs had no visible effect: frame3 (post-ArrowDown) ≈ frame4 (post-ArrowUp), diff ${(inputDiff * 100).toFixed(2)}%`,
   ).toBeGreaterThan(0.0015);
 
   // -------------------------------------------------------------------------
   // 5. No JS error during the entire scenario
   // -------------------------------------------------------------------------
-  expect(errors, `Erreurs JS pendant le scénario : ${errors.join(' | ')}`).toEqual([]);
+  expect(errors, `JS errors during scenario: ${errors.join(' | ')}`).toEqual([]);
 
   // -------------------------------------------------------------------------
   // 6. Markdown summary for the GitHub Actions Job Summary
   // -------------------------------------------------------------------------
   const keyLogs = logs.filter((l) => l.includes('[pong-web] key')).length;
   const summary = [
-    '### Pong E2E — scénario scripté',
+    '### Pong E2E — scripted scenario',
     '',
-    `- ✅ Pipeline wgpu4k Web initialisé`,
-    `- ✅ Animation effective (diff t=0 vs t=2.5s : **${(animationDiff * 100).toFixed(2)}%**)`,
-    `- ✅ Inputs clavier remontés au handler (${keyLogs} events \`[pong-web] key …\` reçus)`,
-    `- ✅ Effet visible (diff frame3 vs frame4 : **${(inputDiff * 100).toFixed(2)}%**)`,
-    `- ✅ Aucune erreur JS`,
+    `- ✅ wgpu4k Web pipeline initialized`,
+    `- ✅ Effective animation (diff t=0 vs t=2.5s: **${(animationDiff * 100).toFixed(2)}%**)`,
+    `- ✅ Keyboard inputs routed to handler (${keyLogs} \`[pong-web] key …\` events received)`,
+    `- ✅ Visible effect (diff frame3 vs frame4: **${(inputDiff * 100).toFixed(2)}%**)`,
+    `- ✅ No JS errors`,
     '',
-    '_Frames + vidéo .webm + trace Playwright dans les artefacts du run._',
+    '_Frames + .webm video + Playwright trace in run artifacts._',
     '',
   ].join('\n');
   fs.writeFileSync(path.join(RESULTS, 'scenario-summary.md'), summary);

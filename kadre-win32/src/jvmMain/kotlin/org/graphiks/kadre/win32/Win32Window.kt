@@ -1228,7 +1228,7 @@ class Win32Window private constructor(
                     // Reset to allow a future attempt
                     classRegistered.set(false)
                     wndProcStub = null
-                    error("RegisterClassExW a échoué (atom = 0)")
+                    error("RegisterClassExW failed (atom = 0)")
                 }
             }
         }

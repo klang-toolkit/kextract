@@ -6,12 +6,12 @@ import org.graphiks.kadre.samples.simulation.*
 class BasicKeyboard : KeyboardScenario(
     id = "keyboard-basic",
     title = "Saisie basique",
-    description = "Teste la saisie de caractères simples : lettres, chiffres et symboles. Observez les événements key press/release.",
+    description = "Tests simple character input: letters, digits and symbols. Observe key press/release events.",
     priority = 100
 ) {
     override fun start(window: Window, eventLoop: ActiveEventLoop, onEvent: (ScenarioEvent) -> Unit) {
         super.start(window, eventLoop, onEvent)
-        onEvent(ScenarioEvent.Message("Saisie basique activée - appuyez sur des touches pour voir les événements", MessageSeverity.INFO))
+        onEvent(ScenarioEvent.Message("Basic input enabled - press keys to see events", MessageSeverity.INFO))
     }
 
     override fun onKeyEvent(event: WindowEvent.KeyInput) {
@@ -32,7 +32,7 @@ class BasicKeyboard : KeyboardScenario(
 
         onEvent?.invoke(ScenarioEvent.StateChanged(ScenarioState(
             isRunning = true,
-            message = "$action Touche: $keyDesc (phys: $physDesc)",
+            message = "$action Key: $keyDesc (phys: $physDesc)",
             data = mapOf(
                 "pressed" to ke.isPressed,
                 "logical" to keyDesc,
