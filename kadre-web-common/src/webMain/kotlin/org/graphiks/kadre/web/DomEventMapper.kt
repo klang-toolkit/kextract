@@ -404,6 +404,7 @@ internal fun WebWindowEvent.toWindowEvent(): WindowEvent = when (this) {
     )
     is WebWindowEvent.MouseWheel -> WindowEvent.MouseWheel(null, deltaX, deltaY, TouchPhase.Moved)
     is WebWindowEvent.Focused -> WindowEvent.Focused(gained)
+    is WebWindowEvent.WebOccluded -> WindowEvent.Occluded(occluded)
     is WebWindowEvent.Touch -> {
         val location = PhysicalPosition(x, y)
         val fingerId = FingerId(id)
@@ -421,6 +422,38 @@ internal fun WebWindowEvent.toWindowEvent(): WindowEvent = when (this) {
         KeyboardModifierState(logical = modifiers.toKeyboardModifiers()),
     )
     is WebWindowEvent.Ime -> WindowEvent.Ime(ime.toCoreImeEvent())
+    is WebWindowEvent.DragEntered -> WindowEvent.DragEntered(
+        position = PhysicalPosition(x, y),
+        paths = files,
+    )
+    is WebWindowEvent.DragMoved -> WindowEvent.DragMoved(
+        position = PhysicalPosition(x, y),
+    )
+    is WebWindowEvent.DragDropped -> WindowEvent.DragDropped(
+        position = PhysicalPosition(x, y),
+        paths = files,
+    )
+    WebWindowEvent.DragLeft -> WindowEvent.DragLeft
+    is WebWindowEvent.WebGestureStart -> WindowEvent.PinchGesture(
+        deviceId = null,
+        delta = scale.toDouble(),
+        phase = TouchPhase.Started,
+    )
+    is WebWindowEvent.WebGestureChange -> WindowEvent.PinchGesture(
+        deviceId = null,
+        delta = scale.toDouble(),
+        phase = TouchPhase.Moved,
+    )
+    is WebWindowEvent.WebGestureEnd -> WindowEvent.PinchGesture(
+        deviceId = null,
+        delta = scale.toDouble(),
+        phase = TouchPhase.Ended,
+    )
+    is WebWindowEvent.WebPinchZoom -> WindowEvent.PinchGesture(
+        deviceId = null,
+        delta = delta.toDouble(),
+        phase = TouchPhase.Moved,
+    )
 }
 
 private fun WebImeEvent.toCoreImeEvent(): WindowEvent.Ime.ImeEvent = when (this) {

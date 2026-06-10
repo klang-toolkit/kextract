@@ -39,8 +39,10 @@ import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.OwnedDisplayHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.StartCause
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
@@ -178,6 +180,15 @@ open class WebEventLoop : ActiveEventLoop {
      */
     override fun createProxy(): EventLoopProxy = object : EventLoopProxy {
         override fun wakeUp() = scheduleWakeUp()
+    }
+
+    // ── Task 14: ownedDisplayHandle ──────────────────────────────────────────
+
+    /**
+     * Returns an [OwnedDisplayHandle] wrapping [RawDisplayHandle.Web].
+     */
+    override fun ownedDisplayHandle(): OwnedDisplayHandle? {
+        return OwnedDisplayHandle(RawDisplayHandle.Web)
     }
 
     // ── R2: monitor enumeration ───────────────────────────────────────────────

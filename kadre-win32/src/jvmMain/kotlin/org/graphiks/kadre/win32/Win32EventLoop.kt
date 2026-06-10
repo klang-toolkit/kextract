@@ -25,6 +25,8 @@ import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.OwnedDisplayHandle
+import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.StartCause
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
@@ -76,6 +78,19 @@ internal class Win32EventLoop : ActiveEventLoop {
 
     /** Live windows: windowId (HWND address) → Win32Window. */
     internal val windows = ConcurrentHashMap<Long, Win32Window>()
+
+    /**
+     * Cached HINSTANCE for the current process, obtained from GetModuleHandleW(NULL).
+     * Zero if the binding is unavailable (non-Windows).
+     */
+    private val _hinstance: Long by lazy {
+        try {
+            val handle = getModuleHandleW ?: return@lazy 0L
+            (handle.invokeExact(MemorySegment.NULL) as MemorySegment).address()
+        } catch (_: Throwable) {
+            0L
+        }
+    }
 
     @Volatile
     private var _isExiting = false
@@ -154,6 +169,14 @@ internal class Win32EventLoop : ActiveEventLoop {
      * from a secondary thread.
      */
     override fun createProxy(): EventLoopProxy = Win32EventLoopProxy.create()
+
+    // ── Task 23: ownedDisplayHandle ───────────────────────────────────────────
+
+    override fun ownedDisplayHandle(): OwnedDisplayHandle? {
+        val hinstance = _hinstance
+        if (hinstance == 0L) return null
+        return OwnedDisplayHandle(RawDisplayHandle.Win32(hinstance = hinstance))
+    }
 
     // ── R2: monitor enumeration ───────────────────────────────────────────────
 

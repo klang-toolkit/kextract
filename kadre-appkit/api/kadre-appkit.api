@@ -156,6 +156,8 @@ public final class org/graphiks/kadre/appkit/KadreWindowDelegate {
 	public final fun getPtr ()Ljava/lang/foreign/MemorySegment;
 	public final fun onWindowDidBecomeKey ()V
 	public final fun onWindowDidChangeBackingProperties ()V
+	public final fun onWindowDidDeminiaturize ()V
+	public final fun onWindowDidMiniaturize ()V
 	public final fun onWindowDidMove ()V
 	public final fun onWindowDidResignKey ()V
 	public final fun onWindowDidResize ()V
@@ -167,6 +169,8 @@ public final class org/graphiks/kadre/appkit/KadreWindowDelegate$Callbacks {
 	public static final field INSTANCE Lorg/graphiks/kadre/appkit/KadreWindowDelegate$Callbacks;
 	public static final fun windowDidBecomeKey (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
 	public static final fun windowDidChangeBackingProperties (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
+	public static final fun windowDidDeminiaturize (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
+	public static final fun windowDidMiniaturize (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
 	public static final fun windowDidMove (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
 	public static final fun windowDidResignKey (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V
 	public static final fun windowDidResize (Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;Ljava/lang/foreign/MemorySegment;)V

@@ -26,6 +26,7 @@ import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.Insets
 import org.graphiks.kadre.core.ImePurpose
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.MonitorHandle
@@ -160,6 +161,17 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         textInputViewPtr = imeViewPtr
         contentViewPtr = imeViewPtr
         ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setContentView:"), imeViewPtr)
+
+        // 4b. Register for dragged types so NSDraggingDestination callbacks fire.
+        //     Without this, AppKit skips the view for drag operations entirely.
+        val filenamesType = ObjCRuntime.newNSString(arena, "NSFilenamesPboardType")
+        val array = ObjCRuntime.msgSend(
+            ValueLayout.ADDRESS,
+            ObjCRuntime.getClass("NSArray"),
+            ObjCRuntime.sel("arrayWithObject:"),
+            filenamesType,
+        ) as MemorySegment
+        ObjCRuntime.msgSend(null, imeViewPtr, ObjCRuntime.sel("registerForDraggedTypes:"), array)
 
         // 5. Correct AppKit Metal pattern: layer = CAMetalLayer() THEN wantsLayer = YES
         //    Apple docs: "If you want to use a custom layer, you must call setLayer: BEFORE
@@ -341,6 +353,39 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             val w = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 2)
             val h = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
             return PhysicalSize((w * scale).toInt(), (h * scale).toInt())
+        }
+
+    /**
+     * Safe area insets in physical pixels.
+     *
+     * Computed from the difference between the window frame and the
+     * content layout rect (area not covered by title bar / toolbars).
+     * On modern macOS with rounded corners, all four sides may contribute.
+     */
+    override val safeArea: Insets<Int>
+        get() {
+            try {
+                val nsWindow = NSWindow(nsWindowPtr)
+                val scale = nsWindow.backingScaleFactor()
+                val frame = nsWindow.frame()
+                val contentLayout = nsWindow.contentLayoutRect()
+
+                val fw = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 2)
+                val fh = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
+                val cx = contentLayout.getAtIndex(ValueLayout.JAVA_DOUBLE, 0)
+                val cy = contentLayout.getAtIndex(ValueLayout.JAVA_DOUBLE, 1)
+                val cw = contentLayout.getAtIndex(ValueLayout.JAVA_DOUBLE, 2)
+                val ch = contentLayout.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
+
+                val top = ((fh - (cy + ch)) * scale).toInt().coerceAtLeast(0)
+                val bottom = (cy * scale).toInt().coerceAtLeast(0)
+                val left = (cx * scale).toInt().coerceAtLeast(0)
+                val right = ((fw - (cx + cw)) * scale).toInt().coerceAtLeast(0)
+
+                return Insets(top = top, bottom = bottom, left = left, right = right)
+            } catch (_: Throwable) {
+                return Insets(0, 0, 0, 0)
+            }
         }
 
     override val scaleFactor: Double

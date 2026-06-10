@@ -26,6 +26,8 @@ import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.KeyCode
+import org.graphiks.kadre.core.OwnedDisplayHandle
+import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.KeyEvent
 import org.graphiks.kadre.core.KeyPlatform
 import org.graphiks.kadre.core.KeyState
@@ -55,6 +57,7 @@ import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
 // ── XEvent constants ──────────────────────────────────────────────────────────
@@ -180,6 +183,21 @@ class X11EventLoop internal constructor(
     internal val windows = ConcurrentHashMap<Long, X11Window>()
     internal val keyboardModifierTracker = X11KeyboardModifierTracker()
 
+    /**
+     * Xdnd drag source window per target window.
+     * Cleared when drag leaves or finishes.
+     */
+    internal val dragSourceWindows = ConcurrentHashMap<Long, Long>()
+
+    /**
+     * Whether an Xdnd drop data request (XConvertSelection) is pending.
+     * Key: target window XID, Value: drop position.
+     */
+    internal val pendingDropRequests = ConcurrentHashMap<Long, PhysicalPosition<Double>>()
+
+    /** Queue of pending Xdnd drops awaiting selection data. */
+    internal val pendingXdndDrops = ConcurrentLinkedQueue<PendingXdndDrop>()
+
     @Volatile
     private var _isExiting = false
 
@@ -242,6 +260,13 @@ class X11EventLoop internal constructor(
      */
     override fun createProxy(): EventLoopProxy =
         X11EventLoopProxy(this, displayPtr)
+
+    /**
+     * Returns a persistent X11 display handle usable independently from a window.
+     */
+    override fun ownedDisplayHandle(): OwnedDisplayHandle? {
+        return OwnedDisplayHandle(RawDisplayHandle.Xlib(display = displayPtr))
+    }
 
     // ── R2: monitor enumeration ───────────────────────────────────────────────
 
@@ -362,6 +387,27 @@ class X11EventLoop internal constructor(
         } catch (_: Throwable) { null }
     }
 }
+
+/**
+ * Pending Xdnd drop state used when waiting for SelectionNotify.
+ */
+internal data class PendingXdndDrop(
+    val targetWindow: Long,
+    val sourceWindow: Long,
+    val position: PhysicalPosition<Double>,
+)
+
+/**
+ * Xdnd atoms interned at event loop start.
+ */
+internal data class XdndAtoms(
+    val xdndEnter: Long,
+    val xdndPosition: Long,
+    val xdndLeave: Long,
+    val xdndDrop: Long,
+    val xdndSelection: Long,
+    val textUriList: Long,
+)
 
 // ── Dispatch X11 events ───────────────────────────────────────────────────────
 
@@ -629,6 +675,7 @@ private fun dispatchEvent(
     loop: X11EventLoop,
     handler: ApplicationHandler,
     wmDeleteWindow: Long,
+    xdnd: XdndAtoms?,
 ) {
     val eventType = eventBuf.get(ValueLayout.JAVA_INT, XEVENT_TYPE_OFFSET)
     val windowXid = x11EventWindowXid(eventBuf, eventType)
@@ -705,6 +752,15 @@ private fun dispatchEvent(
         ButtonPress -> {
             val button = eventBuf.get(ValueLayout.JAVA_INT, XBUTTON_BUTTON_OFFSET)
             val position = xButtonPosition(eventBuf)
+            if (button == X11_BUTTON4 || button == X11_BUTTON5) {
+                val state = eventBuf.get(ValueLayout.JAVA_INT, XKEY_STATE_OFFSET)
+                if (state and X11_CONTROL_MASK != 0) {
+                    val delta = if (button == X11_BUTTON4) 1.0 else -1.0
+                    handler.windowEvent(loop, windowId,
+                        WindowEvent.PinchGesture(null, delta, TouchPhase.Moved))
+                    return
+                }
+            }
             when (button) {
                 X11_BUTTON1 -> handler.windowEvent(loop, windowId,
                     pointerButton(MouseButton.Left, KeyState.Pressed, position))
@@ -784,17 +840,207 @@ private fun dispatchEvent(
         DestroyNotify -> {
             handler.windowEvent(loop, windowId, WindowEvent.Destroyed)
             loop.windows.remove(windowXid)
+            loop.dragSourceWindows.remove(windowXid)
+            loop.pendingXdndDrops.removeAll { it.targetWindow == windowXid }
         }
 
-        // ── ClientMessage (WM close + wakeUp) ─────────────────────────────────
+        // ── ClientMessage (WM close + wakeUp + Xdnd) ─────────────────────────
         ClientMessage -> {
+            val messageType = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_MESSAGE_TYPE_OFFSET)
             val data0 = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L0_OFFSET)
-            if (data0 == wmDeleteWindow) {
+            if (messageType == wmDeleteWindow || data0 == wmDeleteWindow) {
                 handler.windowEvent(loop, windowId, WindowEvent.CloseRequested)
+            } else if (xdnd != null) {
+                handleXdndClientMessage(eventBuf, loop, handler, windowXid, windowId, xdnd)
             }
-            // The wakeUp ClientMessages (KADRE_WAKEUP_TYPE) are simply ignored —
-            // their only role is to unblock XNextEvent.
         }
+
+        // ── SelectionNotify (Xdnd drop data) ─────────────────────────────────
+        SelectionNotify -> {
+            if (xdnd != null) {
+                handleSelectionNotify(eventBuf, loop, handler, windowXid, windowId, xdnd)
+            }
+        }
+    }
+}
+
+private fun handleXdndClientMessage(
+    eventBuf: MemorySegment,
+    loop: X11EventLoop,
+    handler: ApplicationHandler,
+    windowXid: Long,
+    windowId: WindowId,
+    xdnd: XdndAtoms,
+) {
+    val messageType = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_MESSAGE_TYPE_OFFSET)
+    val display = MemorySegment.ofAddress(loop.displayPtr)
+
+    when (messageType) {
+        xdnd.xdndEnter -> {
+            val sourceWindow = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L0_OFFSET)
+            val flags = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L1_OFFSET)
+            loop.dragSourceWindows[windowXid] = sourceWindow
+            val types = mutableListOf<Long>()
+            val hasMoreTypes = (flags and 1L) != 0L
+            if (hasMoreTypes) {
+                readXdndTypeList(display, sourceWindow, types)
+            } else {
+                val t0 = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L2_OFFSET)
+                val t1 = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L3_OFFSET)
+                val t2 = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L4_OFFSET)
+                if (t0 != 0L) types.add(t0)
+                if (t1 != 0L) types.add(t1)
+                if (t2 != 0L) types.add(t2)
+            }
+            loop.pendingDropRequests.remove(windowXid)
+            handler.windowEvent(loop, windowId, WindowEvent.DragEntered(
+                position = PhysicalPosition(0.0, 0.0),
+                paths = if (types.contains(xdnd.textUriList)) listOf("text/uri-list") else emptyList(),
+            ))
+        }
+
+        xdnd.xdndPosition -> {
+            val sourceWindow = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L0_OFFSET)
+            val packedPos = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L2_OFFSET)
+            val rootX = (packedPos shr 16).toInt()
+            val rootY = (packedPos and 0xFFFFL).toInt()
+            val localPos = rootToWindowPosition(display, windowXid, rootX, rootY, loop.screen)
+            loop.dragSourceWindows[windowXid] = sourceWindow
+            val displayMs = MemorySegment.ofAddress(loop.displayPtr)
+            X11DragAndDrop.sendXdndStatus(displayMs, windowXid, sourceWindow, accept = true, rootX, rootY)
+            handler.windowEvent(loop, windowId, WindowEvent.DragMoved(localPos))
+        }
+
+        xdnd.xdndLeave -> {
+            val sourceWindow = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L0_OFFSET)
+            loop.dragSourceWindows.remove(windowXid)
+            loop.pendingDropRequests.remove(windowXid)
+            handler.windowEvent(loop, windowId, WindowEvent.DragLeft)
+        }
+
+        xdnd.xdndDrop -> {
+            val sourceWindow = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L0_OFFSET)
+            val packedPos = eventBuf.get(ValueLayout.JAVA_LONG, XCLIENT_DATA_L2_OFFSET)
+            val rootX = (packedPos shr 16).toInt()
+            val rootY = (packedPos and 0xFFFFL).toInt()
+            val localPos = rootToWindowPosition(display, windowXid, rootX, rootY, loop.screen)
+            val displayMs = MemorySegment.ofAddress(loop.displayPtr)
+            val ok = X11DragAndDrop.requestDropData(
+                display = displayMs,
+                targetWindow = windowXid,
+                xdndSelectionAtom = xdnd.xdndSelection,
+                targetAtom = xdnd.textUriList,
+                time = 0L,
+            )
+            if (ok) {
+                loop.pendingXdndDrops.add(PendingXdndDrop(
+                    targetWindow = windowXid,
+                    sourceWindow = sourceWindow,
+                    position = localPos,
+                ))
+            } else {
+                loop.dragSourceWindows.remove(windowXid)
+                handler.windowEvent(loop, windowId, WindowEvent.DragDropped(localPos, emptyList()))
+            }
+        }
+    }
+}
+
+private fun handleSelectionNotify(
+    eventBuf: MemorySegment,
+    loop: X11EventLoop,
+    handler: ApplicationHandler,
+    windowXid: Long,
+    windowId: WindowId,
+    xdnd: XdndAtoms,
+) {
+    val selection = eventBuf.get(ValueLayout.JAVA_LONG, XSELECTION_SELECTION_OFFSET)
+    if (selection != xdnd.xdndSelection) return
+    val drop = loop.pendingXdndDrops.poll() ?: return
+    val display = MemorySegment.ofAddress(loop.displayPtr)
+    val property = eventBuf.get(ValueLayout.JAVA_LONG, XSELECTION_PROPERTY_OFFSET)
+    val paths: List<String>
+    if (property != 0L) {
+        val data = X11DragAndDrop.readSelectionProperty(
+            getProperty = xGetWindowProperty,
+            free = xFree,
+            display = display,
+            window = windowXid,
+            property = property,
+        )
+        paths = if (data != null) X11DragAndDrop.parseUriList(data) else emptyList()
+    } else {
+        paths = emptyList()
+    }
+    X11DragAndDrop.sendXdndFinished(display, windowXid, drop.sourceWindow, accept = true)
+    loop.dragSourceWindows.remove(windowXid)
+    handler.windowEvent(loop, windowId, WindowEvent.DragDropped(drop.position, paths))
+}
+
+private fun readXdndTypeList(display: MemorySegment, sourceWindow: Long, types: MutableList<Long>) {
+    val getProperty = xGetWindowProperty ?: return
+    val xdndTypeListAtom = x11DragAndDropAtom(display, "XdndTypeList")
+    if (xdndTypeListAtom == 0L) return
+    try {
+        Arena.ofConfined().use { arena ->
+            val actualType = arena.allocate(ValueLayout.JAVA_LONG)
+            val actualFormat = arena.allocate(ValueLayout.JAVA_INT)
+            val nitems = arena.allocate(ValueLayout.JAVA_LONG)
+            val bytesAfter = arena.allocate(ValueLayout.JAVA_LONG)
+            val propReturn = arena.allocate(ValueLayout.ADDRESS)
+            val status = getProperty.invokeExact(
+                display, sourceWindow,
+                xdndTypeListAtom, 0L, 1024L, 0,
+                0L,
+                actualType, actualFormat, nitems, bytesAfter, propReturn,
+            ) as Int
+            if (status != 0) return
+            val ptr = propReturn.get(ValueLayout.ADDRESS, 0L)
+            if (ptr == MemorySegment.NULL || ptr.address() == 0L) return
+            try {
+                val count = nitems.get(ValueLayout.JAVA_LONG, 0L)
+                for (i in 0 until count) {
+                    types.add(ptr.getAtIndex(ValueLayout.JAVA_LONG, i))
+                }
+            } finally {
+                xFree?.invokeExact(ptr) as? Int
+            }
+        }
+    } catch (_: Throwable) {}
+}
+
+private fun rootToWindowPosition(
+    display: MemorySegment,
+    window: Long,
+    rootX: Int,
+    rootY: Int,
+    screen: Int = 0,
+): PhysicalPosition<Double> {
+    val translate = xTranslateCoordinates ?: return PhysicalPosition(rootX.toDouble(), rootY.toDouble())
+    val rootHandle = xRootWindow ?: return PhysicalPosition(rootX.toDouble(), rootY.toDouble())
+    return try {
+        Arena.ofConfined().use { arena ->
+            val destX = arena.allocate(ValueLayout.JAVA_INT)
+            val destY = arena.allocate(ValueLayout.JAVA_INT)
+            val child = arena.allocate(ValueLayout.JAVA_LONG)
+            val rootWindow = rootHandle.invokeExact(display, screen) as Long
+            if (rootWindow == 0L) return@use PhysicalPosition(rootX.toDouble(), rootY.toDouble())
+            val ok = translate.invokeExact(
+                display, rootWindow, window,
+                rootX, rootY,
+                destX, destY, child,
+            ) as Int
+            if (ok != 0) {
+                PhysicalPosition(
+                    destX.get(ValueLayout.JAVA_INT, 0L).toDouble(),
+                    destY.get(ValueLayout.JAVA_INT, 0L).toDouble(),
+                )
+            } else {
+                PhysicalPosition(rootX.toDouble(), rootY.toDouble())
+            }
+        }
+    } catch (_: Throwable) {
+        PhysicalPosition(rootX.toDouble(), rootY.toDouble())
     }
 }
 
@@ -845,6 +1091,7 @@ private fun dispatchPoll(
     loop: X11EventLoop,
     handler: ApplicationHandler,
     wmDeleteWindow: Long,
+    xdnd: XdndAtoms?,
 ): StartCause {
     xFlush?.invokeExact(displaySeg) as? Int
 
@@ -856,7 +1103,7 @@ private fun dispatchPoll(
             val pending = pendingHandle.invokeExact(displaySeg) as Int
             if (pending <= 0) break
             nextHandle.invokeExact(displaySeg, eventBuf) as Int
-            dispatchEvent(eventBuf, loop, handler, wmDeleteWindow)
+            dispatchEvent(eventBuf, loop, handler, wmDeleteWindow, xdnd)
         }
     }
 
@@ -874,12 +1121,13 @@ private fun dispatchWait(
     loop: X11EventLoop,
     handler: ApplicationHandler,
     wmDeleteWindow: Long,
+    xdnd: XdndAtoms?,
 ): StartCause {
     val nextHandle = xNextEvent ?: return StartCause.WaitCancelled()
 
     // XNextEvent blocks until an event arrives
     nextHandle.invokeExact(displaySeg, eventBuf) as Int
-    dispatchEvent(eventBuf, loop, handler, wmDeleteWindow)
+    dispatchEvent(eventBuf, loop, handler, wmDeleteWindow, xdnd)
 
     // Drain the additional events already available
     val pendingHandle = xPending
@@ -888,7 +1136,7 @@ private fun dispatchWait(
             val pending = pendingHandle.invokeExact(displaySeg) as Int
             if (pending <= 0) break
             nextHandle.invokeExact(displaySeg, eventBuf) as Int
-            dispatchEvent(eventBuf, loop, handler, wmDeleteWindow)
+            dispatchEvent(eventBuf, loop, handler, wmDeleteWindow, xdnd)
         }
     }
 
@@ -908,6 +1156,7 @@ private fun dispatchWaitUntil(
     handler: ApplicationHandler,
     cf: ControlFlow.WaitUntil,
     wmDeleteWindow: Long,
+    xdnd: XdndAtoms?,
 ): StartCause {
     val deadline = cf.instant
     val pendingHandle = xPending
@@ -927,7 +1176,7 @@ private fun dispatchWaitUntil(
             val pending = pendingHandle.invokeExact(displaySeg) as Int
             if (pending > 0) {
                 nextHandle.invokeExact(displaySeg, eventBuf) as Int
-                dispatchEvent(eventBuf, loop, handler, wmDeleteWindow)
+                dispatchEvent(eventBuf, loop, handler, wmDeleteWindow, xdnd)
                 return StartCause.WaitCancelled(deadline)
             }
         }
@@ -983,6 +1232,20 @@ fun runApp(handler: ApplicationHandler) {
 
         val loop = X11EventLoop(displayPtr, screen)
 
+        // Intern Xdnd atoms needed for drag-and-drop
+        val xdnd: XdndAtoms? = Arena.ofConfined().use { arena ->
+            val displayMs = MemorySegment.ofAddress(displayPtr)
+            val enter = x11DragAndDropAtom(displayMs, "XdndEnter")
+            val position = x11DragAndDropAtom(displayMs, "XdndPosition")
+            val leave = x11DragAndDropAtom(displayMs, "XdndLeave")
+            val drop = x11DragAndDropAtom(displayMs, "XdndDrop")
+            val selection = x11DragAndDropAtom(displayMs, "XdndSelection")
+            val textUriList = x11DragAndDropAtom(displayMs, "text/uri-list")
+            if (enter != 0L && position != 0L && leave != 0L && drop != 0L && selection != 0L && textUriList != 0L) {
+                XdndAtoms(enter, position, leave, drop, selection, textUriList)
+            } else null
+        }
+
         // Allocate the XEvent buffer (96 bytes, 8-aligned) for the duration of the loop
         val arena = Arena.ofConfined()
         try {
@@ -1003,9 +1266,9 @@ fun runApp(handler: ApplicationHandler) {
 
                 // Dispatch the events according to the current ControlFlow
                 startCause = when (val cf = loop.controlFlow) {
-                    is ControlFlow.Poll      -> dispatchPoll(displaySeg, eventBuf, loop, handler, wmDeleteWindow)
-                    is ControlFlow.Wait      -> dispatchWait(displaySeg, eventBuf, loop, handler, wmDeleteWindow)
-                    is ControlFlow.WaitUntil -> dispatchWaitUntil(displaySeg, eventBuf, loop, handler, cf, wmDeleteWindow)
+                    is ControlFlow.Poll      -> dispatchPoll(displaySeg, eventBuf, loop, handler, wmDeleteWindow, xdnd)
+                    is ControlFlow.Wait      -> dispatchWait(displaySeg, eventBuf, loop, handler, wmDeleteWindow, xdnd)
+                    is ControlFlow.WaitUntil -> dispatchWaitUntil(displaySeg, eventBuf, loop, handler, cf, wmDeleteWindow, xdnd)
                 }
 
                 // Notify the handler that the loop is about to wait

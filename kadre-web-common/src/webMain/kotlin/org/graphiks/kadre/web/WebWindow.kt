@@ -29,6 +29,7 @@ import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.Insets
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -215,6 +216,14 @@ class WebWindow(
     override fun requestRedraw() {
         bridge.onWindowEvent?.invoke(WebWindowEvent.RedrawRequested)
     }
+
+    /**
+     * Safe-area insets queried from the DOM bridge.
+     *
+     * On devices with a notch (iPhone X+) these reflect CSS
+     * `env(safe-area-inset-*)`. Defaults to zero on desktop browsers.
+     */
+    override val safeArea: Insets<Int> get() = bridge.getSafeAreaInsets()
 
     /**
      * Handles canvas visibility via CSS (future) — no-op in this version.
@@ -477,11 +486,12 @@ class WebWindow(
     private var _imeCursorSize: PhysicalSize<Int> = PhysicalSize(0, 0)
 
     /**
-     * Enables or disables IME input.
+     * Enables or disables IME input by focusing / blurring a hidden
+     * `<input>` element managed by the bridge.
      *
-     * On the Web, IME is managed entirely by the browser when the canvas is
-     * focused. This override is informational — the browser controls IME
-     * composition independently of this flag.
+     * When [allowed] is `true` the hidden input receives focus, which
+     * activates the browser's IME and makes composition events available.
+     * When `false` the input is blurred and IME is suppressed.
      */
     override fun setImeAllowed(allowed: Boolean) {
         bridge.setImeAllowed(allowed)
@@ -490,27 +500,25 @@ class WebWindow(
     /**
      * Notifies the IME of the text cursor's current position and bounding box.
      *
-     * Stores the values so the bridge can retrieve them via [WebDomBridge.getImeCursorArea]
-     * if needed. On the Web the browser manages candidate-window positioning
-     * automatically, but the stored area is available for future use.
+     * Stores the values and delegates to [WebDomBridge.setImeCursorArea] so the
+     * bridge can reposition the hidden `<input>` element, which tells the browser
+     * where to anchor the IME candidate window.
      */
     override fun setImeCursorArea(position: PhysicalPosition<Int>, size: PhysicalSize<Int>) {
         _imeCursorPosition = position
         _imeCursorSize = size
+        bridge.setImeCursorArea(position.x, position.y, size.width, size.height)
     }
 
     /**
      * Hints the IME about the intended purpose of the focused text field.
      *
-     * On the Web this is informational — the browser does not expose a DOM API
-     * to control IME behaviour per-element without an actual `<input>` or
-     * `<textarea>`. The `ime-mode` CSS property (deprecated) is the closest
-     * approximation, but it is not wired in this version.
+     * Delegates to the bridge which sets `inputMode` on the hidden IME
+     * input element, letting the browser adapt its IME / virtual keyboard
+     * behaviour (e.g. hide suggestions for a terminal, mask for a password).
      */
     override fun setImePurpose(purpose: org.graphiks.kadre.core.ImePurpose) {
-        // No-op: Web does not expose a standard API to control IME purpose
-        // on a canvas element. The deprecated `ime-mode` CSS property could
-        // be applied via the bridge in a future milestone.
+        bridge.setImePurpose(purpose.name.lowercase())
     }
 
     /**

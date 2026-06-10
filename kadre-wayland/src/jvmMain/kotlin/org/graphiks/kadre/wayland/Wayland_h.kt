@@ -37,7 +37,7 @@ import java.lang.invoke.MethodHandle
 
 // ── Lazy loading of the libraries ─────────────────────────────────────────────
 
-private fun waylandNativeDisabled(): Boolean =
+internal fun waylandNativeDisabled(): Boolean =
     System.getenv("KADRE_WAYLAND_DISABLE_NATIVE") == "1" ||
         System.getProperty("kadre.wayland.disableNative") == "true"
 
@@ -1430,6 +1430,99 @@ internal val xkbContextUnref: MethodHandle? by lazy {
         FunctionDescriptor.ofVoid(ValueLayout.ADDRESS))
 }
 
+// ── wl_data_device_manager ─────────────────────────────────────────────────────
+
+/**
+ * wl_proxy_marshal_flags for wl_data_device_manager.get_data_device (opcode 1).
+ *
+ * Signature: wl_data_device* wl_proxy_marshal_flags(
+ *     manager, 1, &wl_data_device_interface, version, flags, seat, NULL).
+ */
+internal val wlDataDeviceManagerGetDataDevice: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,  // wl_proxy* (manager)
+            ValueLayout.JAVA_INT, // opcode = 1
+            ValueLayout.ADDRESS,  // wl_interface* (&wl_data_device_interface)
+            ValueLayout.JAVA_INT, // version
+            ValueLayout.JAVA_INT, // flags
+            ValueLayout.ADDRESS,  // wl_seat*
+            ValueLayout.ADDRESS,  // new_id = NULL
+        ))
+}
+
+// ── wl_data_offer requests ─────────────────────────────────────────────────────
+
+/**
+ * wl_proxy_marshal_flags for wl_data_offer.accept (opcode 0).
+ *
+ * Signature: void wl_proxy_marshal_flags(offer, 0, NULL, version, flags, serial, mime_type).
+ */
+internal val wlDataOfferAccept: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy* (offer)
+            ValueLayout.JAVA_INT,  // opcode = 0
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.JAVA_INT,  // serial (uint32)
+            ValueLayout.ADDRESS,   // mime_type (const char*, nullable)
+        ))
+}
+
+/**
+ * wl_proxy_marshal_flags for wl_data_offer.receive (opcode 1).
+ *
+ * Signature: void wl_proxy_marshal_flags(offer, 1, NULL, version, flags, mime_type, fd).
+ */
+internal val wlDataOfferReceive: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy* (offer)
+            ValueLayout.JAVA_INT,  // opcode = 1
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.ADDRESS,   // mime_type (const char*)
+            ValueLayout.JAVA_INT,  // fd (int32)
+        ))
+}
+
+/**
+ * wl_proxy_marshal_flags for wl_data_offer.finish (opcode 3).
+ *
+ * Signature: void wl_proxy_marshal_flags(offer, 3, NULL, version, flags).
+ */
+internal val wlDataOfferFinish: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy* (offer)
+            ValueLayout.JAVA_INT,  // opcode = 3
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+        ))
+}
+
+// ── libc : pipe2 ──────────────────────────────────────────────────────────────
+
+/**
+ * int pipe2(int pipefd[2], int flags);
+ *
+ * Creates a unidirectional data pipe. Returns 0 on success, -1 on error.
+ * pipefd[0] refers to the read end, pipefd[1] to the write end.
+ */
+internal val nativePipe2: MethodHandle? by lazy {
+    libC.downcall("pipe2", FunctionDescriptor.of(
+        ValueLayout.JAVA_INT,
+        ValueLayout.ADDRESS,   // int pipefd[2]
+        ValueLayout.JAVA_INT,  // int flags
+    ))
+}
+
+internal const val O_CLOEXEC: Int = 0x80000
+
 // ── libc : shm_open ───────────────────────────────────────────────────────────
 
 /**
@@ -1500,6 +1593,28 @@ internal val wlShmPoolInterface: MemorySegment? by lazy { libWaylandClient.symbo
 
 /** &wl_buffer_interface — required by wl_shm_pool.create_buffer (new_id) and wl_buffer.destroy. */
 internal val wlBufferInterface: MemorySegment? by lazy { libWaylandClient.symbol("wl_buffer_interface") }
+
+// ── DnD interfaces (core protocol, exported by libwayland-client.so.0) ─────
+
+/** &wl_data_device_manager_interface — required by bind(wl_data_device_manager). */
+internal val wlDataDeviceManagerInterface: MemorySegment? by lazy {
+    libWaylandClient.symbol("wl_data_device_manager_interface")
+}
+
+/** &wl_data_device_interface — required by get_data_device (new_id). */
+internal val wlDataDeviceInterface: MemorySegment? by lazy {
+    libWaylandClient.symbol("wl_data_device_interface")
+}
+
+/** &wl_data_offer_interface — required by wl_data_offer requests. */
+internal val wlDataOfferInterface: MemorySegment? by lazy {
+    libWaylandClient.symbol("wl_data_offer_interface")
+}
+
+/** &wl_data_source_interface — required by create_data_source (new_id). */
+internal val wlDataSourceInterface: MemorySegment? by lazy {
+    libWaylandClient.symbol("wl_data_source_interface")
+}
 
 // ── wl_seat_get_pointer / wl_seat_get_keyboard / wl_seat_get_touch ────────────
 

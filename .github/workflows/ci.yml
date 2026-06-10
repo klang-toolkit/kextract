@@ -294,12 +294,14 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build web modules (JS + Wasm)
+      # allTests runs jsTest and wasmJsTest under a Node.js environment.
+      - name: Build web modules (JS + Wasm) + run JS/Wasm tests
         run: |
           ./gradlew \
             :kadre-core:jvmTest \
             :kadre-js:compileKotlinJs \
             :kadre-wasm:compileKotlinWasmJs \
+            :kadre-web-common:allTests \
             --no-daemon \
             --stacktrace
 
@@ -388,13 +390,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # xvfb-run -a starts a virtual X display for the tests that need one.
-      # The display-less tests (compile-only) run normally.
+      # xvfb-run -a starts a virtual X display so X11 connection tests work.
       - name: Build X11 modules + JVM tests (Xvfb)
         run: |
           xvfb-run -a ./gradlew \
             :kadre-core:jvmTest \
-            :kadre-x11:build \
+            :kadre-x11:jvmTest \
             --no-daemon \
             --stacktrace
 
@@ -438,16 +439,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # No display needed: the tests compile and run without a Wayland
-      # compositor. Native Wayland loading is disabled because ubuntu-latest
-      # has libwayland-client installed but no compositor, which makes native
-      # smoke tests unsafe; compositor-backed tests live in visual workflows.
+      # Run the Wayland JVM tests. libwayland-client.so is installed on
+      # ubuntu-latest so the Linux-gated FFM-binding tests resolve symbols.
+      # No compositor runs in CI, so wl_display_connect tests are skipped.
       - name: Build Wayland modules + JVM tests
         env:
           KADRE_WAYLAND_DISABLE_NATIVE: '1'
         run: |
           ./gradlew \
             :kadre-core:jvmTest \
-            :kadre-wayland:build \
+            :kadre-wayland:jvmTest \
             --no-daemon \
             --stacktrace

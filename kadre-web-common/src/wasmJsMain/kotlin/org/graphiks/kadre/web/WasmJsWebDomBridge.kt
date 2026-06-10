@@ -11,6 +11,8 @@
  */
 package org.graphiks.kadre.web
 
+import org.graphiks.kadre.core.Insets
+
 // ---------------------------------------------------------------------------
 // External interfaces — wasmJs-side DOM access
 // ---------------------------------------------------------------------------
@@ -64,6 +66,9 @@ external interface JsWheelEvent : JsDomEvent {
     val deltaX: JsNumber
     val deltaY: JsNumber
     val deltaMode: JsNumber
+    val ctrlKey: JsBoolean
+    val clientX: JsNumber
+    val clientY: JsNumber
 }
 
 /**
@@ -123,6 +128,29 @@ private external fun canvasPhysicalWidth(canvas: JsEventTarget, dpr: Double): In
 @JsFun("(canvas, dpr) => Math.round(canvas.clientHeight * dpr)")
 private external fun canvasPhysicalHeight(canvas: JsEventTarget, dpr: Double): Int
 
+// --- DnD (Drag & Drop) helpers ---
+
+@JsFun("(e) => { e.preventDefault(); }")
+private external fun domPreventDefault(e: JsAny)
+
+@JsFun("(e) => e.clientX")
+private external fun dragClientX(e: JsAny): Double
+
+@JsFun("(e) => e.clientY")
+private external fun dragClientY(e: JsAny): Double
+
+@JsFun("(e) => e.dataTransfer.items.length")
+private external fun dragItemCount(e: JsAny): Int
+
+@JsFun("(e, i) => e.dataTransfer.items[i].type")
+private external fun dragItemType(e: JsAny, i: Int): String
+
+@JsFun("(e) => e.dataTransfer.files.length")
+private external fun dragFileCount(e: JsAny): Int
+
+@JsFun("(e, i) => e.dataTransfer.files[i].name")
+private external fun dragFileName(e: JsAny, i: Int): String
+
 /** Wraps a Kotlin `(Double) -> Unit` into a JS-callable closure (see [wrapCallback]). */
 @JsFun("(fn) => fn")
 private external fun wrapDoubleCallback(fn: (Double) -> Unit): JsAny
@@ -130,6 +158,56 @@ private external fun wrapDoubleCallback(fn: (Double) -> Unit): JsAny
 /** Wraps a Kotlin `() -> Boolean` into a JS-callable closure. */
 @JsFun("(fn) => fn")
 private external fun wrapBoolSupplier(fn: () -> Boolean): JsAny
+
+// ── R5-IME: hidden input overlay ──────────────────────────────────────────
+
+/**
+ * Creates a hidden <input> element for IME composition with all the
+ * required styling and attribute configuration.
+ */
+@JsFun("""() => {
+    const input = document.createElement('input');
+    input.style.position = 'absolute';
+    input.style.opacity = '0';
+    input.style.height = '0px';
+    input.style.width = '0px';
+    input.style.pointerEvents = 'none';
+    input.style.left = '0px';
+    input.style.top = '0px';
+    input.style.zIndex = '-1';
+    input.autocapitalize = 'off';
+    input.autocomplete = 'off';
+    input.autocorrect = 'off';
+    input.spellcheck = false;
+    return input;
+}""")
+private external fun createImeInputElement(): JsEventTarget
+
+@JsFun("(parent, child) => { parent.appendChild(child); }")
+private external fun jsAppendChild(parent: JsEventTarget, child: JsEventTarget)
+
+@JsFun("(el) => el.parentElement")
+private external fun jsGetParentElement(el: JsEventTarget): JsEventTarget?
+
+@JsFun("(el) => { el.focus(); }")
+private external fun jsFocusElement(el: JsEventTarget)
+
+@JsFun("(el) => { el.blur(); }")
+private external fun jsBlurElement(el: JsEventTarget)
+
+@JsFun("(el, value) => { el.inputMode = value; }")
+private external fun jsSetInputMode(el: JsEventTarget, value: String)
+
+@JsFun("(el, l, t, w, h) => { el.style.left = l + 'px'; el.style.top = t + 'px'; el.style.width = w + 'px'; el.style.height = h + 'px'; }")
+private external fun jsSetInputPosition(el: JsEventTarget, left: Int, top: Int, width: Int, height: Int)
+
+@JsFun("(el, value) => { el.value = value; }")
+private external fun jsSetInputValue(el: JsEventTarget, value: String)
+
+@JsFun("(el) => { el.remove(); }")
+private external fun jsRemoveElement(el: JsEventTarget)
+
+// ── R5-CustomCursor ───────────────────────────────────────────────────────
 
 /**
  * Creates a data URL from RGBA pixel data via an off-screen canvas.
@@ -155,6 +233,14 @@ private external fun wrapBoolSupplier(fn: () -> Boolean): JsAny
     return canvas.toDataURL('image/png');
 }""")
 private external fun createCursorDataUrlJs(hex: String, width: Int, height: Int, hx: Int, hy: Int): String
+
+// --- Gesture field extraction ---
+
+@JsFun("(e) => e.scale")
+private external fun gestureScale(e: JsAny): Float
+
+@JsFun("(e) => e.rotation")
+private external fun gestureRotation(e: JsAny): Float
 
 // --- Touch field extraction (changedTouches is array-like) ---
 
@@ -216,6 +302,31 @@ private external fun jsRequestFullscreen(el: JsEventTarget)
 /** Calls document.exitFullscreen (handles vendor prefixes). */
 @JsFun("() => { if (document.exitFullscreen) document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); }")
 private external fun jsExitFullscreen()
+
+// ── Task 14: safeArea insets + ownedDisplayHandle ──────────────────────────
+
+@JsFun("""() => {
+    const div = document.createElement('div');
+    div.style.paddingTop = 'env(safe-area-inset-top, 0px)';
+    div.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+    div.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
+    div.style.paddingRight = 'env(safe-area-inset-right, 0px)';
+    document.body.appendChild(div);
+    const cs = getComputedStyle(div);
+    const r = (parseInt(cs.paddingTop) || 0) + ',' +
+              (parseInt(cs.paddingBottom) || 0) + ',' +
+              (parseInt(cs.paddingLeft) || 0) + ',' +
+              (parseInt(cs.paddingRight) || 0);
+    document.body.removeChild(div);
+    return r;
+}""")
+private external fun measureSafeAreaInsetsJs(): String
+
+@JsFun("() => window.screen.availWidth")
+private external fun screenAvailWidth(): Int
+
+@JsFun("() => window.screen.availHeight")
+private external fun screenAvailHeight(): Int
 
 /**
  * Creates a canvas (id + dimensions) and appends it to the parent (parentId or body).
@@ -291,6 +402,9 @@ class WasmJsWebDomBridge : WebDomBridge {
     private var targetElement: JsEventTarget? = null
     private val listenerRefs = mutableListOf<Triple<JsEventTarget, String, JsAny>>()
     private var resizeObserverRef: JsAny? = null
+
+    /** Hidden <input> used for IME composition events. */
+    private var imeInput: JsEventTarget? = null
 
     /** `false` once [detach] runs — stops the re-arming devicePixelRatio chain. */
     private var attached = false
@@ -396,11 +510,79 @@ class WasmJsWebDomBridge : WebDomBridge {
         // --- Wheel ---
         addDomListener(canvas, "wheel") { e ->
             val we = e.unsafeCast<JsWheelEvent>()
-            val mode = we.deltaMode.toDouble().toInt()
+            // Ctrl+Wheel → pinch zoom (works across all browsers)
+            if (we.ctrlKey.toBoolean()) {
+                dispatch(
+                    WebWindowEvent.WebPinchZoom(
+                        delta = (-we.deltaY.toDouble() / 100f).toFloat(),
+                        centerX = we.clientX.toDouble(),
+                        centerY = we.clientY.toDouble(),
+                    )
+                )
+            } else {
+                val mode = we.deltaMode.toDouble().toInt()
+                dispatch(
+                    WebWindowEvent.MouseWheel(
+                        deltaX = normalizeWheelDelta(we.deltaX.toDouble(), mode),
+                        deltaY = normalizeWheelDelta(we.deltaY.toDouble(), mode),
+                    )
+                )
+            }
+        }
+
+        // --- DnD ---
+        addDomListener(canvas, "dragenter") { e ->
+            domPreventDefault(e)
+            val x = dragClientX(e)
+            val y = dragClientY(e)
+            val count = dragItemCount(e)
+            val files = (0 until count).map { dragItemType(e, it) }
+            dispatch(WebWindowEvent.DragEntered(x = x, y = y, files = files))
+        }
+
+        addDomListener(canvas, "dragover") { e ->
+            domPreventDefault(e)
+            dispatch(WebWindowEvent.DragMoved(x = dragClientX(e), y = dragClientY(e)))
+        }
+
+        addDomListener(canvas, "drop") { e ->
+            domPreventDefault(e)
+            val x = dragClientX(e)
+            val y = dragClientY(e)
+            val count = dragFileCount(e)
+            val files = (0 until count).map { dragFileName(e, it) }
+            dispatch(WebWindowEvent.DragDropped(x = x, y = y, files = files))
+        }
+
+        addDomListener(canvas, "dragleave") { _ ->
+            dispatch(WebWindowEvent.DragLeft)
+        }
+
+        // --- Gesture (Safari trackpad: gesturestart/change/end) ---
+        addDomListener(canvas, "gesturestart") { e ->
+            domPreventDefault(e)
             dispatch(
-                WebWindowEvent.MouseWheel(
-                    deltaX = normalizeWheelDelta(we.deltaX.toDouble(), mode),
-                    deltaY = normalizeWheelDelta(we.deltaY.toDouble(), mode),
+                WebWindowEvent.WebGestureStart(
+                    scale = gestureScale(e),
+                    rotation = gestureRotation(e),
+                )
+            )
+        }
+        addDomListener(canvas, "gesturechange") { e ->
+            domPreventDefault(e)
+            dispatch(
+                WebWindowEvent.WebGestureChange(
+                    scale = gestureScale(e),
+                    rotation = gestureRotation(e),
+                )
+            )
+        }
+        addDomListener(canvas, "gestureend") { e ->
+            domPreventDefault(e)
+            dispatch(
+                WebWindowEvent.WebGestureEnd(
+                    scale = gestureScale(e),
+                    rotation = gestureRotation(e),
                 )
             )
         }
@@ -416,29 +598,12 @@ class WasmJsWebDomBridge : WebDomBridge {
             addDomListener(canvas, type) { e -> dispatchTouches(e) }
         }
 
-        // --- IME composition events (R5-IME) ---
-        addDomListener(canvas, "compositionstart") { _ ->
-            dispatch(WebWindowEvent.Ime(WebImeEvent.Enabled))
-        }
-
-        addDomListener(canvas, "compositionupdate") { e ->
-            val ce = e.unsafeCast<JsCompositionEvent>()
-            val text = ce.data?.toString() ?: ""
-            dispatch(WebWindowEvent.Ime(WebImeEvent.Preedit(text = text, cursorRange = null)))
-        }
-
-        addDomListener(canvas, "compositionend") { e ->
-            val ce = e.unsafeCast<JsCompositionEvent>()
-            val text = ce.data?.toString() ?: ""
-            dispatch(WebWindowEvent.Ime(WebImeEvent.Commit(text = text)))
-            dispatch(WebWindowEvent.Ime(WebImeEvent.Disabled))
-        }
-
-        // --- Visibility ---
+        // --- Visibility → Focused + Occluded ---
         val doc = getDocument()
         addDomListener(doc, "visibilitychange") { _ ->
             val hidden = isDocumentHidden().toBoolean()
             dispatch(WebWindowEvent.Focused(gained = !hidden))
+            dispatch(WebWindowEvent.WebOccluded(hidden))
         }
 
         // --- Unload: beforeunload → CloseRequested, pagehide → Destroyed ---
@@ -479,7 +644,72 @@ class WasmJsWebDomBridge : WebDomBridge {
         if (preventDefaultEnabled) touchPreventDefault(e)
     }
 
+    // ── Task 14: safeArea insets + ownedDisplayHandle ─────────────────────────
+
+    override fun getSafeAreaInsets(): Insets<Int> {
+        val parts = measureSafeAreaInsetsJs().split(',')
+        return Insets(
+            top = parts.getOrNull(0)?.toIntOrNull() ?: 0,
+            bottom = parts.getOrNull(1)?.toIntOrNull() ?: 0,
+            left = parts.getOrNull(2)?.toIntOrNull() ?: 0,
+            right = parts.getOrNull(3)?.toIntOrNull() ?: 0,
+        )
+    }
+
+    override fun getDisplayHandle(): Long {
+        return (screenAvailWidth().toLong() shl 32) or screenAvailHeight().toLong()
+    }
+
     override fun getCanvasElement(): Any? = targetElement
+
+    // ── R5-IME: hidden input overlay ─────────────────────────────────────────
+
+    override fun setImeAllowed(allowed: Boolean) {
+        if (allowed) {
+            val input = imeInput ?: createImeInputBox().also { imeInput = it }
+            jsFocusElement(input)
+        } else {
+            imeInput?.let { jsBlurElement(it) }
+        }
+    }
+
+    override fun setImePurpose(purpose: String) {
+        imeInput?.let { jsSetInputMode(it, purpose) }
+    }
+
+    override fun setImeCursorArea(x: Int, y: Int, width: Int, height: Int) {
+        imeInput?.let { jsSetInputPosition(it, x, y, width, height) }
+    }
+
+    /**
+     * Creates the hidden <input> element and wires IME composition event
+     * listeners. Appends it to the canvas parent (or document as fallback).
+     */
+    private fun createImeInputBox(): JsEventTarget {
+        val input = createImeInputElement()
+        val parent = targetElement?.let { jsGetParentElement(it) } ?: getDocument()
+        jsAppendChild(parent, input)
+
+        addDomListener(input, "compositionstart") { _ ->
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Enabled))
+        }
+
+        addDomListener(input, "compositionupdate") { e ->
+            val ce = e.unsafeCast<JsCompositionEvent>()
+            val text = ce.data?.toString() ?: ""
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Preedit(text = text, cursorRange = null)))
+        }
+
+        addDomListener(input, "compositionend") { e ->
+            val ce = e.unsafeCast<JsCompositionEvent>()
+            val text = ce.data?.toString() ?: ""
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Commit(text = text)))
+            dispatch(WebWindowEvent.Ime(WebImeEvent.Disabled))
+            jsSetInputValue(input, "")
+        }
+
+        return input
+    }
 
     override fun detach() {
         // Stop the re-arming devicePixelRatio chain before tearing down listeners.
@@ -492,6 +722,10 @@ class WasmJsWebDomBridge : WebDomBridge {
 
         resizeObserverRef?.let { disconnectResizeObserver(it) }
         resizeObserverRef = null
+
+        imeInput?.let { jsRemoveElement(it) }
+        imeInput = null
+
         targetElement = null
     }
 

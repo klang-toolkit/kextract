@@ -10,6 +10,7 @@ import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.ImePurpose
+import org.graphiks.kadre.core.Insets
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
@@ -24,6 +25,7 @@ import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
 import org.graphiks.kadre.core.WindowRequestResult
+import kotlin.math.max
 
 /**
  * Android implementation of [Window].
@@ -146,6 +148,32 @@ class AndroidWindow internal constructor(
 
     override val scaleFactor: Double
         get() = surfaceView.resources.displayMetrics.density.toDouble()
+
+    override val safeArea: Insets<Int>
+        get() {
+            val decorView = activity.window?.decorView ?: return Insets(0, 0, 0, 0)
+            return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                val windowInsets = decorView.rootWindowInsets ?: return Insets(0, 0, 0, 0)
+                val displayCutout = windowInsets.displayCutout
+                val statusBarInsets = windowInsets.getInsets(android.view.WindowInsets.Type.statusBars())
+                val navBarInsets = windowInsets.getInsets(android.view.WindowInsets.Type.navigationBars())
+                Insets(
+                    top = max(statusBarInsets.top, displayCutout?.safeInsetTop ?: 0),
+                    bottom = max(navBarInsets.bottom, displayCutout?.safeInsetBottom ?: 0),
+                    left = max(statusBarInsets.left, displayCutout?.safeInsetLeft ?: 0),
+                    right = max(navBarInsets.right, displayCutout?.safeInsetRight ?: 0),
+                )
+            } else {
+                val rect = android.graphics.Rect()
+                decorView.getWindowVisibleDisplayFrame(rect)
+                Insets(
+                    top = rect.top,
+                    bottom = decorView.height - rect.bottom,
+                    left = rect.left,
+                    right = decorView.width - rect.right,
+                )
+            }
+        }
 
     override fun setVisible(visible: Boolean) {
         surfaceView.visibility = if (visible) android.view.View.VISIBLE else android.view.View.GONE

@@ -7,8 +7,10 @@ import org.graphiks.kadre.core.ControlFlow
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.OwnedDisplayHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
+import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.VideoMode
 import org.graphiks.kadre.core.Window
@@ -148,6 +150,15 @@ internal class AndroidEventLoop(
         override fun wakeUp() {
             // No-op: Android manages its own scheduling via the Looper/Handler
         }
+    }
+
+    // ── Task 18: ownedDisplayHandle ────────────────────────────────────────────
+
+    /**
+     * Returns an [OwnedDisplayHandle] wrapping [RawDisplayHandle.Android].
+     */
+    override fun ownedDisplayHandle(): OwnedDisplayHandle? {
+        return OwnedDisplayHandle(RawDisplayHandle.Android)
     }
 
     // ── R2: monitor enumeration ───────────────────────────────────────────────

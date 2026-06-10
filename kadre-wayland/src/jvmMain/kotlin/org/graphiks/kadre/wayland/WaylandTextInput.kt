@@ -70,11 +70,6 @@ internal object WaylandTextInput {
     /** Whether IME is currently enabled for the focused surface. */
     var imeEnabled: Boolean = false
 
-    // Pending events accumulated between preedit_string/commit_string
-    // and the next done(serial) event. Stored as a list to handle
-    // multiple events in one batch.
-    private val pendingEvents = mutableListOf<WindowEvent.Ime.ImeEvent>()
-
     /** Event sink routed from the event loop to the window event queue. */
     var onImeEvent: ((surfacePtr: Long, event: WindowEvent) -> Unit)? = null
 }

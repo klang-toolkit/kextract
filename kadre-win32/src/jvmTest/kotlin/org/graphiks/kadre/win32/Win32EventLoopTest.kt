@@ -19,6 +19,8 @@ import org.graphiks.kadre.core.DeviceId
 import org.graphiks.kadre.core.StartCause
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.OwnedDisplayHandle
+import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import kotlin.test.Test
@@ -219,5 +221,21 @@ class Win32EventLoopTest {
     fun `win32Running is false before runApp`() {
         // If another test forgot to reset the lock, this test will detect it
         assertFalse(win32Running.get(), "win32Running must be false at test startup")
+    }
+
+    // ── Task 23: ownedDisplayHandle ───────────────────────────────────────────
+
+    @Test
+    fun `Win32EventLoop ownedDisplayHandle returns OwnedDisplayHandle with Win32 raw handle on Windows`() {
+        if (!isWindows()) return
+
+        val loop = Win32EventLoop()
+        val handle = loop.ownedDisplayHandle()
+
+        assertNotNull(handle, "ownedDisplayHandle() must return non-null on Windows")
+        assertTrue(
+            handle.rawDisplayHandle is RawDisplayHandle.Win32,
+            "ownedDisplayHandle must wrap RawDisplayHandle.Win32",
+        )
     }
 }

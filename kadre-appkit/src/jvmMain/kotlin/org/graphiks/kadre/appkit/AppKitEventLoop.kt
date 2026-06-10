@@ -20,6 +20,8 @@ import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.EventLoopProxy
 import org.graphiks.kadre.core.MonitorHandle
+import org.graphiks.kadre.core.OwnedDisplayHandle
+import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.Theme
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -147,6 +149,14 @@ internal class AppKitEventLoop(
      * [AppKitEventLoopProxy].
      */
     override fun createProxy(): EventLoopProxy = AppKitEventLoopProxy.create()
+
+    // ── Task 29: ownedDisplayHandle ─────────────────────────────────────────────
+
+    /**
+     * Returns an [OwnedDisplayHandle] wrapping [RawDisplayHandle.AppKit].
+     */
+    override fun ownedDisplayHandle(): OwnedDisplayHandle? =
+        OwnedDisplayHandle(RawDisplayHandle.AppKit)
 
     // ── R2: monitor enumeration ───────────────────────────────────────────────
 

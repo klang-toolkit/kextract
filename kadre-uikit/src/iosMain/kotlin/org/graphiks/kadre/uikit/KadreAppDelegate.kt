@@ -30,10 +30,10 @@ import platform.UIKit.UIResponder
  *
  * ### Full backgrounding (Home button, App Switcher)
  * ```
- * applicationWillResignActive  → suspended
- * applicationDidEnterBackground → destroySurfaces
- * applicationWillEnterForeground (no Kadre callback — transition)
- * applicationDidBecomeActive   → resumed
+ * applicationWillResignActive  → suspended + Focused(false)
+ * applicationDidEnterBackground → Occluded(true) + destroySurfaces
+ * applicationWillEnterForeground → Occluded(false) + canCreateSurfaces
+ * applicationDidBecomeActive   → resumed + Focused(true)
  * ```
  *
  * ### Termination
@@ -45,8 +45,8 @@ import platform.UIKit.UIResponder
  * Each activation callback drives **two** things on purpose:
  * 1. an app-level [ApplicationHandler] lifecycle call (`resumed` / `suspended` /
  *    `destroySurfaces`) — coarse, process-scoped;
- * 2. a per-window [WindowEvent] (`Focused` / `Destroyed`) via
- *    [UIKitActiveEventLoop.dispatchWindowFocused] / [dispatchWindowsDestroyed].
+ * 2. a per-window [WindowEvent] (`Focused` / `Occluded` / `Destroyed`) via
+ *    [UIKitActiveEventLoop.dispatchWindowFocused] / [dispatchOccluded] / [dispatchWindowsDestroyed].
  *
  * The [WindowEvent] channel exists for parity with the desktop/winit backends so
  * that a consumer which only switches on [WindowEvent] still observes focus and
@@ -118,27 +118,35 @@ class KadreAppDelegate : UIResponder(), UIApplicationDelegateProtocol {
     /**
      * The application has moved fully to the background (Home, App Switcher).
      *
-     * Triggers [ApplicationHandler.destroySurfaces] to let the app
-     * release GPU resources before the process is fully suspended.
+     * Triggers [WindowEvent.Occluded]\(true) for all windows, then
+     * [ApplicationHandler.destroySurfaces] to let the app release GPU resources
+     * before the process is fully suspended.
      *
      * Note: called AFTER [applicationWillResignActive] → [ApplicationHandler.suspended].
      */
     override fun applicationDidEnterBackground(application: UIApplication) {
-        println("[KadreAppDelegate] applicationDidEnterBackground → destroySurfaces")
-        eventLoop?.let { it.handler.destroySurfaces(it) }
+        println("[KadreAppDelegate] applicationDidEnterBackground → Occluded(true) + destroySurfaces")
+        eventLoop?.let {
+            it.dispatchOccluded(true)
+            it.handler.destroySurfaces(it)
+        }
     }
 
     /**
      * The application is about to return to the foreground (from App Switcher or app return).
      *
-     * Triggers [ApplicationHandler.canCreateSurfaces] to allow
-     * re-initialization of GPU surfaces.
+     * Triggers [WindowEvent.Occluded]\(false) for all windows, then
+     * [ApplicationHandler.canCreateSurfaces] to allow re-initialization of GPU
+     * surfaces.
      *
      * Note: called BEFORE [applicationDidBecomeActive] → [ApplicationHandler.resumed].
      */
     override fun applicationWillEnterForeground(application: UIApplication) {
-        println("[KadreAppDelegate] applicationWillEnterForeground → canCreateSurfaces")
-        eventLoop?.let { it.handler.canCreateSurfaces(it) }
+        println("[KadreAppDelegate] applicationWillEnterForeground → Occluded(false) + canCreateSurfaces")
+        eventLoop?.let {
+            it.dispatchOccluded(false)
+            it.handler.canCreateSurfaces(it)
+        }
     }
 
     // ── Termination ───────────────────────────────────────────────────────────

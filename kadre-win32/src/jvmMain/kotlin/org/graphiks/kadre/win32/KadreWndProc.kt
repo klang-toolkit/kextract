@@ -111,6 +111,51 @@ object KadreWndProc {
     @Volatile
     private var handler: WindowEventHandler? = null
 
+    /**
+     * Window size constraints keyed by HWND address.
+     *
+     * Registered by [Win32Window] so that [WM_GETMINMAXINFO] can apply min/max size
+     * and resize increments during interactive window sizing.
+     */
+    private val windowConstraints = java.util.concurrent.ConcurrentHashMap<Long, WindowConstraints>()
+
+    /**
+     * Per-window size constraint values for WM_GETMINMAXINFO.
+     */
+    data class WindowConstraints(
+        val minSize: PhysicalSize<Int>? = null,
+        val maxSize: PhysicalSize<Int>? = null,
+        val resizeIncrements: PhysicalSize<Int>? = null,
+    )
+
+    /**
+     * Registers or updates size constraints for the given window.
+     */
+    fun registerConstraints(hwnd: Long, constraints: WindowConstraints) {
+        if (constraints.minSize != null || constraints.maxSize != null || constraints.resizeIncrements != null) {
+            windowConstraints[hwnd] = constraints
+        } else {
+            windowConstraints.remove(hwnd)
+        }
+    }
+
+    /**
+     * Removes size constraints for the given window (called when the window is destroyed).
+     */
+    fun unregisterConstraints(hwnd: Long) {
+        windowConstraints.remove(hwnd)
+    }
+
+    /**
+     * Aligns [value] up to the nearest multiple of [increment].
+     * Returns the original value when [increment] is null, zero, or negative.
+     */
+    private fun alignUp(value: Int, increment: Int?): Int {
+        if (increment == null || increment <= 0) return value
+        val remainder = value % increment
+        return if (remainder == 0) value else value + increment - remainder
+    }
+
     /** Windows whose cursor is currently inside (to emit PointerEntered on the first move in). */
     private val insideWindows = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
 
@@ -300,12 +345,25 @@ object KadreWndProc {
                 0L
             }
 
+            // ── Drag & Drop (WM_DROPFILES) ────────────────────────────────────
+            WM_DROPFILES.toUInt() -> {
+                handleFileDrop(hwnd, wParam)
+                0L
+            }
+
             // ── Touch ─────────────────────────────────────────────────────────
             WM_TOUCH.toUInt() -> {
                 handleTouch(hwnd, wParam, lParam)
                 // WM_TOUCH must be passed to DefWindowProcW when not fully handled,
                 // but since we consume every contact and close the handle ourselves,
                 // returning 0 (handled) is correct here.
+                0L
+            }
+
+            // ── Gesture ────────────────────────────────────────────────────────
+            WM_GESTURE.toUInt() -> {
+                // lParam = HGESTUREINFO handle
+                handleGesture(hwnd, lParam)
                 0L
             }
 
@@ -320,8 +378,41 @@ object KadreWndProc {
             WM_DESTROY.toUInt() -> {
                 emit(hwnd, WindowEvent.Destroyed)
                 Win32FocusState.unregister(hwnd)
+                unregisterConstraints(hwnd)
                 // PostQuitMessage(0) — signal to end the Win32 message loop.
                 postQuitMessage(0)
+                0L
+            }
+
+            // ── Min/max size & resize increments ──────────────────────────────
+            WM_GETMINMAXINFO.toUInt() -> {
+                val c = windowConstraints[hwnd]
+                if (c != null) {
+                    val mmi = MemorySegment.ofAddress(lParam)
+                    val inc = c.resizeIncrements
+                    val incX = inc?.width
+                    val incY = inc?.height
+                    // ptMinTrackSize at offset 24+0/4, ptMaxTrackSize at offset 32+0/4
+                    val baseMinTrack = 24L
+                    val baseMaxTrack = 32L
+                    val rawMinX = mmi.get(ValueLayout.JAVA_INT, baseMinTrack)
+                    val rawMinY = mmi.get(ValueLayout.JAVA_INT, baseMinTrack + 4L)
+                    val rawMaxX = mmi.get(ValueLayout.JAVA_INT, baseMaxTrack)
+                    val rawMaxY = mmi.get(ValueLayout.JAVA_INT, baseMaxTrack + 4L)
+                    val minSize = c.minSize
+                    val maxSize = c.maxSize
+                    val newMinX = alignUp(maxOf(rawMinX, minSize?.width ?: 0), incX)
+                    val newMinY = alignUp(maxOf(rawMinY, minSize?.height ?: 0), incY)
+                    val maxX = maxSize?.width?.let { minOf(rawMaxX, it) } ?: rawMaxX
+                    val maxY = maxSize?.height?.let { minOf(rawMaxY, it) } ?: rawMaxY
+                    // Align max track sizes down to increment boundary
+                    val newMaxX = if (incX != null && incX > 0) (maxX / incX) * incX else maxX
+                    val newMaxY = if (incY != null && incY > 0) (maxY / incY) * incY else maxY
+                    mmi.set(ValueLayout.JAVA_INT, baseMinTrack, newMinX)
+                    mmi.set(ValueLayout.JAVA_INT, baseMinTrack + 4L, newMinY)
+                    mmi.set(ValueLayout.JAVA_INT, baseMaxTrack, newMaxX)
+                    mmi.set(ValueLayout.JAVA_INT, baseMaxTrack + 4L, newMaxY)
+                }
                 0L
             }
 
@@ -788,4 +879,137 @@ object KadreWndProc {
             x = (lParam and 0xFFFF).toShort().toDouble(),
             y = ((lParam ushr 16) and 0xFFFF).toShort().toDouble(),
         )
+
+    /**
+     * Handles a WM_GESTURE message: reads the GESTUREINFO via GetGestureInfo,
+     * dispatches the gesture to the appropriate kadre [WindowEvent], and
+     * releases the gesture handle via CloseGestureInfoHandle.
+     *
+     * Supported gestures:
+     *  - GID_ZOOM        → [WindowEvent.PinchGesture]
+     *  - GID_PAN         → [WindowEvent.PanGesture]
+     *  - GID_ROTATE      → [WindowEvent.RotationGesture]
+     *  - GID_TWOFINGERTAP → [WindowEvent.DoubleTapGesture]
+     *
+     * No-op if user32 gesture API is unavailable (macOS/Linux).
+     *
+     * @param hwnd   Integer address of the source HWND.
+     * @param lParam WM_GESTURE lParam — HGESTUREINFO handle.
+     */
+    private fun handleGesture(hwnd: Long, lParam: Long) {
+        val getInfo = getGestureInfo ?: return
+        val close = closeGestureInfoHandle ?: return
+        if (lParam == 0L) return
+
+        try {
+            val hGestureInfo = MemorySegment.ofAddress(lParam)
+            java.lang.foreign.Arena.ofConfined().use { arena ->
+                val info = arena.allocate(GESTUREINFO_SIZE.toLong(), 8L)
+                info.set(ValueLayout.JAVA_INT, 0L, GESTUREINFO_SIZE)
+
+                val ok = getInfo.invokeExact(hGestureInfo, info) as Int
+                if (ok == 0) return@use
+
+                val dwFlags = info.get(ValueLayout.JAVA_INT, GESTUREINFO_OFFSET_FLAGS)
+                val dwCommand = info.get(ValueLayout.JAVA_INT, GESTUREINFO_OFFSET_COMMAND)
+                val ullArguments = info.get(ValueLayout.JAVA_LONG, GESTUREINFO_OFFSET_ARGUMENTS)
+
+                val phase: TouchPhase = when {
+                    dwFlags and GF_BEGIN != 0 && dwFlags and GF_END == 0 -> TouchPhase.Started
+                    dwFlags and GF_END != 0 -> TouchPhase.Ended
+                    else -> TouchPhase.Moved
+                }
+
+                when (dwCommand) {
+                    GID_ZOOM -> {
+                        val zoomVal = (ullArguments and 0xFFFF_FFFFL).toInt()
+                        val delta = (zoomVal.toDouble() / 100.0) - 1.0
+                        emit(hwnd, WindowEvent.PinchGesture(
+                            deviceId = null,
+                            delta = delta,
+                            phase = phase,
+                        ))
+                    }
+
+                    GID_PAN -> {
+                        val raw = ullArguments.toInt()
+                        val deltaX = (raw and 0xFFFF).toShort().toFloat()
+                        val deltaY = ((raw ushr 16) and 0xFFFF).toShort().toFloat()
+                        emit(hwnd, WindowEvent.PanGesture(
+                            deviceId = null,
+                            delta = PhysicalPosition(deltaX, deltaY),
+                            phase = phase,
+                        ))
+                    }
+
+                    GID_ROTATE -> {
+                        val angleVal = (ullArguments and 0xFFFF_FFFFL).toInt()
+                        val radians = angleVal.toDouble() / 100.0
+                        val deltaDegrees = (radians * (180.0 / Math.PI)).toFloat()
+                        emit(hwnd, WindowEvent.RotationGesture(
+                            deviceId = null,
+                            deltaDegrees = deltaDegrees,
+                            phase = phase,
+                        ))
+                    }
+
+                    GID_TWOFINGERTAP -> {
+                        emit(hwnd, WindowEvent.DoubleTapGesture(deviceId = null))
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+            // Graceful degradation: gesture is dropped for this message
+        } finally {
+            try {
+                val hGestureInfo = MemorySegment.ofAddress(lParam)
+                close.invokeExact(hGestureInfo) as Int
+            } catch (_: Throwable) {}
+        }
+    }
+
+    /**
+     * Handles a WM_DROPFILES message.
+     *
+     * Reads the dropped file paths and position from the HDROP handle,
+     * then emits [WindowEvent.DragDropped]. The HDROP handle is freed
+     * via DragFinish before returning.
+     *
+     * No-op if shell32.dll bindings are unavailable (macOS/Linux).
+     */
+    private fun handleFileDrop(hwnd: Long, wParam: Long) {
+        val dragQueryFile = dragQueryFileW ?: return
+        val dragQueryPt = dragQueryPoint ?: return
+        val dragFin = dragFinish ?: return
+        val hDrop = MemorySegment.ofAddress(wParam)
+        try {
+            java.lang.foreign.Arena.ofConfined().use { arena ->
+                // Get drop point in client coordinates
+                val pt = arena.allocate(POINT_SIZE, POINT_ALIGN)
+                dragQueryPt.invokeExact(hDrop, pt) as Int
+                val x = pt.get(ValueLayout.JAVA_INT, POINT_OFFSET_X)
+                val y = pt.get(ValueLayout.JAVA_INT, POINT_OFFSET_Y)
+
+                // Count files (iFile = 0xFFFFFFFF = -1 as signed int)
+                val fileCount = dragQueryFile.invokeExact(hDrop, -1, MemorySegment.NULL, 0) as Int
+
+                // Read each file path
+                val files = mutableListOf<String>()
+                for (i in 0 until fileCount) {
+                    val charCount = dragQueryFile.invokeExact(hDrop, i, MemorySegment.NULL, 0) as Int
+                    val buffer = arena.allocate((charCount + 1) * 2L, 2L)
+                    dragQueryFile.invokeExact(hDrop, i, buffer, charCount + 1) as Int
+                    val chars = CharArray(charCount) { j ->
+                        buffer.getAtIndex(ValueLayout.JAVA_SHORT, j.toLong()).toInt().toChar()
+                    }
+                    files.add(String(chars))
+                }
+
+                dragFin.invokeExact(hDrop)
+                emit(hwnd, WindowEvent.DragDropped(PhysicalPosition(x.toDouble(), y.toDouble()), files))
+            }
+        } catch (_: Throwable) {
+            try { dragFin.invokeExact(hDrop) } catch (_: Throwable) {}
+        }
+    }
 }

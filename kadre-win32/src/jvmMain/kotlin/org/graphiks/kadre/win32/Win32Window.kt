@@ -24,6 +24,7 @@ import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.InputCapabilities
+import org.graphiks.kadre.core.Insets
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.RequestError
@@ -176,6 +177,46 @@ class Win32Window private constructor(
             1.0
         }
 
+    override val safeArea: Insets<Int>
+        get() {
+            return try {
+                Arena.ofConfined().use { arena ->
+                    val windowRect = arena.allocate(RECT_SIZE, RECT_ALIGN)
+                    val wrOk = getWindowRect?.invokeExact(hwnd, windowRect) as? Int ?: 0
+                    if (wrOk == 0) return@use Insets(0, 0, 0, 0)
+
+                    val clientRect = arena.allocate(RECT_SIZE, RECT_ALIGN)
+                    val crOk = getClientRect?.invokeExact(hwnd, clientRect) as? Int ?: 0
+                    if (crOk == 0) return@use Insets(0, 0, 0, 0)
+
+                    val clientTopLeft = arena.allocate(POINT_SIZE, POINT_ALIGN)
+                    val cts = clientToScreen ?: return@use Insets(0, 0, 0, 0)
+                    val ctsOk = cts.invokeExact(hwnd, clientTopLeft) as? Int ?: 0
+                    if (ctsOk == 0) return@use Insets(0, 0, 0, 0)
+
+                    val clientLeft = clientTopLeft.get(ValueLayout.JAVA_INT, POINT_OFFSET_X)
+                    val clientTop = clientTopLeft.get(ValueLayout.JAVA_INT, POINT_OFFSET_Y)
+                    val winLeft = windowRect.get(ValueLayout.JAVA_INT, RECT_OFFSET_LEFT)
+                    val winTop = windowRect.get(ValueLayout.JAVA_INT, RECT_OFFSET_TOP)
+                    val winRight = windowRect.get(ValueLayout.JAVA_INT, RECT_OFFSET_RIGHT)
+                    val winBottom = windowRect.get(ValueLayout.JAVA_INT, RECT_OFFSET_BOTTOM)
+                    val clientWidth = clientRect.get(ValueLayout.JAVA_INT, RECT_OFFSET_RIGHT) -
+                        clientRect.get(ValueLayout.JAVA_INT, RECT_OFFSET_LEFT)
+                    val clientHeight = clientRect.get(ValueLayout.JAVA_INT, RECT_OFFSET_BOTTOM) -
+                        clientRect.get(ValueLayout.JAVA_INT, RECT_OFFSET_TOP)
+
+                    Insets(
+                        top = maxOf(0, clientTop - winTop),
+                        bottom = maxOf(0, winBottom - (clientTop + clientHeight)),
+                        left = maxOf(0, clientLeft - winLeft),
+                        right = maxOf(0, winRight - (clientLeft + clientWidth)),
+                    )
+                }
+            } catch (_: Throwable) {
+                Insets(0, 0, 0, 0)
+            }
+        }
+
     override fun setVisible(visible: Boolean) {
         val handle = showWindow ?: return
         val nCmdShow = if (visible) SW_SHOW else SW_HIDE
@@ -185,6 +226,7 @@ class Win32Window private constructor(
     override fun close() {
         val handle = destroyWindow ?: return
         setWindowIcon(null)
+        KadreWndProc.unregisterConstraints(hwnd.address())
         handle.invokeExact(hwnd) as Int
     }
 
@@ -309,17 +351,37 @@ class Win32Window private constructor(
     }
 
     override fun setMinSurfaceSize(size: PhysicalSize<Int>?) {
-        // Win32 min/max size is enforced via WM_GETMINMAXINFO in the WndProc.
-        // Store the constraint in a thread-safe field so KadreWndProc can read it.
         _minSurfaceSize = size
+        syncConstraints()
     }
 
     override fun setMaxSurfaceSize(size: PhysicalSize<Int>?) {
         _maxSurfaceSize = size
+        syncConstraints()
+    }
+
+    override val surfaceResizeIncrements: PhysicalSize<Int>?
+        get() = _surfaceResizeIncrements
+
+    override fun setSurfaceResizeIncrements(increments: PhysicalSize<Int>?) {
+        _surfaceResizeIncrements = increments
+        syncConstraints()
+    }
+
+    private fun syncConstraints() {
+        KadreWndProc.registerConstraints(
+            hwnd = hwnd.address(),
+            constraints = KadreWndProc.WindowConstraints(
+                minSize = _minSurfaceSize,
+                maxSize = _maxSurfaceSize,
+                resizeIncrements = _surfaceResizeIncrements,
+            ),
+        )
     }
 
     @Volatile internal var _minSurfaceSize: PhysicalSize<Int>? = attrs.minSize
     @Volatile internal var _maxSurfaceSize: PhysicalSize<Int>? = attrs.maxSize
+    @Volatile internal var _surfaceResizeIncrements: PhysicalSize<Int>? = attrs.resizeIncrements
 
     override val outerPosition: PhysicalPosition<Int>
         get() = try {
@@ -609,7 +671,7 @@ class Win32Window private constructor(
             val setStyle = setWindowLongPtrW ?: return WindowRequestResult.Failure(
                 RequestError.Unsupported("Win32 SetWindowLongPtrW is unavailable"),
             )
-            setLastError?.invokeExact(0)
+            setLastError?.invoke(0)
             val exStyle = getStyle.invokeExact(hwnd, GWL_EXSTYLE) as Long
             if (exStyle == 0L) {
                 val error = try { getLastError?.invokeExact() as? Int ?: 0 } catch (_: Throwable) { 0 }
@@ -620,7 +682,7 @@ class Win32Window private constructor(
             val transparentFlag = 0x00000020L // WS_EX_TRANSPARENT
             val newStyle = if (!hittest) exStyle or transparentFlag
                            else exStyle and transparentFlag.inv()
-            setLastError?.invokeExact(0)
+            setLastError?.invoke(0)
             val previous = setStyle.invokeExact(hwnd, GWL_EXSTYLE, newStyle) as Long
             if (previous == 0L) {
                 val error = try { getLastError?.invokeExact() as? Int ?: 0 } catch (_: Throwable) { 0 }
@@ -1104,10 +1166,33 @@ class Win32Window private constructor(
     /**
      * Hints the IME about the intended purpose of the text field.
      *
-     * No-op on Win32: Imm32 does not expose a purpose API. TSF would be
-     * required for finer-grained IME control.
+     * Sets the IME conversion status via ImmSetConversionStatus:
+     *   - [ImePurpose.Normal]   → native IME conversion (IME_CMODE_NATIVE)
+     *   - [ImePurpose.Password] → alphanumeric only, effectively disabling IME
+     *   - [ImePurpose.Terminal] → alphanumeric only, same as Password
      */
-    override fun setImePurpose(purpose: ImePurpose) { /* no-op on Win32 */ }
+    override fun setImePurpose(purpose: ImePurpose) {
+        val setConversion = immSetConversionStatus ?: return
+        val getCtx = immGetContext ?: return
+        val relCtx = immReleaseContext ?: return
+        val hwndSeg = hwnd
+        val himc: MemorySegment = try {
+            getCtx.invokeExact(hwndSeg) as MemorySegment
+        } catch (_: Throwable) { MemorySegment.NULL }
+        if (himc == MemorySegment.NULL) return
+        try {
+            val (conversion, sentence) = when (purpose) {
+                ImePurpose.Normal    -> IME_CMODE_NATIVE to IME_SMODE_NONE
+                ImePurpose.Password  -> IME_CMODE_ALPHANUMERIC to IME_SMODE_NONE
+                ImePurpose.Terminal  -> IME_CMODE_ALPHANUMERIC to IME_SMODE_NONE
+            }
+            setConversion.invokeExact(himc, conversion, sentence) as Int
+        } catch (_: Throwable) {
+            // IME purpose is best-effort
+        } finally {
+            try { relCtx.invokeExact(hwndSeg, himc) as Int } catch (_: Throwable) {}
+        }
+    }
 
     // ── Companion ─────────────────────────────────────────────────────────────
 
@@ -1312,6 +1397,7 @@ class Win32Window private constructor(
 
             val window = Win32Window(hwnd, hInstance, attrs, currentWin32ThreadId())
             Win32FocusState.register(hwnd.address())
+            window.syncConstraints()
             window.applyEnabledButtons(attrs.enabledButtons)
             window.setWindowLevel(attrs.windowLevel)
             attrs.windowIcon?.let(window::setWindowIcon)
@@ -1324,6 +1410,11 @@ class Win32Window private constructor(
             // instead of being emulated as mouse input. Best-effort: ignored on
             // platforms/devices without touch support.
             registerTouchWindow?.let { it.invokeExact(hwnd, 0) as Int }
+
+            // Register for file drag-and-drop via DragAcceptFiles (WM_DROPFILES).
+            // This enables the window to receive WM_DROPFILES when the user drops
+            // files onto the client area.
+            dragAcceptFiles?.invoke(hwnd, 1)
 
             // Initial display.
             // ShowWindow/UpdateWindow return BOOL (int) — invokeExact requires the exact

@@ -17,6 +17,7 @@ package org.graphiks.kadre.appkit
 import org.graphiks.kadre.appkit.bindings.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
 import java.lang.foreign.Arena
@@ -71,6 +72,12 @@ internal object AppKitImeTextInputClient {
             ValueLayout.JAVA_DOUBLE.withName("height"),
         ).withName("size"),
     ).withName("CGRect")
+
+    /** CGPoint layout for draggingLocation struct return. */
+    private val CG_POINT_LAYOUT: java.lang.foreign.GroupLayout = MemoryLayout.structLayout(
+        ValueLayout.JAVA_DOUBLE.withName("x"),
+        ValueLayout.JAVA_DOUBLE.withName("y"),
+    ).withName("CGPoint")
 
     /**
      * Registers a view in the IME table.
@@ -361,6 +368,127 @@ internal object AppKitImeTextInputClient {
         )
         ObjCSubclassing.addMethod(cls, "attributedSubstringForProposedRange:actualRange:", attributedSubstringStub, "@:{_NSRange=QQ}^{_NSRange=QQ}")
 
+        // ── NSDraggingDestination protocol ──────────────────────────────────
+        ObjCSubclassing.addProtocol(cls, "NSDraggingDestination")
+
+        // draggingEntered: → NSDragOperation (unsigned long)
+        // Encoding: Q@:@
+        val dragEnteredHandle = lookup.findStatic(
+            Callbacks::class.java,
+            "draggingEntered",
+            MethodType.methodType(
+                java.lang.Long.TYPE,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+            ),
+        )
+        val dragEnteredStub = linker.upcallStub(
+            dragEnteredHandle,
+            FunctionDescriptor.of(
+                ValueLayout.JAVA_LONG,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+            ),
+            arena,
+        )
+        ObjCSubclassing.addMethod(cls, "draggingEntered:", dragEnteredStub, "Q@:@")
+
+        // draggingUpdated: → NSDragOperation (unsigned long)
+        // Encoding: Q@:@
+        val dragUpdatedHandle = lookup.findStatic(
+            Callbacks::class.java,
+            "draggingUpdated",
+            MethodType.methodType(
+                java.lang.Long.TYPE,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+            ),
+        )
+        val dragUpdatedStub = linker.upcallStub(
+            dragUpdatedHandle,
+            FunctionDescriptor.of(
+                ValueLayout.JAVA_LONG,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+            ),
+            arena,
+        )
+        ObjCSubclassing.addMethod(cls, "draggingUpdated:", dragUpdatedStub, "Q@:@")
+
+        // draggingExited: → void
+        // Encoding: v@:@
+        val dragExitedHandle = lookup.findStatic(
+            Callbacks::class.java,
+            "draggingExited",
+            MethodType.methodType(
+                java.lang.Void.TYPE,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+            ),
+        )
+        val dragExitedStub = linker.upcallStub(
+            dragExitedHandle,
+            FunctionDescriptor.ofVoid(
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+            ),
+            arena,
+        )
+        ObjCSubclassing.addMethod(cls, "draggingExited:", dragExitedStub, "v@:@")
+
+        // performDragOperation: → BOOL (signed char)
+        // Encoding: c@:@
+        val performDragHandle = lookup.findStatic(
+            Callbacks::class.java,
+            "performDragOperation",
+            MethodType.methodType(
+                java.lang.Byte.TYPE,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+            ),
+        )
+        val performDragStub = linker.upcallStub(
+            performDragHandle,
+            FunctionDescriptor.of(
+                ValueLayout.JAVA_BYTE,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+            ),
+            arena,
+        )
+        ObjCSubclassing.addMethod(cls, "performDragOperation:", performDragStub, "c@:@")
+
+        // draggingEnded: → void
+        // Encoding: v@:@
+        val dragEndedHandle = lookup.findStatic(
+            Callbacks::class.java,
+            "draggingEnded",
+            MethodType.methodType(
+                java.lang.Void.TYPE,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+                MemorySegment::class.java,
+            ),
+        )
+        val dragEndedStub = linker.upcallStub(
+            dragEndedHandle,
+            FunctionDescriptor.ofVoid(
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+            ),
+            arena,
+        )
+        ObjCSubclassing.addMethod(cls, "draggingEnded:", dragEndedStub, "v@:@")
+
         ObjCSubclassing.registerClass(cls)
         classRegistered = true
     }
@@ -422,6 +550,54 @@ internal object AppKitImeTextInputClient {
                 } else null
             } catch (_: Throwable) { null }
         }
+    }
+
+    /**
+     * Extracts file paths from an NSPasteboard during a drag operation.
+     *
+     * Uses the deprecated [NSFilenamesPboardType] property list approach which
+     * is the most reliable method for file drags from Finder and other apps.
+     * Returns an empty list if no file paths are available.
+     */
+    private fun extractFilePathsFromPasteboard(pasteboard: MemorySegment): List<String> {
+        if (pasteboard == MemorySegment.NULL) return emptyList()
+        val arena = Arena.ofAuto()
+        val filenamesType = arena.allocateFrom("NSFilenamesPboardType")
+        val propertyList = ObjCRuntime.msgSend(
+            ValueLayout.ADDRESS,
+            pasteboard,
+            ObjCRuntime.sel("propertyListForType:"),
+            filenamesType,
+        ) as MemorySegment
+        if (propertyList == MemorySegment.NULL) return emptyList()
+        val count = ObjCRuntime.msgSend(
+            ValueLayout.JAVA_LONG,
+            propertyList,
+            ObjCRuntime.sel("count"),
+        ) as Long
+        if (count <= 0L) return emptyList()
+        val paths = mutableListOf<String>()
+        val charset = java.nio.charset.StandardCharsets.UTF_8
+        for (i in 0L until count) {
+            val pathObj = ObjCRuntime.msgSend(
+                ValueLayout.ADDRESS,
+                propertyList,
+                ObjCRuntime.sel("objectAtIndex:"),
+                i,
+            ) as MemorySegment
+            if (pathObj == MemorySegment.NULL) continue
+            val utf8 = ObjCRuntime.msgSend(
+                ValueLayout.ADDRESS,
+                pathObj,
+                ObjCRuntime.sel("UTF8String"),
+            ) as MemorySegment
+            if (utf8 != MemorySegment.NULL) {
+                try {
+                    paths.add(utf8.reinterpret(4096L).getString(0L, charset))
+                } catch (_: Throwable) { /* skip unreadable path */ }
+            }
+        }
+        return paths
     }
 
     /**
@@ -606,5 +782,174 @@ internal object AppKitImeTextInputClient {
             @Suppress("UNUSED_PARAMETER") proposedRange: MemorySegment,
             @Suppress("UNUSED_PARAMETER") actualRange: MemorySegment,
         ): MemorySegment = MemorySegment.NULL
+
+        // ── NSDraggingDestination callbacks ──────────────────────────────────
+
+        /**
+         * draggingEntered: — a drag operation entered the view.
+         *
+         * Extracts the drop position and file paths from the pasteboard,
+         * dispatches [WindowEvent.DragEntered], and returns NSDragOperationGeneric
+         * to accept the drag.
+         */
+        @JvmStatic
+        fun draggingEntered(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            sender: MemorySegment,
+        ): Long {
+            val record = imeViewTable[self.address()] ?: return 0L
+            try {
+                val point = ObjCRuntime.msgSendStret(
+                    CG_POINT_LAYOUT,
+                    sender,
+                    ObjCRuntime.sel("draggingLocation"),
+                )
+                val cocoaX = point.getAtIndex(ValueLayout.JAVA_DOUBLE, 0)
+                val cocoaY = point.getAtIndex(ValueLayout.JAVA_DOUBLE, 1)
+
+                val frame = ObjCRuntime.msgSendStret(
+                    NS_RECT_LAYOUT_SRET,
+                    self,
+                    ObjCRuntime.sel("frame"),
+                )
+                val viewHeight = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
+                val pos = PhysicalPosition(cocoaX, viewHeight - cocoaY)
+
+                val pasteboard = ObjCRuntime.msgSend(
+                    ValueLayout.ADDRESS,
+                    sender,
+                    ObjCRuntime.sel("draggingPasteboard"),
+                ) as MemorySegment
+                val paths = extractFilePathsFromPasteboard(pasteboard)
+
+                record.handler.windowEvent(
+                    record.eventLoop,
+                    record.windowId,
+                    WindowEvent.DragEntered(pos, paths),
+                )
+            } catch (_: Throwable) { /* best-effort */ }
+            return 4L // NSDragOperationGeneric
+        }
+
+        /**
+         * draggingUpdated: — the drag cursor moved within the view.
+         *
+         * Dispatches [WindowEvent.DragMoved] with the current position.
+         */
+        @JvmStatic
+        fun draggingUpdated(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            sender: MemorySegment,
+        ): Long {
+            val record = imeViewTable[self.address()] ?: return 0L
+            try {
+                val point = ObjCRuntime.msgSendStret(
+                    CG_POINT_LAYOUT,
+                    sender,
+                    ObjCRuntime.sel("draggingLocation"),
+                )
+                val cocoaX = point.getAtIndex(ValueLayout.JAVA_DOUBLE, 0)
+                val cocoaY = point.getAtIndex(ValueLayout.JAVA_DOUBLE, 1)
+
+                val frame = ObjCRuntime.msgSendStret(
+                    NS_RECT_LAYOUT_SRET,
+                    self,
+                    ObjCRuntime.sel("frame"),
+                )
+                val viewHeight = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
+                val pos = PhysicalPosition(cocoaX, viewHeight - cocoaY)
+
+                record.handler.windowEvent(
+                    record.eventLoop,
+                    record.windowId,
+                    WindowEvent.DragMoved(pos),
+                )
+            } catch (_: Throwable) { /* best-effort */ }
+            return 4L // NSDragOperationGeneric
+        }
+
+        /**
+         * draggingExited: — the drag cursor left the view without dropping.
+         *
+         * Dispatches [WindowEvent.DragLeft].
+         */
+        @JvmStatic
+        fun draggingExited(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") sender: MemorySegment,
+        ) {
+            val record = imeViewTable[self.address()] ?: return
+            try {
+                record.handler.windowEvent(
+                    record.eventLoop,
+                    record.windowId,
+                    WindowEvent.DragLeft,
+                )
+            } catch (_: Throwable) { /* best-effort */ }
+        }
+
+        /**
+         * performDragOperation: — the user dropped items onto the view.
+         *
+         * Extracts the drop position and file paths, dispatches
+         * [WindowEvent.DragDropped], and returns YES to accept the drop.
+         */
+        @JvmStatic
+        fun performDragOperation(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            sender: MemorySegment,
+        ): Byte {
+            val record = imeViewTable[self.address()] ?: return 0
+            try {
+                val point = ObjCRuntime.msgSendStret(
+                    CG_POINT_LAYOUT,
+                    sender,
+                    ObjCRuntime.sel("draggingLocation"),
+                )
+                val cocoaX = point.getAtIndex(ValueLayout.JAVA_DOUBLE, 0)
+                val cocoaY = point.getAtIndex(ValueLayout.JAVA_DOUBLE, 1)
+
+                val frame = ObjCRuntime.msgSendStret(
+                    NS_RECT_LAYOUT_SRET,
+                    self,
+                    ObjCRuntime.sel("frame"),
+                )
+                val viewHeight = frame.getAtIndex(ValueLayout.JAVA_DOUBLE, 3)
+                val pos = PhysicalPosition(cocoaX, viewHeight - cocoaY)
+
+                val pasteboard = ObjCRuntime.msgSend(
+                    ValueLayout.ADDRESS,
+                    sender,
+                    ObjCRuntime.sel("draggingPasteboard"),
+                ) as MemorySegment
+                val paths = extractFilePathsFromPasteboard(pasteboard)
+
+                record.handler.windowEvent(
+                    record.eventLoop,
+                    record.windowId,
+                    WindowEvent.DragDropped(pos, paths),
+                )
+            } catch (_: Throwable) { /* best-effort */ }
+            return 1 // YES
+        }
+
+        /**
+         * draggingEnded: — the drag session ended (drop completed or cancelled).
+         *
+         * No event is dispatched for this callback; it is a notification that
+         * the drag session is over.
+         */
+        @JvmStatic
+        fun draggingEnded(
+            @Suppress("UNUSED_PARAMETER") self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") sender: MemorySegment,
+        ) {
+            // No event — session end notification only
+        }
     }
 }

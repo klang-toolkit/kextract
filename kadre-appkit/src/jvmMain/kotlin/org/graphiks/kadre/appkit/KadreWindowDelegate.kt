@@ -135,6 +135,16 @@ class KadreWindowDelegate(
         handler.windowEvent(eventLoop, windowId, WindowEvent.Focused(gained = false))
     }
 
+    /** Kotlin callback for `windowDidMiniaturize:` — dispatches [WindowEvent.Occluded] (true). */
+    fun onWindowDidMiniaturize() {
+        handler.windowEvent(eventLoop, windowId, WindowEvent.Occluded(true))
+    }
+
+    /** Kotlin callback for `windowDidDeminiaturize:` — dispatches [WindowEvent.Occluded] (false). */
+    fun onWindowDidDeminiaturize() {
+        handler.windowEvent(eventLoop, windowId, WindowEvent.Occluded(false))
+    }
+
     /**
      * Kotlin callback for `windowDidResize:`.
      *
@@ -400,6 +410,10 @@ class KadreWindowDelegate(
             addNotificationMethod("windowDidBecomeKey", "windowDidBecomeKey:")
             addNotificationMethod("windowDidResignKey", "windowDidResignKey:")
 
+            // Occluded events via miniaturize/deminiaturize.
+            addNotificationMethod("windowDidMiniaturize", "windowDidMiniaturize:")
+            addNotificationMethod("windowDidDeminiaturize", "windowDidDeminiaturize:")
+
             ObjCSubclassing.registerClass(cls)
             classRegistered = true
         }
@@ -476,6 +490,24 @@ class KadreWindowDelegate(
             @Suppress("UNUSED_PARAMETER") notification: MemorySegment,
         ) {
             delegateTable[self.address()]?.onWindowWillClose()
+        }
+
+        @JvmStatic
+        fun windowDidMiniaturize(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") notification: MemorySegment,
+        ) {
+            delegateTable[self.address()]?.onWindowDidMiniaturize()
+        }
+
+        @JvmStatic
+        fun windowDidDeminiaturize(
+            self: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+            @Suppress("UNUSED_PARAMETER") notification: MemorySegment,
+        ) {
+            delegateTable[self.address()]?.onWindowDidDeminiaturize()
         }
     }
 }

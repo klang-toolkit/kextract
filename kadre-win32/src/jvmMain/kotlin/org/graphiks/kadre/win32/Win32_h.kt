@@ -579,6 +579,50 @@ internal val closeTouchInputHandle: MethodHandle? by lazy {
     )
 }
 
+// ── GetGestureInfo ─────────────────────────────────────────────────────────────
+
+/**
+ * BOOL GetGestureInfo(HGESTUREINFO hGestureInfo, PGESTUREINFO pGestureInfo);
+ *
+ * Fills [pGestureInfo] with the GESTUREINFO for the current WM_GESTURE message.
+ * [hGestureInfo] is the WM_GESTURE lParam handle.
+ * The caller must allocate a GESTUREINFO buffer (GESTUREINFO_SIZE bytes) and set
+ * cbSize (the first DWORD) to GESTUREINFO_SIZE before calling.
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getgestureinfo
+ */
+internal val getGestureInfo: MethodHandle? by lazy {
+    user32.downcall(
+        "GetGestureInfo",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HGESTUREINFO
+            ValueLayout.ADDRESS,    // PGESTUREINFO
+        )
+    )
+}
+
+// ── CloseGestureInfoHandle ─────────────────────────────────────────────────────
+
+/**
+ * BOOL CloseGestureInfoHandle(HGESTUREINFO hGestureInfo);
+ *
+ * Releases the gesture-info handle obtained from a WM_GESTURE message. Must be
+ * called exactly once per WM_GESTURE after GetGestureInfo, otherwise the
+ * handle leaks.
+ *
+ * Reference: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-closegestureinfohandle
+ */
+internal val closeGestureInfoHandle: MethodHandle? by lazy {
+    user32.downcall(
+        "CloseGestureInfoHandle",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HGESTUREINFO
+        )
+    )
+}
+
 // ── ScreenToClient ────────────────────────────────────────────────────────────
 
 /**
@@ -2035,6 +2079,113 @@ internal val immAssociateContextEx: MethodHandle? by lazy {
         )
     )
 }
+
+// ── Shell32 (Drag & Drop) bindings ──────────────────────────────────────────
+
+/**
+ * Lookup of shell32.dll — null on non-Windows platforms.
+ */
+internal val shell32: SymbolLookup? by lazy {
+    try { SymbolLookup.libraryLookup("shell32.dll", Arena.global()) } catch (_: Throwable) { null }
+}
+
+/**
+ * void DragAcceptFiles(HWND hWnd, BOOL fAccept);
+ *
+ * Registers whether a window accepts dropped files.
+ * Called with TRUE after CreateWindowExW to enable WM_DROPFILES.
+ */
+internal val dragAcceptFiles: MethodHandle? by lazy {
+    shell32.downcall(
+        "DragAcceptFiles",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,    // HWND
+            ValueLayout.JAVA_INT,   // BOOL fAccept
+        )
+    )
+}
+
+/**
+ * UINT DragQueryFileW(HDROP hDrop, UINT iFile, LPWSTR lpszFile, UINT cch);
+ *
+ * Retrieves the names of dropped files.
+ * When iFile = 0xFFFFFFFF, returns the number of files.
+ * When iFile is a valid index and lpszFile is null, returns the required buffer size in characters.
+ * When lpszFile is valid, copies the file path and returns the number of characters copied.
+ */
+internal val dragQueryFileW: MethodHandle? by lazy {
+    shell32.downcall(
+        "DragQueryFileW",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // UINT
+            ValueLayout.ADDRESS,    // HDROP
+            ValueLayout.JAVA_INT,   // UINT iFile
+            ValueLayout.ADDRESS,    // LPWSTR lpszFile
+            ValueLayout.JAVA_INT,   // UINT cch
+        )
+    )
+}
+
+/**
+ * BOOL DragQueryPoint(HDROP hDrop, LPPOINT lppt);
+ *
+ * Retrieves the current position of the mouse at the time files were dropped,
+ * in client coordinates. POINT = {LONG x, LONG y} = 8 bytes.
+ */
+internal val dragQueryPoint: MethodHandle? by lazy {
+    shell32.downcall(
+        "DragQueryPoint",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,   // BOOL
+            ValueLayout.ADDRESS,    // HDROP
+            ValueLayout.ADDRESS,    // LPPOINT
+        )
+    )
+}
+
+/**
+ * void DragFinish(HDROP hDrop);
+ *
+ * Frees the HDROP handle obtained from a WM_DROPFILES message.
+ * Must be called exactly once per WM_DROPFILES.
+ */
+internal val dragFinish: MethodHandle? by lazy {
+    shell32.downcall(
+        "DragFinish",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,    // HDROP
+        )
+    )
+}
+
+/**
+ * BOOL ImmSetConversionStatus(HIMC hIMC, DWORD fdwConversion, DWORD fdwSentence);
+ *
+ * Sets the current conversion status for the specified input method context.
+ * Controls whether an IME produces native or alphanumeric characters.
+ */
+internal val immSetConversionStatus: MethodHandle? by lazy {
+    imm32.downcall(
+        "ImmSetConversionStatus",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,  // BOOL
+            ValueLayout.ADDRESS,    // HIMC
+            ValueLayout.JAVA_INT,   // DWORD fdwConversion
+            ValueLayout.JAVA_INT,   // DWORD fdwSentence
+        )
+    )
+}
+
+// ── IME conversion / sentence mode constants ─────────────────────────────────
+
+/** Enables native IME conversion (e.g. Japanese Hiragana). */
+internal const val IME_CMODE_NATIVE: Int = 0x0001
+
+/** Alphanumeric mode — disables native conversion. */
+internal const val IME_CMODE_ALPHANUMERIC: Int = 0x0000
+
+/** No sentence mode. */
+internal const val IME_SMODE_NONE: Int = 0x0000
 
 /**
  * int GetSystemMetrics(int nIndex);

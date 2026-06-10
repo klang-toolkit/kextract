@@ -52,6 +52,13 @@ private typealias RoutedDeviceEventSink = (event: DeviceEvent) -> Unit
 private val noOpDeviceEventSink: RoutedDeviceEventSink = { }
 
 /**
+ * Shared device event filter checked dynamically by [WlKeyboardListener].
+ * Updated by [WaylandEventLoop.listenDeviceEvents] whenever the filter changes.
+ */
+@Volatile
+internal var deviceEventFilterOverride: DeviceEvents = DeviceEvents.WhenFocused
+
+/**
  * Global XKB compose state for dead-key reset, lazily initialized from
  * [WlKeyboardListener.onKeymap]. Written on the loop thread; read from
  * [WaylandWindow.resetDeadKeys] on the same thread.
@@ -246,7 +253,9 @@ private class WlKeyboardListener(
         modifiers.mapKey(keycode = key, state = state).forEach { event ->
             onEvent(focusedSurfacePtr, event)
         }
-        onDeviceEvent(DeviceEvent.Key(linuxKeycodeToPhysicalKey(key), waylandKeyStateToKeyState(state)))
+        if (deviceEventFilterOverride != DeviceEvents.Never) {
+            onDeviceEvent(DeviceEvent.Key(linuxKeycodeToPhysicalKey(key), waylandKeyStateToKeyState(state)))
+        }
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -476,7 +485,11 @@ internal fun seatHasCapability(caps: Int, capBit: Int): Boolean = (caps and capB
  */
 internal class WaylandSeatBinding internal constructor(
     @Suppress("unused") private val arena: Arena,
-)
+) {
+    /** DnD handler, kept alive by the binding. */
+    @JvmField
+    internal var dnd: WaylandDragAndDrop? = null
+}
 
 /** Keeps seat bindings alive for the process lifetime. */
 private val seatBindings = mutableListOf<WaylandSeatBinding>()
@@ -515,6 +528,7 @@ internal fun installSeatListeners(
     onEvent: RoutedWindowEventSink,
     onDeviceEvent: RoutedDeviceEventSink = {},
     onScaleChanged: (Int) -> Unit,
+    dataDeviceManagerPtr: Long = 0L,
     deviceFilter: DeviceEvents = DeviceEvents.WhenFocused,
 ) {
     val addListener = wlProxyAddListener ?: return
@@ -628,7 +642,33 @@ internal fun installSeatListeners(
             anyListenerInstalled = true
         }
 
-        seatBindings.add(WaylandSeatBinding(arena))
+        // ── wl_data_device (DnD) ─────────────────────────────────────────────
+        val binding = WaylandSeatBinding(arena)
+        if (dataDeviceManagerPtr != 0L && seatPtr != 0L) {
+            val getDataDevice = wlDataDeviceManagerGetDataDevice
+            val dataDeviceIface = wlDataDeviceInterface
+            if (getDataDevice != null && dataDeviceIface != null) {
+                val dataDevice = runCatching {
+                    getDataDevice.invokeExact(
+                        MemorySegment.ofAddress(dataDeviceManagerPtr),
+                        1,                            // opcode: get_data_device
+                        dataDeviceIface,
+                        WL_DATA_DEVICE_MANAGER_VERSION,
+                        0,                            // flags
+                        MemorySegment.ofAddress(seatPtr),
+                        MemorySegment.NULL,            // new_id = NULL
+                    ) as MemorySegment
+                }.getOrNull()
+                if (dataDevice != null && dataDevice.address() != 0L) {
+                    val dnd = WaylandDragAndDrop(dataDevice.address(), displayPtr, onEvent)
+                    dnd.installListener(arena, addListener)
+                    binding.dnd = dnd
+                    anyListenerInstalled = true
+                }
+            }
+        }
+
+        seatBindings.add(binding)
     } catch (t: Throwable) {
         System.err.println("[kadre-wayland] installSeatListeners failed: $t")
         // BLOQUANT 3: do NOT close the arena if any listener has already been registered

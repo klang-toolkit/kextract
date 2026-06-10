@@ -10,6 +10,8 @@ package org.graphiks.kadre.wayland
 
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.ImePurpose
+import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -21,12 +23,16 @@ import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowRequestResult
 import org.graphiks.kadre.core.WindowAttributes
+import org.graphiks.kadre.core.WindowId
 import org.graphiks.kadre.core.WindowLevel
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class WaylandWindowTest {
 
@@ -686,5 +692,94 @@ class WaylandWindowTest {
     fun `setAppId does not crash with blank app ID`() {
         val window = WaylandWindow.createForTest()
         window.setAppId("")
+    }
+
+    // ── R5-IME: ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `setImeAllowed does not crash with mock pointers`() {
+        val window = WaylandWindow.createForTest()
+        window.setImeAllowed(true)
+        window.setImeAllowed(false)
+    }
+
+    @Test
+    fun `setImeCursorArea does not crash with mock pointers`() {
+        val window = WaylandWindow.createForTest()
+        window.setImeCursorArea(PhysicalPosition(10, 20), PhysicalSize(100, 30))
+    }
+
+    @Test
+    fun `setImePurpose does not crash with mock pointers`() {
+        val window = WaylandWindow.createForTest()
+        window.setImePurpose(ImePurpose.Normal)
+        window.setImePurpose(ImePurpose.Password)
+        window.setImePurpose(ImePurpose.Terminal)
+    }
+
+    @Test
+    fun `ImeEvent Enabled and Disabled are object singletons`() {
+        assertSame(WindowEvent.Ime.ImeEvent.Enabled, WindowEvent.Ime.ImeEvent.Enabled)
+        assertSame(WindowEvent.Ime.ImeEvent.Disabled, WindowEvent.Ime.ImeEvent.Disabled)
+    }
+
+    @Test
+    fun `ImeEvent Preedit stores text and cursor range`() {
+        val preedit = WindowEvent.Ime.ImeEvent.Preedit("hello", Pair(0, 5))
+        assertEquals("hello", preedit.text)
+        assertEquals(Pair(0, 5), preedit.cursorRange)
+
+        val emptyRange = WindowEvent.Ime.ImeEvent.Preedit("", null)
+        assertEquals("", emptyRange.text)
+        assertNull(emptyRange.cursorRange)
+    }
+
+    @Test
+    fun `ImeEvent Commit stores text`() {
+        val commit = WindowEvent.Ime.ImeEvent.Commit("world")
+        assertEquals("world", commit.text)
+    }
+
+    @Test
+    fun `ImeEvent DeleteSurrounding stores before and after byte counts`() {
+        val del = WindowEvent.Ime.ImeEvent.DeleteSurrounding(3, 5)
+        assertEquals(3, del.beforeBytes)
+        assertEquals(5, del.afterBytes)
+    }
+
+    @Test
+    fun `WindowEvent Ime wraps any ImeEvent variant`() {
+        val enabled = WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Enabled)
+        assertIs<WindowEvent.Ime>(enabled)
+        assertIs<WindowEvent.Ime.ImeEvent.Enabled>(enabled.ime)
+
+        val commit = WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Commit("test"))
+        assertIs<WindowEvent.Ime>(commit)
+        assertIs<WindowEvent.Ime.ImeEvent.Commit>(commit.ime)
+        assertEquals("test", (commit.ime as WindowEvent.Ime.ImeEvent.Commit).text)
+    }
+
+    @Test
+    fun `routeWaylandInputEvent routes Ime events with all variants`() {
+        val surface = 42L
+        val window = WaylandWindow.createForTest(surface = surface)
+        val queue = ConcurrentLinkedQueue<Pair<WindowId, WindowEvent>>()
+        val windows = mapOf(surface to window)
+
+        val variants = listOf(
+            WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Enabled),
+            WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Preedit("abc", Pair(0, 3))),
+            WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Commit("hello")),
+            WindowEvent.Ime(WindowEvent.Ime.ImeEvent.DeleteSurrounding(2, 4)),
+            WindowEvent.Ime(WindowEvent.Ime.ImeEvent.Disabled),
+        )
+
+        for (event in variants) {
+            assertTrue(routeWaylandInputEvent(surface, event, windows, queue))
+            val (wid, queued) = queue.poll() ?: error("expected queued event")
+            assertEquals(window.id, wid)
+            assertEquals(event, queued)
+        }
+        assertNull(queue.poll())
     }
 }

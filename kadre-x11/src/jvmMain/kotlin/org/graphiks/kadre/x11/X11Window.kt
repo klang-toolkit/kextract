@@ -21,6 +21,7 @@ import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.CustomCursor
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.Insets
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -175,6 +176,11 @@ class X11Window private constructor(
      * ScaleFactorChanged is not emitted dynamically (no RRNotify subscription yet).
      */
     override val scaleFactor: Double = readXftDpi(displayPtr)
+
+    /**
+     * X11 has no platform safe-area concept — window managers handle decorations.
+     */
+    override val safeArea: Insets<Int> get() = Insets(0, 0, 0, 0)
 
     override fun requestRedraw() {
         // No direct action needed: the event loop picks up the Expose events.
@@ -1866,7 +1872,24 @@ class X11Window private constructor(
                 if (flush != null) flush.invokeExact(displaySeg) as Int
             }
 
-            // ── 7. Apply initial fullscreen from attrs ────────────────────────
+            // ── 7. XdndAware (drag-and-drop support) ──────────────────────────
+            try {
+                val xdndAwareAtom = x11DragAndDropAtom(displaySeg, "XdndAware")
+                val atomAtom = x11DragAndDropAtom(displaySeg, "ATOM")
+                if (xdndAwareAtom != 0L && atomAtom != 0L) {
+                    Arena.ofConfined().use { a ->
+                        val data = a.allocate(ValueLayout.JAVA_LONG, 1L)
+                        data.set(ValueLayout.JAVA_LONG, 0L, 5L)
+                        xChangeProperty?.invokeExact(
+                            displaySeg, xWindowId,
+                            xdndAwareAtom, atomAtom,
+                            32, 0, data, 1,
+                        ) as? Int
+                    }
+                }
+            } catch (_: Throwable) {}
+
+            // ── 8. Apply initial fullscreen from attrs ────────────────────────
             if (attrs.fullscreen != null) {
                 window.setFullscreen(attrs.fullscreen)
             }

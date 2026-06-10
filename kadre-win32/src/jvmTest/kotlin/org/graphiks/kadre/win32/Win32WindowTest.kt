@@ -15,9 +15,11 @@ package org.graphiks.kadre.win32
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowLevel
+import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.RawDisplayHandle
 import org.graphiks.kadre.core.Icon
+import org.graphiks.kadre.core.Insets
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -255,6 +257,28 @@ class Win32WindowTest {
         assertNotNull(Win32WndProcArena.arena)
     }
 
+    @Test
+    fun `surfaceResizeIncrements is initialized from attrs and mutable`() {
+        if (!isWindows()) return
+
+        val attrs = WindowAttributes(
+            title = "Test surfaceResizeIncrements",
+            visible = false,
+            resizeIncrements = PhysicalSize(8, 16),
+        )
+        val window = Win32Window.create(attrs) ?: return
+
+        assertEquals(PhysicalSize(8, 16), window.surfaceResizeIncrements)
+
+        window.setSurfaceResizeIncrements(PhysicalSize(4, 6))
+        assertEquals(PhysicalSize(4, 6), window.surfaceResizeIncrements)
+
+        window.setSurfaceResizeIncrements(null)
+        assertEquals(null, window.surfaceResizeIncrements)
+
+        window.close()
+    }
+
     // ── Tests run only on Windows ─────────────────────────────────────────────
 
     @Test
@@ -311,6 +335,24 @@ class Win32WindowTest {
         window.setVisible(false)  // already hidden
         window.setVisible(true)   // show
         window.setVisible(false)  // hide again
+
+        window.close()
+    }
+
+    // ── Task 23: safeArea ─────────────────────────────────────────────────────
+
+    @Test
+    fun `Win32Window safeArea returns Insets with non-negative values on Windows`() {
+        if (!isWindows()) return
+
+        val attrs = WindowAttributes(title = "Test safeArea", visible = false)
+        val window = Win32Window.create(attrs) ?: return
+
+        val insets = window.safeArea
+        assertTrue(insets.top >= 0, "safeArea.top must be >= 0")
+        assertTrue(insets.bottom >= 0, "safeArea.bottom must be >= 0")
+        assertTrue(insets.left >= 0, "safeArea.left must be >= 0")
+        assertTrue(insets.right >= 0, "safeArea.right must be >= 0")
 
         window.close()
     }

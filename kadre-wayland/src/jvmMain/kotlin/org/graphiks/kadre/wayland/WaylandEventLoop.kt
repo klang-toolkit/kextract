@@ -247,6 +247,7 @@ class WaylandEventLoop internal constructor(
 
     override fun listenDeviceEvents(mode: DeviceEvents) {
         deviceEventFilter = mode
+
     }
 
     // ── R5-CustomCursor ─────────────────────────────────────────────────────────
@@ -317,6 +318,9 @@ fun runApp(handler: ApplicationHandler) {
 
 private fun runAppInternal(handler: ApplicationHandler) {
     // ── 1. Connect to the Wayland server ──────────────────────────────────────
+    if (waylandNativeDisabled()) {
+        error("Wayland native access disabled via KADRE_WAYLAND_DISABLE_NATIVE")
+    }
     val connectHandle = wlDisplayConnect
         ?: error("wl_display_connect not available — libwayland-client.so.0 missing")
 
@@ -394,6 +398,7 @@ private fun runAppInternal(handler: ApplicationHandler) {
                 }
             }
         },
+        dataDeviceManagerPtr = globals.dataDeviceManagerPtr,
         deviceFilter = eventLoop.deviceEventFilter,
     )
 

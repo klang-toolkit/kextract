@@ -58,6 +58,18 @@ internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : 
     }
 
     /**
+     * Emits [WindowEvent.Occluded] for every window.
+     *
+     * Driven by [KadreAppDelegate] from the app background/foreground callbacks.
+     * On iOS, when the app enters the background it is fully occluded by another
+     * app; when it returns to the foreground it is no longer occluded.
+     */
+    internal fun dispatchOccluded(occluded: Boolean) {
+        val event = WindowEvent.Occluded(occluded)
+        windows.forEach { handler.windowEvent(this, it.id, event) }
+    }
+
+    /**
      * Emits [WindowEvent.Destroyed] for every window, then forgets them.
      *
      * Driven by [KadreAppDelegate] on termination — the per-window counterpart of
@@ -74,6 +86,9 @@ internal class UIKitActiveEventLoop(internal val handler: ApplicationHandler) : 
     override val isExiting: Boolean get() = _isExiting
 
     override fun createProxy(): EventLoopProxy = UIKitEventLoopProxy(this)
+
+    override fun ownedDisplayHandle(): OwnedDisplayHandle? =
+        OwnedDisplayHandle(RawDisplayHandle.UiKit)
 
     // ── R2: monitor enumeration ───────────────────────────────────────────────
 

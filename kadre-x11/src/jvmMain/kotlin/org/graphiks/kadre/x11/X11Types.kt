@@ -46,3 +46,15 @@ internal const val XCLIENT_WINDOW_OFFSET: Long = 32L
 internal const val XCLIENT_MESSAGE_TYPE_OFFSET: Long = 40L
 internal const val XCLIENT_FORMAT_OFFSET: Long = 48L
 internal const val XCLIENT_DATA_L0_OFFSET: Long = 56L
+internal const val XCLIENT_DATA_L1_OFFSET: Long = 64L
+internal const val XCLIENT_DATA_L2_OFFSET: Long = 72L
+internal const val XCLIENT_DATA_L3_OFFSET: Long = 80L
+internal const val XCLIENT_DATA_L4_OFFSET: Long = 88L
+
+// SelectionNotify event type and XSelectionEvent offsets (LP64)
+internal const val SelectionNotify: Int = 31
+
+internal const val XSELECTION_REQUESTOR_OFFSET: Long = 32L
+internal const val XSELECTION_SELECTION_OFFSET: Long = 40L
+internal const val XSELECTION_TARGET_OFFSET: Long = 48L
+internal const val XSELECTION_PROPERTY_OFFSET: Long = 56L

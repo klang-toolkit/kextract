@@ -18,6 +18,8 @@
  */
 package org.graphiks.kadre.web
 
+import org.graphiks.kadre.core.Insets
+
 /**
  * Binding interface between the browser DOM and the Kadre engine.
  *
@@ -109,6 +111,28 @@ interface WebDomBridge {
      */
     fun getImeCursorArea(): Any? = null
 
+    /**
+     * Hints the IME about the intended purpose of the focused text field.
+     *
+     * The bridge should set `inputMode` on the hidden IME input element
+     * to let the browser adapt its virtual keyboard or IME behaviour.
+     *
+     * Default: no-op (test / non-browser bridge).
+     *
+     * @param purpose Lowercase purpose string ("normal", "password", "terminal").
+     */
+    fun setImePurpose(purpose: String) { /* no-op by default */ }
+
+    /**
+     * Repositions the hidden IME input element to match the text cursor area.
+     *
+     * The browser uses this area to position the IME candidate window relative
+     * to the text cursor. Called by [WebWindow.setImeCursorArea].
+     *
+     * Default: no-op (test / non-browser bridge).
+     */
+    fun setImeCursorArea(x: Int, y: Int, width: Int, height: Int) { /* no-op by default */ }
+
     // ── R2: fullscreen API ─────────────────────────────────────────────────────
 
     /**
@@ -190,6 +214,23 @@ interface WebDomBridge {
      * Default: null (test / non-browser bridge).
      */
     fun getCanvasElement(): Any? = null
+
+    // ── Task 14: safeArea insets ─────────────────────────────────────────────
+
+    /**
+     * Returns the CSS `env(safe-area-inset-*)` values for the current viewport.
+     *
+     * On devices with a notch (iPhone X+) these values are non-zero. Default
+     * implementation returns zero insets (test / desktop browser bridge).
+     */
+    fun getSafeAreaInsets(): Insets<Int> = Insets(0, 0, 0, 0)
+
+    /**
+     * Returns a display handle derived from `window.screen` properties.
+     *
+     * Default implementation returns 0L (test / non-browser bridge).
+     */
+    fun getDisplayHandle(): Long = 0L
 
     /**
      * Whether [preventDefault][org.w3c.dom.events.Event.preventDefault] is

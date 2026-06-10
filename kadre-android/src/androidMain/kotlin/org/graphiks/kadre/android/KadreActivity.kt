@@ -2,8 +2,10 @@ package org.graphiks.kadre.android
 
 import android.content.res.Configuration
 import android.os.Bundle
+import android.view.DragEvent
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.SurfaceHolder
 import android.view.View
 import android.view.WindowManager
@@ -114,6 +116,9 @@ abstract class KadreActivity : ComponentActivity() {
     /** Last observed keyboard modifier state, used to suppress duplicate notifications. */
     private var lastKeyboardModifierState = AndroidKeyMapper.initialModifierState()
 
+    /** Scale gesture detector for pinch-zoom support. */
+    private var scaleGestureDetector: ScaleGestureDetector? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -142,10 +147,102 @@ abstract class KadreActivity : ComponentActivity() {
         }
         setContentView(surfaceView)
 
+        // ── Drag & Drop (R5-DnD) ─────────────────────────────────────────────
+        surfaceView.setOnDragListener { _, dragEvent ->
+            val window = eventLoop.pendingWindow
+            if (destroyed || window == null) return@setOnDragListener false
+            when (dragEvent.action) {
+                DragEvent.ACTION_DRAG_STARTED -> {
+                    dragEvent.clipDescription != null
+                }
+                DragEvent.ACTION_DRAG_ENTERED -> {
+                    handler.windowEvent(
+                        eventLoop, window.id,
+                        WindowEvent.DragEntered(
+                            PhysicalPosition(
+                                dragEvent.x.toDouble(),
+                                dragEvent.y.toDouble(),
+                            ),
+                            readDragPaths(dragEvent),
+                        ),
+                    )
+                    true
+                }
+                DragEvent.ACTION_DRAG_LOCATION -> {
+                    handler.windowEvent(
+                        eventLoop, window.id,
+                        WindowEvent.DragMoved(
+                            PhysicalPosition(
+                                dragEvent.x.toDouble(),
+                                dragEvent.y.toDouble(),
+                            ),
+                        ),
+                    )
+                    true
+                }
+                DragEvent.ACTION_DROP -> {
+                    handler.windowEvent(
+                        eventLoop, window.id,
+                        WindowEvent.DragDropped(
+                            PhysicalPosition(
+                                dragEvent.x.toDouble(),
+                                dragEvent.y.toDouble(),
+                            ),
+                            readDragPaths(dragEvent),
+                        ),
+                    )
+                    true
+                }
+                DragEvent.ACTION_DRAG_EXITED -> {
+                    handler.windowEvent(eventLoop, window.id, WindowEvent.DragLeft)
+                    true
+                }
+                else -> false
+            }
+        }
+
         // ── Handler + EventLoop ────────────────────────────────────────────────
         handler = createHandler()
         eventLoop = AndroidEventLoop(this)
         lastScaleFactor = resources.displayMetrics.density.toDouble()
+
+        // ── Scale gesture detector (pinch-zoom) ─────────────────────────────────
+        scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                eventLoop.pendingWindow?.let { window ->
+                    handler.windowEvent(eventLoop, window.id,
+                        WindowEvent.PinchGesture(
+                            deviceId = DeviceId(0),
+                            delta = detector.scaleFactor.toDouble(),
+                            phase = TouchPhase.Started,
+                        ))
+                }
+                return true
+            }
+
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                eventLoop.pendingWindow?.let { window ->
+                    handler.windowEvent(eventLoop, window.id,
+                        WindowEvent.PinchGesture(
+                            deviceId = DeviceId(0),
+                            delta = detector.scaleFactor.toDouble(),
+                            phase = TouchPhase.Moved,
+                        ))
+                }
+                return true
+            }
+
+            override fun onScaleEnd(detector: ScaleGestureDetector) {
+                eventLoop.pendingWindow?.let { window ->
+                    handler.windowEvent(eventLoop, window.id,
+                        WindowEvent.PinchGesture(
+                            deviceId = DeviceId(0),
+                            delta = detector.scaleFactor.toDouble(),
+                            phase = TouchPhase.Ended,
+                        ))
+                }
+            }
+        })
 
         // ── SurfaceHolder callbacks (surface lifecycle) ────────────────────────
         surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
@@ -185,29 +282,38 @@ abstract class KadreActivity : ComponentActivity() {
         super.onResume()
         if (destroyed) return
         handler.resumed(eventLoop)
-        eventLoop.pendingWindow?.let { eventLoop.scheduleFrameIfNeeded(it) }
+        eventLoop.pendingWindow?.let { window ->
+            handler.windowEvent(eventLoop, window.id, WindowEvent.Occluded(false))
+            eventLoop.scheduleFrameIfNeeded(window)
+        }
     }
 
     override fun onPause() {
         super.onPause()
         if (destroyed) return
         handler.suspended(eventLoop)
+        eventLoop.pendingWindow?.let { window ->
+            handler.windowEvent(eventLoop, window.id, WindowEvent.Occluded(true))
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val window = eventLoop.pendingWindow
         if (destroyed || window == null) return super.onTouchEvent(event)
-        dispatchMotionEvent(event, window)
-        return true
+        val handled = scaleGestureDetector?.onTouchEvent(event) ?: false
+        if (scaleGestureDetector?.isInProgress == true) {
+            return true
+        }
+        return dispatchMotionEvent(event, window) || handled
     }
 
-    private fun dispatchMotionEvent(event: MotionEvent, window: AndroidWindow) {
+    private fun dispatchMotionEvent(event: MotionEvent, window: AndroidWindow): Boolean {
         val phase = when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> TouchPhase.Started
             MotionEvent.ACTION_MOVE -> TouchPhase.Moved
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> TouchPhase.Ended
             MotionEvent.ACTION_CANCEL -> TouchPhase.Cancelled
-            else -> return
+            else -> return false
         }
 
         if (event.actionMasked == MotionEvent.ACTION_MOVE || event.actionMasked == MotionEvent.ACTION_CANCEL) {
@@ -217,6 +323,7 @@ abstract class KadreActivity : ComponentActivity() {
         } else {
             dispatchTouchPointer(event, window, event.actionIndex, phase)
         }
+        return true
     }
 
     private fun dispatchTouchPointer(
@@ -349,6 +456,19 @@ abstract class KadreActivity : ComponentActivity() {
             window.id,
             WindowEvent.ModifiersChanged(modifierState),
         )
+    }
+
+    // ── Drag & Drop helpers (R5-DnD) ──────────────────────────────────────────
+
+    private fun readDragPaths(event: DragEvent): List<String> {
+        val paths = mutableListOf<String>()
+        val clipData = event.clipData ?: return paths
+        for (i in 0 until clipData.itemCount) {
+            val item = clipData.getItemAt(i)
+            item.uri?.let { uri -> paths.add(uri.toString()) }
+            item.text?.let { text -> paths.add(text.toString()) }
+        }
+        return paths
     }
 
     // ── Display density (scale factor) ────────────────────────────────────────

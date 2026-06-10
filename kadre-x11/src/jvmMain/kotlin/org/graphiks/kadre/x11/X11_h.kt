@@ -1073,6 +1073,28 @@ internal val xDestroyIC: MethodHandle? by lazy {
 }
 
 /**
+ * Status XConvertSelection(Display* display, Atom selection, Atom target,
+ *     Atom property, Window requestor, Time time);
+ *
+ * Requests that the owner of selection convert it to target and write it
+ * to property on requestor. The result arrives via SelectionNotify.
+ */
+internal val xConvertSelection: MethodHandle? by lazy {
+    libX11.downcall(
+        "XConvertSelection",
+        FunctionDescriptor.of(
+            ValueLayout.JAVA_INT,    // Status
+            ValueLayout.ADDRESS,     // Display*
+            ValueLayout.JAVA_LONG,   // Atom selection
+            ValueLayout.JAVA_LONG,   // Atom target
+            ValueLayout.JAVA_LONG,   // Atom property
+            ValueLayout.JAVA_LONG,   // Window requestor
+            ValueLayout.JAVA_LONG,   // Time
+        )
+    )
+}
+
+/**
  * void XSetICFocus(XIC ic);
  */
 internal val xSetICFocus: MethodHandle? by lazy {

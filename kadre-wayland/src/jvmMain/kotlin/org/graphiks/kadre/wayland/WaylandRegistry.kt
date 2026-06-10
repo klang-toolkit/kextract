@@ -46,6 +46,7 @@ internal data class WaylandGlobals(
     val activationManagerPtr: Long = 0L,
     val extBackgroundEffectManagerPtr: Long = 0L,
     val kwinBlurManagerPtr: Long = 0L,
+    val dataDeviceManagerPtr: Long = 0L,
 )
 
 /**
@@ -77,6 +78,8 @@ private class GlobalsCollector {
     var extBackgroundEffectManagerVersion: Int = 0
     var kwinBlurManagerName: Int = -1
     var kwinBlurManagerVersion: Int = 0
+    var dataDeviceManagerName: Int = -1
+    var dataDeviceManagerVersion: Int = 0
 
     /** C callback: void global(data, wl_registry*, uint32 name, const char* interface, uint32 version). */
     @Suppress("UNUSED_PARAMETER")
@@ -106,6 +109,8 @@ private class GlobalsCollector {
                 if (extBackgroundEffectManagerName < 0) { extBackgroundEffectManagerName = name; extBackgroundEffectManagerVersion = version }
             "org_kde_kwin_blur_manager" ->
                 if (kwinBlurManagerName < 0) { kwinBlurManagerName = name; kwinBlurManagerVersion = version }
+            "wl_data_device_manager" ->
+                if (dataDeviceManagerName < 0) { dataDeviceManagerName = name; dataDeviceManagerVersion = version }
         }
     }
 
@@ -377,6 +382,20 @@ internal fun discoverGlobals(
             }.getOrDefault(0L)
         }
 
+        // 17. wl_registry.bind(wl_data_device_manager) for Drag & Drop.
+        var dataDeviceManagerPtr = 0L
+        if (collector.dataDeviceManagerName >= 0) {
+            val iface = wlDataDeviceManagerInterface
+            if (iface != null) {
+                val namePtr = iface.reinterpret(ValueLayout.ADDRESS.byteSize()).get(ValueLayout.ADDRESS, 0L)
+                dataDeviceManagerPtr = runCatching {
+                    (bind.invokeExact(
+                        registry, WL_REGISTRY_BIND, iface, collector.dataDeviceManagerVersion, 0,
+                        collector.dataDeviceManagerName, namePtr, collector.dataDeviceManagerVersion, MemorySegment.NULL,
+                    ) as MemorySegment).address()
+                }.getOrDefault(0L)
+            }
+        }
         WaylandGlobals(
             compositorPtr           = compositor.address(),
             xdgWmBasePtr            = xdgWmBasePtr,
@@ -393,6 +412,7 @@ internal fun discoverGlobals(
             activationManagerPtr    = activationManagerPtr,
             extBackgroundEffectManagerPtr = extBackgroundEffectManagerPtr,
             kwinBlurManagerPtr      = kwinBlurManagerPtr,
+            dataDeviceManagerPtr    = dataDeviceManagerPtr,
         )
     } catch (_: Throwable) {
         WaylandGlobals(0L, 0L)

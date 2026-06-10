@@ -77,7 +77,7 @@ internal class WaylandPointerConstraints(
                     0,                          // opcode: destroy
                     MemorySegment.NULL,          // wl_interface* (NULL)
                     1,                          // version
-                    0,                          // flags
+                    WL_MARSHAL_FLAG_DESTROY,    // flags
                 )
             } catch (_: Throwable) { }
             activeLockedPtr = 0L
@@ -89,7 +89,7 @@ internal class WaylandPointerConstraints(
                     0,                          // opcode: destroy
                     MemorySegment.NULL,          // wl_interface* (NULL)
                     1,                          // version
-                    0,                          // flags
+                    WL_MARSHAL_FLAG_DESTROY,    // flags
                 )
             } catch (_: Throwable) { }
             activeConfinedPtr = 0L

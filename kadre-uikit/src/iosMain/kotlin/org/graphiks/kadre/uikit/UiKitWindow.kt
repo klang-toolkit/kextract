@@ -10,6 +10,7 @@ import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.Fullscreen
+import org.graphiks.kadre.core.Insets
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.InputCapabilities
 import org.graphiks.kadre.core.MonitorHandle
@@ -39,12 +40,14 @@ import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.ObjCClass
+import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGPoint
 import platform.CoreGraphics.CGRect
 import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGSizeMake
+import platform.Foundation.NSClassFromString
 import platform.Foundation.NSNotFound
 import platform.Foundation.NSRunLoop
 import platform.Foundation.NSRunLoopCommonModes
@@ -69,6 +72,13 @@ import platform.UIKit.UIPressesEvent
 import platform.UIKit.UIRotationGestureRecognizer
 import platform.UIKit.UIScreen
 import platform.UIKit.UITapGestureRecognizer
+import platform.UIKit.UIDragItem
+import platform.UIKit.UIDropInteraction
+import platform.UIKit.UIDropInteractionDelegateProtocol
+import platform.UIKit.UIDropProposal
+import platform.UIKit.UIDropOperationCopy
+import platform.UIKit.UIDropSessionProtocol
+import platform.darwin.NSObjectProtocol
 import platform.UIKit.UITextInputProtocol
 import platform.UIKit.UITextInputDelegateProtocol
 import platform.UIKit.UITextInputTokenizerProtocol
@@ -76,6 +86,7 @@ import platform.UIKit.UITextInputStringTokenizer
 import platform.UIKit.UITextPosition
 import platform.UIKit.UITextRange
 import platform.UIKit.UITouch
+import platform.UIKit.UIEdgeInsets
 import platform.UIKit.UITraitCollection
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
@@ -583,6 +594,68 @@ private class UIKitGestureRecognizerProxy(
 }
 
 /**
+ * Objective-C delegate for [UIDropInteraction] (iOS 11+).
+ *
+ * Translates iOS drag-and-drop session callbacks into [WindowEvent] DnD events:
+ *   DragEntered, DragMoved, DragLeft, DragDropped.
+ */
+@OptIn(ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
+private class KadreDropDelegate(
+    private val onEvent: (WindowEvent) -> Unit,
+) : NSObject(), UIDropInteractionDelegateProtocol {
+
+    @ObjCSignatureOverride
+    override fun dropInteraction(interaction: UIDropInteraction, canHandleSession: UIDropSessionProtocol): Boolean {
+        return canHandleSession.hasItemsConformingToTypeIdentifiers(
+            listOf("public.file-url", "public.plain-text", "public.image")
+        )
+    }
+
+    @ObjCSignatureOverride
+    override fun dropInteraction(interaction: UIDropInteraction, sessionDidEnter: UIDropSessionProtocol) {
+        val pos = sessionPosition(interaction, sessionDidEnter)
+        onEvent(WindowEvent.DragEntered(pos, emptyList()))
+    }
+
+    @ObjCSignatureOverride
+    override fun dropInteraction(interaction: UIDropInteraction, sessionDidUpdate: UIDropSessionProtocol): UIDropProposal {
+        val pos = sessionPosition(interaction, sessionDidUpdate)
+        onEvent(WindowEvent.DragMoved(pos))
+        return UIDropProposal(UIDropOperationCopy)
+    }
+
+    @ObjCSignatureOverride
+    override fun dropInteraction(interaction: UIDropInteraction, sessionDidExit: UIDropSessionProtocol) {
+        onEvent(WindowEvent.DragLeft)
+    }
+
+    @ObjCSignatureOverride
+    override fun dropInteraction(interaction: UIDropInteraction, performDrop: UIDropSessionProtocol) {
+        val pos = sessionPosition(interaction, performDrop)
+        onEvent(WindowEvent.DragDropped(pos, emptyList()))
+    }
+
+    /**
+     * Pulls the drag location from the session. Uses [useContents] to unpack
+     * the [CGPoint] returned by [UIDropSessionProtocol.locationInView].
+     *
+     * TODO: Asynchronously load dropped file paths via
+     *   NSItemProvider.loadObjectOfClass / UIDropSessionProtocol.loadObjectsOfClass
+     *   and emit a follow-up event with the resolved paths.
+     */
+    private fun sessionPosition(
+        interaction: UIDropInteraction,
+        session: UIDropSessionProtocol,
+    ): PhysicalPosition<Double> {
+        val view = interaction.view ?: return PhysicalPosition(0.0, 0.0)
+        val point = session.locationInView(view)
+        return point.useContents {
+            PhysicalPosition(x, y)
+        }
+    }
+}
+
+/**
  * Minimal UITextPosition subclass that wraps an integer offset.
  */
 private class KadreTextPosition(val offset: Int) : UITextPosition()
@@ -654,7 +727,10 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
             metalView.becomeFirstResponder()
         }
 
-        // 6. Start the vsync-paced redraw loop.
+        // 6. Enable drag-and-drop via UIDropInteraction (iOS 11+).
+        setupDropInteraction(windowId)
+
+        // 7. Start the vsync-paced redraw loop.
         startDisplayLink()
     }
 
@@ -720,6 +796,23 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
             return
         }
         eventLoop.handler.windowEvent(eventLoop, id, WindowEvent.RedrawRequested)
+    }
+
+    /**
+     * Creates and attaches a [UIDropInteraction] to the metal view so the
+     * window can receive drag-and-drop content (files, text, images) from
+     * other apps via the iOS drag-and-drop system (iOS 11+).
+     */
+    @OptIn(kotlinx.cinterop.BetaInteropApi::class)
+    private fun setupDropInteraction(windowId: WindowId) {
+        if (NSClassFromString("UIDropInteraction") != null) {
+            val dropDelegate = KadreDropDelegate { event ->
+                eventLoop.handler.windowEvent(eventLoop, windowId, event)
+            }
+            val interaction = UIDropInteraction(delegate = dropDelegate)
+            val selector = NSSelectorFromString("addInteraction:")
+            metalView.performSelector(selector, withObject = interaction)
+        }
     }
 
     override val rawWindowHandle: RawWindowHandle
@@ -793,6 +886,16 @@ internal class UiKitWindow(attrs: WindowAttributes, private val eventLoop: UIKit
 
     override val scaleFactor: Double
         get() = UIScreen.mainScreen.scale
+
+    override val safeArea: Insets<Int>
+        get() = metalView.safeAreaInsets.useContents {
+            Insets(
+                top = top.toInt(),
+                bottom = bottom.toInt(),
+                left = left.toInt(),
+                right = right.toInt(),
+            )
+        }
 
     override fun setVisible(visible: Boolean) {
         uiWindow.setHidden(!visible)

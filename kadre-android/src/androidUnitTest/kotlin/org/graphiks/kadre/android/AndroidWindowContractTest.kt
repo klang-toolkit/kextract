@@ -1,6 +1,8 @@
 package org.graphiks.kadre.android
 
 import org.graphiks.kadre.core.ActiveEventLoop
+import org.graphiks.kadre.core.Insets
+import org.graphiks.kadre.core.OwnedDisplayHandle
 import org.graphiks.kadre.core.RawWindowHandle
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
@@ -160,5 +162,43 @@ class AndroidWindowContractTest {
         assertNotNull(method, "rawWindowHandle must exist on AndroidWindow")
         // The throw contract is in the implementation (surface == null → throw).
         // Only verifiable on an emulator with a real SurfaceView.
+    }
+
+    // ── Drag & Drop (R5-DnD) ────────────────────────────────────────────
+
+    @Test
+    fun `KadreActivity provides readDragPaths for DragEvent path extraction`() {
+        val method = KadreActivity::class.java.declaredMethods
+            .firstOrNull { it.name.startsWith("readDragPaths") }
+        assertNotNull(method, "KadreActivity must have readDragPaths method")
+        assertEquals(1, method.parameterCount)
+    }
+
+    // ── Task 18: safeArea ───────────────────────────────────────────────────
+
+    @Test
+    fun `AndroidWindow exposes safeArea returning Insets`() {
+        val getter = AndroidWindow::class.java.methods
+            .firstOrNull { it.name == "getSafeArea" }
+        assertNotNull(getter, "AndroidWindow must have safeArea property")
+        assertEquals(
+            Insets::class.java.name,
+            getter.returnType.name,
+            "safeArea must return Insets<Int>",
+        )
+    }
+
+    // ── Task 18: ownedDisplayHandle ─────────────────────────────────────────
+
+    @Test
+    fun `AndroidEventLoop exposes ownedDisplayHandle returning OwnedDisplayHandle`() {
+        val method = AndroidEventLoop::class.java.methods
+            .firstOrNull { it.name == "ownedDisplayHandle" }
+        assertNotNull(method, "AndroidEventLoop must have ownedDisplayHandle() method")
+        assertEquals(
+            OwnedDisplayHandle::class.java.name,
+            method.returnType.name,
+            "ownedDisplayHandle must return OwnedDisplayHandle",
+        )
     }
 }
