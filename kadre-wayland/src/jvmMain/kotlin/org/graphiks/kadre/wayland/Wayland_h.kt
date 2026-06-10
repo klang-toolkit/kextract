@@ -691,6 +691,64 @@ internal val wlProxyMarshalFlagsObjectTwoInt: MethodHandle? by lazy {
         ))
 }
 
+/**
+ * wl_proxy_marshal_flags variant with a string then an object argument and no new_id.
+ * Used for xdg_activation_v1.activate(token, surface) — opcode 2.
+ *
+ * Signature: void wl_proxy_marshal_flags(proxy, opcode, NULL, version, flags, const char*, object*).
+ */
+internal val wlProxyMarshalFlagsStringObject: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy*
+            ValueLayout.JAVA_INT,  // opcode
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.ADDRESS,   // arg1: const char*
+            ValueLayout.ADDRESS,   // arg2: object*
+        ))
+}
+
+/**
+ * wl_proxy_marshal_flags variant with a uint then an object argument and no new_id.
+ * Used for xdg_activation_token_v1.set_serial(serial, seat) — opcode 1.
+ *
+ * Signature: void wl_proxy_marshal_flags(proxy, opcode, NULL, version, flags, uint, object*).
+ */
+internal val wlProxyMarshalFlagsUintObject: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy*
+            ValueLayout.JAVA_INT,  // opcode
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.JAVA_INT,  // arg1: uint32
+            ValueLayout.ADDRESS,   // arg2: object*
+        ))
+}
+
+/**
+ * wl_proxy_marshal_flags variant with a uint then two object arguments and no new_id.
+ * Used for xdg_activation_v1.activate_full(serial, seat, surface) — opcode 3.
+ *
+ * Signature: void wl_proxy_marshal_flags(proxy, opcode, NULL, version, flags, uint, object*, object*).
+ */
+internal val wlProxyMarshalFlagsUintTwoObjects: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy*
+            ValueLayout.JAVA_INT,  // opcode
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.JAVA_INT,  // arg1: uint32
+            ValueLayout.ADDRESS,   // arg2: object*
+            ValueLayout.ADDRESS,   // arg3: object*
+        ))
+}
+
 // ── wl_shm helpers ────────────────────────────────────────────────────────────
 
 /**
@@ -827,6 +885,16 @@ internal fun buildWaylandInterface(
     return iface
 }
 
+/** &xdg_activation_v1_interface (minimal, for bind + get_activation_token). */
+internal val xdgActivationV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("xdg_activation_v1", methodCount = 4, eventCount = 1)
+}
+
+/** &xdg_activation_token_v1_interface (minimal, for get_activation_token new_id). */
+internal val xdgActivationTokenV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("xdg_activation_token_v1", methodCount = 4, eventCount = 1)
+}
+
 /** &zwp_text_input_manager_v3_interface (minimal, for bind + create_text_input). */
 internal val zwpTextInputManagerV3Interface: MemorySegment by lazy {
     buildWaylandInterface("zwp_text_input_manager_v3", methodCount = 2, eventCount = 0)
@@ -835,6 +903,106 @@ internal val zwpTextInputManagerV3Interface: MemorySegment by lazy {
 /** &zwp_text_input_v3_interface (minimal, for proxy creation). */
 internal val zwpTextInputV3Interface: MemorySegment by lazy {
     buildWaylandInterface("zwp_text_input_v3", methodCount = 6, eventCount = 6)
+}
+
+// ── zwp_pointer_constraints_v1 protocol (protocol extension interface symbols) ──
+
+/** &zwp_pointer_constraints_v1_interface (minimal, for bind + lock/confine). */
+internal val zwpPointerConstraintsV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("zwp_pointer_constraints_v1", methodCount = 3, eventCount = 0)
+}
+
+/** &zwp_locked_pointer_v1_interface (minimal, for lock_pointer new_id). */
+internal val zwpLockedPointerV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("zwp_locked_pointer_v1", methodCount = 3, eventCount = 2)
+}
+
+/** &zwp_confined_pointer_v1_interface (minimal, for confine_pointer new_id). */
+internal val zwpConfinedPointerV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("zwp_confined_pointer_v1", methodCount = 2, eventCount = 2)
+}
+
+/** Lifetime value: the constraint is released once the next pointer button event is received. */
+internal const val ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_ONESHOT: Int = 0
+
+/** Lifetime value: the constraint persists until the client destroys it or the compositor revokes it. */
+internal const val ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT: Int = 1
+
+/**
+ * wl_proxy_marshal_flags for zwp_pointer_constraints_v1.lock_pointer (opcode 1).
+ *
+ * Signature: zwp_locked_pointer_v1* wl_proxy_marshal_flags(
+ *     constraints, 1, &zwp_locked_pointer_v1_interface, version, flags,
+ *     surface, pointer, region, lifetime, NULL).
+ */
+internal val wlPointerConstraintsLockPointer: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,  // wl_proxy* (constraints)
+            ValueLayout.JAVA_INT, // opcode = 1
+            ValueLayout.ADDRESS,  // wl_interface* (&zwp_locked_pointer_v1_interface)
+            ValueLayout.JAVA_INT, // version
+            ValueLayout.JAVA_INT, // flags
+            ValueLayout.ADDRESS,  // wl_surface*
+            ValueLayout.ADDRESS,  // wl_pointer*
+            ValueLayout.ADDRESS,  // wl_region* (nullable)
+            ValueLayout.JAVA_INT, // lifetime (uint32)
+            ValueLayout.ADDRESS,  // new_id = NULL
+        ))
+}
+
+/**
+ * wl_proxy_marshal_flags for zwp_pointer_constraints_v1.confine_pointer (opcode 2).
+ *
+ * Signature: zwp_confined_pointer_v1* wl_proxy_marshal_flags(
+ *     constraints, 2, &zwp_confined_pointer_v1_interface, version, flags,
+ *     surface, pointer, region, lifetime, NULL).
+ */
+internal val wlPointerConstraintsConfinePointer: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,  // wl_proxy* (constraints)
+            ValueLayout.JAVA_INT, // opcode = 2
+            ValueLayout.ADDRESS,  // wl_interface* (&zwp_confined_pointer_v1_interface)
+            ValueLayout.JAVA_INT, // version
+            ValueLayout.JAVA_INT, // flags
+            ValueLayout.ADDRESS,  // wl_surface*
+            ValueLayout.ADDRESS,  // wl_pointer*
+            ValueLayout.ADDRESS,  // wl_region* (nullable)
+            ValueLayout.JAVA_INT, // lifetime (uint32)
+            ValueLayout.ADDRESS,  // new_id = NULL
+        ))
+}
+
+// ── xdg_toplevel_icon_manager_v1 protocol (protocol extension interface symbols) ──
+
+/** &xdg_toplevel_icon_manager_v1_interface (minimal, for bind + icon operations). */
+internal val xdgToplevelIconManagerV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("xdg_toplevel_icon_manager_v1", methodCount = 3, eventCount = 0)
+}
+
+/** &xdg_toplevel_icon_v1_interface (minimal, for proxy creation). */
+internal val xdgToplevelIconV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("xdg_toplevel_icon_v1", methodCount = 4, eventCount = 0)
+}
+
+/**
+ * wl_proxy_marshal_flags variant with two trailing object arguments and no new_id.
+ * Used for xdg_toplevel_icon_manager_v1.set_icon(toplevel, icon).
+ *
+ * Signature: void wl_proxy_marshal_flags(proxy, opcode, NULL, version, flags, obj1, obj2).
+ */
+internal val wlProxyMarshalFlagsTwoObjects: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.ofVoid(
+            ValueLayout.ADDRESS,   // wl_proxy*
+            ValueLayout.JAVA_INT,  // opcode
+            ValueLayout.ADDRESS,   // wl_interface* (NULL)
+            ValueLayout.JAVA_INT,  // version
+            ValueLayout.JAVA_INT,  // flags
+            ValueLayout.ADDRESS,   // arg1: object*
+            ValueLayout.ADDRESS,   // arg2: object*
+        ))
 }
 
 /**
@@ -850,6 +1018,68 @@ internal val zwpInputManagerV3CreateTextInput: MethodHandle? by lazy {
             ValueLayout.ADDRESS,  // wl_interface* (&zwp_text_input_v3_interface)
             ValueLayout.JAVA_INT, // version
             ValueLayout.JAVA_INT, // flags
+            ValueLayout.ADDRESS,  // new_id = NULL
+        ))
+}
+
+// ── ext_background_effect_v1 (wlroots, KWin 6+) blur protocol interface symbols ──
+
+/** &ext_background_effect_v1_interface (minimal, for bind + create). */
+internal val extBackgroundEffectV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("ext_background_effect_v1", methodCount = 2, eventCount = 0)
+}
+
+/** &ext_background_effect_surface_v1_interface (minimal, for create new_id). */
+internal val extBackgroundEffectSurfaceV1Interface: MemorySegment by lazy {
+    buildWaylandInterface("ext_background_effect_surface_v1", methodCount = 1, eventCount = 0)
+}
+
+/**
+ * wl_proxy_marshal_flags for ext_background_effect_v1.create (opcode 1).
+ *
+ * Signature: ext_background_effect_surface_v1* wl_proxy_marshal_flags(
+ *     manager, 1, &ext_background_effect_surface_v1_interface, version, flags, surface, NULL).
+ */
+internal val extBackgroundEffectV1Create: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,  // wl_proxy* (manager)
+            ValueLayout.JAVA_INT, // opcode = 1
+            ValueLayout.ADDRESS,  // wl_interface* (&ext_background_effect_surface_v1_interface)
+            ValueLayout.JAVA_INT, // version
+            ValueLayout.JAVA_INT, // flags
+            ValueLayout.ADDRESS,  // wl_surface*
+            ValueLayout.ADDRESS,  // new_id = NULL
+        ))
+}
+
+// ── org_kde_kwin_blur_manager (KWin 5.x) blur protocol interface symbols ──
+
+/** &org_kde_kwin_blur_manager_interface (minimal, for bind + create). */
+internal val orgKdeKwinBlurManagerInterface: MemorySegment by lazy {
+    buildWaylandInterface("org_kde_kwin_blur_manager", methodCount = 2, eventCount = 0)
+}
+
+/** &org_kde_kwin_blur_interface (minimal, for create new_id). */
+internal val orgKdeKwinBlurInterface: MemorySegment by lazy {
+    buildWaylandInterface("org_kde_kwin_blur", methodCount = 2, eventCount = 0)
+}
+
+/**
+ * wl_proxy_marshal_flags for org_kde_kwin_blur_manager.create (opcode 1).
+ *
+ * Signature: org_kde_kwin_blur* wl_proxy_marshal_flags(
+ *     manager, 1, &org_kde_kwin_blur_interface, version, flags, surface, NULL).
+ */
+internal val kwinBlurManagerCreate: MethodHandle? by lazy {
+    libWaylandClient.downcall("wl_proxy_marshal_flags",
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS,  // wl_proxy* (manager)
+            ValueLayout.JAVA_INT, // opcode = 1
+            ValueLayout.ADDRESS,  // wl_interface* (&org_kde_kwin_blur_interface)
+            ValueLayout.JAVA_INT, // version
+            ValueLayout.JAVA_INT, // flags
+            ValueLayout.ADDRESS,  // wl_surface*
             ValueLayout.ADDRESS,  // new_id = NULL
         ))
 }

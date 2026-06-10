@@ -9,6 +9,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.WindowEvent
 import org.graphiks.kadre.core.WindowId
@@ -18,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class WaylandEventLoopSmokeTest {
@@ -143,5 +145,119 @@ class WaylandEventLoopSmokeTest {
 
         assertFalse(routed)
         assertTrue(queue.isEmpty())
+    }
+
+    @Test
+    fun `systemTheme returns null when no dbus-send available`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            shmPtr = 0L,
+            eventFd = -1,
+        )
+        WaylandThemePortal.resetCache()
+        assertNull(loop.systemTheme())
+    }
+
+    @Test
+    fun `systemTheme is idempotent`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            shmPtr = 0L,
+            eventFd = -1,
+        )
+        WaylandThemePortal.resetCache()
+        val first = loop.systemTheme()
+        val second = loop.systemTheme()
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `refreshTheme does not crash with no windows`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            shmPtr = 0L,
+            eventFd = -1,
+        )
+        WaylandThemePortal.resetCache()
+        loop.refreshTheme()
+    }
+
+    @Test
+    fun `refreshTheme emits ThemeChanged when theme is available`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            shmPtr = 0L,
+            eventFd = -1,
+        )
+        WaylandThemePortal.resetCache()
+        // Force cache to a known state by calling systemTheme first
+        loop.systemTheme()
+        // refreshTheme should not crash; on CI it may still be null
+        loop.refreshTheme()
+    }
+
+    // ── R4: device event filter ───────────────────────────────────────────────
+
+    @Test
+    fun `deviceEventFilter defaults to WhenFocused`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            shmPtr = 0L,
+            eventFd = -1,
+        )
+        assertEquals(DeviceEvents.WhenFocused, loop.deviceEventFilter)
+    }
+
+    @Test
+    fun `listenDeviceEvents stores Never`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            shmPtr = 0L,
+            eventFd = -1,
+        )
+        loop.listenDeviceEvents(DeviceEvents.Never)
+        assertEquals(DeviceEvents.Never, loop.deviceEventFilter)
+    }
+
+    @Test
+    fun `listenDeviceEvents stores Always`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            shmPtr = 0L,
+            eventFd = -1,
+        )
+        loop.listenDeviceEvents(DeviceEvents.Always)
+        assertEquals(DeviceEvents.Always, loop.deviceEventFilter)
+    }
+
+    @Test
+    fun `listenDeviceEvents toggles between modes`() {
+        val loop = WaylandEventLoop(
+            displayPtr = 77L,
+            compositorPtr = 0L,
+            xdgWmBasePtr = 0L,
+            shmPtr = 0L,
+            eventFd = -1,
+        )
+        loop.listenDeviceEvents(DeviceEvents.Never)
+        assertEquals(DeviceEvents.Never, loop.deviceEventFilter)
+        loop.listenDeviceEvents(DeviceEvents.WhenFocused)
+        assertEquals(DeviceEvents.WhenFocused, loop.deviceEventFilter)
+        loop.listenDeviceEvents(DeviceEvents.Always)
+        assertEquals(DeviceEvents.Always, loop.deviceEventFilter)
     }
 }

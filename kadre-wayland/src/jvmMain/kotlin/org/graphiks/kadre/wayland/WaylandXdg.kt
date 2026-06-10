@@ -214,6 +214,19 @@ internal class XdgToplevel private constructor(
         }
     }
 
+    /** Sets the toplevel app ID via xdg_toplevel.set_app_id (opcode 3). */
+    fun setAppId(appId: String) {
+        val handle = wlProxyMarshalFlagsString ?: return
+        runCatching {
+            val str = arena.allocateFrom(appId)
+            handle.invokeExact(
+                MemorySegment.ofAddress(xdgToplevelPtr), XDG_TOPLEVEL_SET_APP_ID,
+                MemorySegment.NULL, version, 0, str,
+            )
+            Unit
+        }
+    }
+
     /** Requests server-side or client-side decoration mode when xdg-decoration is available. */
     fun setDecorations(decorated: Boolean): Boolean {
         if (xdgDecorationPtr == 0L) return false

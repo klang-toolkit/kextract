@@ -78,7 +78,30 @@ class WaylandWindow private constructor(
     private val surfacePtr: Long,
     private val shmPtr: Long,
     private val attrs: WindowAttributes,
+    pointerConstraintsPtr: Long = 0L,
+    iconManagerPtr: Long = 0L,
+    activationManagerPtr: Long = 0L,
+    seatPtr: Long = 0L,
+    extBackgroundEffectManagerPtr: Long = 0L,
+    kwinBlurManagerPtr: Long = 0L,
 ) : Window {
+    @JvmField
+    internal val pointerConstraints: WaylandPointerConstraints? =
+        if (pointerConstraintsPtr != 0L) WaylandPointerConstraints(pointerConstraintsPtr) else null
+
+    @JvmField
+    internal val iconManager: WaylandIconManager? =
+        if (iconManagerPtr != 0L && shmPtr != 0L) WaylandIconManager(iconManagerPtr, shmPtr, displayPtr) else null
+
+    @JvmField
+    internal val blurManager: WaylandBlur? =
+        if (extBackgroundEffectManagerPtr != 0L || kwinBlurManagerPtr != 0L)
+            WaylandBlur(extBackgroundEffectManagerPtr, kwinBlurManagerPtr, surfacePtr) else null
+
+    @JvmField
+    internal val activationManager: WaylandActivationToken? =
+        if (activationManagerPtr != 0L && surfacePtr != 0L)
+            WaylandActivationToken(activationManagerPtr, seatPtr, displayPtr) else null
 
     /** Unique identifier based on the address of the wl_surface. */
     override val id: WindowId = WindowId(surfacePtr)
@@ -724,17 +747,35 @@ class WaylandWindow private constructor(
     }
 
     /**
-     * Releases pointer grabs as a success no-op, matching winit.
+     * Initiates or releases pointer grabs via zwp_pointer_constraints_v1.
      *
-     * Pointer confinement/locking requires zwp_pointer_constraints_v1, which is
-     * an optional Wayland protocol extension not yet wired in this backend.
+     * When the protocol extension is available (the compositor announced it and
+     * [pointerConstraints] is non-null), delegates to [WaylandPointerConstraints].
+     * Otherwise only [CursorGrabMode.None] succeeds.
      */
-    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult =
-        if (mode == CursorGrabMode.None) {
-            WindowRequestResult.Success
-        } else {
-            WindowRequestResult.Failure(RequestError.Unsupported("Wayland pointer constraints are not wired"))
+    override fun setCursorGrab(mode: CursorGrabMode): WindowRequestResult {
+        val pc = pointerConstraints
+        if (pc == null) {
+            return if (mode == CursorGrabMode.None) {
+                WindowRequestResult.Success
+            } else {
+                WindowRequestResult.Failure(
+                    RequestError.Unsupported("Wayland pointer constraints are not available"),
+                )
+            }
         }
+        if (mode == CursorGrabMode.None) {
+            pc.release()
+            return WindowRequestResult.Success
+        }
+        val cursorCtx = WaylandPointerState.currentCursor(surfacePtr)
+        if (cursorCtx == null) {
+            return WindowRequestResult.Failure(
+                RequestError.Unsupported("wl_pointer not focused on this surface"),
+            )
+        }
+        return pc.grab(surfacePtr, cursorCtx.pointerPtr, mode)
+    }
 
     /**
      * No-op on Wayland.
@@ -842,25 +883,28 @@ class WaylandWindow private constructor(
     }
 
     /**
-     * Deferred optional-protocol support on Wayland.
+     * Sets background blur via compositor-specific blur protocols.
      *
-     * winit can use compositor-specific blur protocols such as
-     * `ext_background_effect` or `org_kde_kwin_blur` when available. Kadre has
-     * not generated or bound those protocols yet, so this is a documented no-op.
+     * Delegates to [WaylandBlur] which tries `ext_background_effect_v1`
+     * (wlroots, KWin 6+) first and falls back to `org_kde_kwin_blur_manager`
+     * (KWin 5.x). Silent no-op when neither protocol is available.
      */
     override fun setBlur(blur: Boolean) {
-        // No-op until optional Wayland blur protocols are bound.
+        blurManager?.setBlur(blur)
     }
 
     /**
-     * Deferred optional-protocol support on Wayland.
+     * Sets the window icon via `xdg_toplevel_icon_manager_v1` when available.
      *
-     * winit can use `xdg_toplevel_icon_manager_v1` when the compositor exposes
-     * it. Kadre has not generated or bound that protocol yet, so this remains a
-     * documented no-op instead of claiming Wayland cannot support it.
+     * Delegates to [WaylandIconManager] which creates a wl_shm buffer from the
+     * RGBA pixel data and sets it on the xdg_toplevel. Silent no-op when the
+     * compositor does not expose the protocol extension.
      */
     override fun setWindowIcon(icon: Icon?) {
-        // No-op until xdg_toplevel_icon_manager_v1 is bound.
+        val mgr = iconManager ?: return
+        val toplevelPtr = xdgToplevelPtr()
+        if (toplevelPtr == 0L) return
+        mgr.setWindowIcon(icon, toplevelPtr)
     }
 
     /**
@@ -947,6 +991,12 @@ class WaylandWindow private constructor(
             shmPtr: Long,
             attrs: WindowAttributes,
             decorationManager: Long = 0L,
+            pointerConstraintsPtr: Long = 0L,
+            iconManagerPtr: Long = 0L,
+            activationManagerPtr: Long = 0L,
+            seatPtr: Long = 0L,
+            extBackgroundEffectManagerPtr: Long = 0L,
+            kwinBlurManagerPtr: Long = 0L,
         ): WaylandWindow? {
             // The bindings are null on non-Wayland platforms — return null.
             val createSurface = wlCompositorCreateSurface ?: return null
@@ -976,7 +1026,7 @@ class WaylandWindow private constructor(
                 return null
             }
 
-            val window = WaylandWindow(display, compositor, xdgWmBase, surface, shmPtr, attrs)
+            val window = WaylandWindow(display, compositor, xdgWmBase, surface, shmPtr, attrs, pointerConstraintsPtr, iconManagerPtr, activationManagerPtr, seatPtr, extBackgroundEffectManagerPtr, kwinBlurManagerPtr)
             window.setTransparent(attrs.transparent)
 
             // ── 2. xdg_shell handshake → real mapped toplevel + configure/close events ──
@@ -1031,8 +1081,14 @@ class WaylandWindow private constructor(
             surface: Long = 0L,
             shmPtr: Long = 0L,
             attrs: WindowAttributes = WindowAttributes(),
+            pointerConstraintsPtr: Long = 0L,
+            iconManagerPtr: Long = 0L,
+            activationManagerPtr: Long = 0L,
+            seatPtr: Long = 0L,
+            extBackgroundEffectManagerPtr: Long = 0L,
+            kwinBlurManagerPtr: Long = 0L,
         ): WaylandWindow =
-            WaylandWindow(display, compositor, xdgWmBase, surface, shmPtr, attrs).also {
+            WaylandWindow(display, compositor, xdgWmBase, surface, shmPtr, attrs, pointerConstraintsPtr, iconManagerPtr, activationManagerPtr, seatPtr, extBackgroundEffectManagerPtr, kwinBlurManagerPtr).also {
                 it.setTransparent(attrs.transparent)
             }
     }
@@ -1093,11 +1149,22 @@ class WaylandWindow private constructor(
     }
 
     /**
+     * Sets the xdg_toplevel app ID (app_id) for this window.
+     * The compositor uses this for grouping windows into application instances.
+     */
+    internal fun setAppId(appId: String) {
+        xdg?.setAppId(appId)
+        flushDisplay()
+    }
+
+    /**
      * Sets the xdg_activation_v1 activation token for this window.
-     * Stub: xdg_activation_v1 protocol not yet wired in Kadre.
+     * When [token] is non-null, passes it to xdg_activation_v1.activate().
      */
     internal fun setActivationToken(token: String?) {
-        // no-op: xdg_activation_v1 is not yet bound.
+        if (token != null && surfacePtr != 0L) {
+            activationManager?.activate(token, surfacePtr)
+        }
     }
 
     internal fun applyWaylandInputRegionHittest(hittest: Boolean): Boolean {

@@ -70,6 +70,12 @@ class WaylandEventLoop internal constructor(
     internal val shmPtr: Long,
     internal val eventFd: Int,
     internal val decorationManagerPtr: Long = 0L,
+    internal val pointerConstraintsPtr: Long = 0L,
+    internal val iconManagerPtr: Long = 0L,
+    internal val activationManagerPtr: Long = 0L,
+    internal val seatPtr: Long = 0L,
+    internal val extBackgroundEffectManagerPtr: Long = 0L,
+    internal val kwinBlurManagerPtr: Long = 0L,
 ) : ActiveEventLoop {
 
     /** Active windows indexed by the address of their wl_surface*. */
@@ -99,6 +105,8 @@ class WaylandEventLoop internal constructor(
     @Volatile private var _controlFlow: ControlFlow = ControlFlow.Wait
     override val controlFlow: ControlFlow get() = _controlFlow
 
+    private var _systemTheme: Theme? = null
+
     override fun setControlFlow(controlFlow: ControlFlow) {
         _controlFlow = controlFlow
     }
@@ -121,6 +129,12 @@ class WaylandEventLoop internal constructor(
             shmPtr = shmPtr,
             attrs = attributes,
             decorationManager = decorationManagerPtr,
+            pointerConstraintsPtr = pointerConstraintsPtr,
+            iconManagerPtr = iconManagerPtr,
+            activationManagerPtr = activationManagerPtr,
+            seatPtr = seatPtr,
+            extBackgroundEffectManagerPtr = extBackgroundEffectManagerPtr,
+            kwinBlurManagerPtr = kwinBlurManagerPtr,
         ) ?: error("WaylandWindow.create failed — libwayland-client.so.0 absent or display invalid")
         // Route this window's compositor-driven events into the loop's queue for dispatch.
         window.onWindowEvent = { event -> eventQueue.add(window.id to event) }
@@ -145,13 +159,19 @@ class WaylandEventLoop internal constructor(
             shmPtr = shmPtr,
             attrs = attrs.core,
             decorationManager = decorationManagerPtr,
+            pointerConstraintsPtr = pointerConstraintsPtr,
+            iconManagerPtr = iconManagerPtr,
+            activationManagerPtr = activationManagerPtr,
+            seatPtr = seatPtr,
+            extBackgroundEffectManagerPtr = extBackgroundEffectManagerPtr,
+            kwinBlurManagerPtr = kwinBlurManagerPtr,
         ) ?: error("WaylandWindow.create failed — libwayland-client.so.0 absent")
         window.onWindowEvent = { event -> eventQueue.add(window.id to event) }
         windows[window.id.value] = window
         // Apply platform extension settings
         attrs.preferCsd?.let { window.setPreferCsd(it) }
         attrs.activationToken?.let { window.setActivationToken(it) }
-        attrs.name?.let { /* TODO: set xdg_toplevel app_id */ }
+        attrs.name?.let { name -> window.setAppId(name) }
         eventQueue.add(window.id to org.graphiks.kadre.core.WindowEvent.RedrawRequested)
         return window
     }
@@ -194,25 +214,39 @@ class WaylandEventLoop internal constructor(
 
     // ── R3: system theme ──────────────────────────────────────────────────────
 
-    /**
-     * Returns null on Wayland.
-     *
-     * Theme detection via org.freedesktop.portal.Settings (D-Bus) is not yet wired.
-     * Documented no-op.
-     *
-     * TODO(R3-wayland-theme): query org.freedesktop.portal.Settings via JVM D-Bus.
-     */
-    override fun systemTheme(): Theme? = null
+    override fun systemTheme(): Theme? {
+        if (_systemTheme == null) {
+            _systemTheme = WaylandThemePortal.queryColorScheme()
+        }
+        return _systemTheme
+    }
+
+    fun refreshTheme() {
+        WaylandThemePortal.resetCache()
+        val newTheme = WaylandThemePortal.queryColorScheme()
+        val oldTheme = _systemTheme
+        _systemTheme = newTheme
+        if (newTheme != null && newTheme != oldTheme) {
+            for (win in windows.values) {
+                eventQueue.add(win.id to WindowEvent.ThemeChanged(newTheme))
+            }
+        }
+    }
 
     // ── R4: device event filter ───────────────────────────────────────────────
 
     /**
-     * No-op on Wayland: device events are always dispatched.
+     * Device event filter controlling raw [DeviceEvent] dispatch.
      *
-     * TODO(R4-wayland-device-filter): use wl_seat capabilities to control dispatch.
+     * Defaults to [DeviceEvents.WhenFocused], which is the natural behavior on
+     * Wayland since keyboard/pointer events are already delivered per-surface.
+     * [DeviceEvents.Never] suppresses raw `DeviceEvent.Key` dispatch.
      */
+    @Volatile
+    internal var deviceEventFilter: DeviceEvents = DeviceEvents.WhenFocused
+
     override fun listenDeviceEvents(mode: DeviceEvents) {
-        // no-op on Wayland
+        deviceEventFilter = mode
     }
 
     // ── R5-CustomCursor ─────────────────────────────────────────────────────────
@@ -329,7 +363,10 @@ private fun runAppInternal(handler: ApplicationHandler) {
     val globals = discoverGlobals(displayPtr)
 
     val eventLoop = WaylandEventLoop(
-        displayPtr, globals.compositorPtr, globals.xdgWmBasePtr, globals.shmPtr, eventFd, globals.decorationManagerPtr,
+        displayPtr, globals.compositorPtr, globals.xdgWmBasePtr, globals.shmPtr, eventFd,
+        globals.decorationManagerPtr, globals.pointerConstraintsPtr, globals.iconManagerPtr,
+        globals.activationManagerPtr, globals.seatPtr,
+        globals.extBackgroundEffectManagerPtr, globals.kwinBlurManagerPtr,
     )
 
     // ── 4b. Install seat / output listeners (keyboard, pointer, touch, scale) ─
@@ -357,6 +394,7 @@ private fun runAppInternal(handler: ApplicationHandler) {
                 }
             }
         },
+        deviceFilter = eventLoop.deviceEventFilter,
     )
 
     // ── 4c. Create zwp_text_input_v3 for IME (if compositor exposes the protocol) ──

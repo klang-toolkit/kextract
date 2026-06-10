@@ -9,6 +9,7 @@
 package org.graphiks.kadre.wayland
 
 import org.graphiks.kadre.core.CursorGrabMode
+import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.RawDisplayHandle
@@ -25,6 +26,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class WaylandWindowTest {
 
@@ -253,6 +255,44 @@ class WaylandWindowTest {
         val confined = window.setCursorGrab(CursorGrabMode.Confined)
         assertIs<WindowRequestResult.Failure>(confined)
         assertIs<RequestError.Unsupported>(confined.error)
+        assertEquals("Wayland pointer constraints are not available", confined.error.message)
+    }
+
+    @Test
+    fun `Wayland cursor grab with zero pointerConstraintsPtr still succeeds for None`() {
+        val window = WaylandWindow.createForTest(pointerConstraintsPtr = 0L)
+
+        // None should succeed
+        assertEquals(WindowRequestResult.Success, window.setCursorGrab(CursorGrabMode.None))
+
+        // Confined should fail since constraintsPtr is 0
+        val confined = window.setCursorGrab(CursorGrabMode.Confined)
+        assertIs<WindowRequestResult.Failure>(confined)
+        assertIs<RequestError.Unsupported>(confined.error)
+    }
+
+    @Test
+    fun `WaylandPointerConstraints grab with zero constraintsPtr returns Unsupported`() {
+        val pc = WaylandPointerConstraints(0L)
+        // No FFM calls needed — the code path checks constraintsPtr first
+        val locked = pc.grab(surfacePtr = 1L, pointerPtr = 2L, mode = CursorGrabMode.Locked)
+        assertIs<WindowRequestResult.Failure>(locked)
+        assertIs<RequestError.Unsupported>(locked.error)
+
+        val confined = pc.grab(surfacePtr = 1L, pointerPtr = 2L, mode = CursorGrabMode.Confined)
+        assertIs<WindowRequestResult.Failure>(confined)
+        assertIs<RequestError.Unsupported>(confined.error)
+
+        val none = pc.grab(surfacePtr = 1L, pointerPtr = 2L, mode = CursorGrabMode.None)
+        assertIs<WindowRequestResult.Success>(none)
+    }
+
+    @Test
+    fun `WaylandPointerConstraints release does not crash without FFM bindings`() {
+        val pc = WaylandPointerConstraints(0L)
+        pc.release() // Must not throw
+        pc.grab(surfacePtr = 0L, pointerPtr = 0L, mode = CursorGrabMode.None)
+        pc.release() // Must not throw (idempotent)
     }
 
     @Test
@@ -466,6 +506,159 @@ class WaylandWindowTest {
     }
 
     @Test
+    fun `Wayland setWindowIcon is a silent no-op when iconManager is unavailable`() {
+        val window = WaylandWindow.createForTest(iconManagerPtr = 0L)
+        // Must not throw — protocol extension is optional
+        window.setWindowIcon(null)
+        window.setWindowIcon(Icon(ByteArray(16), 2, 2))
+    }
+
+    @Test
+    fun `Wayland setWindowIcon is a silent no-op without xdg toplevel`() {
+        val window = WaylandWindow.createForTest(iconManagerPtr = 1L)
+        // xdgToplevelPtr returns 0 when xdg is null → no-op
+        window.setWindowIcon(null)
+        window.setWindowIcon(Icon(ByteArray(16), 2, 2))
+    }
+
+    @Test
+    fun `WaylandIconManager creation with zero iconManagerPtr produces null manager`() {
+        val window = WaylandWindow.createForTest(iconManagerPtr = 0L)
+        assertNull(window.iconManager)
+    }
+
+    @Test
+    fun `WaylandIconManager creation with valid iconManagerPtr produces non-null manager`() {
+        val shm = 42L
+        val window = WaylandWindow.createForTest(
+            iconManagerPtr = 100L,
+            shmPtr = shm,
+        )
+        assertNotNull(window.iconManager)
+    }
+
+    @Test
+    fun `WaylandIconManager createShmBuffer returns 0 when shmPtr is 0`() {
+        val buf = WaylandIconManager.createShmBuffer(0L, 16, 16, ByteArray(256))
+        assertEquals(0L, buf)
+    }
+
+    @Test
+    fun `WaylandIconManager createShmBuffer returns 0 with invalid dimensions`() {
+        assertEquals(0L, WaylandIconManager.createShmBuffer(1L, 0, 16, ByteArray(64)))
+        assertEquals(0L, WaylandIconManager.createShmBuffer(1L, 16, 0, ByteArray(64)))
+        assertEquals(0L, WaylandIconManager.createShmBuffer(1L, -1, 16, ByteArray(64)))
+    }
+
+    @Test
+    fun `Wayland setBlur is a silent no-op when blurManager is unavailable`() {
+        val window = WaylandWindow.createForTest(extBackgroundEffectManagerPtr = 0L, kwinBlurManagerPtr = 0L)
+        assertNull(window.blurManager)
+        // Must not throw — protocol extension is optional
+        window.setBlur(true)
+        window.setBlur(false)
+    }
+
+    @Test
+    fun `Wayland blurManager is non-null when ext background effect ptr is non-zero`() {
+        val window = WaylandWindow.createForTest(
+            surface = 1L,
+            extBackgroundEffectManagerPtr = 100L,
+        )
+        assertNotNull(window.blurManager)
+    }
+
+    @Test
+    fun `Wayland blurManager is non-null when kwin blur ptr is non-zero`() {
+        val window = WaylandWindow.createForTest(
+            surface = 1L,
+            kwinBlurManagerPtr = 200L,
+        )
+        assertNotNull(window.blurManager)
+    }
+
+    @Test
+    fun `Wayland blurManager setBlur does not crash with mock pointers`() {
+        val window = WaylandWindow.createForTest(
+            surface = 1L,
+            extBackgroundEffectManagerPtr = 100L,
+        )
+        val blur = window.blurManager
+        assertNotNull(blur)
+        // Must not throw — FFM calls will gracefully fail without libwayland
+        blur.setBlur(true)
+        blur.setBlur(false)
+        blur.setBlur(true)
+    }
+
+    @Test
+    fun `Wayland blurManager kwin fallback setBlur does not crash with mock pointers`() {
+        val window = WaylandWindow.createForTest(
+            surface = 1L,
+            kwinBlurManagerPtr = 200L,
+        )
+        val blur = window.blurManager
+        assertNotNull(blur)
+        blur.setBlur(true)
+        blur.setBlur(false)
+    }
+
+    @Test
+    fun `Wayland blurManager with zero surface is a no-op`() {
+        val blur = WaylandBlur(extBackgroundEffectManagerPtr = 100L, kwinBlurManagerPtr = 0L, surfacePtr = 0L)
+        // Must not throw
+        blur.setBlur(true)
+        blur.setBlur(false)
+    }
+
+    @Test
+    fun `WaylandActivationToken is a silent no-op when activationManagerPtr is zero`() {
+        val act = WaylandActivationToken(activationManagerPtr = 0L)
+        // Must not throw — protocol extension is optional
+        act.activate("test-token", surfacePtr = 100L)
+    }
+
+    @Test
+    fun `WaylandActivationToken activate does not crash with mock pointers`() {
+        val act = WaylandActivationToken(activationManagerPtr = 200L, seatPtr = 300L)
+        // FFM calls will gracefully return without libwayland
+        act.activate("test-token", surfacePtr = 100L)
+    }
+
+    @Test
+    fun `WaylandActivationToken activate with zero seat is a no-op`() {
+        val act = WaylandActivationToken(activationManagerPtr = 200L, seatPtr = 0L)
+        act.activate("test-token", surfacePtr = 100L)
+    }
+
+    @Test
+    fun `WaylandActivationToken activate with zero surface is a no-op`() {
+        val act = WaylandActivationToken(activationManagerPtr = 200L, seatPtr = 300L)
+        act.activate("test-token", surfacePtr = 0L)
+    }
+
+    @Test
+    fun `WaylandWindow createForTest accepts activationManagerPtr`() {
+        val window = WaylandWindow.createForTest(
+            activationManagerPtr = 100L,
+            seatPtr = 200L,
+        )
+        assertNotNull(window)
+    }
+
+    @Test
+    fun `WaylandWindow setActivationToken is a silent no-op when activationManager is unavailable`() {
+        val window = WaylandWindow.createForTest(activationManagerPtr = 0L)
+        window.setActivationToken("test-token")
+    }
+
+    @Test
+    fun `WaylandWindow setActivationToken with null token is a silent no-op`() {
+        val window = WaylandWindow.createForTest(activationManagerPtr = 100L, seatPtr = 200L)
+        window.setActivationToken(null)
+    }
+
+    @Test
     fun `WaylandWindow create returns null when libwayland is not available`() {
         // On macOS/Windows, wlCompositorCreateSurface is null
         // → create() returns null gracefully
@@ -480,5 +673,18 @@ class WaylandWindowTest {
         )
         // On non-Wayland, the binding is null and create() returns null
         assertEquals(null, result)
+    }
+
+    @Test
+    fun `setAppId does not crash when xdg is unavailable`() {
+        val window = WaylandWindow.createForTest()
+        // xdg is null → setAppId is a silent no-op
+        window.setAppId("org.example.app")
+    }
+
+    @Test
+    fun `setAppId does not crash with blank app ID`() {
+        val window = WaylandWindow.createForTest()
+        window.setAppId("")
     }
 }

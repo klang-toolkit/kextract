@@ -34,6 +34,7 @@
 package org.graphiks.kadre.wayland
 
 import org.graphiks.kadre.core.DeviceEvent
+import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PointerKind
 import org.graphiks.kadre.core.WindowEvent
@@ -46,6 +47,9 @@ import java.lang.invoke.MethodType
 
 private typealias RoutedWindowEventSink = (surfacePtr: Long, event: WindowEvent) -> Unit
 private typealias RoutedDeviceEventSink = (event: DeviceEvent) -> Unit
+
+/** No-op device event sink used when [DeviceEvents.Never] is active. */
+private val noOpDeviceEventSink: RoutedDeviceEventSink = { }
 
 /**
  * Global XKB compose state for dead-key reset, lazily initialized from
@@ -511,6 +515,7 @@ internal fun installSeatListeners(
     onEvent: RoutedWindowEventSink,
     onDeviceEvent: RoutedDeviceEventSink = {},
     onScaleChanged: (Int) -> Unit,
+    deviceFilter: DeviceEvents = DeviceEvents.WhenFocused,
 ) {
     val addListener = wlProxyAddListener ?: return
     val arena = Arena.ofShared()
@@ -574,7 +579,8 @@ internal fun installSeatListeners(
                         ) as MemorySegment
                     }.getOrNull()
                     if (kbSeg != null && kbSeg.address() != 0L) {
-                        installKeyboardListener(kbSeg, addListener, lookup, arena, seatPtr, onEvent, onDeviceEvent)
+                        val sink = if (deviceFilter == DeviceEvents.Never) noOpDeviceEventSink else onDeviceEvent
+                        installKeyboardListener(kbSeg, addListener, lookup, arena, seatPtr, onEvent, sink)
                         anyListenerInstalled = true
                     }
                 }

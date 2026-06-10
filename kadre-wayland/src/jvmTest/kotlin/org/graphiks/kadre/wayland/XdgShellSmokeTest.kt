@@ -13,6 +13,7 @@ class XdgShellSmokeTest {
         assertEquals(4, XDG_TOPLEVEL_SHOW_WINDOW_MENU)
         assertEquals(5, XDG_TOPLEVEL_MOVE)
         assertEquals(6, XDG_TOPLEVEL_RESIZE)
+        assertEquals(3, XDG_TOPLEVEL_SET_APP_ID)
     }
 
     @Test
