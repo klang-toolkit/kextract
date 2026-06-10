@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Starts a Weston compositor with the RDP backend (decorated, floating windows) and runs the
-# interactive hello-compose sample inside it. Connect from the host with an RDP client
+# interactive compose/desktop sample inside it. Connect from the host with an RDP client
 # (e.g. Microsoft Remote Desktop) to localhost:3389.
 set -euo pipefail
 
@@ -38,4 +38,4 @@ echo "[wayland-desktop] Test: drag a window edge to resize (→ Resized), click 
 
 # Interactive sample (no --window-capture): opens a real toplevel in Weston.
 # WAYLAND_DEBUG can be set by the caller to trace the protocol (attach/commit/configure).
-exec ./gradlew :samples:hello-compose:run --no-daemon --console=plain --stacktrace
+exec ./gradlew :samples:compose:desktop:run --no-daemon --console=plain --stacktrace

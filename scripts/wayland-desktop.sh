@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch an interactive Wayland desktop (Weston + RDP backend) running the hello-compose sample,
+# Launch an interactive Wayland desktop (Weston + RDP backend) running the compose/desktop sample,
 # so the Wayland window events (Resized, CloseRequested) can be exercised with a real mouse from
 # a macOS dev box.
 #

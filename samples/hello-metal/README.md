@@ -10,7 +10,7 @@ Illustrates the Kadre stack end-to-end:
 - `RawWindowHandle.AppKit` retrieval (nsView, nsWindow)
 - Lifecycle: creation, resize, close
 
-This is the minimal foundation used by more advanced samples (`hello-triangle`, `hello-compose`).
+This is the minimal foundation used by more advanced samples (`hello-triangle`, `compose/desktop`).
 
 ## Platforms
 

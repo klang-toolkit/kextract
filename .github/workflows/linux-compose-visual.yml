@@ -1,6 +1,6 @@
 name: linux-compose-visual
 
-# Linux validation of the hello-compose sample (Compose Multiplatform in a Kadre window).
+# Linux validation of the compose/desktop sample (Compose Multiplatform in a Kadre window).
 #
 # Modelled on linux-visual.yml (headless Weston compositor + Mesa software rendering).
 # Three checks, increasing in coverage:
@@ -14,12 +14,12 @@ on:
   push:
     branches: [master, 'claude/**']
     paths:
-      - 'samples/hello-compose/**'
+      - 'samples/compose/desktop/**'
       - '.github/workflows/linux-compose-visual.yml'
   pull_request:
     branches: [master]
     paths:
-      - 'samples/hello-compose/**'
+      - 'samples/compose/desktop/**'
       - '.github/workflows/linux-compose-visual.yml'
   workflow_dispatch:
 
@@ -80,8 +80,8 @@ jobs:
       # No display / no GPU — these MUST pass.
       - name: Headless checks (--ci-headless)
         run: |
-          ./gradlew :samples:hello-compose:run \
-            --args="--ci-headless samples/hello-compose/build/visual" \
+          ./gradlew :samples:compose:desktop:run \
+            --args="--ci-headless samples/compose/desktop/build/visual" \
             --no-daemon --stacktrace
 
       # 3: the real windowed GL path via EGL/Wayland + Skiko makeGL, under software Mesa GL.
@@ -100,14 +100,14 @@ jobs:
           fi
           # Hard cap: the app has its own 30s watchdog, this is a belt-and-braces backstop so a
           # stuck native call can never hang the job. SIGKILL 30s after SIGTERM if needed.
-          timeout -k 30 180 ./gradlew :samples:hello-compose:run \
-            --args="--window-capture samples/hello-compose/build/visual/hello-compose.window.png" \
+          timeout -k 30 180 ./gradlew :samples:compose:desktop:run \
+            --args="--window-capture samples/compose/desktop/build/visual/compose-desktop.window.png" \
             --no-daemon --stacktrace || echo "::warning::window-capture timed out or failed (non-blocking)"
 
       - name: Dump crash report (hs_err) if any
         if: always()
         run: |
-          f=$(ls -t samples/hello-compose/hs_err_pid*.log 2>/dev/null | head -1)
+          f=$(ls -t samples/compose/desktop/hs_err_pid*.log 2>/dev/null | head -1)
           if [ -n "$f" ]; then
             echo "===== $f (excerpt) ====="
             sed -n '1,50p' "$f"
@@ -119,6 +119,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hello-compose-linux
-          path: samples/hello-compose/build/visual/*.png
+          name: compose-desktop-linux
+          path: samples/compose/desktop/build/visual/*.png
           if-no-files-found: ignore

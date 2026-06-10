@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Starts a headless Weston compositor, then runs the command passed as arguments
-# (defaults to a hello-compose windowed capture). Everything runs inside the container.
+# (defaults to a compose/desktop windowed capture). Everything runs inside the container.
 set -euo pipefail
 
 mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
@@ -28,8 +28,8 @@ export WAYLAND_DISPLAY=wayland-ci
 echo "[wayland-test] Weston up (WAYLAND_DISPLAY=$WAYLAND_DISPLAY)"
 
 if [ "$#" -eq 0 ]; then
-  set -- ./gradlew :samples:hello-compose:run \
-    --args="--window-capture build/wayland/hello-compose.png" \
+  set -- ./gradlew :samples:compose:desktop:run \
+    --args="--window-capture build/wayland/compose-desktop.png" \
     --no-daemon --stacktrace --console=plain
 fi
 

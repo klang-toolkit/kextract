@@ -2,7 +2,7 @@
 # Run a Kadre Gradle command against a headless Weston compositor inside a Linux container,
 # so the Wayland backend can be tested from a macOS dev box.
 #
-#   scripts/wayland-test.sh                       # default: hello-compose --window-capture
+#   scripts/wayland-test.sh                       # default: compose/desktop --window-capture
 #   scripts/wayland-test.sh ./gradlew :samples:hello-window:run --no-daemon
 #
 # The repo is mounted at /work; a named volume persists ~/.gradle across runs.
