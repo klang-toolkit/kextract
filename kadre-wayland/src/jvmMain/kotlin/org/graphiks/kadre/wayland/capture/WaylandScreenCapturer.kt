@@ -3,6 +3,8 @@ package org.graphiks.kadre.wayland.capture
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.capture.*
+import org.graphiks.kadre.wayland.portal.XdpPortal
+import org.graphiks.kadre.wayland.portal.XdpPortalCaptureSession
 import org.graphiks.kadre.wayland.wlOutputInterface
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
@@ -74,18 +76,25 @@ class WaylandScreenCapturer : ScreenCapturer {
         source: CaptureSource,
         config: CaptureConfig,
     ): CaptureSession {
-        when (source) {
-            is CaptureSource.Display -> {}
-            is CaptureSource.Window -> throw CaptureError.Unsupported(
-                "Window capture via xdg-desktop-portal is not yet implemented"
-            )
+        // Try xdg-desktop-portal first (works with GNOME/KDE), then fall back to wlr-screencopy
+        return if (XdpPortal.isAvailable()) {
+            when (source) {
+                is CaptureSource.Display -> XdpPortalCaptureSession(source, config)
+                is CaptureSource.Window -> XdpPortalCaptureSession(source, config)
+            }
+        } else {
+            when (source) {
+                is CaptureSource.Display -> WaylandCaptureSession(source, config)
+                is CaptureSource.Window -> throw CaptureError.Unsupported(
+                    "Window capture requires xdg-desktop-portal (not available) or wlr-screencopy (window capture not implemented)"
+                )
+            }
         }
-        return WaylandCaptureSession(source, config)
     }
 
     override suspend fun requestPermission(): CapturePermission =
-        CapturePermission.Pending
+        if (XdpPortal.isAvailable()) XdpPortal.checkPermissionStatus() else CapturePermission.Pending
 
     override fun permissionStatus(): CapturePermission =
-        CapturePermission.Pending
+        if (XdpPortal.isAvailable()) XdpPortal.checkPermissionStatus() else CapturePermission.Pending
 }
