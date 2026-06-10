@@ -9,6 +9,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.ffi.wayland.*
 import org.graphiks.kadre.core.DeviceEvents
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.WindowEvent

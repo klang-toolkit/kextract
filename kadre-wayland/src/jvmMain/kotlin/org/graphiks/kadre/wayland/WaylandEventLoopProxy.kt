@@ -11,6 +11,7 @@
  * WaylandEventLoop.
  */
 package org.graphiks.kadre.wayland
+import org.graphiks.kadre.ffi.wayland.*
 
 import org.graphiks.kadre.core.EventLoopProxy
 import java.lang.foreign.Arena

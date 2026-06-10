@@ -47,6 +47,7 @@ import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import org.graphiks.kadre.ffi.win32.*
 
 /**
  * Native Win32 window implementing [Window].

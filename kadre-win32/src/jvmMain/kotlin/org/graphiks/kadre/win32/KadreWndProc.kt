@@ -36,6 +36,7 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.ffi.win32.*
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.FingerId
 import org.graphiks.kadre.core.KeyEvent

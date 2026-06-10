@@ -1,12 +1,12 @@
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.appkit.bindings.NSApplication
-import org.graphiks.kadre.appkit.bindings.NSApplicationDelegate
-import org.graphiks.kadre.appkit.bindings.NSEvent
-import org.graphiks.kadre.appkit.bindings.NSView
-import org.graphiks.kadre.appkit.bindings.NSWindow
-import org.graphiks.kadre.appkit.bindings.NSWindowDelegate
-import org.graphiks.kadre.appkit.bindings.ObjCRuntime
+import org.graphiks.kadre.ffi.objc.NSApplication
+import org.graphiks.kadre.ffi.objc.NSApplicationDelegate
+import org.graphiks.kadre.ffi.objc.NSEvent
+import org.graphiks.kadre.ffi.objc.NSView
+import org.graphiks.kadre.ffi.objc.NSWindow
+import org.graphiks.kadre.ffi.objc.NSWindowDelegate
+import org.graphiks.kadre.ffi.objc.ObjCRuntime
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 

@@ -1,5 +1,6 @@
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.ffi.wayland.*
 import java.lang.foreign.MemorySegment
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong

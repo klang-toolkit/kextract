@@ -16,6 +16,7 @@
  */
 package org.graphiks.kadre.x11
 
+import org.graphiks.kadre.ffi.x11.*
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.CustomCursor

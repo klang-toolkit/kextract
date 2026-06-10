@@ -8,6 +8,7 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.ffi.win32.*
 import kotlin.test.Test
 import kotlin.test.assertFalse
 

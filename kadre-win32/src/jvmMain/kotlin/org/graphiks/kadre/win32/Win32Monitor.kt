@@ -12,6 +12,7 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.ffi.win32.*
 import org.graphiks.kadre.core.MonitorHandle
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -25,6 +26,7 @@ import java.lang.foreign.ValueLayout
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
+import org.graphiks.kadre.ffi.win32.*
 
 // ── Win32 monitor constants ───────────────────────────────────────────────────
 

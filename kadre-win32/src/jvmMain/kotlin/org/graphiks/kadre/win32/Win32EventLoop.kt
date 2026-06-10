@@ -37,6 +37,7 @@ import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import org.graphiks.kadre.ffi.win32.*
 
 // ── Single-instance lock ──────────────────────────────────────────────────────
 

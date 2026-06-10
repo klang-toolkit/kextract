@@ -14,6 +14,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.ffi.wayland.*
 import org.graphiks.kadre.core.ImePurpose
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize

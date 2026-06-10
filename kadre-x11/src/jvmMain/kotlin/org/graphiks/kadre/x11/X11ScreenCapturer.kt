@@ -3,14 +3,9 @@ package org.graphiks.kadre.x11.capture
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.capture.*
+import org.graphiks.kadre.ffi.x11.*
+import org.graphiks.kadre.ffi.x11.capture.*
 import org.graphiks.kadre.x11.enumerateX11Monitors
-import org.graphiks.kadre.x11.xOpenDisplay
-import org.graphiks.kadre.x11.xCloseDisplay
-import org.graphiks.kadre.x11.xFree
-import org.graphiks.kadre.x11.xGetGeometry
-import org.graphiks.kadre.x11.xGetWindowProperty
-import org.graphiks.kadre.x11.xInternAtom
-import org.graphiks.kadre.x11.xTranslateCoordinates
 
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment

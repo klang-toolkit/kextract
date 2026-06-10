@@ -13,6 +13,7 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.ffi.win32.*
 import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.MouseButton

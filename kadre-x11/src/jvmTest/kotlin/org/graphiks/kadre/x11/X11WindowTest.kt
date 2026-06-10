@@ -1,5 +1,6 @@
 package org.graphiks.kadre.x11
 
+import org.graphiks.kadre.ffi.x11.*
 import org.graphiks.kadre.core.CursorIcon
 import org.graphiks.kadre.core.Fullscreen
 import org.graphiks.kadre.core.WindowAttributes

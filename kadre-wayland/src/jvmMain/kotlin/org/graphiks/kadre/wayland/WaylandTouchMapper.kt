@@ -20,6 +20,7 @@
  * WaylandTouchMapper — wl_touch events → pointer WindowEvents.
  */
 package org.graphiks.kadre.wayland
+import org.graphiks.kadre.ffi.wayland.*
 
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.FingerId

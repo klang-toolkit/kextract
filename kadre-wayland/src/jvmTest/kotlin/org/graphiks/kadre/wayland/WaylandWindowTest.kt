@@ -8,6 +8,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.ffi.wayland.*
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.Icon
 import org.graphiks.kadre.core.ImePurpose

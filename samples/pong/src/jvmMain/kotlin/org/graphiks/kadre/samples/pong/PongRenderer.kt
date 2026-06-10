@@ -55,7 +55,7 @@ import io.ygdrasil.webgpu.WGPU
 import io.ygdrasil.webgpu.WGPUInstanceBackend
 import io.ygdrasil.webgpu.WGPULowLevelApi
 import io.ygdrasil.webgpu.writeBuffer
-import org.graphiks.kadre.appkit.bindings.ObjCRuntime
+import org.graphiks.kadre.ffi.objc.ObjCRuntime
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 import kotlinx.coroutines.runBlocking

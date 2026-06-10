@@ -1,5 +1,6 @@
 package org.graphiks.kadre.x11
 
+import org.graphiks.kadre.ffi.x11.libX11
 import kotlin.test.Test
 
 class X11SmokeTest {

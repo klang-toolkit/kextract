@@ -29,12 +29,13 @@
  */
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.appkit.bindings.NSApplication
-import org.graphiks.kadre.appkit.bindings.NSApplicationActivationPolicy
-import org.graphiks.kadre.appkit.bindings.NSEvent
-import org.graphiks.kadre.appkit.bindings.NSView
-import org.graphiks.kadre.appkit.bindings.NSWindow
-import org.graphiks.kadre.appkit.bindings.ObjCRuntime
+import org.graphiks.kadre.ffi.objc.NSApplication
+import org.graphiks.kadre.ffi.objc.NSApplicationActivationPolicy
+import org.graphiks.kadre.ffi.objc.NSEvent
+import org.graphiks.kadre.ffi.objc.NSView
+import org.graphiks.kadre.ffi.objc.NSWindow
+import org.graphiks.kadre.ffi.objc.ObjCRuntime
+import org.graphiks.kadre.ffi.objc.ObjCSubclassing
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.DeviceId

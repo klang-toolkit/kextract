@@ -1,7 +1,8 @@
 package org.graphiks.kadre.wayland
+import org.graphiks.kadre.ffi.wayland.*
 
 import org.graphiks.kadre.core.CursorImage
-import org.graphiks.kadre.wayland.generated.wl_shm_format
+import org.graphiks.kadre.ffi.wayland.generated.wl_shm_format
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout

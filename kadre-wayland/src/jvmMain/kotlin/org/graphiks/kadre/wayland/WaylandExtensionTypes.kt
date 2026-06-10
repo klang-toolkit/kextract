@@ -6,6 +6,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.ffi.wayland.*
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes

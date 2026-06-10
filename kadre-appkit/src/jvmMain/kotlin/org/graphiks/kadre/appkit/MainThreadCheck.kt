@@ -7,7 +7,7 @@
  */
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.appkit.bindings.ObjCRuntime
+import org.graphiks.kadre.ffi.objc.ObjCRuntime
 import java.lang.foreign.ValueLayout
 
 object MainThreadCheck {

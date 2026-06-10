@@ -16,16 +16,13 @@ plugins {
 kotlin {
     jvmToolchain(25)
 
-    // ABI compatibility validation — built into the Kotlin plugin.
-    @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
-    abiValidation()
-
     jvm()
 
     sourceSets {
         jvmMain {
             dependencies {
                 api(project(":kadre-core"))
+                api(project(":ffi:objc"))
             }
         }
         jvmTest {

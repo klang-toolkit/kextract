@@ -1,5 +1,6 @@
 package org.graphiks.kadre.x11
 
+import org.graphiks.kadre.ffi.x11.*
 import java.lang.foreign.MemorySegment
 import kotlin.test.Test
 import kotlin.test.assertNotNull

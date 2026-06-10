@@ -6,6 +6,7 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.ffi.win32.*
 import org.graphiks.kadre.core.Window
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowRequestResult

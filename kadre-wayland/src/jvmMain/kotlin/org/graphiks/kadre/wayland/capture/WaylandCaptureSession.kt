@@ -3,7 +3,7 @@ package org.graphiks.kadre.wayland.capture
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.capture.*
 import kotlinx.coroutines.*
-import org.graphiks.kadre.wayland.*
+import org.graphiks.kadre.ffi.wayland.*
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout

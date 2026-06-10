@@ -13,6 +13,7 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.ffi.win32.*
 import org.graphiks.kadre.core.EventLoopProxy
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor

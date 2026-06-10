@@ -7,6 +7,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.ffi.wayland.*
 import org.graphiks.kadre.core.KeyCode
 import org.graphiks.kadre.core.KeyEvent
 import org.graphiks.kadre.core.KeyPlatform

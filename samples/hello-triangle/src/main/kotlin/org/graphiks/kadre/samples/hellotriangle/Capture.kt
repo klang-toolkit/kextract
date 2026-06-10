@@ -26,7 +26,7 @@
 package org.graphiks.kadre.samples.hellotriangle
 
 import ffi.JvmNativeAddress
-import org.graphiks.kadre.appkit.bindings.ObjCRuntime
+import org.graphiks.kadre.ffi.objc.ObjCRuntime
 import io.ygdrasil.webgpu.BufferDescriptor
 import io.ygdrasil.webgpu.Color
 import io.ygdrasil.webgpu.ColorTargetState

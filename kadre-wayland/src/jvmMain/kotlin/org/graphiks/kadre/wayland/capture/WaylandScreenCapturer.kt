@@ -1,11 +1,12 @@
 package org.graphiks.kadre.wayland.capture
+import org.graphiks.kadre.ffi.wayland.*
 
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.capture.*
+import org.graphiks.kadre.ffi.wayland.wlOutputInterface
 import org.graphiks.kadre.wayland.portal.XdpPortal
 import org.graphiks.kadre.wayland.portal.XdpPortalCaptureSession
-import org.graphiks.kadre.wayland.wlOutputInterface
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
@@ -36,7 +37,7 @@ class WaylandScreenCapturer : ScreenCapturer {
         if (collector.outputNames.isEmpty()) return emptyList()
 
         val outputIface = wlOutputInterface ?: return emptyList()
-        val bind = org.graphiks.kadre.wayland.wlProxyMarshalBind ?: return emptyList()
+        val bind = org.graphiks.kadre.ffi.wayland.wlProxyMarshalBind ?: return emptyList()
         val registrySeg = MemorySegment.ofAddress(registryPtr)
 
         val outputCollectors = collector.outputNames.mapNotNull { (name, version) ->

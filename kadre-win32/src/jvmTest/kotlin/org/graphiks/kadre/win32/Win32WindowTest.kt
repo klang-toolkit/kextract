@@ -12,6 +12,7 @@
  */
 package org.graphiks.kadre.win32
 
+import org.graphiks.kadre.ffi.win32.*
 import org.graphiks.kadre.core.WindowAttributes
 import org.graphiks.kadre.core.WindowButtons
 import org.graphiks.kadre.core.WindowLevel

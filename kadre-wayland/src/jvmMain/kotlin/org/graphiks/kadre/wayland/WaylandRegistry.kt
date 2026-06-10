@@ -13,10 +13,11 @@
  * `xdg_wm_base_interface` comes from the kextract-generated bindings ([generated]).
  */
 package org.graphiks.kadre.wayland
+import org.graphiks.kadre.ffi.wayland.*
 
 import org.graphiks.kadre.core.WindowEvent
-import org.graphiks.kadre.wayland.generated.xdg_wm_base_interface
-import org.graphiks.kadre.wayland.generated.zxdg_decoration_manager_v1_interface
+import org.graphiks.kadre.ffi.wayland.generated.xdg_wm_base_interface
+import org.graphiks.kadre.ffi.wayland.generated.zxdg_decoration_manager_v1_interface
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.MemorySegment

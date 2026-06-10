@@ -9,6 +9,7 @@
  */
 package org.graphiks.kadre.wayland
 
+import org.graphiks.kadre.ffi.wayland.*
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 import kotlin.test.Test

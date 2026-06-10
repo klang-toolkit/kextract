@@ -10,8 +10,8 @@
  */
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.appkit.bindings.NSApplicationActivationPolicy
-import org.graphiks.kadre.appkit.bindings.ObjCRuntime
+import org.graphiks.kadre.ffi.objc.NSApplicationActivationPolicy
+import org.graphiks.kadre.ffi.objc.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.ControlFlow

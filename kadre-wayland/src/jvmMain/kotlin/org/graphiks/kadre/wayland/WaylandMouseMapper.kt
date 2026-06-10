@@ -26,6 +26,7 @@
  * WaylandMouseMapper — wl_pointer events → WindowEvent.
  */
 package org.graphiks.kadre.wayland
+import org.graphiks.kadre.ffi.wayland.*
 
 import org.graphiks.kadre.core.KeyState
 import org.graphiks.kadre.core.ButtonSource

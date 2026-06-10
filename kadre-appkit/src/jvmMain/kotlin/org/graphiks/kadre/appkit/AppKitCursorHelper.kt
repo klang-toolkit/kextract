@@ -6,7 +6,7 @@
  */
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.appkit.bindings.ObjCRuntime
+import org.graphiks.kadre.ffi.objc.ObjCRuntime
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.CursorImage
 import org.graphiks.kadre.core.RequestError

@@ -9,6 +9,7 @@
  * `org_kde_kwin_blur` if unavailable. Silent no-op if neither is available.
  */
 package org.graphiks.kadre.wayland
+import org.graphiks.kadre.ffi.wayland.*
 
 import java.lang.foreign.MemorySegment
 

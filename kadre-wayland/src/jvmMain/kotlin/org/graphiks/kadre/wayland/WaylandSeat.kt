@@ -32,6 +32,7 @@
  * valid for the process lifetime. This matches the pattern used by [XdgToplevel].
  */
 package org.graphiks.kadre.wayland
+import org.graphiks.kadre.ffi.wayland.*
 
 import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.DeviceEvents

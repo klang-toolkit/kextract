@@ -3,6 +3,7 @@ package org.graphiks.kadre.win32.capture
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
 import org.graphiks.kadre.core.capture.*
+import org.graphiks.kadre.ffi.win32.*
 import org.graphiks.kadre.win32.*
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment

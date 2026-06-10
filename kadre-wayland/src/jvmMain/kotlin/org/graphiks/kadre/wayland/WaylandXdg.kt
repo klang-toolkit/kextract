@@ -17,10 +17,11 @@
  * roundtrip here completes that handshake before any rendering.
  */
 package org.graphiks.kadre.wayland
+import org.graphiks.kadre.ffi.wayland.*
 
-import org.graphiks.kadre.wayland.generated.xdg_surface_interface
-import org.graphiks.kadre.wayland.generated.xdg_toplevel_interface
-import org.graphiks.kadre.wayland.generated.zxdg_toplevel_decoration_v1_interface
+import org.graphiks.kadre.ffi.wayland.generated.xdg_surface_interface
+import org.graphiks.kadre.ffi.wayland.generated.xdg_toplevel_interface
+import org.graphiks.kadre.ffi.wayland.generated.zxdg_toplevel_decoration_v1_interface
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.MemorySegment

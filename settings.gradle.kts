@@ -90,3 +90,9 @@ include(":samples:hello-triangle-ios")
 include(":samples:hello-triangle-android-capture")
 include(":samples:simulation-demo")
 include(":samples:screen-capture-demo")
+
+// FFI subprojects — Panama bindings per native technology
+include(":ffi:objc")
+include(":ffi:win32")
+include(":ffi:x11")
+include(":ffi:wayland")
