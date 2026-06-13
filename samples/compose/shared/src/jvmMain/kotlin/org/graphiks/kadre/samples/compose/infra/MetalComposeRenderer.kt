@@ -10,7 +10,7 @@
  */
 package org.graphiks.kadre.samples.compose.infra
 
-import org.graphiks.kadre.ffi.objc.ObjCRuntime
+import org.graphiks.kffi.objc.ObjCRuntime
 import org.graphiks.kadre.coroutines.EventLoopDispatcher
 import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.ColorSpace

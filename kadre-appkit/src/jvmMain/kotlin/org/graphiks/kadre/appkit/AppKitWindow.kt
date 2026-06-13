@@ -8,17 +8,17 @@
  */
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.ffi.objc.NSBackingStoreType
-import org.graphiks.kadre.ffi.objc.NSApplication
-import org.graphiks.kadre.ffi.objc.NSWindowTitleVisibility
-import org.graphiks.kadre.ffi.objc.NSRequestUserAttentionType
-import org.graphiks.kadre.ffi.objc.NSRect
-import org.graphiks.kadre.ffi.objc.NSView
-import org.graphiks.kadre.ffi.objc.NSWindow
-import org.graphiks.kadre.ffi.objc.NSWindowButton
-import org.graphiks.kadre.ffi.objc.NSWindowSharingType
-import org.graphiks.kadre.ffi.objc.NSWindowStyleMask
-import org.graphiks.kadre.ffi.objc.ObjCRuntime
+import org.graphiks.kffi.objc.NSBackingStoreType
+import org.graphiks.kffi.objc.NSApplication
+import org.graphiks.kffi.objc.NSWindowTitleVisibility
+import org.graphiks.kffi.objc.NSRequestUserAttentionType
+import org.graphiks.kffi.objc.NSRect
+import org.graphiks.kffi.objc.NSView
+import org.graphiks.kffi.objc.NSWindow
+import org.graphiks.kffi.objc.NSWindowButton
+import org.graphiks.kffi.objc.NSWindowSharingType
+import org.graphiks.kffi.objc.NSWindowStyleMask
+import org.graphiks.kffi.objc.ObjCRuntime
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import org.graphiks.kadre.core.CursorGrabMode
@@ -143,14 +143,17 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
         val backing = NSBackingStoreType.NSBackingStoreBuffered
 
-        // kextract v0.0.2 now correctly emits initWithContentRect:styleMask:backing:defer:
-        // with NSRect by-value via ObjCStructArg + the CGRect GroupLayout.
-        val initializedPtr = NSWindow(allocated).initWithContentRect_styleMask_backing_defer(
-            contentRect,
-            styleMask,
-            backing,
-            false, // BOOL defer = NO (BOOL is now Boolean since v0.0.2)
-        )
+        // initWithContentRect:styleMask:backing:defer: is not generated (init methods
+        // are filtered by the include filter), so use raw msgSend.
+        val initializedPtr = ObjCRuntime.msgSend(
+            ValueLayout.ADDRESS,
+            allocated,
+            ObjCRuntime.sel("initWithContentRect:styleMask:backing:defer:"),
+            ObjCRuntime.ObjCStructArg(contentRect, NS_RECT_LAYOUT),
+            styleMask.rawValue,
+            backing.value,
+            (if (false) 1L else 0L), // BOOL = Byte → Long
+        ) as MemorySegment
         nsWindowPtr = initializedPtr
         id = WindowId(nsWindowPtr.address())
 
@@ -186,7 +189,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             ObjCRuntime.sel("new"),
         ) as MemorySegment
         contentView.setLayer(metalLayerPtr) // ← setLayer BEFORE setWantsLayer
-        contentView.setWantsLayer(true)     // ← setWantsLayer LAST (BOOL = Boolean since v0.0.2)
+        contentView.setWantsLayer(1.toByte())     // ← setWantsLayer LAST
 
         // 6. contentsScale = backingScaleFactor for HiDPI / Retina support
         val scale = NSWindow(nsWindowPtr).backingScaleFactor()
@@ -412,23 +415,24 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
     override val isVisible: Boolean?
         get() = try {
-            NSWindow(nsWindowPtr).isVisible()
+            NSWindow(nsWindowPtr).isVisibleTyped()
         } catch (_: Throwable) { null }
 
     override fun setResizable(resizable: Boolean) {
         try {
-            val nsWindow = NSWindow(nsWindowPtr)
-            val current = nsWindow.styleMask()
+            val raw = ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, nsWindowPtr, ObjCRuntime.sel("styleMask")) as Long
+            val current = NSWindowStyleMask(raw)
             val resizableMask = NSWindowStyleMask.NSWindowStyleMaskResizable
             val newMask = if (resizable) current + resizableMask
                           else NSWindowStyleMask(current.rawValue and resizableMask.rawValue.inv())
-            nsWindow.setStyleMask(newMask)
+            ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setStyleMask:"), newMask.rawValue)
         } catch (_: Throwable) {}
     }
 
     override val isResizable: Boolean
         get() = try {
-            NSWindowStyleMask.NSWindowStyleMaskResizable in NSWindow(nsWindowPtr).styleMask()
+            val raw = ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, nsWindowPtr, ObjCRuntime.sel("styleMask")) as Long
+            NSWindowStyleMask.NSWindowStyleMaskResizable in NSWindowStyleMask(raw)
         } catch (_: Throwable) { false }
 
     override fun setMinimized(minimized: Boolean) {
@@ -441,19 +445,19 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
     override val isMinimized: Boolean?
         get() = try {
-            NSWindow(nsWindowPtr).isMiniaturized()
+            NSWindow(nsWindowPtr).isMiniaturizedTyped()
         } catch (_: Throwable) { null }
 
     override fun setMaximized(maximized: Boolean) {
         try {
-            val isZoomed = NSWindow(nsWindowPtr).isZoomed()
+            val isZoomed = NSWindow(nsWindowPtr).isZoomedTyped()
             if (maximized != isZoomed) NSWindow(nsWindowPtr).zoom(MemorySegment.NULL)
         } catch (_: Throwable) {}
     }
 
     override val isMaximized: Boolean
         get() = try {
-            NSWindow(nsWindowPtr).isZoomed()
+            NSWindow(nsWindowPtr).isZoomedTyped()
         } catch (_: Throwable) { false }
 
     override fun setDecorations(decorated: Boolean) {
@@ -468,7 +472,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
                 } else {
                     NSWindowStyleMask.NSWindowStyleMaskBorderless
                 }
-                nsWindow.setStyleMask(newMask)
+                nsWindow.setStyleMaskTyped(newMask)
                 if (decorated) {
                     applyEnabledButtons(_enabledButtons)
                 } else {
@@ -480,7 +484,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
     override val isDecorated: Boolean
         get() = try {
-            NSWindowStyleMask.NSWindowStyleMaskTitled in NSWindow(nsWindowPtr).styleMask()
+            NSWindowStyleMask.NSWindowStyleMaskTitled in NSWindow(nsWindowPtr).styleMaskTyped()
         } catch (_: Throwable) { true }
 
     override fun setEnabledButtons(buttons: WindowButtons) {
@@ -499,7 +503,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             AppKitMainThread.runSync {
                 try {
                     val nsWindow = NSWindow(nsWindowPtr)
-                    val mask = nsWindow.styleMask()
+                    val mask = nsWindow.styleMaskTyped()
                     var buttons = WindowButtons.NONE
                     if (NSWindowStyleMask.NSWindowStyleMaskClosable in mask) {
                         buttons += WindowButtons.CLOSE
@@ -521,8 +525,8 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
     private fun applyEnabledButtons(buttons: WindowButtons) {
         val nsWindow = NSWindow(nsWindowPtr)
-        val newMask = appKitStyleMaskWithEnabledButtons(nsWindow.styleMask(), buttons)
-        nsWindow.setStyleMask(newMask)
+        val newMask = appKitStyleMaskWithEnabledButtons(nsWindow.styleMaskTyped(), buttons)
+        nsWindow.setStyleMaskTyped(newMask)
         setStandardWindowButtonEnabled(
             nsWindow,
             NSWindowButton.NSWindowZoomButton,
@@ -532,13 +536,13 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     }
 
     private fun setStandardWindowButtonEnabled(nsWindow: NSWindow, button: NSWindowButton, enabled: Boolean) {
-        val buttonPtr = nsWindow.standardWindowButton(button)
+        val buttonPtr = nsWindow.standardWindowButtonTyped(button)
         if (buttonPtr == MemorySegment.NULL) return
         ObjCRuntime.msgSend(null, buttonPtr, ObjCRuntime.sel("setEnabled:"), enabled)
     }
 
     private fun isStandardWindowButtonEnabled(nsWindow: NSWindow, button: NSWindowButton): Boolean {
-        val buttonPtr = nsWindow.standardWindowButton(button)
+        val buttonPtr = nsWindow.standardWindowButtonTyped(button)
         if (buttonPtr == MemorySegment.NULL) return true
         return ObjCRuntime.msgSend(
             ValueLayout.JAVA_BOOLEAN,
@@ -676,7 +680,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     override fun setFullscreen(fullscreen: Fullscreen?) {
         try {
             val nsWindow = NSWindow(nsWindowPtr)
-            val currentlyFullscreen = NSWindowStyleMask.NSWindowStyleMaskFullScreen in nsWindow.styleMask()
+            val currentlyFullscreen = NSWindowStyleMask.NSWindowStyleMaskFullScreen in nsWindow.styleMaskTyped()
             if (fullscreen != null && !currentlyFullscreen) {
                 nsWindow.toggleFullScreen(MemorySegment.NULL)
                 _fullscreen = fullscreen
@@ -692,7 +696,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
         try {
             AppKitMainThread.runSync {
                 val nsWindow = NSWindow(nsWindowPtr)
-                if (appKitShouldFocusWindow(nsWindow.isVisible(), nsWindow.isMiniaturized())) {
+                if (appKitShouldFocusWindow(nsWindow.isVisibleTyped(), nsWindow.isMiniaturizedTyped())) {
                     activateApplicationForWindowFocus()
                     nsWindow.makeKeyAndOrderFront(MemorySegment.NULL)
                 }
@@ -702,7 +706,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
 
     override val hasFocus: Boolean
         get() = try {
-            NSWindow(nsWindowPtr).isKeyWindow()
+            NSWindow(nsWindowPtr).isKeyWindowTyped()
         } catch (_: Throwable) { false }
 
     // ── R3: cursor, theme & appearance ───────────────────────────────────────
@@ -998,7 +1002,12 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
                     UserAttentionType.Critical -> NSRequestUserAttentionType.NSCriticalRequest
                     UserAttentionType.Informational -> NSRequestUserAttentionType.NSInformationalRequest
                 }
-                activeAttentionRequest = nsApp.requestUserAttention(appKitRequest)
+                activeAttentionRequest = ObjCRuntime.msgSend(
+                    ValueLayout.JAVA_LONG,
+                    nsAppPtr,
+                    ObjCRuntime.sel("requestUserAttention:"),
+                    appKitRequest.value,
+                ) as Long
                 WindowRequestResult.Success
             } catch (t: Throwable) {
                 WindowRequestResult.Failure(RequestError.OsError(t.message ?: t::class.simpleName ?: "AppKit user attention failed"))
@@ -1008,7 +1017,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     override fun setContentProtected(protected: Boolean): WindowRequestResult =
         AppKitMainThread.runSync {
             try {
-                NSWindow(nsWindowPtr).setSharingType(
+                NSWindow(nsWindowPtr).setSharingTypeTyped(
                     if (protected) {
                         NSWindowSharingType.NSWindowSharingNone
                     } else {
@@ -1222,7 +1231,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     internal fun setSimpleFullscreen(enabled: Boolean) {
         try {
             AppKitMainThread.runSync {
-                if (enabled != NSWindow(nsWindowPtr).styleMask().contains(NSWindowStyleMask.NSWindowStyleMaskFullScreen)) {
+                if (enabled != NSWindow(nsWindowPtr).styleMaskTyped().contains(NSWindowStyleMask.NSWindowStyleMaskFullScreen)) {
                     NSWindow(nsWindowPtr).toggleFullScreen(MemorySegment.NULL)
                 }
             }
@@ -1234,7 +1243,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
      */
     internal fun setHasShadow(hasShadow: Boolean) {
         try {
-            NSWindow(nsWindowPtr).setHasShadow(hasShadow)
+            NSWindow(nsWindowPtr).setHasShadowTyped(hasShadow)
         } catch (_: Throwable) {}
     }
 
@@ -1258,7 +1267,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
      */
     internal fun setTitlebarTransparent(transparent: Boolean) {
         try {
-            NSWindow(nsWindowPtr).setTitlebarAppearsTransparent(transparent)
+            ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setTitlebarAppearsTransparent:"), transparent)
         } catch (_: Throwable) {}
     }
 
@@ -1272,7 +1281,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
             } else {
                 NSWindowTitleVisibility.NSWindowTitleVisible
             }
-            NSWindow(nsWindowPtr).setTitleVisibility(visibility)
+            NSWindow(nsWindowPtr).setTitleVisibilityTyped(visibility)
         } catch (_: Throwable) {}
     }
 
@@ -1286,13 +1295,13 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     internal fun setTitlebarHidden(hidden: Boolean) {
         try {
             val window = NSWindow(nsWindowPtr)
-            window.setTitlebarAppearsTransparent(hidden)
+            ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setTitlebarAppearsTransparent:"), hidden)
             val visibility = if (hidden) {
                 NSWindowTitleVisibility.NSWindowTitleHidden
             } else {
                 NSWindowTitleVisibility.NSWindowTitleVisible
             }
-            window.setTitleVisibility(visibility)
+            window.setTitleVisibilityTyped(visibility)
         } catch (_: Throwable) {}
     }
 
@@ -1303,13 +1312,13 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
     internal fun setFullSizeContentView(enabled: Boolean) {
         try {
             val window = NSWindow(nsWindowPtr)
-            val current = window.styleMask()
+            val current = window.styleMaskTyped()
             val newMask = if (enabled) {
                 current + NSWindowStyleMask.NSWindowStyleMaskFullSizeContentView
             } else {
                 NSWindowStyleMask(current.rawValue and NSWindowStyleMask.NSWindowStyleMaskFullSizeContentView.rawValue.inv())
             }
-            window.setStyleMask(newMask)
+            window.setStyleMaskTyped(newMask)
         } catch (_: Throwable) {}
     }
 
@@ -1318,7 +1327,7 @@ class AppKitWindow(attrs: WindowAttributes) : Window {
      */
     internal fun setMovableByWindowBackground(movable: Boolean) {
         try {
-            NSWindow(nsWindowPtr).setMovableByWindowBackground(movable)
+            ObjCRuntime.msgSend(null, nsWindowPtr, ObjCRuntime.sel("setMovableByWindowBackground:"), movable)
         } catch (_: Throwable) {}
     }
 }
@@ -1355,6 +1364,52 @@ internal fun physicalSizeToAppKitResizeIncrements(
     } else {
         increments.width / scale to increments.height / scale
     }
+
+/**
+ * Helpers bridging the generated NSWindow types (MemorySegment for enums, Byte for BOOL)
+ * to the typed Kadre enums (NSWindowStyleMask, NSBackingStoreType, etc.) and Boolean.
+ */
+private fun NSWindow.styleMaskTyped(): NSWindowStyleMask =
+    NSWindowStyleMask(ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, ptr, ObjCRuntime.sel("styleMask")) as Long)
+
+private fun NSWindow.setStyleMaskTyped(mask: NSWindowStyleMask) {
+    ObjCRuntime.msgSend(null, ptr, ObjCRuntime.sel("setStyleMask:"), mask.rawValue)
+}
+
+private fun NSWindow.isMiniaturizedTyped(): Boolean =
+    ObjCRuntime.msgSend(ValueLayout.JAVA_BOOLEAN, ptr, ObjCRuntime.sel("isMiniaturized")) as Boolean
+
+private fun NSWindow.isZoomedTyped(): Boolean =
+    ObjCRuntime.msgSend(ValueLayout.JAVA_BOOLEAN, ptr, ObjCRuntime.sel("isZoomed")) as Boolean
+
+private fun NSWindow.isVisibleTyped(): Boolean =
+    ObjCRuntime.msgSend(ValueLayout.JAVA_BOOLEAN, ptr, ObjCRuntime.sel("isVisible")) as Boolean
+
+private fun NSWindow.isKeyWindowTyped(): Boolean =
+    ObjCRuntime.msgSend(ValueLayout.JAVA_BOOLEAN, ptr, ObjCRuntime.sel("isKeyWindow")) as Boolean
+
+private fun NSWindow.standardWindowButtonTyped(button: NSWindowButton): MemorySegment =
+    ObjCRuntime.msgSend(ValueLayout.ADDRESS, ptr, ObjCRuntime.sel("standardWindowButton:"), button.value) as MemorySegment
+
+private fun NSWindow.setHasShadowTyped(hasShadow: Boolean) {
+    ObjCRuntime.msgSend(null, ptr, ObjCRuntime.sel("setHasShadow:"), hasShadow)
+}
+
+private fun NSWindow.requestUserAttentionTyped(request: NSRequestUserAttentionType): Long =
+    ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, ptr, ObjCRuntime.sel("requestUserAttention:"), request.value) as Long
+
+private fun NSWindow.setSharingTypeTyped(sharing: NSWindowSharingType) {
+    ObjCRuntime.msgSend(null, ptr, ObjCRuntime.sel("setSharingType:"), sharing.value)
+}
+
+private fun NSWindow.setTitleVisibilityTyped(visibility: NSWindowTitleVisibility) {
+    ObjCRuntime.msgSend(null, ptr, ObjCRuntime.sel("setTitleVisibility:"), visibility.value)
+}
+
+private fun NSWindow.titleVisibilityTyped(): NSWindowTitleVisibility =
+    NSWindowTitleVisibility.fromValue(ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, ptr, ObjCRuntime.sel("titleVisibility")) as Long)
+
+// ── Private helpers ───────────────────────────────────────────────────────
 
 internal fun appKitStyleMaskWithEnabledButtons(
     styleMask: NSWindowStyleMask,

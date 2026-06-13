@@ -1,10 +1,10 @@
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.ffi.objc.NSView
-import org.graphiks.kadre.ffi.objc.NSWindow
-import org.graphiks.kadre.ffi.objc.NSWindowButton
-import org.graphiks.kadre.ffi.objc.NSWindowSharingType
-import org.graphiks.kadre.ffi.objc.NSWindowStyleMask
+import org.graphiks.kffi.objc.NSView
+import org.graphiks.kffi.objc.NSWindow
+import org.graphiks.kffi.objc.NSWindowButton
+import org.graphiks.kffi.objc.NSWindowSharingType
+import org.graphiks.kffi.objc.NSWindowStyleMask
 import org.graphiks.kadre.core.CursorGrabMode
 import org.graphiks.kadre.core.PhysicalPosition
 import org.graphiks.kadre.core.PhysicalSize
@@ -169,8 +169,8 @@ class AppKitWindowTest {
         assertNotNull(nsWindowClass.getMethod("isKeyWindow"))
         assertNotNull(nsWindowClass.getMethod("isMiniaturized"))
         assertNotNull(nsWindowClass.getMethod("isVisible"))
-        assertNotNull(nsWindowClass.getMethod("setSharingType", NSWindowSharingType::class.java))
-        assertNotNull(nsWindowClass.getMethod("standardWindowButton", NSWindowButton::class.java))
+        assertNotNull(nsWindowClass.getMethod("setSharingType", java.lang.foreign.MemorySegment::class.java))
+        assertNotNull(nsWindowClass.getMethod("standardWindowButton", java.lang.foreign.MemorySegment::class.java))
     }
 
     @Test

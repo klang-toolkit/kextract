@@ -29,13 +29,13 @@
  */
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.ffi.objc.NSApplication
-import org.graphiks.kadre.ffi.objc.NSApplicationActivationPolicy
-import org.graphiks.kadre.ffi.objc.NSEvent
-import org.graphiks.kadre.ffi.objc.NSView
-import org.graphiks.kadre.ffi.objc.NSWindow
-import org.graphiks.kadre.ffi.objc.ObjCRuntime
-import org.graphiks.kadre.ffi.objc.ObjCSubclassing
+import org.graphiks.kffi.objc.NSApplication
+import org.graphiks.kffi.objc.NSApplicationActivationPolicy
+import org.graphiks.kffi.objc.NSEvent
+import org.graphiks.kffi.objc.NSView
+import org.graphiks.kffi.objc.NSWindow
+import org.graphiks.kffi.objc.ObjCRuntime
+import org.graphiks.kffi.objc.ObjCSubclassing
 import org.graphiks.kadre.core.ButtonSource
 import org.graphiks.kadre.core.DeviceEvent
 import org.graphiks.kadre.core.DeviceId
@@ -472,7 +472,7 @@ class KadreApplication private constructor(ptr: MemorySegment) : NSApplication(p
                 val nsEvent = NSEvent(event)
                 val deltaX = nsEvent.scrollingDeltaX()
                 val rawY = nsEvent.scrollingDeltaY()
-                val inverted = nsEvent.isDirectionInvertedFromDevice()
+                val inverted = nsEvent.isDirectionInvertedFromDevice() != 0.toByte()
                 val deltaY = if (inverted) -rawY else rawY
                 loop.handler.windowEvent(loop, appKitWindow.id, WindowEvent.MouseWheel(DeviceId(0L), deltaX, deltaY, TouchPhase.Moved))
                 return

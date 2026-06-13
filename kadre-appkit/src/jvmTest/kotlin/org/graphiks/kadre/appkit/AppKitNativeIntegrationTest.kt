@@ -1,6 +1,6 @@
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.ffi.objc.ObjCRuntime
+import org.graphiks.kffi.objc.ObjCRuntime
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 

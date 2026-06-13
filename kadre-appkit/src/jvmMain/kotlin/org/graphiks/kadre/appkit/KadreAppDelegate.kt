@@ -13,9 +13,9 @@
  */
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.ffi.objc.NSApplicationTerminateReply
-import org.graphiks.kadre.ffi.objc.ObjCRuntime
-import org.graphiks.kadre.ffi.objc.ObjCSubclassing
+import org.graphiks.kffi.objc.NSApplicationTerminateReply
+import org.graphiks.kffi.objc.ObjCRuntime
+import org.graphiks.kffi.objc.ObjCSubclassing
 import org.graphiks.kadre.core.ActiveEventLoop
 import org.graphiks.kadre.core.ApplicationHandler
 import java.lang.foreign.Arena

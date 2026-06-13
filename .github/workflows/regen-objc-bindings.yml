@@ -1,0 +1,68 @@
+name: Regenerate ObjC bindings
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch to regen (default: current branch)'
+        required: false
+        default: ''
+
+concurrency:
+  group: regen-objc-bindings
+  cancel-in-progress: true
+
+jobs:
+  regen:
+    name: Regenerate ObjC FFM bindings
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+          cache: 'gradle'
+
+      - name: Grant execute permission
+        run: |
+          chmod +x gradlew
+          chmod +x third_party/kextract/gradlew
+
+      - name: Build kextract
+        working-directory: third_party/kextract
+        run: |
+          ./gradlew createKextractImage --no-daemon --stacktrace
+
+      - name: Regenerate ObjC bindings
+        run: |
+          scripts/regen-objc-bindings.sh third_party/kextract/build/kextract/bin/kextract
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --stat -- 'ffi/objc/' | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "stats<<EOF" >> "$GITHUB_OUTPUT"
+            git diff --stat -- 'ffi/objc/' >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "Kadre Bot"
+          git config user.email "bot@graphiks.org"
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          git add ffi/objc/
+          git commit -m "regen: update ObjC FFM bindings from kextract $(git -C third_party/kextract rev-parse --short HEAD)"
+          git push origin "HEAD:$BRANCH"

@@ -46,7 +46,7 @@ import io.ygdrasil.webgpu.VertexState
 import io.ygdrasil.webgpu.WGPU
 import io.ygdrasil.webgpu.WGPUInstanceBackend
 import io.ygdrasil.webgpu.WGPULowLevelApi
-import org.graphiks.kadre.ffi.objc.ObjCRuntime
+import org.graphiks.kffi.objc.ObjCRuntime
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker

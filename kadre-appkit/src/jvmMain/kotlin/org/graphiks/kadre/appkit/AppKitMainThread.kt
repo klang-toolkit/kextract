@@ -1,6 +1,6 @@
 package org.graphiks.kadre.appkit
 
-import org.graphiks.kadre.ffi.objc.ObjCRuntime
+import org.graphiks.kffi.objc.ObjCRuntime
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.Linker
