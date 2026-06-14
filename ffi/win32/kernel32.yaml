@@ -1,0 +1,9 @@
+dllMap:
+  "Kernel32.dll":
+    functions:
+      - GetCurrentThreadId
+      - GetModuleHandleW
+      - SetLastError
+      - GetLastError
+    structs: []
+    constants: []

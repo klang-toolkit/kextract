@@ -1,0 +1,7 @@
+dllMap:
+  "Gdi32.dll":
+    functions:
+      - CreateRectRgn
+      - DeleteObject
+    structs: []
+    constants: []

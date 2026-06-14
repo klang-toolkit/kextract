@@ -1,0 +1,8 @@
+dllMap:
+  "Dwmapi.dll":
+    functions:
+      - DwmSetWindowAttribute
+      - DwmEnableBlurBehindWindow
+      - DwmExtendFrameIntoClientArea
+    structs: []
+    constants: []
