@@ -87,7 +87,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             jvm.toFile().writeText(jvmSource)
             kffiCommon.toFile().writeText(
                 """
-                package io.ygdrasil.kffi
+                package org.graphiks.kffi
 
                 expect class NativeAddress
                 interface Callback
@@ -160,7 +160,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             )
             kffiJvm.toFile().writeText(
                 """
-                package io.ygdrasil.kffi
+                package org.graphiks.kffi
 
                 import java.lang.foreign.MemorySegment
 

@@ -299,7 +299,7 @@ private fun compileGeneratedAndroid(sources: AndroidSources, probe: String? = nu
         jna.toFile().writeText(sources.jna)
         kffiCommon.toFile().writeText(
             """
-            package io.ygdrasil.kffi
+            package org.graphiks.kffi
 
             expect class NativeAddress
             interface Callback
@@ -363,7 +363,7 @@ private fun compileGeneratedAndroid(sources: AndroidSources, probe: String? = nu
         )
         kffiAndroid.toFile().writeText(
             """
-            package io.ygdrasil.kffi
+            package org.graphiks.kffi
 
             actual typealias NativeAddress = com.sun.jna.Pointer
             actual class CallbackHolder<T>(actual val handler: NativeAddress)

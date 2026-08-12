@@ -73,7 +73,7 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         val second = generateKmpSources(header)
 
         first shouldBe second
-        first.common shouldContain "import io.ygdrasil.kffi.NativeAddress as KffiNativeAddress"
+        first.common shouldContain "import org.graphiks.kffi.NativeAddress as KffiNativeAddress"
         first.common shouldContain "expect interface NativeAddress"
         first.common shouldContain "var handler_2: Int"
         first.common shouldContain "var layout: Int"

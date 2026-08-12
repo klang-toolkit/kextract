@@ -238,7 +238,7 @@ private fun compileBootstrapProbe(generated: GeneratedKmpSources, workspace: Pat
 
 private val REAL_KFFI_JVM_STUB =
     """
-    package io.ygdrasil.kffi
+    package org.graphiks.kffi
 
     import java.lang.foreign.Arena
     import java.lang.foreign.MemorySegment
@@ -261,7 +261,7 @@ private val BOOTSTRAP_PROBE =
     """
     package sample.bindings
 
-    import io.ygdrasil.kffi.CallbackPolicy
+    import org.graphiks.kffi.CallbackPolicy
     import java.nio.file.FileAlreadyExistsException
     import java.nio.file.Files
     import java.nio.file.Path

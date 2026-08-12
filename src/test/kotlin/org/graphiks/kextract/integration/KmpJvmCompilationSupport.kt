@@ -136,7 +136,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
 
 internal val KFFI_COMMON_STUB =
     """
-    package io.ygdrasil.kffi
+    package org.graphiks.kffi
 
     expect class NativeAddress
     interface Callback
@@ -222,7 +222,7 @@ internal val KFFI_COMMON_STUB =
 
 internal val KFFI_JVM_STUB =
     """
-    package io.ygdrasil.kffi
+    package org.graphiks.kffi
 
     import java.lang.foreign.Arena
     import java.lang.foreign.MemorySegment

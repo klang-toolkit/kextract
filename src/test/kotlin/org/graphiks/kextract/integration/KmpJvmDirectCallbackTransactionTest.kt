@@ -37,9 +37,9 @@ class KmpJvmDirectCallbackTransactionTest : FreeSpec({
                 """
                 package sample.probe
 
-                import io.ygdrasil.kffi.CallbackPolicy
-                import io.ygdrasil.kffi.CallbackRuntime
-                import io.ygdrasil.kffi.NativeAddress
+                import org.graphiks.kffi.CallbackPolicy
+                import org.graphiks.kffi.CallbackRuntime
+                import org.graphiks.kffi.NativeAddress
                 import sample.bindings.SampleCallback
                 import sample.bindings.SamplePayload
                 import sample.bindings.sample_set_callback

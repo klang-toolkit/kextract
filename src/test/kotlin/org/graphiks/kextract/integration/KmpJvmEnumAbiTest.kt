@@ -95,8 +95,8 @@ class KmpJvmEnumAbiTest : FreeSpec({
                 """
                 package sample.probe
 
-                import io.ygdrasil.kffi.MemoryAllocator
-                import io.ygdrasil.kffi.TestNativeSymbols
+                import org.graphiks.kffi.MemoryAllocator
+                import org.graphiks.kffi.TestNativeSymbols
                 import java.lang.foreign.Arena
                 import java.lang.foreign.FunctionDescriptor
                 import java.lang.foreign.Linker
@@ -200,8 +200,8 @@ class KmpJvmEnumAbiTest : FreeSpec({
                 """
                 package sample.probe
 
-                import io.ygdrasil.kffi.MemoryAllocator
-                import io.ygdrasil.kffi.TestNativeSymbols
+                import org.graphiks.kffi.MemoryAllocator
+                import org.graphiks.kffi.TestNativeSymbols
                 import java.lang.foreign.Arena
                 import java.lang.foreign.FunctionDescriptor
                 import java.lang.foreign.Linker
