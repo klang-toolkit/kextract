@@ -126,7 +126,7 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.android shouldContain "class ByValue("
     }
 
-    "Android raw JNA helper names avoid raw C field names" {
+    "Android ByReference and ByValue wrappers avoid raw C field name collisions" {
         val generated = generateKmpSources(
             """
             typedef struct JnaHelperCollision {
@@ -136,16 +136,12 @@ class KmpNamePlanIntegrationTest : FreeSpec({
             """.trimIndent(),
         )
 
-        generated.android shouldContain "@JvmField var ByReference: Int = 0"
-        generated.android shouldContain "@JvmField var ByValue: Int = 0"
+        generated.android shouldContain "actual var ByReference_2: Int"
+        generated.android shouldContain "actual var ByValue_2: Int"
         generated.android shouldContain
-            "class ByReference_2(pointer: Pointer? = null) : JnaHelperCollision(pointer), Structure.ByReference"
+            "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : JnaHelperCollision {"
         generated.android shouldContain
-            "class ByValue_2(pointer: Pointer? = null) : JnaHelperCollision(pointer), Structure.ByValue"
-        generated.android shouldContain
-            "sample.bindings.android.JnaHelperCollision.ByReference_2(address)"
-        generated.android shouldContain
-            "sample.bindings.android.JnaHelperCollision.ByValue_2()"
+            "class ByValue(val handle: NativeAddress = NativeAddress(0L)) : JnaHelperCollision {"
     }
 
     "KMP declarations and parameters are Kotlin-safe before emission" {
@@ -192,8 +188,11 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.jvm shouldContain "actual fun fun_(class_: class_, when_: Int, when__2: Int): Int"
         generated.native shouldContain "webgpu.native.`fun`("
         generated.native shouldContain "this.`when`"
-        generated.android shouldContain "@JvmField var `when`: Int = 0"
-        generated.android shouldContain "handle.`when`"
+        generated.android shouldContain "actual var when_: Int"
+        generated.android shouldContain "actual var when__2: Int"
+        generated.android shouldContain "get() = buffer.readInt(0uL)"
+        generated.android shouldContain "set(value) { buffer.writeInt(value, 0uL) }"
+        generated.android shouldContain "get() = buffer.readInt(4uL)"
     }
 
     "opaque handles use their planned public names in fields and functions" {
@@ -294,6 +293,9 @@ class KmpNamePlanIntegrationTest : FreeSpec({
             val sourceSet = listOf(SourceSet.JVM, SourceSet.NATIVE, SourceSet.COMMON, SourceSet.ANDROID)
                 .firstOrNull { it.name in sourceSetNames }
                 ?: return@mapNotNull null
+            if (sourceSet == SourceSet.ANDROID && (symbol as Enum<*>).name in NO_LONGER_EMITTED_ANDROID_SYMBOLS) {
+                return@mapNotNull null
+            }
             RuntimeImportCase(
                 qualifiedName = qualifiedName.invoke(symbol) as String,
                 preferredName = preferred,
@@ -317,13 +319,23 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.native shouldContain ".Kffipointed"
         generated.native shouldContain ".Kffiptr"
         generated.native shouldContain ".KffiuseContents {"
+        generated.android shouldContain "actual interface RuntimeAliasExercise"
+        generated.android shouldContain "actual interface RuntimeAndroidAliasExercise"
         generated.android shouldContain
-            "open class RuntimeAliasExercise(pointer: KffiPointer? = null) : KffiStructure(pointer)"
+            "class ByReference(val handle: KffiNativeAddress = KffiNativeAddress(0L)) : RuntimeAliasExercise {"
         generated.android shouldContain
-            "open class RuntimeAndroidAliasExercise(pointer: KffiPointer? = null) : KffiUnion(pointer)"
-        generated.android shouldContain "@KffiJvmField var"
+            "class ByValue(val handle: KffiNativeAddress = KffiNativeAddress(0L)) : RuntimeAndroidAliasExercise {"
+        generated.android shouldContain "private val buffer: KffiMemoryBuffer by lazy { KffiMemoryBuffer(handle, 4uL) }"
+        generated.android shouldContain "get() = reinterpret.ByValue(KffiNativeAddress(handle.rawValue + 0L))"
     }
 })
+
+private val NO_LONGER_EMITTED_ANDROID_SYMBOLS = setOf(
+    "JNA_STRUCTURE",
+    "JNA_UNION",
+    "JNA_CALLBACK_REFERENCE",
+    "JVM_FIELD",
+)
 
 private data class RuntimeImportCase(
     val qualifiedName: String,

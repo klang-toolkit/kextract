@@ -45,6 +45,7 @@ internal enum class KotlinKmpRuntimeSymbol(
     C_STRING("org.graphiks.kffi.CString", allSourceSets()),
     ARRAY_HOLDER("org.graphiks.kffi.ArrayHolder", allSourceSets()),
     MEMORY_ALLOCATOR("org.graphiks.kffi.MemoryAllocator", allSourceSets()),
+    MEMORY_BUFFER("org.graphiks.kffi.MemoryBuffer", android()),
     C_STRUCTURE("org.graphiks.kffi.CStructure", jvm()),
     FIND_OR_THROW("org.graphiks.kffi.findOrThrow", jvm()),
     TO_C_STRING("org.graphiks.kffi.toCString", native()),
