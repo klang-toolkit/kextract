@@ -376,8 +376,13 @@ internal class KotlinKmpAndroidBuilder(
      * i32 u32 i64 u64 f32 f64` or `s<size>` for a struct-by-value slot. The argument
      * buffer packs each arg in declaration order at its natural alignment (scalars and
      * pointers at their carrier width, structs at their C record alignment); the out
-     * buffer receives the return value (struct bytes, or the scalar carrier). M5.5 grows
-     * the engine C reader to consume typeSpec exactly as this emission packs it.
+     * buffer receives the return value (struct bytes, or the scalar carrier).
+     *
+     * NOTE: the engine's generic reader currently IGNORES typeSpec and reads every arg
+     * as an 8-byte uint64 carrier, so struct-by-value args packed here at full size are
+     * truncated to 8 bytes at runtime (43 of 44 wgpu generic sites). Tracking:
+     * TODO(M6/P2) implement per-arg ffi_type selection in the engine reader to honor
+     * typeSpec exactly as this emission packs it.
      */
     private fun emitGenericDowncall(
         function: Declaration.Function,
