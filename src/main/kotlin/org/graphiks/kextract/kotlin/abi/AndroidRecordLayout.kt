@@ -7,6 +7,7 @@ import org.graphiks.kextract.DeclarationImpl.ClangSizeOf
 import org.graphiks.kextract.DeclarationImpl.Skip
 import java.util.IdentityHashMap
 
+// public (not internal): kextract tests reference kmain types without a friend-path
 data class AndroidFieldLayout(
     val field: Declaration.Variable,
     val cName: String,
@@ -15,6 +16,7 @@ data class AndroidFieldLayout(
     val alignmentBytes: Long,
 )
 
+// public (not internal): kextract tests reference kmain types without a friend-path
 data class AndroidRecordLayout(
     val declaration: Declaration.Scoped,
     val sizeBytes: Long,
@@ -25,6 +27,7 @@ data class AndroidRecordLayout(
         requireNotNull(fields.firstOrNull { it.cName == name }) { "no field '$name' in ${declaration.name()}" }
 }
 
+// public (not internal): kextract tests reference kmain types without a friend-path
 class AndroidRecordLayoutPlan private constructor(
     private val layouts: IdentityHashMap<Declaration.Scoped, AndroidRecordLayout>,
 ) {
@@ -42,7 +45,7 @@ class AndroidRecordLayoutPlan private constructor(
                     !Skip.isPresent(declaration) &&
                     declaration.kind() in setOf(Declaration.Scoped.Kind.STRUCT, Declaration.Scoped.Kind.UNION)
                 ) {
-                    layouts[declaration] = createLayout(declaration, mutableListOf())
+                    layouts[declaration] = createLayout(declaration)
                 }
                 declaration.members().forEach(::collect)
             }
@@ -50,43 +53,30 @@ class AndroidRecordLayoutPlan private constructor(
             return AndroidRecordLayoutPlan(layouts)
         }
 
-        private fun createLayout(
-            declaration: Declaration.Scoped,
-            recordStack: MutableList<Declaration.Scoped>,
-        ): AndroidRecordLayout {
-            val cycleStart = recordStack.indexOfFirst { it === declaration }
-            require(cycleStart < 0) {
-                val cycle = recordStack.subList(cycleStart, recordStack.size) + declaration
-                "Android record layout has a by-value cycle: ${cycle.joinToString(" -> ") { it.name() }}"
-            }
-            recordStack.add(declaration)
-            try {
-                val owner = declaration.name()
-                val sizeBytes = bitsToBytes("size", owner, clangSize(declaration))
-                val alignmentBytes = bitsToBytes("alignment", owner, clangAlign(declaration))
-                val fields = declaration.members()
-                    .filterIsInstance<Declaration.Variable>()
-                    .filterNot(Skip::isPresent)
-                    .map { field ->
-                        val fieldOwner = "$owner.${field.name()}"
-                        AndroidFieldLayout(
-                            field = field,
-                            cName = field.name(),
-                            offsetBytes = bitsToBytes("offset", fieldOwner, clangOffset(field)),
-                            sizeBytes = bitsToBytes("size", fieldOwner, clangSize(field)),
-                            alignmentBytes = bitsToBytes("alignment", fieldOwner, clangAlign(field)),
-                        )
-                    }
-                validate(declaration, sizeBytes, fields)
-                return AndroidRecordLayout(
-                    declaration = declaration,
-                    sizeBytes = sizeBytes,
-                    alignmentBytes = alignmentBytes,
-                    fields = fields,
-                )
-            } finally {
-                recordStack.removeAt(recordStack.lastIndex)
-            }
+        private fun createLayout(declaration: Declaration.Scoped): AndroidRecordLayout {
+            val owner = declaration.name()
+            val sizeBytes = bitsToBytes("size", owner, clangSize(declaration))
+            val alignmentBytes = bitsToBytes("alignment", owner, clangAlign(declaration))
+            val fields = declaration.members()
+                .filterIsInstance<Declaration.Variable>()
+                .filterNot(Skip::isPresent)
+                .map { field ->
+                    val fieldOwner = "$owner.${field.name()}"
+                    AndroidFieldLayout(
+                        field = field,
+                        cName = field.name(),
+                        offsetBytes = bitsToBytes("offset", fieldOwner, clangOffset(field)),
+                        sizeBytes = bitsToBytes("size", fieldOwner, clangSize(field)),
+                        alignmentBytes = bitsToBytes("alignment", fieldOwner, clangAlign(field)),
+                    )
+                }
+            validate(declaration, sizeBytes, fields)
+            return AndroidRecordLayout(
+                declaration = declaration,
+                sizeBytes = sizeBytes,
+                alignmentBytes = alignmentBytes,
+                fields = fields,
+            )
         }
 
         private fun validate(declaration: Declaration.Scoped, sizeBytes: Long, fields: List<AndroidFieldLayout>) {
@@ -105,7 +95,7 @@ class AndroidRecordLayoutPlan private constructor(
                 }
                 Declaration.Scoped.Kind.UNION -> fields.forEach { field ->
                     require(field.offsetBytes == 0L) {
-                        "${declaration.name()}.${field.cName} has non-zero union offset"
+                        "${declaration.name()}.${field.cName} has non-zero union offset: ${field.offsetBytes}"
                     }
                 }
                 else -> error("Expected struct or union, found ${declaration.kind()}")
@@ -113,7 +103,8 @@ class AndroidRecordLayoutPlan private constructor(
         }
 
         private fun bitsToBytes(metric: String, owner: String, bits: Long): Long {
-            require(bits >= 0L && bits % 8L == 0L) { "$owner has non-byte $metric: $bits bits" }
+            require(bits >= 0L) { "$owner has negative $metric: $bits bits" }
+            require(bits % 8L == 0L) { "$owner has non-byte-addressable $metric: $bits bits" }
             return bits / 8L
         }
 

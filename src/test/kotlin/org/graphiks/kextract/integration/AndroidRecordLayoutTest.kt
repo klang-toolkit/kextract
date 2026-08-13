@@ -32,10 +32,39 @@ class AndroidRecordLayoutTest {
             "bench_pair",
         )
         assertEquals(16L, layout.sizeBytes)
+        assertEquals(8L, layout.alignmentBytes)
         assertEquals(0L, layout.field("a").offsetBytes)
         assertEquals(8L, layout.field("b").offsetBytes)
         assertEquals(8L, layout.field("a").sizeBytes)
         assertEquals(8L, layout.field("b").sizeBytes)
+    }
+
+    @Test
+    fun `union of char and unsigned long long has 8 byte size with all fields at offset zero`() {
+        val layout = layoutOf(
+            """
+            union u { char c; unsigned long long l; };
+            """.trimIndent(),
+            "u",
+        )
+        assertEquals(8L, layout.sizeBytes)
+        assertEquals(0L, layout.field("c").offsetBytes)
+        assertEquals(0L, layout.field("l").offsetBytes)
+        assertEquals(8L, layout.field("l").sizeBytes)
+    }
+
+    @Test
+    fun `struct with trailing padding reports the full padded size`() {
+        val layout = layoutOf(
+            """
+            struct tp { char c; double d; };
+            """.trimIndent(),
+            "tp",
+        )
+        assertEquals(16L, layout.sizeBytes)
+        assertEquals(0L, layout.field("c").offsetBytes)
+        assertEquals(8L, layout.field("d").offsetBytes)
+        assertEquals(8L, layout.field("d").sizeBytes)
     }
 
     @Test
