@@ -969,7 +969,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         native shouldNotContain "staticCFunction<Unit> {  ->"
     }
 
-    "Android callback registration uses a strongly held JNA trampoline" {
+    "Android callbacks outside the fixed engine CIF keep a documented JNA fallback" {
         val android = generateKmp(genericCallbacks).getValue("androidMain")
 
         listOf("SampleCallback", "NoUserdataCallback").forEach { callbackType ->
@@ -980,12 +980,54 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         }
         android shouldContain "actual fun NoUserdataCallback.Companion.rearmAfterNativeQuiescence("
         android shouldContain "NativeAddress(com.sun.jna.Pointer.nativeValue(com.sun.jna.CallbackReference.getFunctionPointer(callback)))"
+        android shouldContain "TODO(M5.5)"
         android shouldContain "CallbackRuntime.register("
         android shouldContain "CallbackRuntime.prepare("
         android shouldContain "CallbackRuntime.rearmAfterNativeQuiescence("
         android shouldContain "CallbackRuntime.dispatchSafely("
         android shouldContain "CallbackRuntime.reportUnroutedFailure(failure)"
+        android shouldNotContain "UpcallEngine.allocateTrampoline"
+        android shouldNotContain "fun dispatch(token: Long, value: Int)"
         android shouldNotContain "Android/JNA callback registration is not supported"
+    }
+
+    "Android routed callbacks in the fixed (u32, routing userdata) shape allocate upcall trampolines" {
+        val config = CallbackBindingsConfig().also { bindings ->
+            bindings.directFunctionBindings = listOf(
+                DirectFunctionBinding().also { binding ->
+                    binding.function = "function:sample_request"
+                    binding.callbackParameter = "callback"
+                    binding.callbackType = "typedef:SampleCallback"
+                    binding.routingUserdataParameter = "userdata"
+                },
+            )
+        }
+        val android = generateKmp(
+            """
+                typedef void (*SampleCallback)(unsigned int value, void * userdata);
+                void sample_request(int input, SampleCallback callback, void * userdata);
+            """.trimIndent(),
+            config,
+        ).getValue("androidMain")
+
+        android shouldContain "import org.graphiks.kffi.engine.UpcallEngine"
+        android shouldContain "import kotlin.jvm.JvmStatic"
+        android shouldContain "private object SampleCallbackTrampoline {"
+        android shouldContain "val address: NativeAddress by lazy {"
+        android shouldContain "NativeAddress(UpcallEngine.allocateTrampoline("
+        android shouldContain "dispatcherClass = SampleCallbackTrampoline::class.java,"
+        android shouldContain "dispatchMethod = \"dispatch\","
+        android shouldContain "dispatchSig = \"(JI)V\","
+        android shouldContain "@JvmStatic"
+        android shouldContain "fun dispatch(token: Long, value: Int) {"
+        android shouldContain "CallbackRuntime.dispatchSafely("
+        android shouldContain "type = SampleCallbackType,"
+        android shouldContain "userdata = NativeAddress(token),"
+        android shouldContain "callback.invoke(value.toUInt())"
+        android shouldNotContain "com.sun.jna.CallbackReference"
+        android shouldNotContain "com.sun.jna.Callback"
+        android shouldNotContain "SampleCallbackJna"
+        android shouldNotContain "TODO(M5.5)"
     }
 
     "ordinary generic functions remain generated in every KMP target" {

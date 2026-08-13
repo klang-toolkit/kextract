@@ -8,8 +8,10 @@ import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_POLICY
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_REGISTRATION
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_RUNTIME
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_RUNTIME_API
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_STATIC
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.OPT_IN
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.UPCALL_ENGINE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.PREPARED_CALLBACK_REGISTRATION
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.UNSAFE_CALLBACK_REARM_API
 import org.graphiks.kextract.kotlin.abi.KotlinKmpCAbiType
@@ -39,6 +41,80 @@ internal class KotlinCallbackAndroidEmitter(
     }
 
     private fun emitTrampoline(builder: SourceBuilder, callback: KotlinCallbackModel) {
+        if (callback.isEngineUpcallFit()) {
+            emitEngineUpcallTrampoline(builder, callback)
+        } else {
+            emitJnaTrampoline(builder, callback)
+        }
+    }
+
+    /**
+     * M4.1's [UPCALL_ENGINE] closure is fixed to the CIF `(uint32_t value, void * routing_userdata)`
+     * -> void, dispatching to a static `dispatch(token: Long, value: Int)`. A callback fits that
+     * engine only when its raw C signature is exactly that shape: a single 32-bit integer value
+     * argument followed by the routing userdata, with nothing else in between.
+     */
+    private fun KotlinCallbackModel.isEngineUpcallFit(): Boolean {
+        if (!hasRoutingUserdata) return false
+        val value = parameters.singleOrNull() ?: return false
+        val routing = routingUserdataParameter ?: return false
+        if (routing.index < value.index) return false
+        val scalar = value.cAbiType as? KotlinKmpCAbiType.Scalar ?: return false
+        return scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32
+    }
+
+    private fun emitEngineUpcallTrampoline(builder: SourceBuilder, callback: KotlinCallbackModel) {
+        builder.appendLine("@${namePlan.runtime(OPT_IN)}(${namePlan.runtime(CALLBACK_RUNTIME_API)}::class)")
+        builder.appendLine("private object ${callback.trampolineName} {")
+        builder.indent()
+        builder.appendLine("val address: ${namePlan.runtime(NATIVE_ADDRESS)} by lazy {")
+        builder.indent()
+        builder.appendLine("${namePlan.runtime(NATIVE_ADDRESS)}(${namePlan.runtime(UPCALL_ENGINE)}.allocateTrampoline(")
+        builder.indent()
+        builder.appendLine("dispatcherClass = ${callback.trampolineName}::class.java,")
+        builder.appendLine("dispatchMethod = \"dispatch\",")
+        builder.appendLine("dispatchSig = \"(JI)V\",")
+        builder.unindent()
+        builder.appendLine("))")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
+        builder.appendLine("@${namePlan.runtime(JVM_STATIC)}")
+        builder.appendLine("fun dispatch(token: Long, value: Int) {")
+        builder.indent()
+        builder.appendLine("try {")
+        builder.indent()
+        builder.appendLine("${namePlan.runtime(CALLBACK_RUNTIME)}.dispatchSafely(")
+        builder.indent()
+        builder.appendLine("type = ${callback.runtimeTypeName},")
+        builder.appendLine("userdata = ${namePlan.runtime(NATIVE_ADDRESS)}(token),")
+        builder.unindent()
+        builder.appendLine(") { callback ->")
+        builder.indent()
+        builder.appendLine("callback.invoke(${adaptEngineValue(callback)})")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.unindent()
+        builder.appendLine("} catch (failure: Throwable) {")
+        builder.indent()
+        builder.appendLine("${namePlan.runtime(CALLBACK_RUNTIME)}.reportUnroutedFailure(failure)")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
+    }
+
+    /**
+     * JNA-based trampoline kept for callback shapes the M4.1 upcall engine cannot express
+     * (no routing userdata, or routed signatures with more/different arguments than the fixed
+     * `(uint32_t value, void * routing_userdata)` CIF).
+     */
+    private fun emitJnaTrampoline(builder: SourceBuilder, callback: KotlinCallbackModel) {
+        builder.appendLine("// TODO(M5.5): emit this callback through ${namePlan.runtime(UPCALL_ENGINE)} once its")
+        builder.appendLine("// fixed (uint32_t value, void * routing_userdata) CIF generalizes to this shape.")
         val jnaType = "${callback.typeName}Jna"
         val rawParameters = callback.rawParameters()
         builder.appendLine("private fun interface $jnaType : com.sun.jna.Callback {")
@@ -165,6 +241,20 @@ internal class KotlinCallbackAndroidEmitter(
                 }
             }
             else -> name
+        }
+    }
+
+    /** Converts the engine's fixed `(jlong token, jint value)` dispatch args to the application arg. */
+    private fun adaptEngineValue(callback: KotlinCallbackModel): String {
+        val parameter = callback.parameters.single()
+        val mapped = mapType(parameter.type)
+        val cAbiType = parameter.cAbiType
+        return when {
+            isEnum(parameter.type) && isOptionsStyle(mapped) ->
+                "$mapped(${optionsRawValue("value", cAbiType)})"
+            isEnum(parameter.type) -> enumApplicationValue("value", mapped, cAbiType)
+            mapped == "UInt" -> "value.toUInt()"
+            else -> "value"
         }
     }
 

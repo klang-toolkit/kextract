@@ -34,6 +34,7 @@ internal enum class KotlinKmpRuntimeSymbol(
 ) {
     NATIVE_ADDRESS("org.graphiks.kffi.NativeAddress", allSourceSets()),
     NATIVE_ENGINE("org.graphiks.kffi.engine.NativeEngine", android()),
+    UPCALL_ENGINE("org.graphiks.kffi.engine.UpcallEngine", android()),
     CALLBACK("org.graphiks.kffi.Callback", common()),
     CALLBACK_EXCEPTION_HANDLER("org.graphiks.kffi.CallbackExceptionHandler", allSourceSets()),
     CALLBACK_POLICY("org.graphiks.kffi.CallbackPolicy", allSourceSets()),
@@ -98,7 +99,7 @@ internal enum class KotlinKmpRuntimeSymbol(
     UNSUPPORTED_OPERATION_EXCEPTION("kotlin.UnsupportedOperationException", android()),
     JVM_FIELD("kotlin.jvm.JvmField", android()),
     JVM_INLINE("kotlin.jvm.JvmInline", setOf(KotlinKmpSourceSet.JVM, KotlinKmpSourceSet.ANDROID)),
-    JVM_STATIC("kotlin.jvm.JvmStatic", jvm()),
+    JVM_STATIC("kotlin.jvm.JvmStatic", setOf(KotlinKmpSourceSet.JVM, KotlinKmpSourceSet.ANDROID)),
     ;
 }
 

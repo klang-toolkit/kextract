@@ -443,6 +443,16 @@ private val MEMBACK_KFFI_ENGINE_STUB =
             MemoryBuffer(NativeAddress(outPtr), 8uL).writeLong(result, 0uL)
         }
     }
+
+    object UpcallEngine {
+        fun allocateTrampoline(
+            dispatcherClass: Class<*>,
+            dispatchMethod: String,
+            dispatchSig: String,
+        ): Long = 0x6000L
+
+        fun freeTrampoline(address: Long) = Unit
+    }
     """.trimIndent()
 
 private fun compileGeneratedAndroid(sources: AndroidSources, probe: String? = null): LongArray? {
@@ -640,6 +650,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         compileGeneratedAndroid(generateAndroidSources(NATIVE_DISPLAY_HEADER))
         compileGeneratedAndroid(generateAndroidSources(FUNCTION_HEADER))
         compileGeneratedAndroid(generateAndroidSources(STRUCT_VALUE_HEADER))
+        compileGeneratedAndroid(generateAndroidSources(DIRECT_CALLBACK_BINDING_HEADER, directCallbackBindingConfig()))
     }
 
     "memory-backed adapter info round-trips through a real buffer" {
@@ -810,6 +821,31 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         isOptionsStyleName("WGPUFeatureFlags") shouldBe true
         isOptionsStyleName("WGPUFoo") shouldBe false
         isOptionsStyleName("WGPUInstanceExtras") shouldBe false
+    }
+
+    "direct callback trampolines allocate through the kffi upcall engine" {
+        val generated = generateAndroidSources(
+            DIRECT_CALLBACK_BINDING_HEADER,
+            directCallbackBindingConfig(),
+        )
+
+        generated.bridge shouldContain "import org.graphiks.kffi.engine.UpcallEngine"
+        generated.bridge shouldContain "import kotlin.jvm.JvmStatic"
+        generated.bridge shouldContain "private object SampleCallbackTrampoline {"
+        generated.bridge shouldContain "val address: NativeAddress by lazy {"
+        generated.bridge shouldContain "NativeAddress(UpcallEngine.allocateTrampoline("
+        generated.bridge shouldContain "dispatcherClass = SampleCallbackTrampoline::class.java,"
+        generated.bridge shouldContain "dispatchMethod = \"dispatch\","
+        generated.bridge shouldContain "dispatchSig = \"(JI)V\","
+        generated.bridge shouldContain "@JvmStatic"
+        generated.bridge shouldContain "fun dispatch(token: Long, value: Int) {"
+        generated.bridge shouldContain "CallbackRuntime.dispatchSafely("
+        generated.bridge shouldContain "type = SampleCallbackType,"
+        generated.bridge shouldContain "userdata = NativeAddress(token),"
+        generated.bridge shouldContain "callback.invoke(value.toUInt())"
+        generated.bridge shouldNotContain "com.sun.jna.CallbackReference"
+        generated.bridge shouldNotContain "SampleCallbackJna"
+        generated.bridge shouldNotContain "TODO(M5.5)"
     }
 
     "direct callback binding preflights compile their Android lambda bodies" {
