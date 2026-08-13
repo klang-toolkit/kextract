@@ -114,7 +114,7 @@ internal class KotlinKmpCommonBuilder(
                     if (!generatedNames.add(name)) return
                     val constants = decl.members().filterIsInstance<Declaration.Constant>().filterNot(Skip::isPresent)
                     emitKDoc(decl)
-                    if (isOptionsStyle(name)) {
+                    if (isOptionsStyleName(name)) {
                         emitValueClass(name, constants, abiIndex.enum(decl))
                     } else {
                         emitEnumClass(decl, constants)
@@ -195,9 +195,6 @@ internal class KotlinKmpCommonBuilder(
         builder.appendLine("}")
         builder.appendLine()
     }
-
-    private fun isOptionsStyle(name: String): Boolean =
-        name.endsWith("Options") || name.endsWith("Flags") || name.endsWith("Mask")
 
     private fun emitFlagTypedefs(decl: Declaration.Scoped) {
         val typedefs = decl.members()

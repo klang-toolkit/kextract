@@ -104,6 +104,8 @@ class AndroidRecordLayoutPlan private constructor(
 
         private fun bitsToBytes(metric: String, owner: String, bits: Long): Long {
             require(bits >= 0L) { "$owner has negative $metric: $bits bits" }
+            // Known limitation: bitfields are not byte-addressable, so headers containing them
+            // cannot be laid out here. Dormant for wgpu, which has no bitfield structs.
             require(bits % 8L == 0L) { "$owner has non-byte-addressable $metric: $bits bits" }
             return bits / 8L
         }

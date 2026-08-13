@@ -126,6 +126,7 @@ internal class KotlinKmpAndroidBuilder(
                 builder.appendLine("actual fun allocate(allocator: $memoryAllocator): $structName = ByReference(allocator.allocateBuffer(${sizeBytes}uL).handler)")
                 builder.appendLine("actual fun allocateArray(allocator: $memoryAllocator, size: UInt, provider: (UInt, $structName) -> Unit): $arrayHolder<$structName> {")
                 builder.indent()
+                // Zero size still bumps a non-null pointer; callers treat that as an empty, harmless region.
                 builder.appendLine("val buffer = allocator.allocateBuffer(${sizeBytes}uL * size)")
                 builder.appendLine("val result = $arrayHolder<$structName>(buffer.handler)")
                 builder.appendLine("repeat(size.toInt()) { index ->")
@@ -267,6 +268,7 @@ internal class KotlinKmpAndroidBuilder(
             typeMapper.isEnumType(type) ->
                 abiIndex.enum(typeMapper.enumDeclaration(type)).toJvmCarrier(name)
             returnsStructByValue(type) -> {
+                // TODO(M5.3): emit struct-by-value downcalls through the engine; currently transitional JNA emission is uncompilable.
                 val record = requireNotNull(canonicalRecordDeclaration(type))
                 val rawByValue =
                     "$androidPackage.${namePlan.declaration(record)}.${namePlan.jnaByValue(record)}"
@@ -310,7 +312,9 @@ internal class KotlinKmpAndroidBuilder(
                 val nonNullable = returnType.removeSuffix("?")
                 builder.appendLine("return $call?.let { $nonNullable(it) }")
             }
-            returnsStructByValue(type) -> builder.appendLine("return $returnType.ByValue($call)")
+            returnsStructByValue(type) ->
+                // TODO(M5.3): emit struct-by-value downcalls through the engine; currently transitional JNA emission is uncompilable.
+                builder.appendLine("return $returnType.ByValue($call)")
             rawType == "Int" && returnType == "Boolean" -> builder.appendLine("return $call != 0")
             rawType == "Int" && returnType == "UInt" -> builder.appendLine("return $call.toUInt()")
             rawType == "Long" && returnType == "ULong" -> builder.appendLine("return $call.toULong()")
@@ -369,6 +373,7 @@ internal class KotlinKmpAndroidBuilder(
         builder.appendLine("actual fun allocate(allocator: $memoryAllocator): WGPUNativeDisplayHandle = ByReference(allocator.allocateBuffer(${sizeBytes}uL).handler)")
         builder.appendLine("actual fun allocateArray(allocator: $memoryAllocator, size: UInt, provider: (UInt, WGPUNativeDisplayHandle) -> Unit): $arrayHolder<WGPUNativeDisplayHandle> {")
         builder.indent()
+        // Zero size still bumps a non-null pointer; callers treat that as an empty, harmless region.
         builder.appendLine("val buffer = allocator.allocateBuffer(${sizeBytes}uL * size)")
         builder.appendLine("val result = $arrayHolder<WGPUNativeDisplayHandle>(buffer.handler)")
         builder.appendLine("repeat(size.toInt()) { index ->")
@@ -398,14 +403,16 @@ internal class KotlinKmpAndroidBuilder(
         dataOffset: Long,
     ) {
         val sizeBytes = layout.sizeBytes
+        val typeScalar = abiIndex.enum(typeMapper.enumDeclaration(layout.field("type").field.type()))
+        val (typeRead, typeWrite, typeCast) = enumMemoryPrimitives(typeScalar)
         builder.appendLine()
         builder.appendLine("class $name(val handle: $nativeAddress = $nativeAddress(0L)) : WGPUNativeDisplayHandle {")
         builder.indent()
         builder.appendLine("private val buffer: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
         builder.appendLine("override var type: WGPUNativeDisplayHandleType")
         builder.indent()
-        builder.appendLine("get() = buffer.readUInt(${typeOffset}uL) as WGPUNativeDisplayHandleType")
-        builder.appendLine("set(value) { buffer.writeUInt(value.toUInt(), ${typeOffset}uL) }")
+        builder.appendLine("get() = buffer.$typeRead(${typeOffset}uL) as WGPUNativeDisplayHandleType")
+        builder.appendLine("set(value) { buffer.$typeWrite($typeCast, ${typeOffset}uL) }")
         builder.unindent()
         unionFields.forEach { field ->
             val fieldName = namePlan.member(field)
@@ -479,7 +486,9 @@ internal class KotlinKmpAndroidBuilder(
 
     private fun interfaceFieldType(fieldType: String): String = when {
         fieldType == cString -> "$cString?"
-        fieldType.startsWith(arrayHolder) -> "$fieldType?"
+        fieldType.startsWith(arrayHolder) ->
+            // Inline C array fields would be wrong with pointer accessors; no wgpu struct uses them today.
+            "$fieldType?"
         else -> fieldType
     }
 
@@ -527,11 +536,18 @@ internal class KotlinKmpAndroidBuilder(
                 builder.appendLine("}")
             }
             fieldType == "Boolean" -> {
+                check(fieldLayout.sizeBytes == carrierBytesFor(fieldType)) {
+                    "field ${fieldLayout.cName}: C size ${fieldLayout.sizeBytes} != carrier ${carrierBytesFor(fieldType)}"
+                }
                 builder.appendLine("get() = buffer.readByte(${offset}uL) != 0.toByte()")
                 builder.appendLine("set(value) { buffer.writeByte(if (value) 1 else 0, ${offset}uL) }")
             }
             fieldType in memoryScalarPrimitives -> {
                 val (read, write) = memoryPrimitives(fieldType)
+                val carrierBytes = carrierBytesFor(fieldType)
+                check(fieldLayout.sizeBytes == carrierBytes) {
+                    "field ${fieldLayout.cName}: C size ${fieldLayout.sizeBytes} != carrier $carrierBytes"
+                }
                 builder.appendLine("get() = buffer.$read(${offset}uL)")
                 builder.appendLine("set(value) { buffer.$write(value, ${offset}uL) }")
             }
@@ -545,6 +561,15 @@ internal class KotlinKmpAndroidBuilder(
                 builder.appendLine("set(value) { buffer.writePointer(value.handler, ${offset}uL) }")
             }
         }
+    }
+
+    /** Kotlin carrier width in bytes for a scalar mapped type; guards 32-bit (armeabi-v7a) over-reads. */
+    private fun carrierBytesFor(fieldType: String): Long = when (fieldType) {
+        "Byte", "UByte", "Boolean" -> 1L
+        "Short", "UShort" -> 2L
+        "Int", "UInt", "Float" -> 4L
+        "Long", "ULong", "Double" -> 8L
+        else -> error("No carrier width for mapped type $fieldType")
     }
 
     private fun memoryPrimitives(fieldType: String): Pair<String, String> = when (fieldType) {

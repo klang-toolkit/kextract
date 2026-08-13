@@ -7,6 +7,7 @@ import io.kotest.matchers.string.shouldNotContain
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.kotlin.abi.AndroidRecordLayout
 import org.graphiks.kextract.kotlin.abi.AndroidRecordLayoutPlan
+import org.graphiks.kextract.kotlin.builders.isOptionsStyleName
 import org.graphiks.kextract.pipeline.KextractTool
 import org.graphiks.kextract.pipeline.Logger
 import org.graphiks.kextract.pipeline.Options
@@ -558,5 +559,61 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
 
         compileGeneratedAndroid(generateAndroidSources(GENERAL_UNION_HEADER), probe)
             ?.toList() shouldBe listOf(0x12345678L)
+    }
+
+    "byValueTransitional struct-by-value functions pin the transitional ByValue marker" {
+        val generated = generateAndroidSources(
+            """
+            typedef struct WGPUPoint { int x; int y; } WGPUPoint;
+            WGPUPoint wgpuPointByValue(WGPUPoint p);
+            """.trimIndent(),
+        )
+
+        generated.bridge shouldContain "actual fun wgpuPointByValue(p: WGPUPoint): WGPUPoint"
+        // M5.2 emits transitional JNA-style struct-by-value code that references raw JNA
+        // classes deleted by the memory-backed rework; M5.3 must re-emit it through the engine.
+        // Assert the marker so a future header can't silently ship uncompilable bindings.
+        generated.bridge shouldContain "ByValue("
+        generated.bridge shouldContain ".apply { read() }"
+    }
+
+    "isOptionsEnumType recognizes historical WGPUInstance options enums" {
+        val generated = generateAndroidSources(
+            """
+            typedef enum WGPUInstanceBackend {
+                WGPUInstanceBackend_Undefined = 0,
+                WGPUInstanceBackend_Vulkan = 0x1,
+                WGPUInstanceBackend_GL = 0x2,
+            } WGPUInstanceBackend;
+
+            typedef enum WGPUFoo {
+                WGPUFoo_A = 0,
+                WGPUFoo_B = 1,
+            } WGPUFoo;
+
+            typedef struct WGPUBackendHolder {
+                WGPUInstanceBackend backend;
+                WGPUFoo foo;
+            } WGPUBackendHolder;
+            """.trimIndent(),
+        )
+
+        generated.common shouldContain "value class WGPUInstanceBackend(val rawValue: Long) {"
+        generated.common shouldContain "typealias WGPUFoo = UInt"
+        generated.common shouldNotContain "value class WGPUFoo"
+
+        generated.bridge shouldContain "WGPUInstanceBackend((buffer.readInt(0uL))"
+        generated.bridge shouldContain "set(value) { buffer.writeInt(value.rawValue.toInt(), 0uL) }"
+        generated.bridge shouldContain "as WGPUFoo"
+        generated.bridge shouldNotContain "as WGPUInstanceBackend"
+    }
+
+    "isOptionsStyleName is the single source of truth for the options predicate" {
+        isOptionsStyleName("WGPUInstanceBackend") shouldBe true
+        isOptionsStyleName("WGPUInstanceFlag") shouldBe true
+        isOptionsStyleName("WGPUFlags") shouldBe true
+        isOptionsStyleName("WGPUFeatureFlags") shouldBe true
+        isOptionsStyleName("WGPUFoo") shouldBe false
+        isOptionsStyleName("WGPUInstanceExtras") shouldBe false
     }
 })

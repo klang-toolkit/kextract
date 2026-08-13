@@ -96,9 +96,7 @@ internal class KmpTypeMapper(
     }
 
     fun isOptionsEnumType(type: Type): Boolean =
-        isEnumType(type) && namePlan.declaration(enumDeclaration(type)).let { name ->
-            name.endsWith("Options") || name.endsWith("Flags") || name.endsWith("Mask")
-        }
+        isEnumType(type) && isOptionsStyleName(namePlan.declaration(enumDeclaration(type)))
 
     fun isInlineStructOrUnion(type: Type): Boolean {
         val fieldType = mapType(type)
@@ -196,3 +194,20 @@ internal class KmpTypeMapper(
     }
 
 }
+
+/**
+ * Canonical NS_OPTIONS-style predicate shared by the common builder and the
+ * per-target builders. EndsWith Options/Flags/Mask mirrors cinterop's heuristic;
+ * the WGPUInstance* names are historical wgpu options enums that must be emitted
+ * as [value class]es on every target (a common value class with a generic-enum
+ * Android accessor would not compile).
+ *
+ * public (not internal): kextract tests reference kmain types without a friend-path.
+ */
+fun isOptionsStyleName(name: String): Boolean =
+    name.endsWith("Options") ||
+        name.endsWith("Flags") ||
+        name.endsWith("Mask") ||
+        name == "WGPUInstanceBackend" ||
+        name == "WGPUInstanceFlag" ||
+        name == "WGPUFlags"
