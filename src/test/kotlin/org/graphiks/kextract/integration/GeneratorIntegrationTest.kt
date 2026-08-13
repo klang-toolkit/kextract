@@ -91,7 +91,6 @@ class GeneratorIntegrationTest : FreeSpec({
                     "wgpu_hCommon",
                     "wgpu_hJvm",
                     "wgpu_hAndroid",
-                    "wgpu_h",
                     "wgpu_hNative",
                 )
             } finally {

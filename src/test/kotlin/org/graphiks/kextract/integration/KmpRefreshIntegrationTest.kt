@@ -183,7 +183,6 @@ class KmpRefreshIntegrationTest : FreeSpec({
                     "jvmMain/kotlin/sample/bindings/wgpu_fixture_hJvm.kt",
                     "nativeMain/kotlin/sample/bindings/wgpu_fixture_hNative.kt",
                     "androidMain/kotlin/sample/bindings/wgpu_fixture_hAndroid.kt",
-                    "androidMain/kotlin/sample/bindings/android/wgpu_fixture_h.kt",
                 )
             }
         } finally {
@@ -235,7 +234,7 @@ class KmpRefreshIntegrationTest : FreeSpec({
         }
     }
 
-    "empty target package routes Android JNA support to androidMain" {
+    "empty target package routes Android engine support to androidMain" {
         val input = Files.createTempFile("kextract-kmp-empty-package-routing", ".h")
         val output = Files.createTempDirectory("kextract-kmp-empty-package-routing-out")
         try {
@@ -245,11 +244,13 @@ class KmpRefreshIntegrationTest : FreeSpec({
                 Options(outputDir = output.toString(), multiplatform = true),
             ) shouldBe KextractTool.SUCCESS
 
-            val androidSupport = output.resolve("androidMain/kotlin/android")
-            Files.isDirectory(androidSupport) shouldBe true
-            Files.walk(androidSupport).use { paths ->
+            val androidMain = output.resolve("androidMain/kotlin")
+            Files.isDirectory(androidMain) shouldBe true
+            Files.walk(androidMain).use { paths ->
                 paths.filter { it.fileName.toString().endsWith(".kt") }
-                    .anyMatch { it.toFile().readText().contains("package android") } shouldBe true
+                    .anyMatch {
+                        it.toFile().readText().contains("NativeEngine.resolveSymbol(\"wgpuFunction\")")
+                    } shouldBe true
             }
             Files.exists(output.resolve("commonMain/kotlin/android")) shouldBe false
         } finally {

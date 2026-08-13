@@ -331,6 +331,7 @@ class KmpNamePlanIntegrationTest : FreeSpec({
 })
 
 private val NO_LONGER_EMITTED_ANDROID_SYMBOLS = setOf(
+    "JNA_POINTER",
     "JNA_STRUCTURE",
     "JNA_UNION",
     "JNA_CALLBACK_REFERENCE",

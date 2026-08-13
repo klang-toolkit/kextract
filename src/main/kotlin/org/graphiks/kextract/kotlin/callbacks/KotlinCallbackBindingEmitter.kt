@@ -103,28 +103,22 @@ internal class KotlinCallbackBindingEmitter(
     fun emitAndroid(
         builder: SourceBuilder,
         bindings: List<KotlinDirectFunctionBindingModel>,
-        toRawArgument: (String, Type) -> String,
-        rawFunction: (Declaration.Function) -> String,
+        emitEngineDowncall: (Declaration.Function, (Declaration.Variable) -> String) -> Unit,
     ) {
         bindings.forEach { model ->
             val binding = model.binding
             val parameters = applicationParameters(binding)
             emitPreflightHeader(builder, binding, model.preflightName, parameters, actual = true)
             builder.indent()
-            parameters.forEach { parameter ->
-                builder.appendLine(
-                    "val ${parameter.preparedName} = ${toRawArgument(parameter.name, parameter.variable.type())}",
-                )
-            }
             builder.appendLine("return { ${preparedCallLambdaParameters(binding)} ->")
             builder.indent()
-            builder.appendLine("${rawFunction(binding.function)}(")
-            builder.indent()
-            preparedPlatformArguments(binding, parameters, toRawArgument).forEach { argument ->
-                builder.appendLine("$argument,")
+            emitEngineDowncall(binding.function) { parameter ->
+                when (parameter) {
+                    binding.callbackParameter -> "callback"
+                    binding.routingUserdataParameter -> "userdata"
+                    else -> parameters.single { it.variable === parameter }.name
+                }
             }
-            builder.unindent()
-            builder.appendLine(")")
             builder.unindent()
             builder.appendLine("}")
             builder.unindent()

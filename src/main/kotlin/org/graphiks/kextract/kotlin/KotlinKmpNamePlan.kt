@@ -33,6 +33,7 @@ internal enum class KotlinKmpRuntimeSymbol(
     val preserveOperatorName: Boolean = false,
 ) {
     NATIVE_ADDRESS("org.graphiks.kffi.NativeAddress", allSourceSets()),
+    NATIVE_ENGINE("org.graphiks.kffi.engine.NativeEngine", android()),
     CALLBACK("org.graphiks.kffi.Callback", common()),
     CALLBACK_EXCEPTION_HANDLER("org.graphiks.kffi.CallbackExceptionHandler", allSourceSets()),
     CALLBACK_POLICY("org.graphiks.kffi.CallbackPolicy", allSourceSets()),
@@ -89,8 +90,6 @@ internal enum class KotlinKmpRuntimeSymbol(
 
     JNA_POINTER("com.sun.jna.Pointer", android()),
     JNA_CALLBACK_REFERENCE("com.sun.jna.CallbackReference", android()),
-    JNA_LIBRARY("com.sun.jna.Library", android()),
-    JNA_NATIVE("com.sun.jna.Native", android()),
     JNA_STRUCTURE("com.sun.jna.Structure", android()),
     JNA_UNION("com.sun.jna.Union", android()),
 

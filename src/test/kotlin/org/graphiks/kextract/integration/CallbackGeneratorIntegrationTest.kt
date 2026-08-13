@@ -595,12 +595,12 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 payload: SamplePayload,
             ): (NativeAddress?, NativeAddress?) -> Unit {
         """.trimIndent()
-        android shouldContain "val preparedPayload = sample.bindings.android.SamplePayload.ByValue(payload.handler).apply { read() }"
         android shouldContain "return { callback, userdata ->"
-        android shouldContain "sample.bindings.android.wgpu_hLibraryInstance.sample_set_callback("
-        android shouldContain "preparedPayload,"
-        android shouldContain "callback,"
-        android shouldContain "userdata,"
+        android shouldContain "NativeEngine.callGeneric(sample_set_callback_ADDR, 3,"
+        android shouldContain "MemoryBuffer(payload.handler, 4uL).readBytes(payloadBytes, 0u, 0uL, 4uL)"
+        android shouldContain "args.writeLong(callback?.handler?.rawValue ?: 0L, 8uL)"
+        android shouldContain "args.writeLong(userdata?.handler?.rawValue ?: 0L, 16uL)"
+        android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
         android shouldNotContain "val prepared = SampleCallback.prepare("
         android shouldNotContain "CallbackRuntime.activateForNativeCall"
@@ -626,8 +626,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         ).getValue("androidMain")
 
         android shouldContain "actual fun sample_requestCallbackBindingPreflight("
-        android shouldContain "sample.bindings.android.wgpu_hLibraryInstance.sample_request("
+        android shouldContain "NativeEngine.callV3IPP(sample_request_ADDR, input, callback?.handler?.rawValue ?: 0L, userdata?.handler?.rawValue ?: 0L)"
         android shouldContain "return { callback, userdata ->"
+        android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
     }
 

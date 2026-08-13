@@ -17,7 +17,7 @@ import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
 
-private data class AndroidSources(val common: String, val bridge: String, val jna: String)
+private data class AndroidSources(val common: String, val bridge: String)
 
 private fun generateAndroidSources(header: String): AndroidSources {
     val workspace = Files.createTempDirectory("kextract-kmp-android-memory")
@@ -40,7 +40,6 @@ private fun generateAndroidSources(header: String): AndroidSources {
         AndroidSources(
             common = output.resolve("commonMain/kotlin/sample/bindings/wgpu_hCommon.kt").toFile().readText(),
             bridge = output.resolve("androidMain/kotlin/sample/bindings/wgpu_hAndroid.kt").toFile().readText(),
-            jna = output.resolve("androidMain/kotlin/sample/bindings/android/wgpu_h.kt").toFile().readText(),
         )
     } finally {
         workspace.toFile().deleteRecursively()
@@ -143,6 +142,39 @@ private val NATIVE_DISPLAY_HEADER =
     typedef struct WGPUInstanceExtras {
         WGPUNativeDisplayHandle displayHandle;
     } WGPUInstanceExtras;
+    """.trimIndent()
+
+private val FUNCTION_HEADER =
+    """
+    typedef struct WGPUInstanceDescriptor {
+        int dummy;
+    } WGPUInstanceDescriptor;
+
+    typedef struct WGPUInstanceImpl* WGPUInstance;
+
+    typedef enum WGPUFeatureFlags {
+        WGPUFeatureFlags_Undefined = 0,
+        WGPUFeatureFlags_DepthClipControl = 0x1,
+    } WGPUFeatureFlags;
+
+    typedef enum WGPUFoo {
+        WGPUFoo_A = 0,
+        WGPUFoo_B = 1,
+    } WGPUFoo;
+
+    unsigned long long wgpuFoo(unsigned long long a, unsigned long long b);
+    void wgpuBar(WGPUInstance i, unsigned int n);
+    const char* wgpuGetLabel(void);
+    WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor);
+    unsigned int wgpuFooFlag(WGPUFeatureFlags flags);
+    WGPUFeatureFlags wgpuFlagCarrier(WGPUFeatureFlags flags);
+    WGPUFoo wgpuPlainFoo(WGPUFoo foo);
+    """.trimIndent()
+
+private val STRUCT_VALUE_HEADER =
+    """
+    typedef struct WGPUPoint { int x; int y; } WGPUPoint;
+    WGPUPoint wgpuPointByValue(WGPUPoint p);
     """.trimIndent()
 
 private val MEMBACK_KFFI_COMMON_STUB =
@@ -306,21 +338,67 @@ private val MEMBACK_KFFI_ANDROID_STUB =
     fun NativeAddress.toAddress(): Long = rawValue
     """.trimIndent()
 
+private val MEMBACK_KFFI_ENGINE_STUB =
+    """
+    package org.graphiks.kffi.engine
+
+    import org.graphiks.kffi.MemoryBuffer
+    import org.graphiks.kffi.NativeAddress
+    import java.util.concurrent.ConcurrentHashMap
+    import java.util.concurrent.atomic.AtomicLong
+
+    object NativeEngine {
+        private val handlers = ConcurrentHashMap<Long, (List<Long>) -> Long>()
+        private val next = AtomicLong(0x1000L)
+
+        fun resolveSymbol(name: String): Long {
+            val address = next.getAndIncrement()
+            handlers[address] = when (name) {
+                "wgpuFoo" -> { args -> args[0] + args[1] }
+                "wgpuBar" -> { _ -> 0L }
+                "wgpuGetLabel" -> { _ -> 0L }
+                "wgpuCreateInstance" -> { _ -> 0L }
+                "wgpuFooFlag" -> { args -> args[0] }
+                "wgpuPlainFoo" -> { args -> args[0] }
+                "wgpuGetAdapterVendorID" -> { _ -> 0x5b2cL }
+                "wgpuPointByValue" -> { args -> args[0] }
+                else -> error("Unexpected stub symbol ${'$'}name")
+            }
+            return address
+        }
+
+        fun callI1P(fn: Long, p1: Long): Long = handlers.getValue(fn)(listOf(p1))
+        fun callL2LL(fn: Long, a: Long, b: Long): Long = handlers.getValue(fn)(listOf(a, b))
+        fun callV2PI(fn: Long, p1: Long, i: Int) { handlers.getValue(fn)(listOf(p1, i.toLong())) }
+        fun callP0(fn: Long): Long = handlers.getValue(fn)(emptyList())
+        fun callP1P(fn: Long, p1: Long): Long = handlers.getValue(fn)(listOf(p1))
+        fun callI1I(fn: Long, a: Int): Long = handlers.getValue(fn)(listOf(a.toLong()))
+        fun callV3IPP(fn: Long, a: Int, b: Long, c: Long) { handlers.getValue(fn)(listOf(a.toLong(), b, c)) }
+        fun callGeneric(fn: Long, argc: Int, typeSpec: String, argsPtr: Long, outPtr: Long) {
+            val values = (0 until argc).map { i ->
+                MemoryBuffer(NativeAddress(argsPtr + i.toLong() * 8L), 8uL).readLong(0uL)
+            }
+            val result = handlers.getValue(fn)(values)
+            MemoryBuffer(NativeAddress(outPtr), 8uL).writeLong(result, 0uL)
+        }
+    }
+    """.trimIndent()
+
 private fun compileGeneratedAndroid(sources: AndroidSources, probe: String? = null): LongArray? {
     val workspace = Files.createTempDirectory("kextract-generated-android-memory-classes")
     try {
         val common = workspace.resolve("wgpu_hCommon.kt")
         val bridge = workspace.resolve("wgpu_hAndroid.kt")
-        val jna = workspace.resolve("wgpu_h.kt")
         val kffiCommon = workspace.resolve("kffiCommon.kt")
         val kffiAndroid = workspace.resolve("kffiAndroid.kt")
+        val kffiEngine = workspace.resolve("kffiEngine.kt")
         val probeFile = probe?.let { workspace.resolve("probe.kt") }
         val output = Files.createDirectories(workspace.resolve("classes"))
         common.toFile().writeText(sources.common)
         bridge.toFile().writeText(sources.bridge)
-        jna.toFile().writeText(sources.jna)
         kffiCommon.toFile().writeText(MEMBACK_KFFI_COMMON_STUB)
         kffiAndroid.toFile().writeText(MEMBACK_KFFI_ANDROID_STUB)
+        kffiEngine.toFile().writeText(MEMBACK_KFFI_ENGINE_STUB)
         probe?.let { probeFile?.toFile()?.writeText(it) }
 
         val arguments = mutableListOf(
@@ -334,9 +412,9 @@ private fun compileGeneratedAndroid(sources: AndroidSources, probe: String? = nu
             output.toString(),
             common.toString(),
             bridge.toString(),
-            jna.toString(),
             kffiCommon.toString(),
             kffiAndroid.toString(),
+            kffiEngine.toString(),
         )
         probeFile?.let { arguments.add(it.toString()) }
         K2JVMCompiler().exec(System.err, *arguments.toTypedArray()) shouldBe ExitCode.OK
@@ -442,21 +520,65 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "set(value) { buffer.writePointer(value?.handler ?: NativeAddress(0L), ${container.field("scalarPointer").offsetBytes}uL) }"
     }
 
-    "functions still emit against the raw JNA library proxy for M5.3" {
-        val generated = generateAndroidSources(ADAPTER_INFO_HEADER)
+    "functions resolve symbols once and call the typed NativeEngine wrapper" {
+        val generated = generateAndroidSources(FUNCTION_HEADER)
 
-        generated.jna shouldContain "internal interface wgpu_hLibrary : Library"
-        generated.jna shouldContain "Native.load(\"fixture\", wgpu_hLibrary::class.java)"
-        generated.jna shouldContain "fun wgpuGetAdapterVendorID(info: Pointer?): Int"
+        generated.bridge shouldContain "private val wgpuFoo_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuFoo\") }"
+        generated.bridge shouldContain "private val wgpuBar_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuBar\") }"
+        generated.bridge shouldContain "private val wgpuGetLabel_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuGetLabel\") }"
+        generated.bridge shouldContain "private val wgpuCreateInstance_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuCreateInstance\") }"
 
-        generated.bridge shouldContain "actual fun wgpuGetAdapterVendorID(info: WGPUAdapterInfo?): UInt"
-        generated.bridge shouldNotContain "not implemented for Android"
+        generated.bridge shouldContain "actual fun wgpuFoo(a: ULong, b: ULong): ULong"
+        generated.bridge shouldContain "return NativeEngine.callL2LL(wgpuFoo_ADDR, a.toLong(), b.toLong()).toULong()"
+
+        generated.bridge shouldContain "actual fun wgpuBar(i: WGPUInstance?, n: UInt)"
+        generated.bridge shouldContain "NativeEngine.callV2PI(wgpuBar_ADDR, i?.handler?.rawValue ?: 0L, n.toInt())"
+
+        generated.bridge shouldContain "actual fun wgpuGetLabel(): CString?"
+        generated.bridge shouldContain "return NativeEngine.callP0(wgpuGetLabel_ADDR).takeIf { it != 0L }?.let(::NativeAddress)?.let(::CString)"
+
+        generated.bridge shouldContain "actual fun wgpuCreateInstance(descriptor: WGPUInstanceDescriptor?): WGPUInstance?"
+        generated.bridge shouldContain "NativeEngine.callP1P(wgpuCreateInstance_ADDR, descriptor?.handler?.rawValue ?: 0L)"
+        generated.bridge shouldContain "?.let(::NativeAddress)?.let(::WGPUInstance)"
+    }
+
+    "enum and options functions convert carriers through the engine" {
+        val generated = generateAndroidSources(FUNCTION_HEADER)
+
+        generated.bridge shouldContain "actual fun wgpuFooFlag(flags: WGPUFeatureFlags): UInt"
+        generated.bridge shouldContain "return NativeEngine.callI1I(wgpuFooFlag_ADDR, flags.rawValue.toInt()).toInt().toUInt()"
+
+        generated.bridge shouldContain "actual fun wgpuFlagCarrier(flags: WGPUFeatureFlags): WGPUFeatureFlags"
+        generated.bridge shouldContain "return WGPUFeatureFlags((NativeEngine.callI1I(wgpuFlagCarrier_ADDR, flags.rawValue.toInt()).toInt()).toUInt().toLong())"
+
+        generated.bridge shouldContain "actual fun wgpuPlainFoo(foo: WGPUFoo): WGPUFoo"
+        generated.bridge shouldContain "return (NativeEngine.callI1I(wgpuPlainFoo_ADDR, foo.toInt()).toInt()).toUInt()"
+    }
+
+    "function emission never references the JNA library proxy" {
+        val generated = generateAndroidSources(FUNCTION_HEADER)
+
+        generated.bridge shouldNotContain "LibraryInstance"
+        generated.bridge shouldNotContain "com.sun.jna.Library"
+        generated.bridge shouldNotContain "Native.load"
+        generated.bridge shouldNotContain "com.sun.jna"
+    }
+
+    "struct-by-value functions call through NativeEngine.callGeneric" {
+        val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
+
+        generated.bridge shouldContain "actual fun wgpuPointByValue(p: WGPUPoint): WGPUPoint"
+        generated.bridge shouldContain "private val wgpuPointByValue_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuPointByValue\") }"
+        generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
+        generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
     }
 
     "generated memory-backed sources compile against the kffi runtime" {
         compileGeneratedAndroid(generateAndroidSources(ADAPTER_INFO_HEADER))
         compileGeneratedAndroid(generateAndroidSources(GENERAL_UNION_HEADER))
         compileGeneratedAndroid(generateAndroidSources(NATIVE_DISPLAY_HEADER))
+        compileGeneratedAndroid(generateAndroidSources(FUNCTION_HEADER))
+        compileGeneratedAndroid(generateAndroidSources(STRUCT_VALUE_HEADER))
     }
 
     "memory-backed adapter info round-trips through a real buffer" {
@@ -561,20 +683,32 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
             ?.toList() shouldBe listOf(0x12345678L)
     }
 
-    "byValueTransitional struct-by-value functions pin the transitional ByValue marker" {
-        val generated = generateAndroidSources(
+    "scalar functions resolve and call through the engine stub" {
+        val probe =
             """
-            typedef struct WGPUPoint { int x; int y; } WGPUPoint;
-            WGPUPoint wgpuPointByValue(WGPUPoint p);
-            """.trimIndent(),
-        )
+            package sample.probe
+
+            import sample.bindings.wgpuFoo
+            import sample.bindings.wgpuGetLabel
+
+            fun runProbe(): LongArray {
+                val sum = wgpuFoo(5uL, 7uL)
+                val sum2 = wgpuFoo(2uL, 3uL)
+                val label = wgpuGetLabel()
+                return longArrayOf(sum.toLong(), sum2.toLong(), if (label == null) 1L else 0L)
+            }
+            """.trimIndent()
+
+        compileGeneratedAndroid(generateAndroidSources(FUNCTION_HEADER), probe)
+            ?.toList() shouldBe listOf(12L, 5L, 1L)
+    }
+
+    "struct-by-value functions pin the engine callGeneric path" {
+        val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
         generated.bridge shouldContain "actual fun wgpuPointByValue(p: WGPUPoint): WGPUPoint"
-        // M5.2 emits transitional JNA-style struct-by-value code that references raw JNA
-        // classes deleted by the memory-backed rework; M5.3 must re-emit it through the engine.
-        // Assert the marker so a future header can't silently ship uncompilable bindings.
-        generated.bridge shouldContain "ByValue("
-        generated.bridge shouldContain ".apply { read() }"
+        generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
+        generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
     }
 
     "isOptionsEnumType recognizes historical WGPUInstance options enums" {
