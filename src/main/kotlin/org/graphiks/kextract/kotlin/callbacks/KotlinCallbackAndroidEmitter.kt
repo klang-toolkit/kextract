@@ -57,6 +57,8 @@ internal class KotlinCallbackAndroidEmitter(
     private fun KotlinCallbackModel.isEngineUpcallFit(): Boolean {
         if (!hasRoutingUserdata) return false
         val value = parameters.singleOrNull() ?: return false
+        /* I32-backed enums need the JNA path until the shared enum-application bug is fixed (TODO(M5.5)) */
+        if (isEnum(value.type)) return false
         val routing = routingUserdataParameter ?: return false
         if (routing.index < value.index) return false
         val scalar = value.cAbiType as? KotlinKmpCAbiType.Scalar ?: return false
@@ -286,6 +288,9 @@ internal class KotlinCallbackAndroidEmitter(
             "UInt" -> "$name.toUInt() as $mapped"
             "UShort" -> "$name.toUShort() as $mapped"
             "UByte" -> "$name.toUByte() as $mapped"
+            // TODO(M5.5): a non-options I32 enum lands here and emits `callback.invoke(name)` with
+            // the raw Int carrier against an enum-typed invoke param, which does not compile.
+            // Shared by the JVM/native/Android emitters; fix the cross-emitter bug here.
             else -> name
         }
     }

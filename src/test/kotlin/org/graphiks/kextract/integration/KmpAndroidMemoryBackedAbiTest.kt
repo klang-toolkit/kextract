@@ -218,6 +218,46 @@ private fun directCallbackBindingConfig(): CallbackBindingsConfig =
         )
     }
 
+private val ENGINE_FIT_NEGATIVE_HEADER =
+    """
+    typedef enum sample_enum {
+        A = 1,
+        B = 2,
+    } sample_enum;
+
+    typedef void (*SampleEnumCallback)(sample_enum value, void * userdata);
+    typedef void (*SampleU64Callback)(unsigned long long value, void * userdata);
+    typedef void (*SampleReversedCallback)(void * userdata, unsigned int value);
+
+    void sample_enum_cb(int input, SampleEnumCallback callback, void * userdata);
+    void sample_u64_cb(int input, SampleU64Callback callback, void * userdata);
+    void sample_reversed_cb(int input, SampleReversedCallback callback, void * userdata);
+    """.trimIndent()
+
+private fun engineFitNegativeBindingConfig(): CallbackBindingsConfig =
+    CallbackBindingsConfig().also { bindings ->
+        bindings.directFunctionBindings = listOf(
+            DirectFunctionBinding().also { binding ->
+                binding.function = "function:sample_enum_cb"
+                binding.callbackParameter = "callback"
+                binding.callbackType = "typedef:SampleEnumCallback"
+                binding.routingUserdataParameter = "userdata"
+            },
+            DirectFunctionBinding().also { binding ->
+                binding.function = "function:sample_u64_cb"
+                binding.callbackParameter = "callback"
+                binding.callbackType = "typedef:SampleU64Callback"
+                binding.routingUserdataParameter = "userdata"
+            },
+            DirectFunctionBinding().also { binding ->
+                binding.function = "function:sample_reversed_cb"
+                binding.callbackParameter = "callback"
+                binding.callbackType = "typedef:SampleReversedCallback"
+                binding.routingUserdataParameter = "userdata"
+            },
+        )
+    }
+
 private val MEMBACK_KFFI_COMMON_STUB =
     """
     package org.graphiks.kffi
@@ -846,6 +886,41 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldNotContain "com.sun.jna.CallbackReference"
         generated.bridge shouldNotContain "SampleCallbackJna"
         generated.bridge shouldNotContain "TODO(M5.5)"
+
+        compileGeneratedAndroid(generated)
+    }
+
+    "enum-backed callback values are excluded from the engine fit gate" {
+        val generated = generateAndroidSources(
+            ENGINE_FIT_NEGATIVE_HEADER,
+            engineFitNegativeBindingConfig(),
+        )
+
+        generated.bridge shouldContain "private fun interface SampleEnumCallbackJna : com.sun.jna.Callback"
+        generated.bridge shouldNotContain "UpcallEngine.allocateTrampoline"
+        generated.bridge shouldNotContain "dispatchSig = \"(JI)V\","
+    }
+
+    "non-I32 callback scalars are excluded from the engine fit gate" {
+        val generated = generateAndroidSources(
+            ENGINE_FIT_NEGATIVE_HEADER,
+            engineFitNegativeBindingConfig(),
+        )
+
+        generated.bridge shouldContain "private fun interface SampleU64CallbackJna : com.sun.jna.Callback"
+        generated.bridge shouldNotContain "UpcallEngine.allocateTrampoline"
+        generated.bridge shouldNotContain "dispatchSig = \"(JI)V\","
+    }
+
+    "reversed routing-order callbacks are excluded from the engine fit gate" {
+        val generated = generateAndroidSources(
+            ENGINE_FIT_NEGATIVE_HEADER,
+            engineFitNegativeBindingConfig(),
+        )
+
+        generated.bridge shouldContain "private fun interface SampleReversedCallbackJna : com.sun.jna.Callback"
+        generated.bridge shouldNotContain "UpcallEngine.allocateTrampoline"
+        generated.bridge shouldNotContain "dispatchSig = \"(JI)V\","
     }
 
     "direct callback binding preflights compile their Android lambda bodies" {
