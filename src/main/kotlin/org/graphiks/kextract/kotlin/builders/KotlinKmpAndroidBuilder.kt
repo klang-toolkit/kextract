@@ -10,12 +10,12 @@ import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.ARRAY_HOLDER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.C_STRING
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JNA_POINTER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_FIELD
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_ALLOCATOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_BUFFER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ENGINE
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.TO_ADDRESS
 import org.graphiks.kextract.kotlin.KotlinKmpSourceSet
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackBindingEmitter
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackAndroidEmitter
@@ -51,7 +51,7 @@ internal class KotlinKmpAndroidBuilder(
     private val arrayHolder = namePlan.runtime(ARRAY_HOLDER)
     private val memoryAllocator = namePlan.runtime(MEMORY_ALLOCATOR)
     private val memoryBuffer = namePlan.runtime(MEMORY_BUFFER)
-    private val jnaPointer = namePlan.runtime(JNA_POINTER)
+    private val toAddress = namePlan.runtime(TO_ADDRESS)
 
     private val excludedBridgeSymbols = setOf(
         KotlinKmpRuntimeSymbol.JNA_POINTER,
@@ -148,8 +148,8 @@ internal class KotlinKmpAndroidBuilder(
                 KotlinCallbackBindingEmitter(typeMapper::mapFunctionType, namePlan).emitAndroid(
                     builder,
                     directBindingModels,
-                ) { function, argExpr ->
-                    emitEngineDowncall(function, argExpr)
+                ) { function, asLastExpression, argExpr ->
+                    emitEngineDowncall(function, asLastExpression, argExpr)
                 }
             }
             else -> {}
@@ -257,22 +257,29 @@ internal class KotlinKmpAndroidBuilder(
      * (the parameter name for `actual fun`s; the preflight parameter for direct bindings).
      * Typed signatures use the `call<R><N><ARGS>` wrapper; struct-by-value signatures use
      * `callGeneric` with a packed argument buffer and a documented typeSpec.
+     *
+     * When [asLastExpression] is set the downcall is emitted as the final expression of an
+     * enclosing lambda (an Android direct-binding preflight), so value conversions are
+     * emitted without an unqualified `return` (which is prohibited inside a lambda) and the
+     * call itself is the lambda's value.
      */
     private fun emitEngineDowncall(
         function: Declaration.Function,
+        asLastExpression: Boolean = false,
         argExpr: (Declaration.Variable) -> String,
     ) {
         val wrapper = wrapperForm(function.type())
         if (wrapper != null) {
-            emitTypedDowncall(function, wrapper, argExpr)
+            emitTypedDowncall(function, wrapper, asLastExpression, argExpr)
         } else {
-            emitGenericDowncall(function, argExpr)
+            emitGenericDowncall(function, asLastExpression, argExpr)
         }
     }
 
     private fun emitTypedDowncall(
         function: Declaration.Function,
         wrapper: String,
+        asLastExpression: Boolean = false,
         argExpr: (Declaration.Variable) -> String,
     ) {
         val engineArgs = function.parameters()
@@ -280,7 +287,7 @@ internal class KotlinKmpAndroidBuilder(
             .joinToString(", ")
         val call = "$nativeEngine.$wrapper(${functionAddress(function)}" +
             (if (engineArgs.isEmpty()) "" else ", $engineArgs") + ")"
-        emitEngineReturn(function.type().returnType(), call)
+        emitEngineReturn(function.type().returnType(), call, asLastExpression)
     }
 
     private fun functionAddress(function: Declaration.Function): String =
@@ -290,6 +297,8 @@ internal class KotlinKmpAndroidBuilder(
         val kmpType = typeMapper.mapFunctionType(type)
         return when (val abi = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT)) {
             is KotlinKmpCAbiType.Address -> when {
+                kmpType == "$nativeAddress?" -> "$name.${toAddress}()"
+                kmpType == nativeAddress -> "$name.rawValue"
                 kmpType.endsWith("?") -> "$name?.handler?.rawValue ?: 0L"
                 else -> "$name.handler.rawValue"
             }
@@ -310,43 +319,44 @@ internal class KotlinKmpAndroidBuilder(
         }
     }
 
-    private fun emitEngineReturn(type: Type, call: String) {
+    private fun emitEngineReturn(type: Type, call: String, asLastExpression: Boolean = false) {
         val returnType = typeMapper.mapFunctionType(type)
+        val resultPrefix = if (asLastExpression) "" else "return "
         if (returnType == "Unit") {
             builder.appendLine(call)
-            builder.appendLine("return")
+            if (!asLastExpression) builder.appendLine("return")
             return
         }
         when {
             typeMapper.isOptionsEnumType(type) -> {
                 val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
                 builder.appendLine(
-                    "return $returnType(${scalar.jvmCarrierToOptionsRaw(narrowEngineCarrier(call, scalar))})",
+                    "$resultPrefix$returnType(${scalar.jvmCarrierToOptionsRaw(narrowEngineCarrier(call, scalar))})",
                 )
             }
             typeMapper.isEnumType(type) -> {
                 val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
-                builder.appendLine("return ${scalar.fromJvmCarrier(narrowEngineCarrier(call, scalar))}")
+                builder.appendLine("$resultPrefix${scalar.fromJvmCarrier(narrowEngineCarrier(call, scalar))}")
             }
-            returnType == "$nativeAddress?" -> builder.appendLine("return $call.takeIf { it != 0L }?.let(::$nativeAddress)")
-            returnType == "$cString?" -> builder.appendLine("return $call.takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$cString)")
+            returnType == "$nativeAddress?" -> builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)")
+            returnType == "$cString?" -> builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$cString)")
             returnType.endsWith("?") && returnsPointer(type) -> {
                 val nonNullable = returnType.removeSuffix("?")
-                builder.appendLine("return $call.takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$nonNullable)")
+                builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$nonNullable)")
             }
             else -> {
                 val scalar = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT) as KotlinKmpCAbiType.Scalar
                 when {
-                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.BOOL -> builder.appendLine("return $call != 0L")
-                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> builder.appendLine("return $call.toByte().toUByte()")
-                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> builder.appendLine("return $call.toShort().toUShort()")
-                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> builder.appendLine("return $call.toInt().toUInt()")
-                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> builder.appendLine("return $call.toULong()")
-                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> builder.appendLine("return $call.toByte()")
-                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> builder.appendLine("return $call.toShort()")
-                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> builder.appendLine("return $call.toInt()")
-                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> builder.appendLine("return $call")
-                    else -> builder.appendLine("return $call")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.BOOL -> builder.appendLine("$resultPrefix$call != 0L")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> builder.appendLine("$resultPrefix$call.toByte().toUByte()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> builder.appendLine("$resultPrefix$call.toShort().toUShort()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> builder.appendLine("$resultPrefix$call.toInt().toUInt()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> builder.appendLine("$resultPrefix$call.toULong()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> builder.appendLine("$resultPrefix$call.toByte()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> builder.appendLine("$resultPrefix$call.toShort()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> builder.appendLine("$resultPrefix$call.toInt()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> builder.appendLine("$resultPrefix$call")
+                    else -> builder.appendLine("$resultPrefix$call")
                 }
             }
         }
@@ -371,6 +381,7 @@ internal class KotlinKmpAndroidBuilder(
      */
     private fun emitGenericDowncall(
         function: Declaration.Function,
+        asLastExpression: Boolean = false,
         argExpr: (Declaration.Variable) -> String,
     ) {
         val functionType = function.type()
@@ -423,7 +434,7 @@ internal class KotlinKmpAndroidBuilder(
             "$nativeEngine.callGeneric(${functionAddress(function)}, ${params.size}, " +
                 "$typeSpec, args.handler.rawValue, out.handler.rawValue)",
         )
-        emitGenericReturn(functionType.returnType(), returnType, returnAbi)
+        emitGenericReturn(functionType.returnType(), returnType, returnAbi, asLastExpression)
     }
 
     private fun emitStructSlot(
@@ -448,7 +459,11 @@ internal class KotlinKmpAndroidBuilder(
     ): (SourceBuilder) -> Unit = { target ->
         val name = argExpr(parameter)
         val value = when (abi) {
-            is KotlinKmpCAbiType.Address -> "$name?.handler?.rawValue ?: 0L"
+            is KotlinKmpCAbiType.Address -> when (typeMapper.mapFunctionType(parameter.type())) {
+                "$nativeAddress?" -> "$name.${toAddress}()"
+                nativeAddress -> "$name.rawValue"
+                else -> "$name?.handler?.rawValue ?: 0L"
+            }
             is KotlinKmpCAbiType.Scalar -> {
                 val kmpType = typeMapper.mapFunctionType(parameter.type())
                 when {
@@ -479,20 +494,22 @@ internal class KotlinKmpAndroidBuilder(
         type: Type,
         returnType: String,
         returnAbi: KotlinKmpCAbiType?,
+        asLastExpression: Boolean = false,
     ) {
         if (returnType == "Unit" || returnAbi == null) return
+        val resultPrefix = if (asLastExpression) "" else "return "
         when (returnAbi) {
             is KotlinKmpCAbiType.StructValue -> {
-                builder.appendLine("return $returnType.ByValue(out.handler)")
+                builder.appendLine("$resultPrefix$returnType.ByValue(out.handler)")
             }
             is KotlinKmpCAbiType.Address -> when {
-                returnType == "$nativeAddress?" -> builder.appendLine("return out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)")
-                returnType == "$cString?" -> builder.appendLine("return out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$cString)")
+                returnType == "$nativeAddress?" -> builder.appendLine(resultPrefix + "out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)")
+                returnType == "$cString?" -> builder.appendLine(resultPrefix + "out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$cString)")
                 returnType.endsWith("?") -> {
                     val nonNullable = returnType.removeSuffix("?")
-                    builder.appendLine("return out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$nonNullable)")
+                    builder.appendLine(resultPrefix + "out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$nonNullable)")
                 }
-                else -> builder.appendLine("return out.readLong(0uL)")
+                else -> builder.appendLine(resultPrefix + "out.readLong(0uL)")
             }
             is KotlinKmpCAbiType.Scalar -> {
                 val read = engineReadPrimitive(returnAbi)
@@ -500,28 +517,28 @@ internal class KotlinKmpAndroidBuilder(
                     typeMapper.isOptionsEnumType(type) -> {
                         val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
                         builder.appendLine(
-                            "return $returnType(${scalar.jvmCarrierToOptionsRaw("out.$read(0uL)")})",
+                            "$resultPrefix$returnType(${scalar.jvmCarrierToOptionsRaw("out.$read(0uL)")})",
                         )
                     }
                     typeMapper.isEnumType(type) -> {
                         val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
-                        builder.appendLine("return ${scalar.fromJvmCarrier("out.$read(0uL)")}")
+                        builder.appendLine("$resultPrefix${scalar.fromJvmCarrier("out.$read(0uL)")}")
                     }
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.BOOL ->
-                        builder.appendLine("return out.readLong(0uL) != 0L")
+                        builder.appendLine(resultPrefix + "out.readLong(0uL) != 0L")
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I8 ->
-                        builder.appendLine("return out.readByte(0uL)")
+                        builder.appendLine(resultPrefix + "out.readByte(0uL)")
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I16 ->
-                        builder.appendLine("return out.readShort(0uL)")
+                        builder.appendLine(resultPrefix + "out.readShort(0uL)")
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I32 ->
-                        builder.appendLine("return out.readInt(0uL)")
+                        builder.appendLine(resultPrefix + "out.readInt(0uL)")
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I64 ->
-                        builder.appendLine("return out.readLong(0uL)")
+                        builder.appendLine(resultPrefix + "out.readLong(0uL)")
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.F32 ->
-                        builder.appendLine("return out.readFloat(0uL)")
+                        builder.appendLine(resultPrefix + "out.readFloat(0uL)")
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.F64 ->
-                        builder.appendLine("return out.readDouble(0uL)")
-                    else -> builder.appendLine("return out.readLong(0uL)")
+                        builder.appendLine(resultPrefix + "out.readDouble(0uL)")
+                    else -> builder.appendLine(resultPrefix + "out.readLong(0uL)")
                 }
             }
         }
@@ -925,12 +942,12 @@ internal class KotlinKmpAndroidBuilder(
                 "Int"
             }
         }
-        type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> "$jnaPointer?"
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> "com.sun.jna.Pointer?"
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> {
             val inner = type.type()
             when {
                 typeMapper.isEnumType(inner) -> "Int"
-                isStructType(inner) -> "$jnaPointer?"
+                isStructType(inner) -> "com.sun.jna.Pointer?"
                 inner is Type.Primitive -> mapJnaPrimitive(inner.kind())
                 inner is Type.Delegated && inner.kind() == Type.Delegated.Kind.UNSIGNED -> {
                     val innerInner = inner.type()
@@ -946,20 +963,20 @@ internal class KotlinKmpAndroidBuilder(
                         "Int"
                     }
                 }
-                else -> "$jnaPointer?"
+                else -> "com.sun.jna.Pointer?"
             }
         }
         type is Type.Declared -> {
             val tree = type.tree()
             if (tree.kind() == Declaration.Scoped.Kind.STRUCT || tree.kind() == Declaration.Scoped.Kind.UNION) {
-                "$jnaPointer?"
+                "com.sun.jna.Pointer?"
             } else if (tree.kind() == Declaration.Scoped.Kind.ENUM) {
                 "Int"
             } else {
-                "$jnaPointer?"
+                "com.sun.jna.Pointer?"
             }
         }
-        else -> "$jnaPointer?"
+        else -> "com.sun.jna.Pointer?"
     }
     }
 
@@ -971,6 +988,6 @@ internal class KotlinKmpAndroidBuilder(
         Type.Primitive.Kind.Long, Type.Primitive.Kind.LongLong -> "Long"
         Type.Primitive.Kind.Float -> "Float"
         Type.Primitive.Kind.Double -> "Double"
-        else -> "$jnaPointer?"
+        else -> "com.sun.jna.Pointer?"
     }
 }

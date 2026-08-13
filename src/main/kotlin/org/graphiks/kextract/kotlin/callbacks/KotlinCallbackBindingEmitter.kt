@@ -103,7 +103,7 @@ internal class KotlinCallbackBindingEmitter(
     fun emitAndroid(
         builder: SourceBuilder,
         bindings: List<KotlinDirectFunctionBindingModel>,
-        emitEngineDowncall: (Declaration.Function, (Declaration.Variable) -> String) -> Unit,
+        emitEngineDowncall: (Declaration.Function, asLastExpression: Boolean, (Declaration.Variable) -> String) -> Unit,
     ) {
         bindings.forEach { model ->
             val binding = model.binding
@@ -112,7 +112,7 @@ internal class KotlinCallbackBindingEmitter(
             builder.indent()
             builder.appendLine("return { ${preparedCallLambdaParameters(binding)} ->")
             builder.indent()
-            emitEngineDowncall(binding.function) { parameter ->
+            emitEngineDowncall(binding.function, true) { parameter ->
                 when (parameter) {
                     binding.callbackParameter -> "callback"
                     binding.routingUserdataParameter -> "userdata"

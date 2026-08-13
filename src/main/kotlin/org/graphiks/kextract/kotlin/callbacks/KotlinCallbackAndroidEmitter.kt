@@ -8,7 +8,6 @@ import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_POLICY
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_REGISTRATION
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_RUNTIME
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_RUNTIME_API
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JNA_CALLBACK_REFERENCE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.OPT_IN
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.PREPARED_CALLBACK_REGISTRATION
@@ -71,7 +70,7 @@ internal class KotlinCallbackAndroidEmitter(
         builder.appendLine("${namePlan.runtime(CALLBACK_RUNTIME)}.dispatchSafely(")
         builder.indent()
         builder.appendLine("type = ${callback.runtimeTypeName},")
-        builder.appendLine("userdata = ${callback.routingUserdataParameter?.name ?: "null"},")
+        builder.appendLine("userdata = ${routingUserdataConversion(callback)},")
         builder.unindent()
         builder.appendLine(") { callback ->")
         builder.indent()
@@ -88,7 +87,7 @@ internal class KotlinCallbackAndroidEmitter(
         builder.appendLine("}")
         builder.appendLine("val address: ${namePlan.runtime(NATIVE_ADDRESS)} by lazy {")
         builder.indent()
-        builder.appendLine("${namePlan.runtime(JNA_CALLBACK_REFERENCE)}.getFunctionPointer(callback)")
+        builder.appendLine("${namePlan.runtime(NATIVE_ADDRESS)}(com.sun.jna.Pointer.nativeValue(com.sun.jna.CallbackReference.getFunctionPointer(callback)))")
         builder.unindent()
         builder.appendLine("}")
         builder.unindent()
@@ -153,7 +152,8 @@ internal class KotlinCallbackAndroidEmitter(
             mapped == "UByte" -> "$name.toUByte()"
             mapped == "Boolean" && mapJnaType(parameter.type) == "Int" -> "$name != 0"
             cAbiType is KotlinKmpCAbiType.StructValue -> "$mapped.ByValue($name)"
-            cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(NATIVE_ADDRESS)}?" -> name
+            cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(NATIVE_ADDRESS)}?" ->
+                jnaAddressConversion(name)
             cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(C_STRING)}?" ->
                 "$name?.let(::${namePlan.runtime(C_STRING)})"
             cAbiType is KotlinKmpCAbiType.Address && mapped.endsWith("?") -> {
@@ -166,6 +166,16 @@ internal class KotlinCallbackAndroidEmitter(
             }
             else -> name
         }
+    }
+
+    /** Converts a JNA `Pointer` upcall argument to the runtime [NATIVE_ADDRESS] wrapper. */
+    private fun jnaAddressConversion(name: String): String =
+        "$name?.takeIf { com.sun.jna.Pointer.nativeValue(it) != 0L }" +
+            "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(com.sun.jna.Pointer.nativeValue(it)) }"
+
+    private fun routingUserdataConversion(callback: KotlinCallbackModel): String {
+        val name = callback.routingUserdataParameter?.name ?: return "null"
+        return jnaAddressConversion(name)
     }
 
     private fun optionsRawValue(name: String, cAbiType: KotlinKmpCAbiType): String {

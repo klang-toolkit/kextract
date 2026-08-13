@@ -598,8 +598,8 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         android shouldContain "return { callback, userdata ->"
         android shouldContain "NativeEngine.callGeneric(sample_set_callback_ADDR, 3,"
         android shouldContain "MemoryBuffer(payload.handler, 4uL).readBytes(payloadBytes, 0u, 0uL, 4uL)"
-        android shouldContain "args.writeLong(callback?.handler?.rawValue ?: 0L, 8uL)"
-        android shouldContain "args.writeLong(userdata?.handler?.rawValue ?: 0L, 16uL)"
+        android shouldContain "args.writeLong(callback.toAddress(), 8uL)"
+        android shouldContain "args.writeLong(userdata.toAddress(), 16uL)"
         android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
         android shouldNotContain "val prepared = SampleCallback.prepare("
@@ -626,7 +626,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         ).getValue("androidMain")
 
         android shouldContain "actual fun sample_requestCallbackBindingPreflight("
-        android shouldContain "NativeEngine.callV3IPP(sample_request_ADDR, input, callback?.handler?.rawValue ?: 0L, userdata?.handler?.rawValue ?: 0L)"
+        android shouldContain "NativeEngine.callV3IPP(sample_request_ADDR, input, callback.toAddress(), userdata.toAddress())"
         android shouldContain "return { callback, userdata ->"
         android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
@@ -979,7 +979,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             android shouldContain "private val callback: ${callbackType}Jna = ${callbackType}Jna"
         }
         android shouldContain "actual fun NoUserdataCallback.Companion.rearmAfterNativeQuiescence("
-        android shouldContain "CallbackReference.getFunctionPointer(callback)"
+        android shouldContain "NativeAddress(com.sun.jna.Pointer.nativeValue(com.sun.jna.CallbackReference.getFunctionPointer(callback)))"
         android shouldContain "CallbackRuntime.register("
         android shouldContain "CallbackRuntime.prepare("
         android shouldContain "CallbackRuntime.rearmAfterNativeQuiescence("

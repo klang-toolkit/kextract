@@ -5,6 +5,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.graphiks.kextract.Declaration
+import org.graphiks.kextract.callbacks.CallbackBindingsConfig
+import org.graphiks.kextract.callbacks.DirectFunctionBinding
 import org.graphiks.kextract.kotlin.abi.AndroidRecordLayout
 import org.graphiks.kextract.kotlin.abi.AndroidRecordLayoutPlan
 import org.graphiks.kextract.kotlin.builders.isOptionsStyleName
@@ -19,7 +21,10 @@ import java.nio.file.Path
 
 private data class AndroidSources(val common: String, val bridge: String)
 
-private fun generateAndroidSources(header: String): AndroidSources {
+private fun generateAndroidSources(
+    header: String,
+    callbackBindings: CallbackBindingsConfig? = null,
+): AndroidSources {
     val workspace = Files.createTempDirectory("kextract-kmp-android-memory")
     val input = workspace.resolve("wgpu.h")
     val output = workspace.resolve("out")
@@ -34,6 +39,7 @@ private fun generateAndroidSources(header: String): AndroidSources {
                 libraries = listOf(
                     Options.Library("fixture", Options.Library.SpecKind.NAME),
                 ),
+                callbackBindings = callbackBindings,
             ),
         ) shouldBe KextractTool.SUCCESS
 
@@ -177,6 +183,41 @@ private val STRUCT_VALUE_HEADER =
     WGPUPoint wgpuPointByValue(WGPUPoint p);
     """.trimIndent()
 
+private val DIRECT_CALLBACK_BINDING_HEADER =
+    """
+    typedef struct WGPUPoint { int x; int y; } WGPUPoint;
+
+    typedef void (*SampleCallback)(unsigned int value, void * userdata);
+
+    void sample_request(int input, SampleCallback callback, void * userdata);
+    unsigned int sample_status(SampleCallback callback, void * userdata);
+    WGPUPoint sample_point(WGPUPoint p, SampleCallback callback, void * userdata);
+    """.trimIndent()
+
+private fun directCallbackBindingConfig(): CallbackBindingsConfig =
+    CallbackBindingsConfig().also { bindings ->
+        bindings.directFunctionBindings = listOf(
+            DirectFunctionBinding().also { binding ->
+                binding.function = "function:sample_request"
+                binding.callbackParameter = "callback"
+                binding.callbackType = "typedef:SampleCallback"
+                binding.routingUserdataParameter = "userdata"
+            },
+            DirectFunctionBinding().also { binding ->
+                binding.function = "function:sample_status"
+                binding.callbackParameter = "callback"
+                binding.callbackType = "typedef:SampleCallback"
+                binding.routingUserdataParameter = "userdata"
+            },
+            DirectFunctionBinding().also { binding ->
+                binding.function = "function:sample_point"
+                binding.callbackParameter = "callback"
+                binding.callbackType = "typedef:SampleCallback"
+                binding.routingUserdataParameter = "userdata"
+            },
+        )
+    }
+
 private val MEMBACK_KFFI_COMMON_STUB =
     """
     package org.graphiks.kffi
@@ -192,7 +233,10 @@ private val MEMBACK_KFFI_COMMON_STUB =
             val Default = CallbackExceptionHandler { }
         }
     }
-    interface CallbackRegistration<C : Callback>
+    interface CallbackRegistration<C : Callback> {
+        val callback: NativeAddress
+        val userdata: NativeAddress?
+    }
     @RequiresOptIn
     annotation class CallbackRuntimeApi
     @RequiresOptIn
@@ -212,7 +256,10 @@ private val MEMBACK_KFFI_COMMON_STUB =
             policy: CallbackPolicy,
             onError: CallbackExceptionHandler,
             callback: C,
-        ): CallbackRegistration<C> = object : CallbackRegistration<C> {}
+        ): CallbackRegistration<C> = object : CallbackRegistration<C> {
+            override val callback: NativeAddress = trampoline
+            override val userdata: NativeAddress? = null
+        }
         fun <C : Callback> prepare(
             type: CallbackType<C>,
             trampoline: NativeAddress,
@@ -220,13 +267,23 @@ private val MEMBACK_KFFI_COMMON_STUB =
             onError: CallbackExceptionHandler,
             callback: C,
         ): PreparedCallbackRegistration<C> = PreparedCallbackRegistration()
+        fun <C : Callback> activateForNativeCall(
+            prepared: PreparedCallbackRegistration<C>,
+            downcall: (CallbackRegistration<C>) -> Unit,
+        ): CallbackRegistration<C> = object : CallbackRegistration<C> {
+            override val callback: NativeAddress = NativeAddress(0L)
+            override val userdata: NativeAddress? = null
+        }
         fun <C : Callback> rearmAfterNativeQuiescence(
             type: CallbackType<C>,
             trampoline: NativeAddress,
             policy: CallbackPolicy,
             onError: CallbackExceptionHandler,
             callback: C,
-        ): CallbackRegistration<C> = object : CallbackRegistration<C> {}
+        ): CallbackRegistration<C> = object : CallbackRegistration<C> {
+            override val callback: NativeAddress = trampoline
+            override val userdata: NativeAddress? = null
+        }
         fun <C : Callback> dispatchSafely(
             type: CallbackType<C>,
             userdata: NativeAddress?,
@@ -335,7 +392,7 @@ private val MEMBACK_KFFI_ANDROID_STUB =
         }
     }
 
-    fun NativeAddress.toAddress(): Long = rawValue
+    fun NativeAddress?.toAddress(): Long = this?.rawValue ?: 0L
     """.trimIndent()
 
 private val MEMBACK_KFFI_ENGINE_STUB =
@@ -362,6 +419,9 @@ private val MEMBACK_KFFI_ENGINE_STUB =
                 "wgpuPlainFoo" -> { args -> args[0] }
                 "wgpuGetAdapterVendorID" -> { _ -> 0x5b2cL }
                 "wgpuPointByValue" -> { args -> args[0] }
+                "sample_request" -> { args -> args[0] }
+                "sample_status" -> { args -> args[0] }
+                "sample_point" -> { args -> args[0] }
                 else -> error("Unexpected stub symbol ${'$'}name")
             }
             return address
@@ -374,6 +434,7 @@ private val MEMBACK_KFFI_ENGINE_STUB =
         fun callP1P(fn: Long, p1: Long): Long = handlers.getValue(fn)(listOf(p1))
         fun callI1I(fn: Long, a: Int): Long = handlers.getValue(fn)(listOf(a.toLong()))
         fun callV3IPP(fn: Long, a: Int, b: Long, c: Long) { handlers.getValue(fn)(listOf(a.toLong(), b, c)) }
+        fun callI2PP(fn: Long, a: Long, b: Long): Long = handlers.getValue(fn)(listOf(a, b))
         fun callGeneric(fn: Long, argc: Int, typeSpec: String, argsPtr: Long, outPtr: Long) {
             val values = (0 until argc).map { i ->
                 MemoryBuffer(NativeAddress(argsPtr + i.toLong() * 8L), 8uL).readLong(0uL)
@@ -749,5 +810,48 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         isOptionsStyleName("WGPUFeatureFlags") shouldBe true
         isOptionsStyleName("WGPUFoo") shouldBe false
         isOptionsStyleName("WGPUInstanceExtras") shouldBe false
+    }
+
+    "direct callback binding preflights compile their Android lambda bodies" {
+        val generated = generateAndroidSources(
+            DIRECT_CALLBACK_BINDING_HEADER,
+            directCallbackBindingConfig(),
+        )
+
+        generated.bridge shouldContain "actual fun SampleCallback.Companion.register("
+        generated.bridge shouldContain "internal actual fun sample_requestCallbackBindingPreflight("
+        generated.bridge shouldContain "internal actual fun sample_statusCallbackBindingPreflight(): (NativeAddress?, NativeAddress?) -> Unit"
+        generated.bridge shouldContain "internal actual fun sample_pointCallbackBindingPreflight("
+        generated.bridge shouldContain "NativeEngine.callV3IPP(sample_request_ADDR, input, callback.toAddress(), userdata.toAddress())"
+        generated.bridge shouldContain "NativeEngine.callI2PP(sample_status_ADDR, callback.toAddress(), userdata.toAddress())"
+        generated.bridge shouldContain "NativeEngine.callGeneric(sample_point_ADDR, 3,"
+
+        val probe =
+            """
+            package sample.probe
+
+            import org.graphiks.kffi.MemoryAllocator
+            import org.graphiks.kffi.NativeAddress
+            import sample.bindings.WGPUPoint
+            import sample.bindings.sample_pointCallbackBindingPreflight
+            import sample.bindings.sample_requestCallbackBindingPreflight
+            import sample.bindings.sample_statusCallbackBindingPreflight
+
+            fun runProbe(): LongArray {
+                sample_requestCallbackBindingPreflight(7)(NativeAddress(0x1000L), NativeAddress(0x2000L))
+                sample_statusCallbackBindingPreflight()(NativeAddress(0x1000L), NativeAddress(0x2000L))
+
+                val pBuffer = MemoryAllocator().allocateBuffer(8uL)
+                pBuffer.writeInt(1, 0uL)
+                pBuffer.writeInt(2, 4uL)
+                sample_pointCallbackBindingPreflight(WGPUPoint.ByValue(pBuffer.handler))(
+                    NativeAddress(0x1000L),
+                    NativeAddress(0x2000L),
+                )
+                return longArrayOf(1L)
+            }
+            """.trimIndent()
+
+        compileGeneratedAndroid(generated, probe)?.toList() shouldBe listOf(1L)
     }
 })
