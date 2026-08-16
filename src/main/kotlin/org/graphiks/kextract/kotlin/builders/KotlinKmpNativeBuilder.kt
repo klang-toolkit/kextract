@@ -691,7 +691,7 @@ internal class KotlinKmpNativeBuilder(
             val setter = field.replaceFirstChar { it.titlecase() }
             builder.appendLine("override val $field: $type?")
             builder.indent()
-            builder.appendLine("get() = if (type == WGPUNativeDisplayHandleType_$setter) $type.ByReference($nativeAddress($receiver.data.$field.$ptr)) else null")
+            builder.appendLine("get() = if (type == WGPUNativeDisplayHandleType_$setter) $type.ByReference($nativeAddress.fromPointer($receiver.data.$field.$ptr)) else null")
             builder.unindent()
             builder.appendLine("override fun set$setter(value: $type) {")
             builder.indent()
