@@ -82,6 +82,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             val jvm = workspace.resolve("callbackNamesJvm.kt")
             val kffiCommon = workspace.resolve("kffiCommon.kt")
             val kffiJvm = workspace.resolve("kffiJvm.kt")
+            val kffiEngine = workspace.resolve("kffiEngine.kt")
             val output = Files.createDirectories(workspace.resolve("classes"))
             common.toFile().writeText(commonSource)
             jvm.toFile().writeText(jvmSource)
@@ -164,7 +165,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
                 import java.lang.foreign.MemorySegment
 
-                class JvmNativeAddress(val handler: MemorySegment)
+                class JvmNativeAddress(val handler: MemorySegment) {
+    constructor(rawValue: Long) : this(MemorySegment.ofAddress(rawValue))
+}
                 actual typealias NativeAddress = JvmNativeAddress
                 @JvmInline
                 actual value class CString actual constructor(actual val handler: NativeAddress)
@@ -172,6 +175,59 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                     actual fun allocate(size: Long): NativeAddress = JvmNativeAddress(MemorySegment.NULL)
                 }
                 fun findOrThrow(name: String): MemorySegment = MemorySegment.NULL
+                """.trimIndent(),
+            )
+            kffiEngine.toFile().writeText(
+                """
+                package org.graphiks.kffi.engine
+
+                import org.graphiks.kffi.NativeAddress
+                import java.lang.foreign.Arena
+                import java.lang.foreign.FunctionDescriptor
+                import java.lang.foreign.Linker
+                import java.lang.foreign.MemorySegment
+                import java.lang.foreign.ValueLayout
+                import java.lang.invoke.MethodHandles
+
+                object JvmUpcallEngine {
+                    private val linker = Linker.nativeLinker()
+                    private val arena = Arena.global()
+
+                    fun allocateTrampoline(
+                        dispatcherClass: Class<*>,
+                        dispatchMethod: String,
+                        dispatchSig: String,
+                    ): NativeAddress {
+                        val (returnType, parameterTypes) = parseSig(dispatchSig)
+                        val descriptor = if (returnType == null) {
+                            FunctionDescriptor.ofVoid(*parameterTypes.map { it.layout }.toTypedArray())
+                        } else {
+                            FunctionDescriptor.of(returnType.layout, *parameterTypes.map { it.layout }.toTypedArray())
+                        }
+                        val methodHandle = MethodHandles.privateLookupIn(dispatcherClass, MethodHandles.lookup())
+                            .findStatic(dispatcherClass, dispatchMethod, descriptor.toMethodType())
+                        return NativeAddress(
+                            MemorySegment.ofAddress(linker.upcallStub(methodHandle, descriptor, arena).address()),
+                        )
+                    }
+
+                    private enum class Carrier(val layout: ValueLayout) {
+                        I(ValueLayout.JAVA_INT),
+                        J(ValueLayout.JAVA_LONG),
+                        F(ValueLayout.JAVA_FLOAT),
+                        D(ValueLayout.JAVA_DOUBLE),
+                        Z(ValueLayout.JAVA_BOOLEAN),
+                    }
+
+                    private fun parseSig(sig: String): Pair<Carrier?, List<Carrier>> {
+                        val parameters = sig.substringAfter('(').substringBefore(')')
+                            .map { Carrier.valueOf(it.toString()) }
+                        val returnPart = sig.substringAfter(')')
+                        return (if (returnPart == "V") null else Carrier.valueOf(returnPart)) to parameters
+                    }
+                }
+
+                object JvmDowncallEngine
                 """.trimIndent(),
             )
 
@@ -189,6 +245,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 jvm.toString(),
                 kffiCommon.toString(),
                 kffiJvm.toString(),
+                kffiEngine.toString(),
             ) shouldBe ExitCode.OK
         } finally {
             workspace.toFile().deleteRecursively()
@@ -807,17 +864,19 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             val trampoline = jvm
                 .substringAfter("private object ${callbackType}Trampoline")
                 .substringBefore("\n}\n")
-            trampoline shouldContain "MethodHandles.lookup().findStatic("
-            trampoline shouldContain "${callbackType}Trampoline::class.java"
-            trampoline shouldContain "Linker.nativeLinker().upcallStub(methodHandle, descriptor, Arena.global())"
-            trampoline.split("Arena.global()").size shouldBe 2
-            trampoline.split("upcallStub(").size shouldBe 2
+            trampoline shouldContain "JvmUpcallEngine.allocateTrampoline("
+            trampoline shouldContain "dispatcherClass = ${callbackType}Trampoline::class.java"
+            trampoline shouldContain "dispatchMethod = \"dispatch\""
             trampoline shouldContain "CallbackRuntime.dispatchSafely("
             trampoline shouldContain "type = ${callbackType}Type,"
             trampoline shouldContain "catch (failure: Throwable)"
             trampoline shouldContain "CallbackRuntime.reportUnroutedFailure(failure)"
+            trampoline shouldNotContain "MethodHandles.lookup().findStatic("
+            trampoline shouldNotContain "upcallStub("
         }
-        jvm shouldContain "userdata = userdata2.takeIf { it != MemorySegment.NULL }?.let(::NativeAddress),"
+        jvm shouldContain "dispatchSig = \"(IJJ)V\""
+        jvm shouldContain "dispatchSig = \"(I)V\""
+        jvm shouldContain "userdata = userdata2.takeIf { it != 0L }?.let(::NativeAddress),"
         jvm shouldContain "type = NoUserdataCallbackType,\n                userdata = null,"
         jvm shouldNotContain "Arena.ofShared()"
         jvm shouldNotContain ".bindTo("
@@ -903,8 +962,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             """.trimIndent(),
         )
 
-        generated.getValue("jvmMain") shouldContain
-            "FunctionDescriptor.ofVoid(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_DOUBLE)"
+        generated.getValue("jvmMain") shouldContain "dispatchSig = \"(JJD)V\""
         generated.getValue("nativeMain") shouldContain
             "staticCFunction<Long, ULong, Double, Unit>"
     }
@@ -912,8 +970,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
     "unsigned narrow options zero-extend into the application Long" {
         val generated = generateKmp(abiCallbacks)
 
-        generated.getValue("jvmMain") shouldContain
-            "private val descriptor: FunctionDescriptor = FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.ADDRESS)"
+        generated.getValue("jvmMain") shouldContain "dispatchSig = \"(IJ)V\""
         generated.getValue("jvmMain") shouldContain
             "callback.invoke(NarrowOptions(options.toUInt().toLong()))"
         generated.getValue("nativeMain") shouldContain
@@ -957,7 +1014,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         )
 
         generated.getValue("jvmMain") shouldContain
-            "private fun invoke(\n        userdata9: MemorySegment,\n        value: Int,\n        userdata1: MemorySegment,\n    )"
+            "fun dispatch(\n        userdata9: Long,\n        value: Int,\n        userdata1: Long,\n    )"
         generated.getValue("nativeMain") shouldContain
             "staticCFunction<COpaquePointer?, UInt, COpaquePointer?, Unit> { userdata9, value, userdata1 ->"
     }

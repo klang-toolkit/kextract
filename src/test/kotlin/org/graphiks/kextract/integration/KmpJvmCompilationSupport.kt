@@ -100,6 +100,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
         val jvm = workspace.resolve("sampleJvm.kt")
         val kffiCommon = workspace.resolve("kffiCommon.kt")
         val kffiJvm = workspace.resolve("kffiJvm.kt")
+        val kffiEngine = workspace.resolve("kffiEngine.kt")
         val probe = workspace.resolve("probe.kt")
         val output = Files.createDirectories(workspace.resolve("classes"))
 
@@ -107,6 +108,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
         jvm.toFile().writeText(generated.jvm)
         kffiCommon.toFile().writeText(KFFI_COMMON_STUB)
         kffiJvm.toFile().writeText(KFFI_JVM_STUB)
+        kffiEngine.toFile().writeText(KFFI_JVM_ENGINE_STUB)
         probe.toFile().writeText(probeSource)
 
         K2JVMCompiler().exec(
@@ -118,7 +120,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
             "-classpath", System.getProperty("java.class.path"),
             "-d", output.toString(),
             common.toString(), jvm.toString(),
-            kffiCommon.toString(), kffiJvm.toString(), probe.toString(),
+            kffiCommon.toString(), kffiJvm.toString(), kffiEngine.toString(), probe.toString(),
         ) shouldBe ExitCode.OK
 
         URLClassLoader(
@@ -238,7 +240,9 @@ internal val KFFI_JVM_STUB =
             symbols[name] ?: error("Missing test symbol: ${'$'}name")
     }
 
-    class JvmNativeAddress(val handler: MemorySegment)
+    class JvmNativeAddress(val handler: MemorySegment) {
+    constructor(rawValue: Long) : this(MemorySegment.ofAddress(rawValue))
+}
     actual typealias NativeAddress = JvmNativeAddress
     @JvmInline
     actual value class CString actual constructor(actual val handler: NativeAddress)
@@ -249,4 +253,57 @@ internal val KFFI_JVM_STUB =
         CallbackRuntime.symbolResolutionCount += 1
         return TestNativeSymbols.find(name)
     }
+    """.trimIndent()
+
+internal val KFFI_JVM_ENGINE_STUB =
+    """
+    package org.graphiks.kffi.engine
+
+    import org.graphiks.kffi.NativeAddress
+    import java.lang.foreign.Arena
+    import java.lang.foreign.FunctionDescriptor
+    import java.lang.foreign.Linker
+    import java.lang.foreign.MemorySegment
+    import java.lang.foreign.ValueLayout
+    import java.lang.invoke.MethodHandles
+
+    object JvmUpcallEngine {
+        private val linker = Linker.nativeLinker()
+        private val arena = Arena.global()
+
+        fun allocateTrampoline(
+            dispatcherClass: Class<*>,
+            dispatchMethod: String,
+            dispatchSig: String,
+        ): NativeAddress {
+            val (returnType, parameterTypes) = parseSig(dispatchSig)
+            val descriptor = if (returnType == null) {
+                FunctionDescriptor.ofVoid(*parameterTypes.map { it.layout }.toTypedArray())
+            } else {
+                FunctionDescriptor.of(returnType.layout, *parameterTypes.map { it.layout }.toTypedArray())
+            }
+            val methodHandle = MethodHandles.privateLookupIn(dispatcherClass, MethodHandles.lookup())
+                .findStatic(dispatcherClass, dispatchMethod, descriptor.toMethodType())
+            return NativeAddress(
+                MemorySegment.ofAddress(linker.upcallStub(methodHandle, descriptor, arena).address()),
+            )
+        }
+
+        private enum class Carrier(val layout: ValueLayout) {
+            I(ValueLayout.JAVA_INT),
+            J(ValueLayout.JAVA_LONG),
+            F(ValueLayout.JAVA_FLOAT),
+            D(ValueLayout.JAVA_DOUBLE),
+            Z(ValueLayout.JAVA_BOOLEAN),
+        }
+
+        private fun parseSig(sig: String): Pair<Carrier?, List<Carrier>> {
+            val parameters = sig.substringAfter('(').substringBefore(')')
+                .map { Carrier.valueOf(it.toString()) }
+            val returnPart = sig.substringAfter(')')
+            return (if (returnPart == "V") null else Carrier.valueOf(returnPart)) to parameters
+        }
+    }
+
+    object JvmDowncallEngine
     """.trimIndent()
