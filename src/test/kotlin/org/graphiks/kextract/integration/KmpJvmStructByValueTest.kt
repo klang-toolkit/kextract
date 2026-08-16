@@ -160,6 +160,19 @@ class KmpJvmStructByValueTest : FreeSpec({
         errors shouldContain "struct-by-value wrapper for 'Rect' not yet implemented in JvmDowncallEngine"
     }
 
+    "scalar downcall shape outside the engine table fails loudly at generation time" {
+        // La table actuelle du moteur ne couvre pas V3PPI (2 pointeurs + 1 bool) :
+        // l'émission échoue avec un message clair plutôt que d'émettre un appel
+        // irrésolu. M5.3 étend la table pour couvrir l'union des signatures wgpu.
+        val errors = generateJvmFailure(
+            """
+            void set_triple(void* first, void* second, _Bool flag);
+            """.trimIndent(),
+        )
+        errors shouldContain "downcall shape callV3PPI for 'set_triple' not yet implemented in JvmDowncallEngine"
+        errors shouldContain "(M5.3 extends the table)"
+    }
+
     "registerStructLayout maps enum, unsigned, float and nested struct fields" {
         val source = generateJvm(
             """

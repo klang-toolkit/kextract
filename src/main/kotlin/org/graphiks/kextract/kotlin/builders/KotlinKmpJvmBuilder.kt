@@ -179,7 +179,6 @@ internal class KotlinKmpJvmBuilder(
                 KotlinCallbackBindingEmitter(typeMapper::mapFunctionType, namePlan).emitJvm(
                     builder,
                     directBindingModels,
-                    ::toRawJvmArgument,
                     ::emitEngineDowncall,
                 )
             }
@@ -546,8 +545,7 @@ internal class KotlinKmpJvmBuilder(
      * (callStructArg&lt;Name&gt;), pour les structs de [jvmEngineStructWrappers]. Toute
      * autre forme ou tout autre struct échoue à la génération avec un message clair
      * plutôt que d'émettre un fichier qui ne compile pas.
-     */
-    /**
+     *
      * Wrappers struct-by-value implémentés par JvmDowncallEngine, indexés par le
      * nom planifié du struct : seul « Box » existe aujourd'hui (callStructArgBox /
      * callStructReturnBox) — M5.3 étend la table. Une forme supportée sur un autre
@@ -585,7 +583,7 @@ internal class KotlinKmpJvmBuilder(
         if (structName !in jvmEngineStructWrappers) {
             error(
                 "struct-by-value wrapper for '$structName' not yet implemented in " +
-                    "JvmDowncallEngine (M5.2 extends the table)",
+                    "JvmDowncallEngine (M5.3 extends the table)",
             )
         }
         val params = (
@@ -594,7 +592,7 @@ internal class KotlinKmpJvmBuilder(
                     "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
                 }
             ).joinToString(", ")
-        builder.appendLine("private val ${name}_ADDR: Long by lazy { $jvmDowncallEngine.resolveSymbol(\"$cName\") }")
+        builder.appendLine("private val ${name}_ADDR: Long by lazy { ${symbolResolver()}(\"$cName\") }")
         builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
         if (structReturn) {
@@ -646,8 +644,7 @@ internal class KotlinKmpJvmBuilder(
                     "JvmDowncallEngine (M5.3 extends the table)",
             )
         }
-        val resolver = nativeBootstrapName?.let { "$it.resolve" } ?: namePlan.runtime(FIND_OR_THROW)
-        builder.appendLine("private val ${name}_ADDR: Long by lazy { $resolver(\"$cName\") }")
+        builder.appendLine("private val ${name}_ADDR: Long by lazy { ${symbolResolver()}(\"$cName\") }")
         val params = decl.parameters().map { param ->
             val paramName = namePlan.parameter(param)
             "$paramName: ${typeMapper.mapFunctionType(param.type())}"
@@ -737,6 +734,15 @@ internal class KotlinKmpJvmBuilder(
 
     private fun functionAddress(function: Declaration.Function): String =
         "${namePlan.declaration(function)}_ADDR"
+
+    /**
+     * L'expression qui résout un symbole natif en Long : le bootstrap déclaré
+     * (`KextractNativeBootstrap.resolve`, qui charge les bibliothèques) quand des
+     * libraries sont configurées, sinon `findOrThrow`. Partagée par l'émission
+     * générique et struct-by-value.
+     */
+    private fun symbolResolver(): String =
+        nativeBootstrapName?.let { "$it.resolve" } ?: namePlan.runtime(FIND_OR_THROW)
 
     private fun toEngineArgument(name: String, type: Type): String {
         val kmpType = typeMapper.mapFunctionType(type)

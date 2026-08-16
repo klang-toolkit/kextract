@@ -596,7 +596,6 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         common shouldContain "fun interface Suppress_2 : Callback"
         common shouldContain "canonicalId = \"typedef:Suppress\""
         jvm shouldContain """
-            @Suppress("UNUSED_VARIABLE")
             internal actual fun set_suppress_callbackCallbackBindingPreflight()
         """.trimIndent()
     }
@@ -729,13 +728,12 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             internal actual fun sample_set_callbackCallbackBindingPreflight(
                 payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit {
-                val preparedPayload = payload
                 return { callback, userdata ->
                     JvmDowncallEngine.callV3PPL(sample_set_callback_ADDR, callback?.rawValue ?: 0L, userdata?.rawValue ?: 0L, payload)
                 }
             }
         """.trimIndent()
-        (jvm.indexOf("val preparedPayload = payload") <
+        (jvm.indexOf("internal actual fun sample_set_callbackCallbackBindingPreflight(") <
             jvm.indexOf("return { callback, userdata ->")) shouldBe true
         native shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
