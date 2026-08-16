@@ -474,6 +474,34 @@ internal val KFFI_JVM_ENGINE_STUB =
         fun callD1P(fn: Long, a1: Long): Double =
             handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_DOUBLE, ValueLayout.ADDRESS)).invokeExact(segment(a1)) as Double
 
+        // M5.3 : union des signatures wgpu — signatures miroir de JvmDowncallEngine.
+        fun callI2PP(fn: Long, a1: Long, a2: Long): Long = 0L
+        fun callI2PI(fn: Long, a1: Long, a2: Int): Long = 0L
+        fun callL1P(fn: Long, a1: Long): Long = 0L
+        fun callI4PLPL(fn: Long, a1: Long, a2: Long, a3: Long, a4: Long): Long = 0L
+        fun callV2PI(fn: Long, p1: Long, a2: Int) {}
+        fun callV3PLP(fn: Long, p1: Long, a2: Long, p3: Long) {}
+        fun callV5PPLPL(fn: Long, p1: Long, p2: Long, a3: Long, p4: Long, a5: Long) {}
+        fun callV6PPPLPP(fn: Long, p1: Long, p2: Long, p3: Long, a4: Long, p5: Long, p6: Long) {}
+        fun callV6PIIIII(fn: Long, p1: Long, a2: Int, a3: Int, a4: Int, a5: Int, a6: Int) {}
+        fun callV5PIPLP(fn: Long, p1: Long, a2: Int, p3: Long, a4: Long, p5: Long) {}
+        fun callV5PPILL(fn: Long, p1: Long, p2: Long, a3: Int, a4: Long, a5: Long) {}
+        fun callV5PIPLL(fn: Long, p1: Long, a2: Int, p3: Long, a4: Long, a5: Long) {}
+        fun callI3PPP(fn: Long, a1: Long, a2: Long, a3: Long): Long = 0L
+        fun callL3PPP(fn: Long, a1: Long, a2: Long, a3: Long): Long = 0L
+        fun callL3PLP(fn: Long, a1: Long, a2: Long, a3: Long): Long = 0L
+        fun callI3PIP(fn: Long, a1: Long, a2: Int, a3: Long): Long = 0L
+        fun callV1I(fn: Long, a1: Int) {}
+        fun callV4PIIP(fn: Long, p1: Long, a2: Int, a3: Int, p4: Long) {}
+        fun callV4PPLI(fn: Long, p1: Long, p2: Long, a3: Long, a4: Int) {}
+        fun callV6PPLPLI(fn: Long, p1: Long, p2: Long, a3: Long, p4: Long, a5: Long, a6: Int) {}
+        fun callV3PPI(fn: Long, p1: Long, p2: Long, a3: Int) {}
+        fun callV4PPLL(fn: Long, p1: Long, p2: Long, a3: Long, a4: Long) {}
+        fun callV6PPLPLL(fn: Long, p1: Long, p2: Long, a3: Long, p4: Long, a5: Long, a6: Long) {}
+        fun callV6PPIIPL(fn: Long, p1: Long, p2: Long, a3: Int, a4: Int, p5: Long, a6: Long) {}
+        fun callV4PIII(fn: Long, p1: Long, a2: Int, a3: Int, a4: Int) {}
+        fun callV7PFFFFFF(fn: Long, p1: Long, a2: Float, a3: Float, a4: Float, a5: Float, a6: Float, a7: Float) {}
+
         data class StructField(val cName: String, val kind: FieldKind, val offsetBytes: Long)
 
         enum class FieldKind { INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64, POINTER, STRUCT, PADDING }
@@ -483,5 +511,23 @@ internal val KFFI_JVM_ENGINE_STUB =
         fun callStructArgBox(fn: Long, structPtr: Long) {}
 
         fun callStructReturnBox(fn: Long, allocator: MemoryAllocator, a1: Int): NativeAddress = NativeAddress(0L)
+
+        // M5.3 : wrappers struct-by-value wgpu — signatures miroir de JvmDowncallEngine.
+        fun callStructArgWGPUStringView(fn: Long, p1: Long, structPtr: Long) {}
+        fun callStructArgWGPUStringView(fn: Long, structPtr: Long): Long = 0L
+        fun callStructArgWGPUAdapterInfo(fn: Long, structPtr: Long) {}
+        fun callStructArgWGPUSupportedFeatures(fn: Long, structPtr: Long) {}
+        fun callStructArgWGPUSupportedInstanceFeatures(fn: Long, structPtr: Long) {}
+        fun callStructArgWGPUSupportedWGSLLanguageFeatures(fn: Long, structPtr: Long) {}
+        fun callStructArgWGPUSurfaceCapabilities(fn: Long, structPtr: Long) {}
+        fun callStructReturnWGPUFuture(fn: Long, allocator: MemoryAllocator, p1: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUQueueWorkDoneCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUPopErrorScopeCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUCompilationInfoCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPURequestAdapterCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, p2: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPURequestDeviceCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, p2: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUCreateRenderPipelineAsyncCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, p2: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUCreateComputePipelineAsyncCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, p2: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUBufferMapCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, a2: Long, a3: Long, a4: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
     }
     """.trimIndent()

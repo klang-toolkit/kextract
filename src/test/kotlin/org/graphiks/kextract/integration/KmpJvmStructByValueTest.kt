@@ -116,6 +116,46 @@ class KmpJvmStructByValueTest : FreeSpec({
         errors shouldContain "Int consumeBox(b: Box)"
     }
 
+    "wgpu-shaped emission compiles against the engine API" {
+        // Exercice complet des formes M5.3 : StringView par valeur derrière un
+        // pointeur, retour pointeur (GetProcAddress), retour WGPUFuture avec
+        // callbackInfo par valeur, formes scalaires de l'union wgpu.
+        val generated = generateKmpSources(
+            """
+            typedef struct WGPUDeviceImpl* WGPUDevice;
+            typedef struct WGPUQueueImpl* WGPUQueue;
+            typedef struct { void* data; unsigned long long length; } WGPUStringView;
+            typedef struct { unsigned long long id; } WGPUFuture;
+            typedef struct { void* callback; void* userdata; } WGPUQueueWorkDoneCallbackInfo;
+            typedef void* WGPUProc;
+            WGPUProc wgpuGetProcAddress(WGPUStringView procName);
+            void wgpuDeviceSetLabel(WGPUDevice device, WGPUStringView label);
+            void wgpuQueueSubmit(WGPUQueue queue, unsigned long long commandCount, void* commands);
+            WGPUFuture wgpuQueueOnSubmittedWorkDone(WGPUQueue queue, WGPUQueueWorkDoneCallbackInfo callbackInfo);
+            void wgpuRenderPassEncoderSetViewport(void* encoder, float x, float y, float width, float height, float minDepth, float maxDepth);
+            """.trimIndent(),
+        )
+        compileAndInvokeGeneratedKmpJvm(
+            generated = generated,
+            probePackage = "sample.probe",
+            probeSource =
+                """
+                package sample.probe
+
+                import sample.bindings.WGPUStringView
+                import sample.bindings.wgpuGetProcAddress
+
+                fun probeCompiles(): Long {
+                    // Le registre de layouts s'initialise au chargement du fichier
+                    // (classe façade) sans référence aux symboles natifs.
+                    return WGPUStringView.Companion.hashCode().toLong()
+                }
+                """.trimIndent(),
+            facadeClassName = "ProbeKt",
+            methodName = "probeCompiles",
+        )
+    }
+
     "struct-return shape with extra or missing scalar args fails loudly at generation time" {
         val errors = generateJvmFailure(
             """
@@ -161,16 +201,56 @@ class KmpJvmStructByValueTest : FreeSpec({
     }
 
     "scalar downcall shape outside the engine table fails loudly at generation time" {
-        // La table actuelle du moteur ne couvre pas V3PPI (2 pointeurs + 1 bool) :
-        // l'émission échoue avec un message clair plutôt que d'émettre un appel
-        // irrésolu. M5.3 étend la table pour couvrir l'union des signatures wgpu.
+        // M5.3 étend la table du moteur à l'union des signatures wgpu (callV3PPI —
+        // wgpuCommandEncoderWriteTimestamp etc. — en fait désormais partie) : la
+        // garde doit donc être exercée sur une forme restée hors table, callV3PPD.
         val errors = generateJvmFailure(
             """
-            void set_triple(void* first, void* second, _Bool flag);
+            void set_triple(void* first, void* second, double value);
             """.trimIndent(),
         )
-        errors shouldContain "downcall shape callV3PPI for 'set_triple' not yet implemented in JvmDowncallEngine"
+        errors shouldContain "downcall shape callV3PPD for 'set_triple' not yet implemented in JvmDowncallEngine"
         errors shouldContain "(M5.3 extends the table)"
+    }
+
+    "wgpu StringView-style shape emits callStructArg with the pointer before the struct" {
+        val source = generateJvm(
+            """
+            typedef struct { void* data; unsigned long long length; } WGPUStringView;
+            typedef struct WGPUDeviceImpl* WGPUDevice;
+            void wgpuDeviceSetLabel(WGPUDevice device, WGPUStringView label);
+            """.trimIndent(),
+        )
+        source shouldContain
+            "JvmDowncallEngine.callStructArgWGPUStringView(wgpuDeviceSetLabel_ADDR, device?.handler?.rawValue ?: 0L, label.handler.rawValue)"
+        source shouldNotContain "FunctionDescriptor"
+    }
+
+    "wgpu proc-address shape emits callStructArg with a pointer return" {
+        val source = generateJvm(
+            """
+            typedef struct { void* data; unsigned long long length; } WGPUStringView;
+            typedef void* WGPUProc;
+            WGPUProc wgpuGetProcAddress(WGPUStringView procName);
+            """.trimIndent(),
+        )
+        source shouldContain
+            "JvmDowncallEngine.callStructArgWGPUStringView(wgpuGetProcAddress_ADDR, procName.handler.rawValue)"
+    }
+
+    "wgpu WGPUFuture-style shape emits callStructReturn with the callbackInfo struct arg" {
+        val source = generateJvm(
+            """
+            typedef struct { unsigned long long id; } WGPUFuture;
+            typedef struct { void* callback; void* userdata; } WGPUQueueWorkDoneCallbackInfo;
+            typedef struct WGPUQueueImpl* WGPUQueue;
+            WGPUFuture wgpuQueueOnSubmittedWorkDone(WGPUQueue queue, WGPUQueueWorkDoneCallbackInfo callbackInfo);
+            """.trimIndent(),
+        )
+        source shouldContain
+            "JvmDowncallEngine.callStructReturnWGPUFutureWGPUQueueWorkDoneCallbackInfo(" +
+                "wgpuQueueOnSubmittedWorkDone_ADDR, allocator, queue?.handler?.rawValue ?: 0L, callbackInfo.handler.rawValue)"
+        source shouldContain "WGPUFuture.ByValue("
     }
 
     "registerStructLayout maps enum, unsigned, float and nested struct fields" {
