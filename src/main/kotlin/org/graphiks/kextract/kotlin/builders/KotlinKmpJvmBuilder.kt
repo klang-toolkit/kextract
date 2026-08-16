@@ -15,28 +15,24 @@ import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.ARRAY_HOLDER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.C_STRING
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.FIND_OR_THROW
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.FUNCTION_DESCRIPTOR
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.GROUP_ELEMENT
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.GROUP_LAYOUT
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_DOWNCALL_ENGINE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.LINKER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_ALLOCATOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_BUFFER
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_LAYOUT
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_SEGMENT
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.METHOD_HANDLE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.METHOD_HANDLES
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.SEGMENT_ALLOCATOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.VALUE_LAYOUT
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.VAR_HANDLE
 import org.graphiks.kextract.kotlin.KotlinKmpSourceSet
+import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiContext
 import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiIndex
+import org.graphiks.kextract.kotlin.abi.KotlinKmpCAbiType
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackBindingEmitter
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackJvmEmitter
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackModel
 import org.graphiks.kextract.kotlin.callbacks.KotlinDirectFunctionBindingModel
 import org.graphiks.kextract.kotlin.models.KotlinSourceFile
-import org.graphiks.kextract.pipeline.LayoutUtils
 import org.graphiks.kextract.pipeline.isStructOrUnion
 import org.graphiks.kextract.pipeline.isEnum
 import org.graphiks.kextract.pipeline.Options
@@ -85,23 +81,21 @@ internal class KotlinKmpJvmBuilder(
     private val structLayoutRegistrations = mutableListOf<String>()
 
     /**
-     * java.lang.foreign / java.lang.invoke symbols. Struct emission is
-     * memory-backed (no FFM), so these imports are emitted only when the
-     * downcall / callback paths actually reference them (M5.2+ removes the
-     * downcall side entirely). Everything else is imported unconditionally,
-     * matching the other source-set builders.
+     * java.lang.foreign / java.lang.invoke symbols. Struct emission and function
+     * downcalls are engine-backed (no FFM), so these imports are emitted only
+     * when the callback paths actually reference them (the M4.2 FFM trampoline
+     * fallback for callback shapes JvmUpcallEngine cannot express). Everything
+     * else is imported unconditionally, matching the other source-set builders.
      */
     private val usedSymbols = mutableSetOf<KotlinKmpRuntimeSymbol>()
 
     init {
         nativeBootstrapName?.let { bootstrapName ->
-            usedSymbols += MEMORY_SEGMENT
             KotlinJvmNativeBootstrapEmitter(
                 libraries = libraries,
                 bundleIndex = jvmNativeBundleIndex,
                 bootstrapName = bootstrapName,
                 delegateResolverName = namePlan.runtime(FIND_OR_THROW),
-                memorySegmentName = namePlan.runtime(MEMORY_SEGMENT),
             ).emit(builder)
         }
     }
@@ -186,6 +180,7 @@ internal class KotlinKmpJvmBuilder(
                     builder,
                     directBindingModels,
                     ::toRawJvmArgument,
+                    ::emitEngineDowncall,
                 )
             }
             else -> {}
@@ -539,7 +534,7 @@ internal class KotlinKmpJvmBuilder(
             emitStructByValueFunction(decl, structArgs, structReturn)
             return
         }
-        emitFfmFunction(decl)
+        emitEngineFunction(decl)
     }
 
     /**
@@ -550,12 +545,12 @@ internal class KotlinKmpJvmBuilder(
      * (callStructReturn&lt;Name&gt;), ou unique argument struct avec retour Unit
      * (callStructArg&lt;Name&gt;), pour les structs de [jvmEngineStructWrappers]. Toute
      * autre forme ou tout autre struct échoue à la génération avec un message clair
-     * plutôt que d'émettre un fichier qui ne compile pas ; M5.2 généralise la table.
+     * plutôt que d'émettre un fichier qui ne compile pas.
      */
     /**
      * Wrappers struct-by-value implémentés par JvmDowncallEngine, indexés par le
      * nom planifié du struct : seul « Box » existe aujourd'hui (callStructArgBox /
-     * callStructReturnBox) — M5.2 étend la table. Une forme supportée sur un autre
+     * callStructReturnBox) — M5.3 étend la table. Une forme supportée sur un autre
      * struct émettrait callStructArg&lt;Name&gt; / callStructReturn&lt;Name&gt;, irrésolu à la
      * compilation : la garde échoue à la génération avec un message clair.
      */
@@ -630,94 +625,202 @@ internal class KotlinKmpJvmBuilder(
             "$returnType ${decl.name()}($signature)"
     }
 
-    private fun emitFfmFunction(decl: Declaration.Function) {
-        usedSymbols += setOf(FUNCTION_DESCRIPTOR, MEMORY_SEGMENT, METHOD_HANDLE, LINKER, VALUE_LAYOUT, MEMORY_LAYOUT)
-        if (returnsStructByValue(decl.type().returnType())) {
-            usedSymbols += setOf(ARENA, SEGMENT_ALLOCATOR)
-        }
+    /**
+     * Émission downcall générique (M5.2) : le bloc DESC/ADDR/HANDLE/invokeExact FFM est
+     * remplacé par un `_ADDR: Long` paresseux (bootstrap ou findOrThrow) et un appel
+     * wrapper du moteur (`JvmDowncallEngine.call&lt;R&gt;&lt;N&gt;&lt;ARGS&gt;`) — aucun
+     * java.lang.foreign / java.lang.invoke dans le code généré. Les formes couvertes
+     * sont celles de la table actuelle du moteur ([jvmEngineWrappers]) ; toute autre
+     * forme échoue à la génération avec un message clair plutôt que d'émettre un
+     * fichier qui ne compile pas. M5.3 étend la table pour couvrir l'union des
+     * signatures wgpu.
+     */
+    private fun emitEngineFunction(decl: Declaration.Function) {
         val name = namePlan.declaration(decl)
         val cName = decl.name()
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
+        val wrapper = wrapperForm(decl.type())
+        if (wrapper !in jvmEngineWrappers) {
+            error(
+                "downcall shape $wrapper for '$name' not yet implemented in " +
+                    "JvmDowncallEngine (M5.3 extends the table)",
+            )
+        }
+        val resolver = nativeBootstrapName?.let { "$it.resolve" } ?: namePlan.runtime(FIND_OR_THROW)
+        builder.appendLine("private val ${name}_ADDR: Long by lazy { $resolver(\"$cName\") }")
         val params = decl.parameters().map { param ->
             val paramName = namePlan.parameter(param)
             "$paramName: ${typeMapper.mapFunctionType(param.type())}"
-        }
-        val rawArgs = decl.parameters().map { param ->
-            val paramName = namePlan.parameter(param)
-            toRawJvmArgument(paramName, param.type())
-        }
-        val invokeArgs = if (returnsStructByValue(decl.type().returnType())) {
-            listOf("(${namePlan.runtime(ARENA)}.ofAuto() as ${namePlan.runtime(SEGMENT_ALLOCATOR)})") + rawArgs
-        } else {
-            rawArgs
         }.joinToString(", ")
-        val invoke = "${name}_HANDLE.invokeExact($invokeArgs)"
-        builder.appendLine("private val ${name}_DESC: ${namePlan.runtime(FUNCTION_DESCRIPTOR)} = ${planJvmRuntimeNames(LayoutUtils.functionDescriptorString(decl.type(), abiIndex))}")
-        val resolver = nativeBootstrapName?.let { "$it.resolve" } ?: namePlan.runtime(FIND_OR_THROW)
-        builder.appendLine("private val ${name}_ADDR: $memorySegment by lazy { $resolver(\"$cName\") }")
-        builder.appendLine("private val ${name}_HANDLE: ${namePlan.runtime(METHOD_HANDLE)} by lazy { ${namePlan.runtime(LINKER)}.nativeLinker().downcallHandle(${name}_ADDR, ${name}_DESC) }")
-        // The allocator parameter is signature-parity only until M5: the body still
-        // allocates the struct return from an internal Arena.ofAuto().
-        val signatureParams = (typeMapper.allocatorParams(decl.type().returnType()) + params).joinToString(", ")
-        builder.appendLine("actual fun $name($signatureParams): $returnType {")
+        builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
-        emitFunctionReturn(decl.type().returnType(), returnType, invoke)
+        emitEngineDowncall(decl)
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
     }
 
-    private fun emitFunctionReturn(type: Type, returnType: String, invoke: String) {
+    /**
+     * Wrappers scalaires/pointeurs implémentés par JvmDowncallEngine (table M2.1,
+     * complétée M5.2bis par les formes struct-by-value). M5.3 étend la table pour
+     * couvrir l'union des signatures wgpu — toute forme hors table échoue ici à la
+     * génération avec un message clair.
+     */
+    private val jvmEngineWrappers = setOf(
+        "callV0", "callV1P", "callV2PP", "callV3PPL", "callV4PPPP", "callV5PIIII",
+        "callI0", "callI1I", "callI1P", "callI4IIII", "callL8LLLLLLLL",
+        "callP1P", "callP2PP", "callP2PI", "callP3PLL",
+        "callF1P", "callD1P",
+    )
+
+    /**
+     * Le nom du wrapper typé `call<R><N><ARGS>` pour [type]. R ∈ V/I/L/P/D/F (V void,
+     * P pointeur, autres par carrier scalaire), N = nombre d'arguments, ARGS = une
+     * lettre par argument (I Int, L Long, P pointeur-en-Long, D Double, F Float,
+     * S Short, B Byte). Symétrique de KotlinKmpAndroidBuilder ; contrairement au
+     * moteur Android (retours Long uniformes), le moteur JVM a des retours typés
+     * (callF1P → Float, callD1P → Double) — l'émission du retour s'y adapte.
+     */
+    private fun wrapperForm(type: Type.Function): String {
+        val returnLetter = engineReturnLetter(type.returnType())
+        val argLetters = type.argumentTypes().map { arg ->
+            engineArgLetter(KotlinKmpCAbiType.from(arg, KotlinKmpAbiContext.DIRECT))
+        }
+        val letters = argLetters.joinToString("") { it ?: "" }
+        return "call$returnLetter${argLetters.size}$letters"
+    }
+
+    private fun engineReturnLetter(type: Type): String {
+        if (type is Type.Primitive && type.kind() == Type.Primitive.Kind.Void) return "V"
+        return engineArgLetter(KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT))
+            ?: error("struct-by-value returns ride the engine layout wrappers, not wrapperForm")
+    }
+
+    private fun engineArgLetter(abi: KotlinKmpCAbiType): String? = when (abi) {
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL,
+            KotlinKmpCAbiType.Scalar.Kind.I32,
+            -> "I"
+            KotlinKmpCAbiType.Scalar.Kind.I8 -> "B"
+            KotlinKmpCAbiType.Scalar.Kind.I16,
+            KotlinKmpCAbiType.Scalar.Kind.CHAR16,
+            -> "S"
+            KotlinKmpCAbiType.Scalar.Kind.I64 -> "L"
+            KotlinKmpCAbiType.Scalar.Kind.F32 -> "F"
+            KotlinKmpCAbiType.Scalar.Kind.F64 -> "D"
+        }
+        is KotlinKmpCAbiType.Address -> "P"
+        is KotlinKmpCAbiType.StructValue -> null
+    }
+
+    /**
+     * Émet l'appel wrapper du moteur pour [function]. [argExpr] résout chaque
+     * paramètre C vers l'expression Kotlin qui porte sa valeur (le nom du paramètre
+     * pour les `actual fun`s ; le paramètre prévol pour les direct bindings).
+     * [asLastExpression] marque le downcall comme expression finale d'un lambda
+     * englobant (preflight de direct binding) — les conversions de valeur sont émises
+     * sans `return` qualifié (interdit dans un lambda) et l'appel est la valeur du lambda.
+     */
+    private fun emitEngineDowncall(
+        function: Declaration.Function,
+        asLastExpression: Boolean = false,
+        argExpr: (Declaration.Variable) -> String = { parameter -> namePlan.parameter(parameter) },
+    ) {
+        val wrapper = wrapperForm(function.type())
+        val engineArgs = function.parameters()
+            .map { toEngineArgument(argExpr(it), it.type()) }
+            .joinToString(", ")
+        val call = "$jvmDowncallEngine.$wrapper(${functionAddress(function)}" +
+            (if (engineArgs.isEmpty()) "" else ", $engineArgs") + ")"
+        emitEngineReturn(function.type().returnType(), call, asLastExpression)
+    }
+
+    private fun functionAddress(function: Declaration.Function): String =
+        "${namePlan.declaration(function)}_ADDR"
+
+    private fun toEngineArgument(name: String, type: Type): String {
+        val kmpType = typeMapper.mapFunctionType(type)
+        return when (val abi = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT)) {
+            is KotlinKmpCAbiType.Address -> when {
+                kmpType == nativeAddress -> "$name.rawValue"
+                kmpType == "$nativeAddress?" -> "$name?.rawValue ?: 0L"
+                kmpType.endsWith("?") -> "$name?.handler?.rawValue ?: 0L"
+                else -> "$name.handler.rawValue"
+            }
+            is KotlinKmpCAbiType.Scalar -> when {
+                typeMapper.isOptionsEnumType(type) ->
+                    abiIndex.enum(typeMapper.enumDeclaration(type)).optionsRawToJvmCarrier("$name.rawValue")
+                typeMapper.isEnumType(type) ->
+                    abiIndex.enum(typeMapper.enumDeclaration(type)).toJvmCarrier(name)
+                kmpType == "Boolean" -> "if ($name) 1 else 0"
+                kmpType == "UInt" -> "$name.toInt()"
+                kmpType == "ULong" -> "$name.toLong()"
+                kmpType == "UShort" -> "$name.toShort()"
+                kmpType == "UByte" -> "$name.toByte()"
+                else -> name
+            }
+            is KotlinKmpCAbiType.StructValue ->
+                error("struct-by-value arguments ride the engine layout wrappers, not toEngineArgument")
+        }
+    }
+
+    /**
+     * Convertit le résultat du wrapper moteur vers le type Kotlin de retour. Le moteur
+     * JVM est typé : les wrappers callI…/callL…/callP… retournent Long, callF1P Float,
+     * callD1P Double — les scalaires larges sont donc convertis depuis Long
+     * (toInt/toShort/…), les flottants et les adresses (takeIf != 0L → NativeAddress)
+     * passent tels quels.
+     */
+    private fun emitEngineReturn(type: Type, call: String, asLastExpression: Boolean = false) {
+        val returnType = typeMapper.mapFunctionType(type)
+        val resultPrefix = if (asLastExpression) "" else "return "
         if (returnType == "Unit") {
-            builder.appendLine(invoke)
-            builder.appendLine("return")
+            builder.appendLine(call)
+            if (!asLastExpression) builder.appendLine("return")
             return
         }
-        val rawType = rawJvmType(type)
         when {
+            typeMapper.isOptionsEnumType(type) -> {
+                val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
+                builder.appendLine(
+                    "$resultPrefix$returnType(${scalar.jvmCarrierToOptionsRaw(narrowEngineCarrier(call, scalar))})",
+                )
+            }
             typeMapper.isEnumType(type) -> {
                 val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
-                val rawExpression = "$invoke as ${scalar.jvmCarrier}"
-                if (typeMapper.isOptionsEnumType(type)) {
-                    builder.appendLine(
-                        "return $returnType(${scalar.jvmCarrierToOptionsRaw(rawExpression)})",
-                    )
-                } else {
-                    builder.appendLine("return ${scalar.fromJvmCarrier(rawExpression)}")
-                }
+                builder.appendLine("$resultPrefix${scalar.fromJvmCarrier(narrowEngineCarrier(call, scalar))}")
             }
-            returnType == "$nativeAddress?" -> {
-                builder.appendLine("return ($invoke as $memorySegment).takeIf { it != $memorySegment.NULL }?.let(::$nativeAddress)")
-            }
-            returnType == "$cString?" -> {
-                builder.appendLine("return ($invoke as $memorySegment).takeIf { it != $memorySegment.NULL }?.let(::$nativeAddress)?.let(::$cString)")
-            }
-            returnType.endsWith("?") && rawType == memorySegment -> {
-                val nonOpt = returnType.removeSuffix("?")
-                builder.appendLine("return ($invoke as $memorySegment).takeIf { it != $memorySegment.NULL }?.let(::$nativeAddress)?.let { $nonOpt(it) }")
-            }
-            rawType == "Int" && returnType == "Boolean" -> {
-                builder.appendLine("return (($invoke as Int) != 0)")
-            }
-            rawType == "Int" && returnType == "UInt" -> {
-                builder.appendLine("return ($invoke as Int).toUInt()")
-            }
-            rawType == "Long" && returnType == "ULong" -> {
-                builder.appendLine("return ($invoke as Long).toULong()")
-            }
-            rawType == memorySegment && returnsStructByValue(type) -> {
-                builder.appendLine("return $returnType($nativeAddress($invoke as $memorySegment))")
+            returnType == "$nativeAddress?" -> builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)")
+            returnType == "$cString?" -> builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$cString)")
+            returnType.endsWith("?") && returnsPointer(type) -> {
+                val nonNullable = returnType.removeSuffix("?")
+                builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$nonNullable)")
             }
             else -> {
-                builder.appendLine("return $invoke as $returnType")
+                val scalar = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT) as KotlinKmpCAbiType.Scalar
+                when {
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.BOOL -> builder.appendLine("$resultPrefix$call != 0L")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> builder.appendLine("$resultPrefix$call.toByte().toUByte()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> builder.appendLine("$resultPrefix$call.toShort().toUShort()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> builder.appendLine("$resultPrefix$call.toInt().toUInt()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> builder.appendLine("$resultPrefix$call.toULong()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> builder.appendLine("$resultPrefix$call.toByte()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> builder.appendLine("$resultPrefix$call.toShort()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> builder.appendLine("$resultPrefix$call.toInt()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> builder.appendLine("$resultPrefix$call")
+                    else -> builder.appendLine("$resultPrefix$call")
+                }
             }
         }
     }
 
-    private fun returnsStructByValue(type: Type): Boolean =
-        rawJvmType(type) == memorySegment &&
-            !returnsPointer(type) &&
-            typeMapper.mapFunctionType(type) in generatedStructNames
+    /** Rétrécit le résultat Long du moteur vers le jvmCarrier du scalaire (I8/I16/I32). */
+    private fun narrowEngineCarrier(call: String, scalar: KotlinKmpCAbiType.Scalar): String = when (scalar.kind) {
+        KotlinKmpCAbiType.Scalar.Kind.I8 -> "$call.toByte()"
+        KotlinKmpCAbiType.Scalar.Kind.I16, KotlinKmpCAbiType.Scalar.Kind.CHAR16 -> "$call.toShort()"
+        KotlinKmpCAbiType.Scalar.Kind.I32 -> "$call.toInt()"
+        else -> call
+    }
 
     private fun returnsPointer(type: Type): Boolean = when {
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> true
@@ -729,16 +832,17 @@ internal class KotlinKmpJvmBuilder(
         val kmpType = typeMapper.mapFunctionType(type)
         val rawType = rawJvmType(type)
         return when {
-            rawType == memorySegment && kmpType == "$nativeAddress?" -> "$name?.handler ?: $memorySegment.NULL"
-            rawType == memorySegment && kmpType == "$cString?" -> "$name?.handler?.handler ?: $memorySegment.NULL"
-            rawType == memorySegment && kmpType.startsWith(arrayHolder) -> "$name?.handler?.handler ?: $memorySegment.NULL"
-            rawType == memorySegment && kmpType.endsWith("?") -> "$name?.handler?.handler ?: $memorySegment.NULL"
-            rawType == memorySegment -> "$name.handler.handler"
             typeMapper.isOptionsEnumType(type) ->
                 abiIndex.enum(typeMapper.enumDeclaration(type))
                     .optionsRawToJvmCarrier("$name.rawValue")
             typeMapper.isEnumType(type) ->
                 abiIndex.enum(typeMapper.enumDeclaration(type)).toJvmCarrier(name)
+            kmpType == "$nativeAddress?" -> "$name?.rawValue ?: 0L"
+            kmpType == "$cString?" -> "$name?.handler?.rawValue ?: 0L"
+            kmpType.startsWith(arrayHolder) -> "$name?.handler?.rawValue ?: 0L"
+            kmpType.endsWith("?") -> "$name?.handler?.rawValue ?: 0L"
+            kmpType == nativeAddress -> "$name.rawValue"
+            kmpType == cString -> "$name.handler.rawValue"
             rawType == "Int" && kmpType == "UInt" -> "$name.toInt()"
             rawType == "Int" && kmpType == "Boolean" -> "if ($name) 1 else 0"
             rawType == "Long" && kmpType == "ULong" -> "$name.toLong()"
@@ -765,34 +869,24 @@ internal class KotlinKmpJvmBuilder(
             }
         }
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> rawJvmType(type.type())
-        type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> memorySegment
         typeMapper.isEnumType(type) -> abiIndex.enum(typeMapper.enumDeclaration(type)).jvmCarrier
-        type is Type.Declared && type.isStructOrUnion() -> memorySegment
-        type is Type.Array -> memorySegment
-        type is Type.Function -> memorySegment
-        else -> memorySegment
+        // Pointeurs, structs par valeur, tableaux et fonctions : convertis par
+        // toEngineArgument/toRawJvmArgument selon le type Kotlin mappé — jamais
+        // de carrier FFM dans le code généré (M5.2).
+        else -> "Long"
     }
 
-    private fun planJvmRuntimeNames(rendered: String): String =
-        listOf(VALUE_LAYOUT, MEMORY_LAYOUT).fold(rendered) { value, symbol ->
-            value.replace(symbol.preferredName, namePlan.runtime(symbol))
-        }
-    private val memorySegment: String = namePlan.runtime(MEMORY_SEGMENT)
-
     private companion object {
+        // FFM imports émis conditionnellement : uniquement quand le fallback
+        // trampoline FFM des callbacks (M4.2, formes non engine-fit) les référence.
         val JVM_FFM_SYMBOLS = setOf(
             ARENA,
             FUNCTION_DESCRIPTOR,
-            GROUP_ELEMENT,
-            GROUP_LAYOUT,
             LINKER,
-            MEMORY_LAYOUT,
             MEMORY_SEGMENT,
             METHOD_HANDLE,
             METHOD_HANDLES,
-            SEGMENT_ALLOCATOR,
             VALUE_LAYOUT,
-            VAR_HANDLE,
         )
     }
 

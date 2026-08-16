@@ -15,7 +15,7 @@ class KmpJvmMemoryBackedAbiTest : FreeSpec({
         val output = Files.createTempDirectory("kextract-kmp-jvm-memory-out")
         return try {
             input.toFile().writeText(header)
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(input.toString()),
                 Options(
                     targetPackage = "sample.bindings",
@@ -218,14 +218,14 @@ class KmpJvmMemoryBackedAbiTest : FreeSpec({
     }
 
     "generated JVM memory-backed sources compile against the kffi runtime" {
-        // The JVM downlink path still rides FFM until M5.2 rewrites function
-        // emission, so this fixture keeps struct-by-value functions out of the
-        // compile check; scalar downcalls compile today.
+        // The JVM downlink path rides the engine wrapper table (M5.2): the fixture
+        // keeps struct-by-value functions out of the compile check, and scalar
+        // downcalls use shapes the current engine table implements.
         val generated = generateKmpSources(
             """
             typedef struct WGPUPoint { int x; int y; } WGPUPoint;
             typedef enum WGPUFoo { WGPUFoo_A = 0, WGPUFoo_B = 1 } WGPUFoo;
-            unsigned long long wgpuFoo(unsigned long long a, unsigned long long b);
+            unsigned int wgpuFoo(unsigned int a, unsigned int b, unsigned int c, unsigned int d);
             """.trimIndent(),
         )
 

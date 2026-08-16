@@ -44,7 +44,10 @@ class KmpJvmEnumAbiTest : FreeSpec({
             Unsigned64 unsigned64;
         } EnumCarrierRecord;
 
-        Unsigned64 roundTripWide(Unsigned64 value);
+        Unsigned64 roundTripWide(
+            Unsigned64 a1, Unsigned64 a2, Unsigned64 a3, Unsigned64 a4,
+            Unsigned64 a5, Unsigned64 a6, Unsigned64 a7, Unsigned64 a8
+        );
         """.trimIndent()
 
     val optionsHeader =
@@ -66,8 +69,10 @@ class KmpJvmEnumAbiTest : FreeSpec({
         generated.common shouldContain "const val Unsigned32_Max : Unsigned32 = 4294967295u"
         generated.common shouldContain
             "const val Unsigned64_Max : Unsigned64 = 18446744073709551615uL"
-        source shouldContain "FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG)"
-        source shouldContain "roundTripWide_HANDLE.invokeExact(value.toLong()) as Long"
+        source shouldContain
+            "JvmDowncallEngine.callL8LLLLLLLL(roundTripWide_ADDR, a1.toLong(), a2.toLong(), a3.toLong(), a4.toLong(), a5.toLong(), a6.toLong(), a7.toLong(), a8.toLong())"
+        source shouldContain
+            "return (JvmDowncallEngine.callL8LLLLLLLL(roundTripWide_ADDR, a1.toLong(), a2.toLong(), a3.toLong(), a4.toLong(), a5.toLong(), a6.toLong(), a7.toLong(), a8.toLong())).toULong()"
         source shouldContain ".toULong()"
         source shouldContain "actual var small: Signed8"
         source shouldContain "actual var medium: Unsigned16"
@@ -83,6 +88,7 @@ class KmpJvmEnumAbiTest : FreeSpec({
         source shouldContain "actual var unsigned64: Unsigned64"
         source shouldNotContain "roundTripWide_HANDLE.invokeExact(value.toInt())"
         source shouldNotContain "roundTripWide_HANDLE.invokeExact(value) as Int"
+        source shouldNotContain "invokeExact"
     }
 
     "wide unsigned enum and every signedness-width field round trip on the JVM" {
@@ -108,16 +114,24 @@ class KmpJvmEnumAbiTest : FreeSpec({
 
                 object RoundTripTarget {
                     @JvmStatic
-                    fun roundTripWide(value: Long): Long = value
+                    fun roundTripWide(a1: Long, a2: Long, a3: Long, a4: Long, a5: Long, a6: Long, a7: Long, a8: Long): Long = a1
                 }
 
                 fun runEnumAbiProbe(): LongArray = Arena.ofConfined().use { arena ->
                     val methodHandle = MethodHandles.lookup().findStatic(
                         RoundTripTarget::class.java,
                         "roundTripWide",
-                        MethodType.methodType(java.lang.Long.TYPE, java.lang.Long.TYPE),
+                        MethodType.methodType(
+                            java.lang.Long.TYPE,
+                            java.lang.Long.TYPE, java.lang.Long.TYPE, java.lang.Long.TYPE, java.lang.Long.TYPE,
+                            java.lang.Long.TYPE, java.lang.Long.TYPE, java.lang.Long.TYPE, java.lang.Long.TYPE,
+                        ),
                     )
-                    val descriptor = FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG)
+                    val descriptor = FunctionDescriptor.of(
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG,
+                        ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG,
+                    )
                     TestNativeSymbols.register(
                         "roundTripWide",
                         Linker.nativeLinker().upcallStub(methodHandle, descriptor, arena),
@@ -142,7 +156,7 @@ class KmpJvmEnumAbiTest : FreeSpec({
                         record.unsigned32.toLong(),
                         record.signed64,
                         record.unsigned64.toLong(),
-                        roundTripWide(ULong.MAX_VALUE).toLong(),
+                        roundTripWide(ULong.MAX_VALUE, 0uL, 0uL, 0uL, 0uL, 0uL, 0uL, 0uL).toLong(),
                     )
                 }
                 """.trimIndent(),
@@ -171,9 +185,9 @@ class KmpJvmEnumAbiTest : FreeSpec({
         generated.common shouldContain
             "val NarrowOptions_Max = NarrowOptions(4294967295L)"
         generated.jvm shouldContain
-            "roundTrip_HANDLE.invokeExact(value.rawValue.toInt()) as Int"
+            "JvmDowncallEngine.callI1I(roundTrip_ADDR, value.rawValue.toInt())"
         generated.jvm shouldContain
-            "NarrowOptions((roundTrip_HANDLE.invokeExact(value.rawValue.toInt()) as Int).toUInt().toLong())"
+            "NarrowOptions((JvmDowncallEngine.callI1I(roundTrip_ADDR, value.rawValue.toInt()).toInt()).toUInt().toLong())"
         generated.jvm shouldContain
             "get() = NarrowOptions((buffer.readInt(0uL)).toUInt().toLong())"
         generated.jvm shouldContain

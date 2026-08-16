@@ -56,16 +56,11 @@ internal enum class KotlinKmpRuntimeSymbol(
 
     ARENA("java.lang.foreign.Arena", jvm()),
     FUNCTION_DESCRIPTOR("java.lang.foreign.FunctionDescriptor", jvm()),
-    GROUP_LAYOUT("java.lang.foreign.GroupLayout", jvm()),
     LINKER("java.lang.foreign.Linker", jvm()),
-    MEMORY_LAYOUT("java.lang.foreign.MemoryLayout", jvm()),
     MEMORY_SEGMENT("java.lang.foreign.MemorySegment", jvm()),
-    SEGMENT_ALLOCATOR("java.lang.foreign.SegmentAllocator", jvm()),
     VALUE_LAYOUT("java.lang.foreign.ValueLayout", jvm()),
     METHOD_HANDLE("java.lang.invoke.MethodHandle", jvm()),
     METHOD_HANDLES("java.lang.invoke.MethodHandles", jvm()),
-    VAR_HANDLE("java.lang.invoke.VarHandle", jvm()),
-    GROUP_ELEMENT("java.lang.foreign.MemoryLayout.PathElement.groupElement", jvm()),
 
     BYTE_VAR("kotlinx.cinterop.ByteVar", native()),
     C_OPAQUE_POINTER("kotlinx.cinterop.COpaquePointer", native()),

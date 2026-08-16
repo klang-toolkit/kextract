@@ -19,7 +19,7 @@ class KmpRefreshIntegrationTest : FreeSpec({
         val output = Files.createTempDirectory("kextract-kmp-refresh-out")
         return try {
             input.toFile().writeText(header)
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(input.toString()),
                 Options(
                     targetPackage = "sample.bindings",
@@ -55,7 +55,7 @@ class KmpRefreshIntegrationTest : FreeSpec({
         return try {
             input.toFile().writeText("""#include "webgpu.h"""")
             included.toFile().writeText(header)
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(input.toString()),
                 Options(
                     targetPackage = "sample.bindings",
@@ -81,7 +81,7 @@ class KmpRefreshIntegrationTest : FreeSpec({
         val generated = generateKmp(
             """
             typedef struct WGPUDeviceImpl* WGPUDevice;
-            WGPUDevice wgpuGetDevice(void);
+            int wgpuGetDevice(void);
             """.trimIndent(),
         )
 
@@ -97,24 +97,24 @@ class KmpRefreshIntegrationTest : FreeSpec({
             """
             typedef struct WGPUInstanceImpl *WGPUInstance;
             typedef struct WGPUAdapterImpl *WGPUAdapter;
-            unsigned long long wgpuInstanceEnumerateAdapters(
+            void wgpuInstanceEnumerateAdapters(
                 WGPUInstance instance,
-                void const *options,
-                WGPUAdapter *adapters
+                WGPUAdapter *adapters,
+                unsigned long long count
             );
             """.trimIndent(),
         )
 
         generated.getValue("commonMain") shouldContain
-            "expect fun wgpuInstanceEnumerateAdapters(instance: WGPUInstance?, options: NativeAddress?, adapters: NativeAddress?): ULong"
+            "expect fun wgpuInstanceEnumerateAdapters(instance: WGPUInstance?, adapters: NativeAddress?, count: ULong): Unit"
         generated.getValue("androidMain") shouldContain
-            "actual fun wgpuInstanceEnumerateAdapters(instance: WGPUInstance?, options: NativeAddress?, adapters: NativeAddress?): ULong"
+            "actual fun wgpuInstanceEnumerateAdapters(instance: WGPUInstance?, adapters: NativeAddress?, count: ULong): Unit"
         generated.getValue("jvmMain") shouldContain
-            "actual fun wgpuInstanceEnumerateAdapters(instance: WGPUInstance?, options: NativeAddress?, adapters: NativeAddress?): ULong"
+            "actual fun wgpuInstanceEnumerateAdapters(instance: WGPUInstance?, adapters: NativeAddress?, count: ULong): Unit"
         generated.getValue("jvmMain") shouldContain
-            "adapters?.handler ?: MemorySegment.NULL"
+            "adapters?.rawValue ?: 0L"
         generated.getValue("nativeMain") shouldContain
-            "actual fun wgpuInstanceEnumerateAdapters(instance: WGPUInstance?, options: NativeAddress?, adapters: NativeAddress?): ULong"
+            "actual fun wgpuInstanceEnumerateAdapters(instance: WGPUInstance?, adapters: NativeAddress?, count: ULong): Unit"
         generated.getValue("nativeMain") shouldContain
             "adapters?.pointer?.takeIf { adapters.rawValue != 0L }?.reinterpret()"
         generated.values.forEach { source ->
@@ -169,10 +169,10 @@ class KmpRefreshIntegrationTest : FreeSpec({
             input.toFile().writeText(
                 """
                 typedef struct WGPUDeviceImpl* WGPUDevice;
-                WGPUDevice wgpuGetDevice(void);
+                int wgpuGetDevice(void);
                 """.trimIndent(),
             )
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(input.toString()),
                 Options(
                     targetPackage = "sample.bindings",
@@ -246,7 +246,7 @@ class KmpRefreshIntegrationTest : FreeSpec({
         val output = Files.createTempDirectory("kextract-kmp-empty-package-routing-out")
         try {
             input.toFile().writeText("int wgpuFunction(void);")
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(input.toString()),
                 Options(outputDir = output.toString(), multiplatform = true),
             ) shouldBe KextractTool.SUCCESS

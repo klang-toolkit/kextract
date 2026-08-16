@@ -16,7 +16,7 @@ class KmpAllocatorSignatureTest : FreeSpec({
         val output = Files.createTempDirectory("kextract-alloc-out")
         return try {
             input.toFile().writeText(header)
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(input.toString()),
                 Options(
                     targetPackage = "sample.bindings",

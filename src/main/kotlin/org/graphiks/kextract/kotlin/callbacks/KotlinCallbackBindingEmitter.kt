@@ -36,10 +36,10 @@ internal class KotlinCallbackBindingEmitter(
         builder: SourceBuilder,
         bindings: List<KotlinDirectFunctionBindingModel>,
         toRawArgument: (String, Type) -> String,
+        emitEngineDowncall: (Declaration.Function, asLastExpression: Boolean, (Declaration.Variable) -> String) -> Unit,
     ) {
         bindings.forEach { model ->
             val binding = model.binding
-            val name = namePlan.declaration(binding.function)
             val parameters = applicationParameters(binding)
             builder.appendLine("@${namePlan.runtime(SUPPRESS)}(\"UNUSED_VARIABLE\")")
             emitPreflightHeader(builder, binding, model.preflightName, parameters, actual = true)
@@ -49,17 +49,15 @@ internal class KotlinCallbackBindingEmitter(
                     "val ${parameter.preparedName} = ${toRawArgument(parameter.name, parameter.variable.type())}",
                 )
             }
-            builder.appendLine("val address = ${name}_ADDR")
-            builder.appendLine("val handle = ${name}_HANDLE")
             builder.appendLine("return { ${preparedCallLambdaParameters(binding)} ->")
             builder.indent()
-            builder.appendLine("handle.invokeExact(")
-            builder.indent()
-            preparedPlatformArguments(binding, parameters, toRawArgument).forEach { argument ->
-                builder.appendLine("$argument,")
+            emitEngineDowncall(binding.function, true) { parameter ->
+                when (parameter) {
+                    binding.callbackParameter -> "callback"
+                    binding.routingUserdataParameter -> "userdata"
+                    else -> parameters.single { it.variable === parameter }.name
+                }
             }
-            builder.unindent()
-            builder.appendLine(")")
             builder.unindent()
             builder.appendLine("}")
             builder.unindent()

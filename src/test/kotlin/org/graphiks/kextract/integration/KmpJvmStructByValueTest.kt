@@ -18,7 +18,7 @@ class KmpJvmStructByValueTest : FreeSpec({
         val output = Files.createTempDirectory("kextract-jvm-struct-out")
         return try {
             input.toFile().writeText(header)
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(input.toString()),
                 Options(targetPackage = "sample.bindings", outputDir = output.toString(), multiplatform = true),
             ) shouldBe KextractTool.SUCCESS

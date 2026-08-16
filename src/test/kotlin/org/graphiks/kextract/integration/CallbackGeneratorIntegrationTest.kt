@@ -242,7 +242,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                         segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().put(array, arrayIndex.toInt(), size.toInt())
                     }
                 }
-                fun findOrThrow(name: String): MemorySegment = MemorySegment.NULL
+                fun findOrThrow(name: String): Long = 0L
                 """.trimIndent(),
             )
             kffiEngine.toFile().writeText(
@@ -255,6 +255,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 import java.lang.foreign.Linker
                 import java.lang.foreign.MemorySegment
                 import java.lang.foreign.ValueLayout
+                import java.lang.invoke.MethodHandle
                 import java.lang.invoke.MethodHandles
 
                 object JvmUpcallEngine {
@@ -296,13 +297,41 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 }
 
                 object JvmDowncallEngine {
+                    private val linker = Linker.nativeLinker()
+
+                    fun resolveSymbol(name: String): Long = 0L
+
+                    private fun segment(address: Long): MemorySegment = MemorySegment.ofAddress(address)
+
+                    private fun handle(fn: Long, descriptor: FunctionDescriptor): MethodHandle =
+                        linker.downcallHandle(segment(fn), descriptor)
+
+                    fun callV0(fn: Long) {
+                        handle(fn, FunctionDescriptor.ofVoid()).invokeExact()
+                    }
+
+                    fun callV1P(fn: Long, p1: Long) {
+                        handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)).invokeExact(segment(p1))
+                    }
+
+                    fun callV2PP(fn: Long, p1: Long, p2: Long) {
+                        handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                            .invokeExact(segment(p1), segment(p2))
+                    }
+
+                    fun callV3PPL(fn: Long, p1: Long, p2: Long, a3: Long) {
+                        handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG))
+                            .invokeExact(segment(p1), segment(p2), a3)
+                    }
+
+                    fun callI0(fn: Long): Long =
+                        handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG)).invokeExact() as Long
+
                     data class StructField(val cName: String, val kind: FieldKind, val offsetBytes: Long)
 
                     enum class FieldKind { INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64, POINTER, STRUCT, PADDING }
 
                     fun registerStructLayout(name: String, sizeBytes: Long, alignmentBytes: Long, fields: List<StructField>) {}
-
-                    fun resolveSymbol(name: String): Long = 0L
                 }
                 """.trimIndent(),
             )
@@ -404,7 +433,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                                       int fun,
                                       int fun_,
                                       void *userdata);
-                void set_class_callback(int policy, class callback, void *userdata);
+                void set_class_callback(class callback, void *userdata, long long policy);
             """.trimIndent(),
             config,
         )
@@ -417,11 +446,11 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         common shouldContain "fun_: Int,"
         common shouldContain "fun__2: Int,"
         common shouldContain "canonicalId = \"typedef:class\""
-        common shouldContain "policy_2: Int,"
+        common shouldContain "policy_2: Long,"
         common shouldContain "callback: class_,"
         common shouldContain """
             fun set_class_callback(
-                policy_2: Int,
+                policy_2: Long,
                 policy: CallbackPolicy,
                 onError: CallbackExceptionHandler = CallbackExceptionHandler.Default,
                 callback: class_,
@@ -633,11 +662,11 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 typedef void (*SampleCallback)(void * userdata);
                 typedef void (*NoUserdataCallback)(unsigned int value);
                 void sample_set_callback(
-                    int payload,
                     SampleCallback callback,
-                    void * userdata
+                    void * userdata,
+                    long long payload
                 );
-                void sample_set_no_userdata_callback(unsigned int limit, NoUserdataCallback callback);
+                void sample_set_no_userdata_callback(void* limit, NoUserdataCallback callback);
             """.trimIndent(),
             config,
         )
@@ -648,24 +677,24 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
         common shouldContain """
             internal expect fun sample_set_callbackCallbackBindingPreflight(
-                payload: Int,
+                payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit
         """.trimIndent()
         common shouldContain """
             internal expect fun sample_set_no_userdata_callbackCallbackBindingPreflight(
-                limit: UInt,
+                limit: NativeAddress?,
             ): (NativeAddress?) -> Unit
         """.trimIndent()
         common shouldContain """
             fun sample_set_callback(
-                payload: Int,
+                payload: Long,
                 policy: CallbackPolicy,
                 onError: CallbackExceptionHandler = CallbackExceptionHandler.Default,
                 callback: SampleCallback,
             ): CallbackRegistration<SampleCallback> {
         """.trimIndent()
         val safeSetter = common
-            .substringAfter("fun sample_set_callback(\n    payload: Int,\n    policy: CallbackPolicy,")
+            .substringAfter("fun sample_set_callback(\n    payload: Long,\n    policy: CallbackPolicy,")
             .substringBefore("\n}\n")
         safeSetter shouldContain "val preparedCall = sample_set_callbackCallbackBindingPreflight(payload)"
         safeSetter shouldContain "val prepared = SampleCallback.prepare("
@@ -684,7 +713,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             fun rearmAfterNativeQuiescence(
         """.trimIndent()
         val rearmSetter = common
-            .substringAfter("fun rearmAfterNativeQuiescence(\n    limit: UInt,\n    policy: CallbackPolicy,")
+            .substringAfter("fun rearmAfterNativeQuiescence(\n    limit: NativeAddress?,\n    policy: CallbackPolicy,")
             .substringBefore("\n}\n")
         rearmSetter shouldContain
             "val preparedCall = sample_set_no_userdata_callbackCallbackBindingPreflight(limit)"
@@ -698,25 +727,19 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
         jvm shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: Int,
+                payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit {
                 val preparedPayload = payload
-                val address = sample_set_callback_ADDR
-                val handle = sample_set_callback_HANDLE
                 return { callback, userdata ->
-                    handle.invokeExact(
-                        preparedPayload,
-                        callback?.handler ?: MemorySegment.NULL,
-                        userdata?.handler ?: MemorySegment.NULL,
-                    )
+                    JvmDowncallEngine.callV3PPL(sample_set_callback_ADDR, callback?.rawValue ?: 0L, userdata?.rawValue ?: 0L, payload)
                 }
             }
         """.trimIndent()
         (jvm.indexOf("val preparedPayload = payload") <
-            jvm.indexOf("val address = sample_set_callback_ADDR")) shouldBe true
+            jvm.indexOf("return { callback, userdata ->")) shouldBe true
         native shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: Int,
+                payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit {
                 val preparedPayload = payload
         """.trimIndent()
@@ -725,11 +748,11 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         native shouldContain "preparedPayload,"
         android shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: Int,
+                payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit {
         """.trimIndent()
         android shouldContain "return { callback, userdata ->"
-        android shouldContain "NativeEngine.callV3IPP(sample_set_callback_ADDR, payload, callback.toAddress(), userdata.toAddress())"
+        android shouldContain "NativeEngine.callV3PPL(sample_set_callback_ADDR, callback.toAddress(), userdata.toAddress(), payload)"
         android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
         android shouldNotContain "val prepared = SampleCallback.prepare("
@@ -750,13 +773,13 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         val android = generateKmp(
             """
                 typedef void (*SampleCallback)(unsigned int value, void * userdata);
-                void sample_request(int input, SampleCallback callback, void * userdata);
+                void sample_request(SampleCallback callback, void * userdata, long long input);
             """.trimIndent(),
             config,
         ).getValue("androidMain")
 
         android shouldContain "actual fun sample_requestCallbackBindingPreflight("
-        android shouldContain "NativeEngine.callV3IPP(sample_request_ADDR, input, callback.toAddress(), userdata.toAddress())"
+        android shouldContain "NativeEngine.callV3PPL(sample_request_ADDR, callback.toAddress(), userdata.toAddress(), input)"
         android shouldContain "return { callback, userdata ->"
         android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
@@ -1135,7 +1158,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         val android = generateKmp(
             """
                 typedef void (*SampleCallback)(unsigned int value, void * userdata);
-                void sample_request(int input, SampleCallback callback, void * userdata);
+                void sample_request(SampleCallback callback, void * userdata, long long input);
             """.trimIndent(),
             config,
         ).getValue("androidMain")

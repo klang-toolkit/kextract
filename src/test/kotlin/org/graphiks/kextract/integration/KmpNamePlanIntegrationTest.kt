@@ -160,10 +160,10 @@ class KmpNamePlanIntegrationTest : FreeSpec({
                 when_ = 2
             } sealed;
 
-            // Struct-by-value JVM downcalls still need the FFM layout companion
-            // (M5.2 rewrites function emission); the keyword-safety contract is
-            // exercised through a pointer parameter here.
-            int fun(class* class, int when, int when_);
+            // The JVM downcall shapes must fit the current engine wrapper table
+            // (M5.2 emits against it; M5.3 extends it); the keyword-safety contract
+            // is exercised through the parameter names here.
+            void fun(class* class, class* when, unsigned long long when_);
             int fun_(int value);
             """.trimIndent(),
         )
@@ -189,9 +189,9 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.common shouldContain "typealias sealed_"
         generated.common shouldContain "const val when_"
         generated.common shouldContain "const val when__2"
-        generated.common shouldContain "expect fun fun_(class_: class_?, when_: Int, when__2: Int): Int"
+        generated.common shouldContain "expect fun fun_(class_: class_?, when_: class_?, when__2: ULong): Unit"
         generated.common shouldContain "expect fun fun__2(value: Int): Int"
-        generated.jvm shouldContain "actual fun fun_(class_: class_?, when_: Int, when__2: Int): Int"
+        generated.jvm shouldContain "actual fun fun_(class_: class_?, when_: class_?, when__2: ULong): Unit"
         generated.native shouldContain "webgpu.native.`fun`("
         generated.native shouldContain "this.`when`"
         generated.android shouldContain "actual var when_: Int"

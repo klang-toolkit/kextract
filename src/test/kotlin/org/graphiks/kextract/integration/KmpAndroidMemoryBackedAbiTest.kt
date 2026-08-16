@@ -30,7 +30,7 @@ private fun generateAndroidSources(
     val output = workspace.resolve("out")
     return try {
         input.toFile().writeText(header)
-        KextractTool(Logger.DEFAULT).runGeneration(
+        KextractTool(Logger()).runGeneration(
             listOf(input.toString()),
             Options(
                 targetPackage = "sample.bindings",
@@ -168,9 +168,9 @@ private val FUNCTION_HEADER =
         WGPUFoo_B = 1,
     } WGPUFoo;
 
-    unsigned long long wgpuFoo(unsigned long long a, unsigned long long b);
-    void wgpuBar(WGPUInstance i, unsigned int n);
-    const char* wgpuGetLabel(void);
+    unsigned int wgpuFoo(unsigned int a, unsigned int b, unsigned int c, unsigned int d);
+    void wgpuBar(WGPUInstance i, WGPUInstance j, unsigned long long n);
+    const char* wgpuGetLabel(WGPUInstance instance);
     WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor);
     unsigned int wgpuFooFlag(WGPUFeatureFlags flags);
     WGPUFeatureFlags wgpuFlagCarrier(WGPUFeatureFlags flags);
@@ -189,8 +189,8 @@ private val DIRECT_CALLBACK_BINDING_HEADER =
 
     typedef void (*SampleCallback)(unsigned int value, void * userdata);
 
-    void sample_request(int input, SampleCallback callback, void * userdata);
-    unsigned int sample_status(SampleCallback callback, void * userdata);
+    void sample_request(SampleCallback callback, void * userdata, long long input);
+    void sample_status(SampleCallback callback, void * userdata, long long status);
     """.trimIndent()
 
 private fun directCallbackBindingConfig(): CallbackBindingsConfig =
@@ -222,9 +222,9 @@ private val ENGINE_FIT_NEGATIVE_HEADER =
     typedef void (*SampleU64Callback)(unsigned long long value, void * userdata);
     typedef void (*SampleReversedCallback)(void * userdata, unsigned int value);
 
-    void sample_enum_cb(int input, SampleEnumCallback callback, void * userdata);
-    void sample_u64_cb(int input, SampleU64Callback callback, void * userdata);
-    void sample_reversed_cb(int input, SampleReversedCallback callback, void * userdata);
+    void sample_enum_cb(SampleEnumCallback callback, void * userdata, long long input);
+    void sample_u64_cb(SampleU64Callback callback, void * userdata, long long input);
+    void sample_reversed_cb(SampleReversedCallback callback, void * userdata, long long input);
     """.trimIndent()
 
 private fun engineFitNegativeBindingConfig(): CallbackBindingsConfig =
@@ -461,8 +461,11 @@ private val MEMBACK_KFFI_ENGINE_STUB =
         }
 
         fun callI1P(fn: Long, p1: Long): Long = handlers.getValue(fn)(listOf(p1))
+        fun callI4IIII(fn: Long, a: Int, b: Int, c: Int, d: Int): Long =
+            handlers.getValue(fn)(listOf(a.toLong(), b.toLong(), c.toLong(), d.toLong()))
         fun callL2LL(fn: Long, a: Long, b: Long): Long = handlers.getValue(fn)(listOf(a, b))
         fun callV2PI(fn: Long, p1: Long, i: Int) { handlers.getValue(fn)(listOf(p1, i.toLong())) }
+        fun callV3PPL(fn: Long, a: Long, b: Long, c: Long) { handlers.getValue(fn)(listOf(a, b, c)) }
         fun callP0(fn: Long): Long = handlers.getValue(fn)(emptyList())
         fun callP1P(fn: Long, p1: Long): Long = handlers.getValue(fn)(listOf(p1))
         fun callI1I(fn: Long, a: Int): Long = handlers.getValue(fn)(listOf(a.toLong()))
@@ -632,14 +635,14 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "private val wgpuGetLabel_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuGetLabel\") }"
         generated.bridge shouldContain "private val wgpuCreateInstance_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuCreateInstance\") }"
 
-        generated.bridge shouldContain "actual fun wgpuFoo(a: ULong, b: ULong): ULong"
-        generated.bridge shouldContain "return NativeEngine.callL2LL(wgpuFoo_ADDR, a.toLong(), b.toLong()).toULong()"
+        generated.bridge shouldContain "actual fun wgpuFoo(a: UInt, b: UInt, c: UInt, d: UInt): UInt"
+        generated.bridge shouldContain "return NativeEngine.callI4IIII(wgpuFoo_ADDR, a.toInt(), b.toInt(), c.toInt(), d.toInt()).toInt().toUInt()"
 
-        generated.bridge shouldContain "actual fun wgpuBar(i: WGPUInstance?, n: UInt)"
-        generated.bridge shouldContain "NativeEngine.callV2PI(wgpuBar_ADDR, i?.handler?.rawValue ?: 0L, n.toInt())"
+        generated.bridge shouldContain "actual fun wgpuBar(i: WGPUInstance?, j: WGPUInstance?, n: ULong)"
+        generated.bridge shouldContain "NativeEngine.callV3PPL(wgpuBar_ADDR, i?.handler?.rawValue ?: 0L, j?.handler?.rawValue ?: 0L, n.toLong())"
 
-        generated.bridge shouldContain "actual fun wgpuGetLabel(): CString?"
-        generated.bridge shouldContain "return NativeEngine.callP0(wgpuGetLabel_ADDR).takeIf { it != 0L }?.let(::NativeAddress)?.let(::CString)"
+        generated.bridge shouldContain "actual fun wgpuGetLabel(instance: WGPUInstance?): CString?"
+        generated.bridge shouldContain "return NativeEngine.callP1P(wgpuGetLabel_ADDR, instance?.handler?.rawValue ?: 0L).takeIf { it != 0L }?.let(::NativeAddress)?.let(::CString)"
 
         generated.bridge shouldContain "actual fun wgpuCreateInstance(descriptor: WGPUInstanceDescriptor?): WGPUInstance?"
         generated.bridge shouldContain "NativeEngine.callP1P(wgpuCreateInstance_ADDR, descriptor?.handler?.rawValue ?: 0L)"
@@ -797,9 +800,9 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
             import sample.bindings.wgpuGetLabel
 
             fun runProbe(): LongArray {
-                val sum = wgpuFoo(5uL, 7uL)
-                val sum2 = wgpuFoo(2uL, 3uL)
-                val label = wgpuGetLabel()
+                val sum = wgpuFoo(5u, 7u, 0u, 0u)
+                val sum2 = wgpuFoo(2u, 3u, 0u, 0u)
+                val label = wgpuGetLabel(null)
                 return longArrayOf(sum.toLong(), sum2.toLong(), if (label == null) 1L else 0L)
             }
             """.trimIndent()
@@ -924,9 +927,13 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
 
         generated.bridge shouldContain "actual fun SampleCallback.Companion.register("
         generated.bridge shouldContain "internal actual fun sample_requestCallbackBindingPreflight("
-        generated.bridge shouldContain "internal actual fun sample_statusCallbackBindingPreflight(): (NativeAddress?, NativeAddress?) -> Unit"
-        generated.bridge shouldContain "NativeEngine.callV3IPP(sample_request_ADDR, input, callback.toAddress(), userdata.toAddress())"
-        generated.bridge shouldContain "NativeEngine.callI2PP(sample_status_ADDR, callback.toAddress(), userdata.toAddress())"
+        generated.bridge shouldContain """
+            internal actual fun sample_statusCallbackBindingPreflight(
+                status: Long,
+            ): (NativeAddress?, NativeAddress?) -> Unit
+        """.trimIndent()
+        generated.bridge shouldContain "NativeEngine.callV3PPL(sample_request_ADDR, callback.toAddress(), userdata.toAddress(), input)"
+        generated.bridge shouldContain "NativeEngine.callV3PPL(sample_status_ADDR, callback.toAddress(), userdata.toAddress(), status)"
 
         val probe =
             """
@@ -937,8 +944,8 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
             import sample.bindings.sample_statusCallbackBindingPreflight
 
             fun runProbe(): LongArray {
-                sample_requestCallbackBindingPreflight(7)(NativeAddress(0x1000L), NativeAddress(0x2000L))
-                sample_statusCallbackBindingPreflight()(NativeAddress(0x1000L), NativeAddress(0x2000L))
+                sample_requestCallbackBindingPreflight(7L)(NativeAddress(0x1000L), NativeAddress(0x2000L))
+                sample_statusCallbackBindingPreflight(0L)(NativeAddress(0x1000L), NativeAddress(0x2000L))
                 return longArrayOf(1L)
             }
             """.trimIndent()

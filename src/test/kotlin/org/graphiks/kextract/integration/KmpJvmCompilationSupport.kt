@@ -56,7 +56,7 @@ internal fun generateKmpSourcesFromHeaderPath(
     return try {
         input.toFile().writeText(header)
         writeJvmResources(output.resolve("jvmMain/resources"))
-        KextractTool(Logger.DEFAULT).runGeneration(
+        KextractTool(Logger()).runGeneration(
             listOf(input.toString()),
             Options(
                 targetPackage = packageName,
@@ -321,9 +321,9 @@ internal val KFFI_JVM_STUB =
             segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().put(array, arrayIndex.toInt(), size.toInt())
         }
     }
-    fun findOrThrow(name: String): MemorySegment {
+    fun findOrThrow(name: String): Long {
         CallbackRuntime.symbolResolutionCount += 1
-        return TestNativeSymbols.find(name)
+        return TestNativeSymbols.find(name).address()
     }
     """.trimIndent()
 
@@ -339,6 +339,7 @@ internal val KFFI_JVM_ENGINE_STUB =
     import java.lang.foreign.Linker
     import java.lang.foreign.MemorySegment
     import java.lang.foreign.ValueLayout
+    import java.lang.invoke.MethodHandle
     import java.lang.invoke.MethodHandles
 
     object JvmUpcallEngine {
@@ -380,13 +381,104 @@ internal val KFFI_JVM_ENGINE_STUB =
     }
 
     object JvmDowncallEngine {
+        private val linker = Linker.nativeLinker()
+
+        fun resolveSymbol(name: String): Long = TestNativeSymbols.find(name).address()
+
+        private fun segment(address: Long): MemorySegment = MemorySegment.ofAddress(address)
+
+        private fun handle(fn: Long, descriptor: FunctionDescriptor): MethodHandle =
+            linker.downcallHandle(segment(fn), descriptor)
+
+        fun callV0(fn: Long) {
+            handle(fn, FunctionDescriptor.ofVoid()).invokeExact()
+        }
+
+        fun callV1P(fn: Long, p1: Long) {
+            handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)).invokeExact(segment(p1))
+        }
+
+        fun callV2PP(fn: Long, p1: Long, p2: Long) {
+            handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                .invokeExact(segment(p1), segment(p2))
+        }
+
+        fun callV3PPL(fn: Long, p1: Long, p2: Long, a3: Long) {
+            handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG))
+                .invokeExact(segment(p1), segment(p2), a3)
+        }
+
+        fun callV4PPPP(fn: Long, p1: Long, p2: Long, p3: Long, p4: Long) {
+            handle(
+                fn,
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+            ).invokeExact(segment(p1), segment(p2), segment(p3), segment(p4))
+        }
+
+        fun callV5PIIII(fn: Long, p1: Long, a2: Int, a3: Int, a4: Int, a5: Int) {
+            handle(
+                fn,
+                FunctionDescriptor.ofVoid(
+                    ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT,
+                ),
+            ).invokeExact(segment(p1), a2, a3, a4, a5)
+        }
+
+        fun callI0(fn: Long): Long =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG)).invokeExact() as Long
+
+        fun callI1I(fn: Long, a1: Int): Long =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT)).invokeExact(a1) as Long
+
+        fun callI1P(fn: Long, a1: Long): Long =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)).invokeExact(segment(a1)) as Long
+
+        fun callI4IIII(fn: Long, a1: Int, a2: Int, a3: Int, a4: Int): Long =
+            handle(
+                fn,
+                FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT),
+            ).invokeExact(a1, a2, a3, a4) as Long
+
+        fun callL8LLLLLLLL(
+            fn: Long,
+            a1: Long, a2: Long, a3: Long, a4: Long,
+            a5: Long, a6: Long, a7: Long, a8: Long,
+        ): Long = handle(
+            fn,
+            FunctionDescriptor.of(
+                ValueLayout.JAVA_LONG,
+                ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG,
+                ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG,
+            ),
+        ).invokeExact(a1, a2, a3, a4, a5, a6, a7, a8) as Long
+
+        fun callP1P(fn: Long, a1: Long): Long =
+            (handle(fn, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                .invokeExact(segment(a1)) as MemorySegment).address()
+
+        fun callP2PP(fn: Long, a1: Long, a2: Long): Long =
+            (handle(fn, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                .invokeExact(segment(a1), segment(a2)) as MemorySegment).address()
+
+        fun callP2PI(fn: Long, a1: Long, a2: Int): Long =
+            (handle(fn, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT))
+                .invokeExact(segment(a1), a2) as MemorySegment).address()
+
+        fun callP3PLL(fn: Long, a1: Long, a2: Long, a3: Long): Long =
+            (handle(fn, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG))
+                .invokeExact(segment(a1), a2, a3) as MemorySegment).address()
+
+        fun callF1P(fn: Long, a1: Long): Float =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_FLOAT, ValueLayout.ADDRESS)).invokeExact(segment(a1)) as Float
+
+        fun callD1P(fn: Long, a1: Long): Double =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_DOUBLE, ValueLayout.ADDRESS)).invokeExact(segment(a1)) as Double
+
         data class StructField(val cName: String, val kind: FieldKind, val offsetBytes: Long)
 
         enum class FieldKind { INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64, POINTER, STRUCT, PADDING }
 
         fun registerStructLayout(name: String, sizeBytes: Long, alignmentBytes: Long, fields: List<StructField>) {}
-
-        fun resolveSymbol(name: String): Long = TestNativeSymbols.find(name).address()
 
         fun callStructArgBox(fn: Long, structPtr: Long) {}
 

@@ -36,7 +36,7 @@ class KotlinJvmNativeBundleIndexTest {
             resources.resolve("$platform/$mappedName").writeBytes("sample".encodeToByteArray())
         }
 
-        val result = KextractTool(Logger.DEFAULT).runGeneration(
+        val result = KextractTool(Logger()).runGeneration(
             listOf(header.toString()),
             Options(
                 targetPackage = "test",
@@ -71,7 +71,7 @@ class KotlinJvmNativeBundleIndexTest {
         resources.resolve("one/libsample.so").writeBytes(byteArrayOf(1))
         resources.resolve("two/libsample.so").writeBytes(byteArrayOf(2))
 
-        val result = KextractTool(Logger.DEFAULT).runGeneration(
+        val result = KextractTool(Logger()).runGeneration(
             listOf(header.toString()),
             Options(
                 outputDir = output.toString(),

@@ -13,7 +13,6 @@ class KmpJvmDirectCallbackTransactionTest : FreeSpec({
                     binding.function = "function:sample_set_callback"
                     binding.callbackParameter = "callback"
                     binding.callbackType = "typedef:SampleCallback"
-                    binding.routingUserdataParameter = "userdata"
                 },
             )
         }
@@ -21,11 +20,10 @@ class KmpJvmDirectCallbackTransactionTest : FreeSpec({
             header =
                 """
                 typedef struct SamplePayload { int value; } SamplePayload;
-                typedef void (*SampleCallback)(void *userdata);
+                typedef void (*SampleCallback)(void);
                 void sample_set_callback(
                     SamplePayload* payload,
-                    SampleCallback callback,
-                    void *userdata
+                    SampleCallback callback
                 );
                 """.trimIndent(),
             callbackBindings = bindings,

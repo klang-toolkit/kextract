@@ -21,7 +21,7 @@ class KmpAllocatorConsistencyTest : FreeSpec({
         val output = Files.createTempDirectory("kextract-alloc-consistency-out")
         return try {
             input.toFile().writeText(header)
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(input.toString()),
                 Options(
                     targetPackage = "sample.bindings",
@@ -44,19 +44,22 @@ class KmpAllocatorConsistencyTest : FreeSpec({
 
     // Les formes sans wrapper moteur JVM (makeBox(void), wgpuPointByValue,
     // wgpuRoundTrip) et les structs hors de la table des wrappers (Box2) échouent
-    // à la génération multiplateforme avec une erreur claire (KmpJvmStructByValueTest)
-    // — le jeu ci-dessous ne garde que les formes supportées par chaque backend.
+    // à la génération multiplateforme avec une erreur claire (KmpJvmStructByValueTest) ;
+    // les downcalls scalaires/pointeurs utilisent des formes de la table actuelle du
+    // moteur JVM (M5.3 l'étend) — le jeu ci-dessous ne garde que les formes
+    // supportées par chaque backend.
     val header = """
         typedef struct { int a; } Box;
         typedef struct { int a; int b; } Box2;
         typedef struct WGPUPoint { int x; int y; } WGPUPoint;
         typedef struct WGPUAdapterImpl* WGPUAdapter;
+        typedef struct WGPUDeviceImpl* WGPUDevice;
         Box makeBox(int x);
         void consumeBox(Box b);
-        WGPUAdapter wgpuAdapterGetAdapter(void);
+        WGPUAdapter wgpuAdapterGetAdapter(WGPUDevice device);
         void wgpuAdapterRelease(WGPUAdapter adapter);
-        WGPUPoint* wgpuGetPointPointer(void);
-        const char* wgpuGetLabel(void);
+        WGPUPoint* wgpuGetPointPointer(WGPUAdapter adapter);
+        const char* wgpuGetLabel(WGPUAdapter adapter);
     """.trimIndent()
 
     "signature allocator param agrees with the shared predicate and each actual's body treatment" {
@@ -71,10 +74,10 @@ class KmpAllocatorConsistencyTest : FreeSpec({
         val common = generate(header, "commonMain")
         common shouldContain "expect fun makeBox(allocator: MemoryAllocator, x: Int): Box"
         common shouldContain "expect fun consumeBox(b: Box): Unit"
-        common shouldContain "expect fun wgpuAdapterGetAdapter(): WGPUAdapter?"
+        common shouldContain "expect fun wgpuAdapterGetAdapter(device: WGPUDevice?): WGPUAdapter?"
         common shouldContain "expect fun wgpuAdapterRelease(adapter: WGPUAdapter?): Unit"
-        common shouldContain "expect fun wgpuGetPointPointer(): WGPUPoint?"
-        common shouldContain "expect fun wgpuGetLabel(): CString?"
+        common shouldContain "expect fun wgpuGetPointPointer(adapter: WGPUAdapter?): WGPUPoint?"
+        common shouldContain "expect fun wgpuGetLabel(adapter: WGPUAdapter?): CString?"
     }
 })
 
@@ -90,8 +93,7 @@ private val COMPANION_FUNS = setOf("invoke", "allocate", "allocateArray")
  * the platform body treatment:
  * - JVM:    struct-by-value downcalls ride the engine layout registry wrapper
  *           (`callStructReturn&lt;Name&gt;`) ; the combined shapes (struct arg + struct
- *           return) still pass an internal `Arena.ofAuto() as SegmentAllocator`
- *           until M5.2
+ *           return) fail at generation time (KmpJvmStructByValueTest)
  * - Android: struct-by-value returns read the caller-provided `allocator.allocateBuffer`
  * - Native:  struct-by-value returns wrap the result in `X.ByValue(...)`
  * - common:  no body; only the signature predicate applies

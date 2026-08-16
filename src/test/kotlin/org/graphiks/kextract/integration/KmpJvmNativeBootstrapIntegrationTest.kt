@@ -295,10 +295,10 @@ private val REAL_KFFI_JVM_STUB =
             segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().put(array, arrayIndex.toInt(), size.toInt())
         }
     }
-    fun findOrThrow(name: String): MemorySegment =
+    fun findOrThrow(name: String): Long =
         SymbolLookup.loaderLookup().find(name).orElseThrow {
             UnsatisfiedLinkError("Missing native test symbol: ${'$'}name")
-        }
+        }.address()
     """.trimIndent()
 
 private val REAL_KFFI_JVM_ENGINE_STUB =
@@ -311,6 +311,7 @@ private val REAL_KFFI_JVM_ENGINE_STUB =
     import java.lang.foreign.Linker
     import java.lang.foreign.MemorySegment
     import java.lang.foreign.ValueLayout
+    import java.lang.invoke.MethodHandle
     import java.lang.invoke.MethodHandles
 
     object JvmUpcallEngine {
@@ -351,7 +352,23 @@ private val REAL_KFFI_JVM_ENGINE_STUB =
         }
     }
 
-    object JvmDowncallEngine
+    object JvmDowncallEngine {
+        private val linker = Linker.nativeLinker()
+
+        fun resolveSymbol(name: String): Long = org.graphiks.kffi.findOrThrow(name)
+
+        private fun segment(address: Long): MemorySegment = MemorySegment.ofAddress(address)
+
+        private fun handle(fn: Long, descriptor: FunctionDescriptor): MethodHandle =
+            linker.downcallHandle(segment(fn), descriptor)
+
+        fun callV0(fn: Long) {
+            handle(fn, FunctionDescriptor.ofVoid()).invokeExact()
+        }
+
+        fun callI0(fn: Long): Long =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG)).invokeExact() as Long
+    }
     """.trimIndent()
 
 private val BOOTSTRAP_PROBE =
