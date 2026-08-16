@@ -91,7 +91,10 @@ private val COMPANION_FUNS = setOf("invoke", "allocate", "allocateArray")
  * signature parameter disagrees with either the shared predicate (struct-by-value
  * return ⟺ allocator present, inferred from the file's emitted interface names) or
  * the platform body treatment:
- * - JVM:    struct-by-value downcalls pass an internal `Arena.ofAuto() as SegmentAllocator`
+ * - JVM:    struct-by-value downcalls ride the engine layout registry wrapper
+ *           (`callStructReturn&lt;Name&gt;`) ; the combined shapes (struct arg + struct
+ *           return) still pass an internal `Arena.ofAuto() as SegmentAllocator`
+ *           until M5.2
  * - Android: struct-by-value returns read the caller-provided `allocator.allocateBuffer`
  * - Native:  struct-by-value returns wrap the result in `X.ByValue(...)`
  * - common:  no body; only the signature predicate applies
@@ -119,7 +122,8 @@ private fun signatureBodyMismatches(source: String, sourceSet: String): List<Str
         // expect declarations have no body; the signature predicate above is the whole check.
         if (sourceSet != "commonMain") {
             val bodyMatches = when (sourceSet) {
-                "jvmMain" -> "Arena.ofAuto() as SegmentAllocator" in body
+                "jvmMain" ->
+                    "callStructReturn" in body || "Arena.ofAuto() as SegmentAllocator" in body
                 "androidMain" -> "out = allocator.allocateBuffer" in body
                 "nativeMain" -> ".ByValue(" in body
                 else -> true

@@ -295,7 +295,15 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                     }
                 }
 
-                object JvmDowncallEngine
+                object JvmDowncallEngine {
+                    data class StructField(val cName: String, val kind: FieldKind, val offsetBytes: Long)
+
+                    enum class FieldKind { INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64, POINTER, STRUCT, PADDING }
+
+                    fun registerStructLayout(name: String, sizeBytes: Long, alignmentBytes: Long, fields: List<StructField>) {}
+
+                    fun resolveSymbol(name: String): Long = 0L
+                }
                 """.trimIndent(),
             )
 

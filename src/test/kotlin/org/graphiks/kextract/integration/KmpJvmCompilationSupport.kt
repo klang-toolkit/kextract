@@ -331,7 +331,9 @@ internal val KFFI_JVM_ENGINE_STUB =
     """
     package org.graphiks.kffi.engine
 
+    import org.graphiks.kffi.MemoryAllocator
     import org.graphiks.kffi.NativeAddress
+    import org.graphiks.kffi.TestNativeSymbols
     import java.lang.foreign.Arena
     import java.lang.foreign.FunctionDescriptor
     import java.lang.foreign.Linker
@@ -377,5 +379,17 @@ internal val KFFI_JVM_ENGINE_STUB =
         }
     }
 
-    object JvmDowncallEngine
+    object JvmDowncallEngine {
+        data class StructField(val cName: String, val kind: FieldKind, val offsetBytes: Long)
+
+        enum class FieldKind { INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64, POINTER, STRUCT, PADDING }
+
+        fun registerStructLayout(name: String, sizeBytes: Long, alignmentBytes: Long, fields: List<StructField>) {}
+
+        fun resolveSymbol(name: String): Long = TestNativeSymbols.find(name).address()
+
+        fun callStructArgBox(fn: Long, structPtr: Long) {}
+
+        fun callStructReturnBox(fn: Long, allocator: MemoryAllocator, a1: Int): NativeAddress = NativeAddress(0L)
+    }
     """.trimIndent()

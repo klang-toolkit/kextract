@@ -3,6 +3,8 @@
 package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
+import org.graphiks.kextract.DeclarationImpl.ClangEnumType
+import org.graphiks.kextract.DeclarationImpl.ClangUnnamedRecord
 import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.Type
 import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
@@ -15,6 +17,7 @@ import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.FIND_OR_THROW
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.FUNCTION_DESCRIPTOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.GROUP_ELEMENT
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.GROUP_LAYOUT
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_DOWNCALL_ENGINE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.LINKER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_ALLOCATOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_BUFFER
@@ -65,9 +68,21 @@ internal class KotlinKmpJvmBuilder(
     private val arrayHolder = namePlan.runtime(ARRAY_HOLDER)
     private val memoryAllocator = namePlan.runtime(MEMORY_ALLOCATOR)
     private val memoryBuffer = namePlan.runtime(MEMORY_BUFFER)
+    private val jvmDowncallEngine = namePlan.runtime(JVM_DOWNCALL_ENGINE)
     private val nativeBootstrapName = libraries.takeIf { it.isNotEmpty() }?.let {
         privateNames.allocate("KextractNativeBootstrap", "nativeBootstrap")
     }
+
+    /**
+     * Enregistrements `registerStructLayout` accumulés pendant l'émission des
+     * records, émis en bloc au niveau fichier (getFiles). Placement au niveau
+     * fichier (et non dans le companion) : les initialiseurs de niveau fichier
+     * s'exécutent au chargement de la classe façade, donc avant tout downcall
+     * du fichier — l'ordre d'initialisation des companions de structs imbriqués
+     * n'est pas garanti, et `Box.ByValue(...)` (classe imbriquée) n'initialise
+     * pas le companion.
+     */
+    private val structLayoutRegistrations = mutableListOf<String>()
 
     /**
      * java.lang.foreign / java.lang.invoke symbols. Struct emission is
@@ -109,6 +124,11 @@ internal class KotlinKmpJvmBuilder(
                 val layout = recordLayouts[decl]
                 val sizeBytes = layout.sizeBytes
                 val fields = decl.members().filterIsInstance<Declaration.Variable>().filterNot(Skip::isPresent)
+
+                // Enregistrement des métadonnées de layout pour le moteur (M5.2bis) :
+                // le GroupLayout FFM des structs par valeur est construit côté moteur,
+                // jamais dans le code généré.
+                structLayoutRegistrations += structLayoutRegistration(structName, layout, decl.kind())
 
                 // 1. The actual interface (memory-backed, no CStructure base)
                 builder.appendLine("actual interface $structName {")
@@ -176,6 +196,129 @@ internal class KotlinKmpJvmBuilder(
         fieldType == cString -> "$cString?"
         fieldType.startsWith(arrayHolder) -> "$fieldType?"
         else -> fieldType
+    }
+
+    /**
+     * Rend l'appel `JvmDowncallEngine.registerStructLayout(...)` pour [layout].
+     *
+     * Les membres sont convertis en `StructField` avec les offsets Clang ; un champ
+     * PADDING explicite est émis pour chaque écart entre champs consécutifs (et le
+     * padding final) — l'offsetBytes d'un champ PADDING porte la TAILLE du gap, le
+     * moteur faisant `paddingLayout(gap)`. Pour une union, un unique padding de la
+     * taille totale représente le bloc par valeur (les membres se chevauchent et ne
+     * peuvent pas être émis comme éléments séquentiels d'un GroupLayout).
+     */
+    private fun structLayoutRegistration(
+        structName: String,
+        layout: KotlinJvmRecordLayout,
+        kind: Declaration.Scoped.Kind,
+    ): String = buildString {
+        val engine = jvmDowncallEngine
+        val fields = if (kind == Declaration.Scoped.Kind.UNION) {
+            listOf("$engine.StructField(\"__pad\", $engine.FieldKind.PADDING, ${layout.sizeBytes}L)")
+        } else {
+            val entries = mutableListOf<String>()
+            var cursor = 0L
+            layout.members.forEach { member ->
+                val gap = member.offsetBytes - cursor
+                if (gap > 0) {
+                    entries += "$engine.StructField(\"__pad\", $engine.FieldKind.PADDING, ${gap}L)"
+                }
+                entries += structFieldEntries(member)
+                cursor = member.offsetBytes + member.sizeBytes
+            }
+            val trailing = layout.sizeBytes - cursor
+            if (trailing > 0) {
+                entries += "$engine.StructField(\"__pad\", $engine.FieldKind.PADDING, ${trailing}L)"
+            }
+            entries
+        }
+        appendLine("$engine.registerStructLayout(")
+        appendLine("    \"$structName\",")
+        appendLine("    ${layout.sizeBytes}L, ${layout.alignmentBytes}L,")
+        appendLine("    listOf(")
+        fields.forEach { field ->
+            appendLine("        $field,")
+        }
+        appendLine("    ),")
+        appendLine(")")
+    }
+
+    /**
+     * Entrées `StructField` pour un membre : un champ STRUCT porte le nom
+     * enregistré du type imbriqué (résolu par le moteur dans structLayout), un
+     * tableau est aplati en champs élémentaires (le GroupLayout séquentiel doit
+     * reproduire la taille Clang du tableau).
+     */
+    private fun structFieldEntries(member: KotlinJvmRecordMemberLayout): List<String> {
+        val engine = jvmDowncallEngine
+        if (isAnonymousRecord(member.field.type())) {
+            // Record anonyme (union/struct inline) : son nom planifié dépend du chemin
+            // d'en-tête — un padding de la taille Clang du membre reproduit le bloc par
+            // valeur sans identité, et garde l'émission indépendante du chemin.
+            return listOf("$engine.StructField(\"__pad\", $engine.FieldKind.PADDING, ${member.sizeBytes}L)")
+        }
+        return structFieldKinds(member.field.type()).map { (kind, structTypeName) ->
+            val cName = structTypeName ?: member.cName
+            "$engine.StructField(\"$cName\", $engine.FieldKind.$kind, ${member.offsetBytes}L)"
+        }
+    }
+
+    private fun isAnonymousRecord(type: Type): Boolean = when {
+        type is Type.Declared && type.isStructOrUnion() -> ClangUnnamedRecord.isPresent(type.tree())
+        type is Type.Delegated -> isAnonymousRecord(type.type())
+        else -> false
+    }
+
+    /** (FieldKind, nom du type struct pour STRUCT) par type C, tableaux aplatis. */
+    private fun structFieldKinds(type: Type): List<Pair<String, String?>> = when {
+        type is Type.Array -> {
+            val count = type.elementCount() ?: 1L
+            buildList { repeat(count.toInt()) { addAll(structFieldKinds(type.elementType())) } }
+        }
+        type is Type.Declared && type.isEnum() -> {
+            val underlying = requireNotNull(ClangEnumType.get(type.tree())) {
+                "Enum ${type.tree().name()} has no Clang underlying type"
+            }
+            structFieldKinds(underlying)
+        }
+        type is Type.Declared && type.isStructOrUnion() ->
+            listOf("STRUCT" to namePlan.declaration(type.tree()))
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER ->
+            listOf("POINTER" to null)
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.UNSIGNED ->
+            structFieldKinds(type.type()).map { (kind, structTypeName) ->
+                scalarFieldKind(kind, unsigned = true) to structTypeName
+            }
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.SIGNED ->
+            structFieldKinds(type.type())
+        type is Type.Delegated -> structFieldKinds(type.type())
+        type is Type.Function -> listOf("POINTER" to null)
+        type is Type.Primitive -> listOf(scalarFieldKind(primitiveKind(type.kind()), unsigned = false) to null)
+        // Types erronés (inconnus de Clang) : traités comme adresses par l'émission mémoire.
+        else -> listOf("POINTER" to null)
+    }
+
+    private fun primitiveKind(kind: Type.Primitive.Kind): String = when (kind) {
+        Type.Primitive.Kind.Bool -> "INT8"
+        Type.Primitive.Kind.Char -> "INT8"
+        Type.Primitive.Kind.Char16 -> "UINT16"
+        Type.Primitive.Kind.Short -> "INT16"
+        Type.Primitive.Kind.Int -> "INT32"
+        Type.Primitive.Kind.Long, Type.Primitive.Kind.LongLong -> "INT64"
+        Type.Primitive.Kind.Float -> "FLOAT32"
+        Type.Primitive.Kind.Double -> "FLOAT64"
+        Type.Primitive.Kind.Int128 -> "INT64"
+        Type.Primitive.Kind.LongDouble -> "FLOAT64"
+        else -> error("Unsupported scalar field kind: $kind")
+    }
+
+    private fun scalarFieldKind(kind: String, unsigned: Boolean): String = when {
+        unsigned && kind == "INT8" -> "UINT8"
+        unsigned && kind == "INT16" -> "UINT16"
+        unsigned && kind == "INT32" -> "UINT32"
+        unsigned && kind == "INT64" -> "UINT64"
+        else -> kind
     }
 
     private fun emitMemoryRecordImpl(
@@ -362,17 +505,98 @@ internal class KotlinKmpJvmBuilder(
                 .forEach { appendLine(namePlan.importLine(it)) }
             appendLine()
         }
+        val registrations = if (structLayoutRegistrations.isEmpty()) {
+            ""
+        } else {
+            buildString {
+                appendLine()
+                appendLine("// Layouts des structs par valeur : enregistrés au chargement du fichier")
+                appendLine("// (classe façade), donc avant tout downcall — les companions de structs")
+                appendLine("// imbriqués ne sont pas garantis initialisés à ce moment.")
+                appendLine("private val __kffiJvmStructLayouts: Unit = run {")
+                structLayoutRegistrations.forEach { registration ->
+                    registration.lineSequence().forEach { line ->
+                        appendLine("    $line")
+                    }
+                }
+                appendLine("}")
+            }
+        }
         return listOf(
             KotlinSourceFile(
                 targetPackage,
                 className + "Jvm",
-                header + builder.toString().trimEnd() + "\n",
+                header + builder.toString().trimEnd() + registrations + "\n",
                 sourceRoot = "jvmMain/kotlin",
             ),
         )
     }
 
     private fun emitFunction(decl: Declaration.Function) {
+        val structArgs = decl.parameters().filter { typeMapper.returnsStructByValue(it.type()) }
+        val structReturn = typeMapper.returnsStructByValue(decl.type().returnType())
+        if (structArgs.isNotEmpty() || structReturn) {
+            emitStructByValueFunction(decl, structArgs, structReturn)
+            return
+        }
+        emitFfmFunction(decl)
+    }
+
+    /**
+     * Émission struct-by-value (M5.2bis) : la signature est couverte par un wrapper
+     * du moteur construit depuis le registre de layouts — jamais de FunctionDescriptor
+     * ni de MemoryLayout dans le code généré. Formes couvertes : retour struct avec
+     * arguments non-struct (callStructReturn&lt;Name&gt;), ou unique argument struct avec
+     * retour non-struct (callStructArg&lt;Name&gt;). Les formes combinées restent sur le
+     * chemin FFM transitoire jusqu'à M5.2.
+     */
+    private fun emitStructByValueFunction(
+        decl: Declaration.Function,
+        structArgs: List<Declaration.Variable>,
+        structReturn: Boolean,
+    ) {
+        val name = namePlan.declaration(decl)
+        val cName = decl.name()
+        val returnType = typeMapper.mapFunctionType(decl.type().returnType())
+        val params = (
+            typeMapper.allocatorParams(decl.type().returnType()) +
+                decl.parameters().map { param ->
+                    "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
+                }
+            ).joinToString(", ")
+        val supported = when {
+            structReturn -> structArgs.isEmpty()
+            else -> decl.parameters().size == 1
+        }
+        if (!supported) {
+            emitFfmFunction(decl)
+            return
+        }
+        builder.appendLine("private val ${name}_ADDR: Long by lazy { $jvmDowncallEngine.resolveSymbol(\"$cName\") }")
+        builder.appendLine("actual fun $name($params): $returnType {")
+        builder.indent()
+        if (structReturn) {
+            val structName = typeMapper.mapFunctionType(decl.type().returnType())
+            val rawArgs = decl.parameters().map { param ->
+                val paramName = namePlan.parameter(param)
+                toRawJvmArgument(paramName, param.type())
+            }
+            val call = "$jvmDowncallEngine.callStructReturn$structName(${name}_ADDR, allocator" +
+                rawArgs.joinToString("") { ", $it" } + ")"
+            builder.appendLine("return $returnType.ByValue($call)")
+        } else {
+            val structParam = decl.parameters().single()
+            val paramName = namePlan.parameter(structParam)
+            val structName = typeMapper.mapFunctionType(structParam.type())
+            builder.appendLine("$jvmDowncallEngine.callStructArg$structName(${name}_ADDR, $paramName.handler.rawValue)")
+            builder.appendLine("return")
+        }
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
+    }
+
+    private fun emitFfmFunction(decl: Declaration.Function) {
         usedSymbols += setOf(FUNCTION_DESCRIPTOR, MEMORY_SEGMENT, METHOD_HANDLE, LINKER, VALUE_LAYOUT, MEMORY_LAYOUT)
         if (returnsStructByValue(decl.type().returnType())) {
             usedSymbols += setOf(ARENA, SEGMENT_ALLOCATOR)
