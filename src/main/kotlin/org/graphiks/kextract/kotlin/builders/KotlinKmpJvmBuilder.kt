@@ -497,12 +497,9 @@ internal class KotlinKmpJvmBuilder(
         val resolver = nativeBootstrapName?.let { "$it.resolve" } ?: namePlan.runtime(FIND_OR_THROW)
         builder.appendLine("private val ${name}_ADDR: $memorySegment by lazy { $resolver(\"$cName\") }")
         builder.appendLine("private val ${name}_HANDLE: ${namePlan.runtime(METHOD_HANDLE)} by lazy { ${namePlan.runtime(LINKER)}.nativeLinker().downcallHandle(${name}_ADDR, ${name}_DESC) }")
-        val signatureParams = buildList {
-            if (typeMapper.returnsStructByValue(decl.type().returnType())) {
-                add("allocator: $memoryAllocator")
-            }
-            addAll(params)
-        }.joinToString(", ")
+        // The allocator parameter is signature-parity only until M5: the body still
+        // allocates the struct return from an internal Arena.ofAuto().
+        val signatureParams = (typeMapper.allocatorParams(decl.type().returnType()) + params).joinToString(", ")
         builder.appendLine("actual fun $name($signatureParams): $returnType {")
         builder.indent()
         emitFunctionReturn(decl.type().returnType(), returnType, invoke)

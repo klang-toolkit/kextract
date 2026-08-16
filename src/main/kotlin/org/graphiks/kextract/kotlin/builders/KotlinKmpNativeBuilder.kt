@@ -445,15 +445,15 @@ internal class KotlinKmpNativeBuilder(
     override fun visitFunction(decl: Declaration.Function) {
         if (Skip.isPresent(decl)) return
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
-        val params = buildList {
-            if (typeMapper.returnsStructByValue(decl.type().returnType())) {
-                add("allocator: $memoryAllocator")
-            }
-            decl.parameters().forEach { param ->
-                val name = namePlan.parameter(param)
-                add("$name: ${typeMapper.mapFunctionType(param.type())}")
-            }
-        }.joinToString(", ")
+        // The allocator parameter is signature-parity only until M5: the body still
+        // hands the C function a CValue assembled from the arguments.
+        val params = (
+            typeMapper.allocatorParams(decl.type().returnType()) +
+                decl.parameters().map { param ->
+                    val name = namePlan.parameter(param)
+                    "$name: ${typeMapper.mapFunctionType(param.type())}"
+                }
+        ).joinToString(", ")
         val args = decl.parameters().map { param ->
             val name = namePlan.parameter(param)
             toNativeArgument(name, param.type())

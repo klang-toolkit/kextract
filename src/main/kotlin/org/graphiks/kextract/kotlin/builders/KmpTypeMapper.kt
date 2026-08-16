@@ -5,6 +5,7 @@ import org.graphiks.kextract.Type
 import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.ARRAY_HOLDER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.C_STRING
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_ALLOCATOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
 import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiIndex
 import org.graphiks.kextract.pipeline.isEnum
@@ -132,6 +133,19 @@ internal class KmpTypeMapper(
                 !(tree.name().endsWith("Impl") && tree.members().isEmpty())
         else -> false
     }
+
+    /**
+     * The `allocator: MemoryAllocator` parameter declaration prepended to a binding
+     * whose return value is a struct by value, or an empty list for every other
+     * function. Rendered identically by the common/expect builder and all actual
+     * builders, keeping signatures aligned across source sets.
+     */
+    fun allocatorParams(type: Type): List<String> =
+        if (returnsStructByValue(type)) {
+            listOf("allocator: ${namePlan.runtime(MEMORY_ALLOCATOR)}")
+        } else {
+            emptyList()
+        }
 
     private fun mapUnsigned(inner: Type): String = if (inner is Type.Primitive) {
         when (inner.kind()) {

@@ -172,14 +172,12 @@ internal class KotlinKmpAndroidBuilder(
         val name = namePlan.declaration(decl)
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
         val returnsStructByValue = typeMapper.returnsStructByValue(decl.type().returnType())
-        val params = buildList {
-            if (returnsStructByValue) {
-                add("allocator: $memoryAllocator")
-            }
-            decl.parameters().forEach { param ->
-                add("${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}")
-            }
-        }.joinToString(", ")
+        val params = (
+            typeMapper.allocatorParams(decl.type().returnType()) +
+                decl.parameters().map { param ->
+                    "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
+                }
+        ).joinToString(", ")
         builder.appendLine("private val ${name}_ADDR: Long by lazy { $nativeEngine.resolveSymbol(\"${escapeKotlinString(decl.name())}\") }")
         builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
