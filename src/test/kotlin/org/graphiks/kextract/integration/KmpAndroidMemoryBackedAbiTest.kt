@@ -678,7 +678,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "struct-by-value functions call through NativeEngine.callGeneric" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPointByValue(p: WGPUPoint): WGPUPoint"
+        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, p: WGPUPoint): WGPUPoint"
         generated.bridge shouldContain "private val wgpuPointByValue_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuPointByValue\") }"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
         generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
@@ -818,7 +818,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "struct-by-value functions pin the engine callGeneric path" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPointByValue(p: WGPUPoint): WGPUPoint"
+        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, p: WGPUPoint): WGPUPoint"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
         generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
     }

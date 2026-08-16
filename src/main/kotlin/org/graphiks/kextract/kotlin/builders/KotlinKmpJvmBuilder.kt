@@ -497,7 +497,13 @@ internal class KotlinKmpJvmBuilder(
         val resolver = nativeBootstrapName?.let { "$it.resolve" } ?: namePlan.runtime(FIND_OR_THROW)
         builder.appendLine("private val ${name}_ADDR: $memorySegment by lazy { $resolver(\"$cName\") }")
         builder.appendLine("private val ${name}_HANDLE: ${namePlan.runtime(METHOD_HANDLE)} by lazy { ${namePlan.runtime(LINKER)}.nativeLinker().downcallHandle(${name}_ADDR, ${name}_DESC) }")
-        builder.appendLine("actual fun $name(${params.joinToString(", ")}): $returnType {")
+        val signatureParams = buildList {
+            if (typeMapper.returnsStructByValue(decl.type().returnType())) {
+                add("allocator: $memoryAllocator")
+            }
+            addAll(params)
+        }.joinToString(", ")
+        builder.appendLine("actual fun $name($signatureParams): $returnType {")
         builder.indent()
         emitFunctionReturn(decl.type().returnType(), returnType, invoke)
         builder.unindent()

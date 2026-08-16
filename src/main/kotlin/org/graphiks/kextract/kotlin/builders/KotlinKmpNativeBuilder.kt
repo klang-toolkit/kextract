@@ -445,9 +445,14 @@ internal class KotlinKmpNativeBuilder(
     override fun visitFunction(decl: Declaration.Function) {
         if (Skip.isPresent(decl)) return
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
-        val params = decl.parameters().map { param ->
-            val name = namePlan.parameter(param)
-            "$name: ${typeMapper.mapFunctionType(param.type())}"
+        val params = buildList {
+            if (typeMapper.returnsStructByValue(decl.type().returnType())) {
+                add("allocator: $memoryAllocator")
+            }
+            decl.parameters().forEach { param ->
+                val name = namePlan.parameter(param)
+                add("$name: ${typeMapper.mapFunctionType(param.type())}")
+            }
         }.joinToString(", ")
         val args = decl.parameters().map { param ->
             val name = namePlan.parameter(param)

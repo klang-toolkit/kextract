@@ -151,7 +151,7 @@ class KmpRefreshIntegrationTest : FreeSpec({
         )
 
         generated.getValue("commonMain") shouldContain
-            "expect fun wgpuRoundTrip(value: WGPUValue): WGPUValue"
+            "expect fun wgpuRoundTrip(allocator: MemoryAllocator, value: WGPUValue): WGPUValue"
     }
 
     "multiplatform output uses explicit source roots" {

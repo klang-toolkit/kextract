@@ -106,6 +106,33 @@ internal class KmpTypeMapper(
             !fieldType.endsWith("?")
     }
 
+    /**
+     * True when [type] is a struct/union value (not a pointer to one). Shared by the
+     * common/expect builder and every per-target actual builder so the generated
+     * `allocator: MemoryAllocator` first parameter on struct-by-value returns stays
+     * consistent across source sets.
+     *
+     * Mirrors the record emission predicate of the builders: the record must be
+     * named (unnamed records map to NativeAddress) and not an opaque `XxxImpl`
+     * handle, whose typedef is a pointer and maps to a value class instead.
+     */
+    fun returnsStructByValue(type: Type): Boolean = when {
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> false
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> returnsStructByValue(type.type())
+        type is Type.Declared -> returnsStructByValueTree(type.tree())
+        else -> false
+    }
+
+    private fun returnsStructByValueTree(tree: Declaration): Boolean = when (tree) {
+        is Declaration.Typedef -> returnsStructByValue(tree.type())
+        is Declaration.Scoped ->
+            (tree.kind() == Declaration.Scoped.Kind.STRUCT || tree.kind() == Declaration.Scoped.Kind.UNION) &&
+                tree.name().isNotEmpty() &&
+                !tree.name().contains("unnamed") &&
+                !(tree.name().endsWith("Impl") && tree.members().isEmpty())
+        else -> false
+    }
+
     private fun mapUnsigned(inner: Type): String = if (inner is Type.Primitive) {
         when (inner.kind()) {
             Type.Primitive.Kind.Char -> "UByte"

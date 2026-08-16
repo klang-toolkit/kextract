@@ -171,15 +171,23 @@ internal class KotlinKmpAndroidBuilder(
         if (Skip.isPresent(decl)) return
         val name = namePlan.declaration(decl)
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
-        val params = decl.parameters().joinToString(", ") { param ->
-            "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
-        }
+        val returnsStructByValue = typeMapper.returnsStructByValue(decl.type().returnType())
+        val params = buildList {
+            if (returnsStructByValue) {
+                add("allocator: $memoryAllocator")
+            }
+            decl.parameters().forEach { param ->
+                add("${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}")
+            }
+        }.joinToString(", ")
         builder.appendLine("private val ${name}_ADDR: Long by lazy { $nativeEngine.resolveSymbol(\"${escapeKotlinString(decl.name())}\") }")
         builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
-        emitEngineDowncall(decl) { parameter ->
-            namePlan.parameter(parameter)
-        }
+        emitEngineDowncall(
+            function = decl,
+            callerAllocator = if (returnsStructByValue) "allocator" else null,
+            argExpr = { parameter -> namePlan.parameter(parameter) },
+        )
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
@@ -267,12 +275,13 @@ internal class KotlinKmpAndroidBuilder(
         function: Declaration.Function,
         asLastExpression: Boolean = false,
         argExpr: (Declaration.Variable) -> String,
+        callerAllocator: String? = null,
     ) {
         val wrapper = wrapperForm(function.type())
         if (wrapper != null) {
             emitTypedDowncall(function, wrapper, asLastExpression, argExpr)
         } else {
-            emitGenericDowncall(function, asLastExpression, argExpr)
+            emitGenericDowncall(function, asLastExpression, argExpr, callerAllocator)
         }
     }
 
@@ -388,6 +397,7 @@ internal class KotlinKmpAndroidBuilder(
         function: Declaration.Function,
         asLastExpression: Boolean = false,
         argExpr: (Declaration.Variable) -> String,
+        callerAllocator: String? = null,
     ) {
         val functionType = function.type()
         val params = function.parameters()
@@ -434,7 +444,8 @@ internal class KotlinKmpAndroidBuilder(
 
         builder.appendLine("val args = $memoryAllocator().allocateBuffer(${argsSize}uL)")
         slotEmissions.forEach { it(builder) }
-        builder.appendLine("val out = $memoryAllocator().allocateBuffer(${outSize}uL)")
+        val outAllocator = callerAllocator ?: "$memoryAllocator()"
+        builder.appendLine("val out = $outAllocator.allocateBuffer(${outSize}uL)")
         builder.appendLine(
             "$nativeEngine.callGeneric(${functionAddress(function)}, ${params.size}, " +
                 "$typeSpec, args.handler.rawValue, out.handler.rawValue)",
