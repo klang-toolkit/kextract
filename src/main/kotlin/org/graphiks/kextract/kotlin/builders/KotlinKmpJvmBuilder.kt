@@ -8,22 +8,22 @@ import org.graphiks.kextract.Type
 import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
 import org.graphiks.kextract.kotlin.KotlinJvmNativeBundleIndex
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.ARENA
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.ARRAY_HOLDER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.C_STRING
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.C_STRUCTURE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.FIND_OR_THROW
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.FUNCTION_DESCRIPTOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.GROUP_ELEMENT
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.GROUP_LAYOUT
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_INLINE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.LINKER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_ALLOCATOR
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_BUFFER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_LAYOUT
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_SEGMENT
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.METHOD_HANDLE
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.METHOD_HANDLES
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.SEGMENT_ALLOCATOR
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.ARENA
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.VALUE_LAYOUT
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.VAR_HANDLE
 import org.graphiks.kextract.kotlin.KotlinKmpSourceSet
@@ -34,7 +34,6 @@ import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackModel
 import org.graphiks.kextract.kotlin.callbacks.KotlinDirectFunctionBindingModel
 import org.graphiks.kextract.kotlin.models.KotlinSourceFile
 import org.graphiks.kextract.pipeline.LayoutUtils
-import org.graphiks.kextract.kotlin.utils.TypeMapper
 import org.graphiks.kextract.pipeline.isStructOrUnion
 import org.graphiks.kextract.pipeline.isEnum
 import org.graphiks.kextract.pipeline.Options
@@ -54,7 +53,6 @@ internal class KotlinKmpJvmBuilder(
 ) : Declaration.Visitor<Unit> {
 
     private val builder = SourceBuilder()
-    private val files = mutableListOf<KotlinSourceFile>()
     private val generatedNames = mutableSetOf<String>()
     private val generatedStructNames = mutableSetOf<String>()
     private val callbackTypeNames = callbackModels.mapTo(mutableSetOf(), KotlinCallbackModel::typeName)
@@ -66,34 +64,29 @@ internal class KotlinKmpJvmBuilder(
     private val cString = namePlan.runtime(C_STRING)
     private val arrayHolder = namePlan.runtime(ARRAY_HOLDER)
     private val memoryAllocator = namePlan.runtime(MEMORY_ALLOCATOR)
-    private val memorySegment = namePlan.runtime(MEMORY_SEGMENT)
-    private val cStructure = namePlan.runtime(C_STRUCTURE)
-    private val varHandle = namePlan.runtime(VAR_HANDLE)
-    private val groupElement = namePlan.runtime(GROUP_ELEMENT)
-    private val memoryLayout = namePlan.runtime(MEMORY_LAYOUT)
-    private val valueLayout = namePlan.runtime(VALUE_LAYOUT)
-    private val groupLayout = namePlan.runtime(GROUP_LAYOUT)
+    private val memoryBuffer = namePlan.runtime(MEMORY_BUFFER)
     private val nativeBootstrapName = libraries.takeIf { it.isNotEmpty() }?.let {
         privateNames.allocate("KextractNativeBootstrap", "nativeBootstrap")
     }
 
-    init {
-        if (targetPackage.isNotEmpty()) {
-            builder.appendLine("package $targetPackage")
-            builder.appendLine()
-        }
+    /**
+     * java.lang.foreign / java.lang.invoke symbols. Struct emission is
+     * memory-backed (no FFM), so these imports are emitted only when the
+     * downcall / callback paths actually reference them (M5.2+ removes the
+     * downcall side entirely). Everything else is imported unconditionally,
+     * matching the other source-set builders.
+     */
+    private val usedSymbols = mutableSetOf<KotlinKmpRuntimeSymbol>()
 
-        KotlinKmpRuntimeSymbol.entries
-            .filter { KotlinKmpSourceSet.JVM in it.sourceSets }
-            .forEach { builder.appendLine(namePlan.importLine(it)) }
-        builder.appendLine()
+    init {
         nativeBootstrapName?.let { bootstrapName ->
+            usedSymbols += MEMORY_SEGMENT
             KotlinJvmNativeBootstrapEmitter(
                 libraries = libraries,
                 bundleIndex = jvmNativeBundleIndex,
                 bootstrapName = bootstrapName,
                 delegateResolverName = namePlan.runtime(FIND_OR_THROW),
-                memorySegmentName = memorySegment,
+                memorySegmentName = namePlan.runtime(MEMORY_SEGMENT),
             ).emit(builder)
         }
     }
@@ -113,172 +106,45 @@ internal class KotlinKmpJvmBuilder(
                     return
                 }
 
-                builder.appendLine("actual interface $structName : $cStructure {")
-                builder.indent()
-
+                val layout = recordLayouts[decl]
+                val sizeBytes = layout.sizeBytes
                 val fields = decl.members().filterIsInstance<Declaration.Variable>().filterNot(Skip::isPresent)
 
-                // Visit members as actual properties
+                // 1. The actual interface (memory-backed, no CStructure base)
+                builder.appendLine("actual interface $structName {")
+                builder.indent()
+
                 fields.forEach { field ->
                     val fieldName = namePlan.member(field)
                     val fieldType = typeMapper.mapType(field.type())
-                    if (fieldType == cString) {
-                        builder.appendLine("actual var $fieldName: $cString?")
-                    } else if (fieldType.startsWith(arrayHolder)) {
-                        builder.appendLine("actual var $fieldName: $fieldType?")
-                    } else if (fieldType.endsWith("?") || fieldType == nativeAddress) {
-                        builder.appendLine("actual var $fieldName: $fieldType")
-                    } else {
-                        builder.appendLine("actual var $fieldName: $fieldType")
-                    }
+                    builder.appendLine("actual var $fieldName: ${interfaceFieldType(fieldType)}")
                 }
-
-                builder.appendLine("actual override val handler: $nativeAddress")
+                builder.appendLine("actual val handler: $nativeAddress")
 
                 // Companion object
                 builder.appendLine("actual companion object {")
                 builder.indent()
-
-                // Define layout
-                emitGroupLayout(decl)
-                builder.appendLine()
-
-                // VarHandles for value fields
-                fields.forEach { field ->
-                    val fieldName = namePlan.member(field)
-                    val cFieldName = field.name()
-                    val isArray = isArrayType(field.type())
-                    val isStruct = typeMapper.isInlineStructOrUnion(field.type())
-                    if (!isArray && !isStruct) {
-                        builder.appendLine("val ${fieldName}_VH: $varHandle = layout.varHandle($groupElement(\"$cFieldName\"))")
-                    }
-                }
-                builder.appendLine()
-
                 builder.appendLine("actual operator fun invoke(address: $nativeAddress): $structName = ByReference(address)")
-                builder.appendLine("actual fun allocate(allocator: $memoryAllocator): $structName = ByReference(allocator.allocate(layout.byteSize()))")
+                builder.appendLine("actual fun allocate(allocator: $memoryAllocator): $structName = ByReference(allocator.allocateBuffer(${sizeBytes}uL).handler)")
                 builder.appendLine("actual fun allocateArray(allocator: $memoryAllocator, size: UInt, provider: (UInt, $structName) -> Unit): $arrayHolder<$structName> {")
                 builder.indent()
-                builder.appendLine("val byteSize = layout.byteSize()")
-                builder.appendLine("val segment = allocator.allocate(byteSize * size.toLong())")
-                builder.appendLine("for (i in 0 until size.toInt()) {")
+                // Zero size still bumps a non-null pointer; callers treat that as an empty, harmless region.
+                builder.appendLine("val buffer = allocator.allocateBuffer(${sizeBytes}uL * size)")
+                builder.appendLine("val result = $arrayHolder<$structName>(buffer.handler)")
+                builder.appendLine("repeat(size.toInt()) { index ->")
                 builder.indent()
-                builder.appendLine("val slice = segment.handler.asSlice(i.toLong() * byteSize, byteSize).let(::$nativeAddress)")
-                builder.appendLine("provider(i.toUInt(), ByReference(slice))")
+                builder.appendLine("provider(index.toUInt(), ByValue($nativeAddress(buffer.handler.rawValue + index.toLong() * ${sizeBytes}L)))")
                 builder.unindent()
                 builder.appendLine("}")
-                builder.appendLine("return $arrayHolder(segment)")
+                builder.appendLine("return result")
                 builder.unindent()
                 builder.appendLine("}")
                 builder.unindent()
                 builder.appendLine("}") // End companion object
 
-                // @JvmInline value class ByReference implementation
-                builder.appendLine()
-                builder.appendLine("@${namePlan.runtime(JVM_INLINE)}")
-                builder.appendLine("value class ByReference(override val handler: $nativeAddress) : $structName {")
-                builder.indent()
-
-                fields.forEach { field ->
-                    val fieldName = namePlan.member(field)
-                    val cFieldName = field.name()
-                    val fieldType = typeMapper.mapType(field.type())
-                    val isArray = isArrayType(field.type())
-                    val isStruct = typeMapper.isInlineStructOrUnion(field.type())
-
-                    if (isArray) {
-                        // Array field using asSlice
-                        builder.appendLine("override var $fieldName: $fieldType")
-                        builder.indent()
-                        builder.appendLine("get() = handler.handler.asSlice(Companion.layout.byteOffset($groupElement(\"$cFieldName\")), Companion.layout.select($groupElement(\"$cFieldName\")).byteSize()).let(::$nativeAddress)")
-                        builder.appendLine("set(value) {")
-                        builder.indent()
-                        builder.appendLine("$memorySegment.copy(value.handler, 0L, handler.handler, Companion.layout.byteOffset($groupElement(\"$cFieldName\")), Companion.layout.select($groupElement(\"$cFieldName\")).byteSize())")
-                        builder.unindent()
-                        builder.appendLine("}")
-                        builder.unindent()
-                    } else if (isStruct) {
-                        val nonOptType = fieldType.removeSuffix("?")
-                        builder.appendLine("override var $fieldName: $fieldType")
-                        builder.indent()
-                        builder.appendLine("get() = $nonOptType($nativeAddress(handler.handler.asSlice(Companion.layout.byteOffset($groupElement(\"$cFieldName\")), Companion.layout.select($groupElement(\"$cFieldName\")).byteSize())))")
-                        builder.appendLine("set(value) {")
-                        builder.indent()
-                        builder.appendLine("$memorySegment.copy(value.handler.handler, 0L, handler.handler, Companion.layout.byteOffset($groupElement(\"$cFieldName\")), Companion.layout.select($groupElement(\"$cFieldName\")).byteSize())")
-                        builder.unindent()
-                        builder.appendLine("}")
-                        builder.unindent()
-                    } else {
-                        // VarHandle based get/set
-                        val propType = if (fieldType == cString) "$cString?" else fieldType
-                        builder.appendLine("override var $fieldName: $propType")
-                        builder.indent()
-                        val canonical = typeMapper.canonicalKmpType(field.type())
-                        val optionsScalar = field.type()
-                            .takeIf(typeMapper::isOptionsEnumType)
-                            ?.let(typeMapper::enumDeclaration)
-                            ?.let(abiIndex::enum)
-                        when {
-                            fieldType == cString -> {
-                                builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as? $memorySegment)?.let(::$nativeAddress)?.let(::$cString)")
-                                builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value?.handler?.handler ?: $memorySegment.NULL)")
-                            }
-                            fieldType == nativeAddress -> {
-                                builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as? $memorySegment)?.let(::$nativeAddress) ?: $nativeAddress($memorySegment.NULL)")
-                                builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value.handler)")
-                            }
-                            fieldType == "$nativeAddress?" -> {
-                                builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as? $memorySegment)?.takeIf { it != $memorySegment.NULL }?.let(::$nativeAddress)")
-                                builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value?.handler ?: $memorySegment.NULL)")
-                            }
-                            optionsScalar != null -> {
-                                val rawExpression =
-                                    "${fieldName}_VH.get(handler.handler, 0L) as ${optionsScalar.jvmCarrier}"
-                                builder.appendLine(
-                                    "get() = $fieldType(${optionsScalar.jvmCarrierToOptionsRaw(rawExpression)})",
-                                )
-                                builder.appendLine(
-                                    "set(value) = ${fieldName}_VH.set(handler.handler, 0L, " +
-                                        "${optionsScalar.optionsRawToJvmCarrier("value.rawValue")})",
-                                )
-                            }
-                            canonical == "Boolean" -> {
-                                builder.appendLine("get() = ${fieldName}_VH.get(handler.handler, 0L) as Boolean")
-                                builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value)")
-                            }
-                            canonical == "UInt" -> {
-                                builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as Int).toUInt() as $fieldType")
-                                builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value.toInt())")
-                            }
-                            canonical == "ULong" -> {
-                                builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as Long).toULong() as $fieldType")
-                                builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value.toLong())")
-                            }
-                            canonical == "UShort" -> {
-                                builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as Short).toUShort() as $fieldType")
-                                builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value.toShort())")
-                            }
-                            canonical == "UByte" -> {
-                                builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as Byte).toUByte() as $fieldType")
-                                builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value.toByte())")
-                            }
-                            else -> {
-                                if (fieldType.endsWith("?")) {
-                                    val nonOptType = fieldType.removeSuffix("?")
-                                    builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as? $memorySegment)?.let(::$nativeAddress)?.let { $nonOptType(it) }")
-                                    builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value?.handler?.handler ?: $memorySegment.NULL)")
-                                } else {
-                                    builder.appendLine("get() = ${fieldName}_VH.get(handler.handler, 0L) as $fieldType")
-                                    builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value)")
-                                }
-                            }
-                        }
-                        builder.unindent()
-                    }
-                }
-
-                builder.unindent()
-                builder.appendLine("}") // End value class ByReference
+                // 2. The memory-backed implementations
+                emitMemoryRecordImpl(structName, layout, fields, "ByReference")
+                emitMemoryRecordImpl(structName, layout, fields, "ByValue")
 
                 builder.unindent()
                 builder.appendLine("}") // End actual interface
@@ -287,6 +153,13 @@ internal class KotlinKmpJvmBuilder(
             Declaration.Scoped.Kind.TOPLEVEL -> {
                 for (member in decl.members()) {
                     member.accept(this)
+                }
+                if (callbackModels.isNotEmpty()) {
+                    // Callback trampolines still ride FFM upcall stubs until P3 handover.
+                    usedSymbols += setOf(
+                        FUNCTION_DESCRIPTOR, LINKER, ARENA, METHOD_HANDLE, METHOD_HANDLES,
+                        MEMORY_SEGMENT, VALUE_LAYOUT,
+                    )
                 }
                 KotlinCallbackJvmEmitter(typeMapper::mapFunctionType, namePlan).emit(builder, callbackModels)
                 KotlinCallbackBindingEmitter(typeMapper::mapFunctionType, namePlan).emitJvm(
@@ -297,145 +170,155 @@ internal class KotlinKmpJvmBuilder(
             }
             else -> {}
         }
-
-        if (decl.kind() == Declaration.Scoped.Kind.TOPLEVEL) {
-            files.add(
-                KotlinSourceFile(
-                    targetPackage,
-                    className + "Jvm",
-                    builder.toString().trimEnd() + "\n",
-                    sourceRoot = "jvmMain/kotlin",
-                ),
-            )
-        }
     }
 
-    private fun isArrayType(type: Type): Boolean = when {
-        type is Type.Array -> true
-        type is Type.Delegated -> isArrayType(type.type())
-        else -> false
+    private fun interfaceFieldType(fieldType: String): String = when {
+        fieldType == cString -> "$cString?"
+        fieldType.startsWith(arrayHolder) -> "$fieldType?"
+        else -> fieldType
+    }
+
+    private fun emitMemoryRecordImpl(
+        structName: String,
+        layout: KotlinJvmRecordLayout,
+        fields: List<Declaration.Variable>,
+        implName: String,
+    ) {
+        val sizeBytes = layout.sizeBytes
+        builder.appendLine()
+        builder.appendLine("class $implName(val handle: $nativeAddress = $nativeAddress(0L)) : $structName {")
+        builder.indent()
+        builder.appendLine("private val buffer: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
+        fields.forEach { field ->
+            val propertyName = namePlan.member(field)
+            val fieldType = typeMapper.mapType(field.type())
+            builder.appendLine("override var $propertyName: ${interfaceFieldType(fieldType)}")
+            builder.indent()
+            val fieldLayout = layout.field(field.name())
+            emitMemoryFieldAccessors(
+                builder = builder,
+                typeMapper = typeMapper,
+                abiIndex = abiIndex,
+                nativeAddress = nativeAddress,
+                cString = cString,
+                memoryBuffer = memoryBuffer,
+                field = field,
+                propertyName = propertyName,
+                fieldType = fieldType,
+                offsetBytes = fieldLayout.offsetBytes,
+                sizeBytes = fieldLayout.sizeBytes,
+            )
+            builder.unindent()
+        }
+        builder.appendLine("override val handler: $nativeAddress")
+        builder.indent()
+        builder.appendLine("get() = handle")
+        builder.unindent()
+        builder.unindent()
+        builder.appendLine("}")
     }
 
     private fun emitNativeDisplayHandle(decl: Declaration.Scoped) {
-        val unionField = inlineUnionField(decl)
+        val layout = recordLayouts[decl]
+        val sizeBytes = layout.sizeBytes
+        val unionField = decl.members()
+            .filterIsInstance<Declaration.Variable>()
+            .filterNot(Skip::isPresent)
+            .firstOrNull { typeMapper.declaredUnion(it.type()) != null }
         val fields = decl.members()
             .filterIsInstance<Declaration.Variable>()
+            .filterNot(Skip::isPresent)
             .filterNot { it == unionField }
-        val union = unionField?.type()?.let(typeMapper::declaredUnion)
-            ?: decl.members()
-                .filterIsInstance<Declaration.Scoped>()
-                .firstOrNull { it.kind() == Declaration.Scoped.Kind.UNION }
-            ?: return
-        val unionFields = union.members().filterIsInstance<Declaration.Variable>()
-        val unionOffsetBits = unionField
-            ?.let { org.graphiks.kextract.DeclarationImpl.ClangOffsetOf.get(it) }
-            ?: org.graphiks.kextract.DeclarationImpl.AnonymousStruct.getOrThrow(union).offset
-            ?: 0L
-        val unionSizeBits = unionField
-            ?.let { org.graphiks.kextract.DeclarationImpl.ClangSizeOf.get(it) }
-            ?: org.graphiks.kextract.DeclarationImpl.ClangSizeOf.get(union)
-            ?: 0L
-        val structSizeBits = org.graphiks.kextract.DeclarationImpl.ClangSizeOf.get(decl) ?: 0L
+        val unionFields = nativeDisplayUnionFields(typeMapper, decl)
+        val dataOffset = unionField?.let { layout.field(it.name()).offsetBytes } ?: 0L
+        val typeOffset = layout.field("type").offsetBytes
 
-        builder.appendLine("actual interface WGPUNativeDisplayHandle : $cStructure {")
+        builder.appendLine("actual interface WGPUNativeDisplayHandle {")
         builder.indent()
-
         fields.forEach { field ->
-            builder.appendLine("actual var ${namePlan.member(field)}: ${typeMapper.mapType(field.type())}")
+            val fieldType = typeMapper.mapType(field.type())
+            builder.appendLine("actual var ${namePlan.member(field)}: ${interfaceFieldType(fieldType)}")
         }
         unionFields.forEach { field ->
-            val fieldType = typeMapper.mapType(field.type())
+            val type = typeMapper.mapType(field.type())
             val setter = field.name().replaceFirstChar { it.titlecase() }
-            builder.appendLine("actual val ${namePlan.member(field)}: $fieldType?")
-            builder.appendLine("actual fun set$setter(value: $fieldType)")
+            builder.appendLine("actual val ${namePlan.member(field)}: $type?")
+            builder.appendLine("actual fun set$setter(value: $type)")
         }
-        builder.appendLine("actual override val handler: $nativeAddress")
+        builder.appendLine("actual val handler: $nativeAddress")
 
         builder.appendLine("actual companion object {")
         builder.indent()
-        builder.appendLine("val layout: $groupLayout = $memoryLayout.structLayout(")
-        builder.indent()
-        var currentOffsetBits = 0L
-        fields.forEach { field ->
-            val offsetBits = org.graphiks.kextract.DeclarationImpl.ClangOffsetOf.get(field) ?: currentOffsetBits
-            if (offsetBits > currentOffsetBits) {
-                val paddingBytes = (offsetBits - currentOffsetBits) / 8
-                if (paddingBytes > 0) builder.appendLine("$memoryLayout.paddingLayout($paddingBytes),")
-            }
-            builder.appendLine("${planJvmRuntimeNames(LayoutUtils.layoutString(field.type(), abiIndex))}.withName(\"${field.name()}\"),")
-            currentOffsetBits = offsetBits + (org.graphiks.kextract.DeclarationImpl.ClangSizeOf.get(field) ?: 0L)
-        }
-        if (unionOffsetBits > currentOffsetBits) {
-            val paddingBytes = (unionOffsetBits - currentOffsetBits) / 8
-            if (paddingBytes > 0) builder.appendLine("$memoryLayout.paddingLayout($paddingBytes),")
-        }
-        builder.appendLine("$memoryLayout.sequenceLayout(${unionSizeBits / 8L}, $valueLayout.JAVA_BYTE).withName(\"value\")${if (structSizeBits > unionOffsetBits + unionSizeBits) "," else ""}")
-        currentOffsetBits = unionOffsetBits + unionSizeBits
-        if (structSizeBits > currentOffsetBits) {
-            val paddingBytes = (structSizeBits - currentOffsetBits) / 8
-            if (paddingBytes > 0) builder.appendLine("$memoryLayout.paddingLayout($paddingBytes)")
-        }
-        builder.unindent()
-        builder.appendLine(").withName(\"WGPUNativeDisplayHandle\")")
-        builder.appendLine()
-        fields.forEach { field ->
-            builder.appendLine("val ${namePlan.member(field)}_VH: $varHandle = layout.varHandle($groupElement(\"${field.name()}\"))")
-        }
-        builder.appendLine("private val valueOffset: Long = layout.byteOffset($groupElement(\"value\"))")
-        builder.appendLine()
         builder.appendLine("actual operator fun invoke(address: $nativeAddress): WGPUNativeDisplayHandle = ByReference(address)")
-        builder.appendLine("actual fun allocate(allocator: $memoryAllocator): WGPUNativeDisplayHandle = ByReference(allocator.allocate(layout.byteSize()))")
+        builder.appendLine("actual fun allocate(allocator: $memoryAllocator): WGPUNativeDisplayHandle = ByReference(allocator.allocateBuffer(${sizeBytes}uL).handler)")
         builder.appendLine("actual fun allocateArray(allocator: $memoryAllocator, size: UInt, provider: (UInt, WGPUNativeDisplayHandle) -> Unit): $arrayHolder<WGPUNativeDisplayHandle> {")
         builder.indent()
-        builder.appendLine("val byteSize = layout.byteSize()")
-        builder.appendLine("val segment = allocator.allocate(byteSize * size.toLong())")
-        builder.appendLine("for (i in 0 until size.toInt()) {")
+        // Zero size still bumps a non-null pointer; callers treat that as an empty, harmless region.
+        builder.appendLine("val buffer = allocator.allocateBuffer(${sizeBytes}uL * size)")
+        builder.appendLine("val result = $arrayHolder<WGPUNativeDisplayHandle>(buffer.handler)")
+        builder.appendLine("repeat(size.toInt()) { index ->")
         builder.indent()
-        builder.appendLine("val slice = segment.handler.asSlice(i.toLong() * byteSize, byteSize).let(::$nativeAddress)")
-        builder.appendLine("provider(i.toUInt(), ByReference(slice))")
+        builder.appendLine("provider(index.toUInt(), ByValue($nativeAddress(buffer.handler.rawValue + index.toLong() * ${sizeBytes}L)))")
         builder.unindent()
         builder.appendLine("}")
-        builder.appendLine("return $arrayHolder(segment)")
+        builder.appendLine("return result")
         builder.unindent()
         builder.appendLine("}")
         builder.unindent()
         builder.appendLine("}")
 
+        emitNativeDisplayHandleImpl("ByReference", layout, unionFields, typeOffset, dataOffset)
+        emitNativeDisplayHandleImpl("ByValue", layout, unionFields, typeOffset, dataOffset)
+
+        builder.unindent()
+        builder.appendLine("}")
         builder.appendLine()
-        builder.appendLine("@${namePlan.runtime(JVM_INLINE)}")
-        builder.appendLine("value class ByReference(override val handler: $nativeAddress) : WGPUNativeDisplayHandle {")
+    }
+
+    private fun emitNativeDisplayHandleImpl(
+        name: String,
+        layout: KotlinJvmRecordLayout,
+        unionFields: List<Declaration.Variable>,
+        typeOffset: Long,
+        dataOffset: Long,
+    ) {
+        val sizeBytes = layout.sizeBytes
+        val typeScalar = abiIndex.enum(typeMapper.enumDeclaration(layout.field("type").field.type()))
+        val (typeRead, typeWrite, typeCast) = enumMemoryPrimitives(typeScalar)
+        builder.appendLine()
+        builder.appendLine("class $name(val handle: $nativeAddress = $nativeAddress(0L)) : WGPUNativeDisplayHandle {")
         builder.indent()
-        fields.forEach { field ->
-            val fieldType = typeMapper.mapType(field.type())
-            val fieldName = namePlan.member(field)
-            builder.appendLine("override var $fieldName: $fieldType")
-            builder.indent()
-            builder.appendLine("get() = (${fieldName}_VH.get(handler.handler, 0L) as Int).toUInt() as $fieldType")
-            builder.appendLine("set(value) = ${fieldName}_VH.set(handler.handler, 0L, value.toInt())")
-            builder.unindent()
-        }
+        builder.appendLine("private val buffer: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
+        builder.appendLine("override var type: WGPUNativeDisplayHandleType")
+        builder.indent()
+        builder.appendLine("get() = buffer.$typeRead(${typeOffset}uL) as WGPUNativeDisplayHandleType")
+        builder.appendLine("set(value) { buffer.$typeWrite($typeCast, ${typeOffset}uL) }")
+        builder.unindent()
         unionFields.forEach { field ->
             val fieldName = namePlan.member(field)
-            val fieldType = typeMapper.mapType(field.type())
-            val setter = fieldName.replaceFirstChar { it.titlecase() }
+            val type = typeMapper.mapType(field.type())
+            val setter = field.name().replaceFirstChar { it.titlecase() }
             val discriminator = "WGPUNativeDisplayHandleType_$setter"
-            builder.appendLine("override val $fieldName: $fieldType?")
+            val memberSize = recordLayouts[requireNotNull(canonicalRecordDeclaration(field.type()))].sizeBytes
+            builder.appendLine("override val $fieldName: $type?")
             builder.indent()
-            builder.appendLine("get() = if (type == $discriminator) $fieldType($nativeAddress(handler.handler.asSlice(valueOffset, $fieldType.layout.byteSize()))) else null")
+            builder.appendLine("get() = if (type != $discriminator) null else $type.ByValue($nativeAddress(handle.rawValue + ${dataOffset}L))")
             builder.unindent()
-            builder.appendLine("override fun set$setter(value: $fieldType) {")
+            builder.appendLine("override fun set$setter(value: $type) {")
             builder.indent()
             builder.appendLine("type = $discriminator")
-            builder.appendLine("$memorySegment.copy(value.handler.handler, 0L, handler.handler, valueOffset, $fieldType.layout.byteSize())")
+            builder.appendLine("val bytes = ByteArray($memberSize)")
+            builder.appendLine("$memoryBuffer(value.handler, ${memberSize}uL).readBytes(bytes, 0u, 0uL, ${memberSize}uL)")
+            builder.appendLine("buffer.writeBytes(bytes, 0u, ${dataOffset}uL, ${memberSize}uL)")
             builder.unindent()
             builder.appendLine("}")
         }
+        builder.appendLine("override val handler: $nativeAddress")
+        builder.indent()
+        builder.appendLine("get() = handle")
+        builder.unindent()
         builder.unindent()
         builder.appendLine("}")
-
-        builder.unindent()
-        builder.appendLine("}")
-        builder.appendLine()
     }
 
     override fun visitFunction(decl: Declaration.Function) {
@@ -467,15 +350,33 @@ internal class KotlinKmpJvmBuilder(
     override fun visitObjCProtocol(decl: Declaration.ObjCProtocol) {}
     override fun visitObjCCategory(decl: Declaration.ObjCCategory) {}
 
-    fun getFiles(): List<KotlinSourceFile> = files
-
-    private fun emitGroupLayout(
-        decl: Declaration.Scoped,
-    ) {
-        recordLayouts[decl].render(builder)
+    fun getFiles(): List<KotlinSourceFile> {
+        val header = buildString {
+            if (targetPackage.isNotEmpty()) {
+                append("package $targetPackage")
+                append("\n\n")
+            }
+            KotlinKmpRuntimeSymbol.entries
+                .filter { KotlinKmpSourceSet.JVM in it.sourceSets }
+                .filter { it !in JVM_FFM_SYMBOLS || it in usedSymbols }
+                .forEach { appendLine(namePlan.importLine(it)) }
+            appendLine()
+        }
+        return listOf(
+            KotlinSourceFile(
+                targetPackage,
+                className + "Jvm",
+                header + builder.toString().trimEnd() + "\n",
+                sourceRoot = "jvmMain/kotlin",
+            ),
+        )
     }
 
     private fun emitFunction(decl: Declaration.Function) {
+        usedSymbols += setOf(FUNCTION_DESCRIPTOR, MEMORY_SEGMENT, METHOD_HANDLE, LINKER, VALUE_LAYOUT, MEMORY_LAYOUT)
+        if (returnsStructByValue(decl.type().returnType())) {
+            usedSymbols += setOf(ARENA, SEGMENT_ALLOCATOR)
+        }
         val name = namePlan.declaration(decl)
         val cName = decl.name()
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
@@ -618,10 +519,23 @@ internal class KotlinKmpJvmBuilder(
         listOf(VALUE_LAYOUT, MEMORY_LAYOUT).fold(rendered) { value, symbol ->
             value.replace(symbol.preferredName, namePlan.runtime(symbol))
         }
+    private val memorySegment: String = namePlan.runtime(MEMORY_SEGMENT)
 
-    private fun inlineUnionField(decl: Declaration.Scoped): Declaration.Variable? =
-        decl.members()
-            .filterIsInstance<Declaration.Variable>()
-            .firstOrNull { typeMapper.declaredUnion(it.type()) != null }
+    private companion object {
+        val JVM_FFM_SYMBOLS = setOf(
+            ARENA,
+            FUNCTION_DESCRIPTOR,
+            GROUP_ELEMENT,
+            GROUP_LAYOUT,
+            LINKER,
+            MEMORY_LAYOUT,
+            MEMORY_SEGMENT,
+            METHOD_HANDLE,
+            METHOD_HANDLES,
+            SEGMENT_ALLOCATOR,
+            VALUE_LAYOUT,
+            VAR_HANDLE,
+        )
+    }
 
 }

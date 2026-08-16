@@ -3,7 +3,6 @@
 package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
-import org.graphiks.kextract.DeclarationImpl.ClangUnnamedRecord
 import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.Type
 import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
@@ -21,7 +20,6 @@ import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackBindingEmitter
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackAndroidEmitter
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackModel
 import org.graphiks.kextract.kotlin.callbacks.KotlinDirectFunctionBindingModel
-import org.graphiks.kextract.kotlin.abi.AndroidFieldLayout
 import org.graphiks.kextract.kotlin.abi.AndroidRecordLayout
 import org.graphiks.kextract.kotlin.abi.AndroidRecordLayoutPlan
 import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiContext
@@ -59,10 +57,6 @@ internal class KotlinKmpAndroidBuilder(
         KotlinKmpRuntimeSymbol.JNA_UNION,
         KotlinKmpRuntimeSymbol.JNA_CALLBACK_REFERENCE,
         JVM_FIELD,
-    )
-
-    private val memoryScalarPrimitives = setOf(
-        "Byte", "UByte", "Short", "UShort", "Int", "UInt", "Long", "ULong", "Float", "Double",
     )
 
     init {
@@ -647,7 +641,7 @@ internal class KotlinKmpAndroidBuilder(
             .filterIsInstance<Declaration.Variable>()
             .filterNot(Skip::isPresent)
             .filterNot { it == unionField }
-        val unionFields = nativeDisplayUnionFields(decl)
+        val unionFields = nativeDisplayUnionFields(typeMapper, decl)
         val dataOffset = unionField?.let { layout.field(it.name()).offsetBytes } ?: 0L
         val typeOffset = layout.field("type").offsetBytes
 
@@ -739,22 +733,6 @@ internal class KotlinKmpAndroidBuilder(
         builder.appendLine("}")
     }
 
-    private fun nativeDisplayUnionFields(decl: Declaration.Scoped): List<Declaration.Variable> =
-        decl.members()
-            .filterIsInstance<Declaration.Variable>()
-            .filterNot(Skip::isPresent)
-            .firstOrNull { typeMapper.declaredUnion(it.type()) != null }
-            ?.type()
-            ?.let(typeMapper::declaredUnion)
-            ?.members()
-            ?.filterIsInstance<Declaration.Variable>()
-            ?: decl.members()
-                .filterIsInstance<Declaration.Scoped>()
-                .firstOrNull { it.kind() == Declaration.Scoped.Kind.UNION }
-                ?.members()
-                ?.filterIsInstance<Declaration.Variable>()
-            ?: emptyList()
-
     private fun emitMemoryRecordImpl(
         structName: String,
         layout: AndroidRecordLayout,
@@ -771,7 +749,20 @@ internal class KotlinKmpAndroidBuilder(
             val fieldType = typeMapper.mapType(field.type())
             builder.appendLine("override var $propertyName: ${interfaceFieldType(fieldType)}")
             builder.indent()
-            emitMemoryFieldAccessors(field, fieldType, layout.field(field.name()))
+            val fieldLayout = layout.field(field.name())
+            emitMemoryFieldAccessors(
+                builder = builder,
+                typeMapper = typeMapper,
+                abiIndex = abiIndex,
+                nativeAddress = nativeAddress,
+                cString = cString,
+                memoryBuffer = memoryBuffer,
+                field = field,
+                propertyName = propertyName,
+                fieldType = fieldType,
+                offsetBytes = fieldLayout.offsetBytes,
+                sizeBytes = fieldLayout.sizeBytes,
+            )
             builder.unindent()
         }
         builder.appendLine("override val handler: $nativeAddress")
@@ -788,154 +779,6 @@ internal class KotlinKmpAndroidBuilder(
             // Inline C array fields would be wrong with pointer accessors; no wgpu struct uses them today.
             "$fieldType?"
         else -> fieldType
-    }
-
-    private fun emitMemoryFieldAccessors(
-        field: Declaration.Variable,
-        fieldType: String,
-        fieldLayout: AndroidFieldLayout,
-    ) {
-        val offset = fieldLayout.offsetBytes
-        val propertyName = namePlan.member(field)
-        when {
-            fieldType == cString -> {
-                builder.appendLine("get() = buffer.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let(::$cString)")
-                builder.appendLine("set(value) { buffer.writePointer(value?.handler ?: $nativeAddress(0L), ${offset}uL) }")
-            }
-            fieldType == nativeAddress -> {
-                builder.appendLine("get() = buffer.readPointer(${offset}uL)")
-                builder.appendLine("set(value) { buffer.writePointer(value, ${offset}uL) }")
-            }
-            fieldType == "$nativeAddress?" -> {
-                builder.appendLine("get() = buffer.readPointer(${offset}uL).takeIf { it.rawValue != 0L }")
-                builder.appendLine("set(value) { buffer.writePointer(value ?: $nativeAddress(0L), ${offset}uL) }")
-            }
-            typeMapper.isOptionsEnumType(field.type()) -> {
-                val scalar = abiIndex.enum(typeMapper.enumDeclaration(field.type()))
-                val (read, write) = memoryPrimitives(scalar)
-                builder.appendLine("get() = $fieldType(${scalar.jvmCarrierToOptionsRaw("buffer.$read(${offset}uL)")})")
-                builder.appendLine("set(value) { buffer.$write(${scalar.optionsRawToJvmCarrier("value.rawValue")}, ${offset}uL) }")
-            }
-            typeMapper.isEnumType(field.type()) -> {
-                val scalar = abiIndex.enum(typeMapper.enumDeclaration(field.type()))
-                val (read, write, cast) = enumMemoryPrimitives(scalar)
-                builder.appendLine("get() = buffer.$read(${offset}uL) as $fieldType")
-                builder.appendLine("set(value) { buffer.$write($cast, ${offset}uL) }")
-            }
-            isStructType(field.type()) -> {
-                val fieldSize = fieldLayout.sizeBytes
-                builder.appendLine("get() = $fieldType.ByValue($nativeAddress(handle.rawValue + ${offset}L))")
-                builder.appendLine("set(value) {")
-                builder.indent()
-                builder.appendLine("val bytes = ByteArray($fieldSize)")
-                builder.appendLine("$memoryBuffer(value.handler, ${fieldSize}uL).readBytes(bytes, 0u, 0uL, ${fieldSize}uL)")
-                builder.appendLine("buffer.writeBytes(bytes, 0u, ${offset}uL, ${fieldSize}uL)")
-                builder.unindent()
-                builder.appendLine("}")
-            }
-            fieldType == "Boolean" -> {
-                check(fieldLayout.sizeBytes == carrierBytesFor(fieldType)) {
-                    "field ${fieldLayout.cName}: C size ${fieldLayout.sizeBytes} != carrier ${carrierBytesFor(fieldType)}"
-                }
-                builder.appendLine("get() = buffer.readByte(${offset}uL) != 0.toByte()")
-                builder.appendLine("set(value) { buffer.writeByte(if (value) 1 else 0, ${offset}uL) }")
-            }
-            fieldType in memoryScalarPrimitives -> {
-                val (read, write) = memoryPrimitives(fieldType)
-                val carrierBytes = carrierBytesFor(fieldType)
-                check(fieldLayout.sizeBytes == carrierBytes) {
-                    "field ${fieldLayout.cName}: C size ${fieldLayout.sizeBytes} != carrier $carrierBytes"
-                }
-                builder.appendLine("get() = buffer.$read(${offset}uL)")
-                builder.appendLine("set(value) { buffer.$write(value, ${offset}uL) }")
-            }
-            fieldType.endsWith("?") -> {
-                val nonOpt = fieldType.removeSuffix("?")
-                builder.appendLine("get() = buffer.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let { $nonOpt(it) }")
-                builder.appendLine("set(value) { buffer.writePointer(value?.handler ?: $nativeAddress(0L), ${offset}uL) }")
-            }
-            else -> {
-                builder.appendLine("get() = buffer.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let { $fieldType(it) } ?: error(\"$propertyName is null\")")
-                builder.appendLine("set(value) { buffer.writePointer(value.handler, ${offset}uL) }")
-            }
-        }
-    }
-
-    /** Kotlin carrier width in bytes for a scalar mapped type; guards 32-bit (armeabi-v7a) over-reads. */
-    private fun carrierBytesFor(fieldType: String): Long = when (fieldType) {
-        "Byte", "UByte", "Boolean" -> 1L
-        "Short", "UShort" -> 2L
-        "Int", "UInt", "Float" -> 4L
-        "Long", "ULong", "Double" -> 8L
-        else -> error("No carrier width for mapped type $fieldType")
-    }
-
-    private fun memoryPrimitives(fieldType: String): Pair<String, String> = when (fieldType) {
-        "Byte" -> "readByte" to "writeByte"
-        "UByte" -> "readUByte" to "writeUByte"
-        "Short" -> "readShort" to "writeShort"
-        "UShort" -> "readUShort" to "writeUShort"
-        "Int" -> "readInt" to "writeInt"
-        "UInt" -> "readUInt" to "writeUInt"
-        "Long" -> "readLong" to "writeLong"
-        "ULong" -> "readULong" to "writeULong"
-        "Float" -> "readFloat" to "writeFloat"
-        "Double" -> "readDouble" to "writeDouble"
-        else -> error("No memory primitive for mapped type $fieldType")
-    }
-
-    private fun memoryPrimitives(scalar: KotlinKmpCAbiType.Scalar): Pair<String, String> =
-        when (scalar.kind) {
-            KotlinKmpCAbiType.Scalar.Kind.I8,
-            KotlinKmpCAbiType.Scalar.Kind.BOOL,
-            -> "readByte" to "writeByte"
-            KotlinKmpCAbiType.Scalar.Kind.I16,
-            KotlinKmpCAbiType.Scalar.Kind.CHAR16,
-            -> "readShort" to "writeShort"
-            KotlinKmpCAbiType.Scalar.Kind.I32 -> "readInt" to "writeInt"
-            KotlinKmpCAbiType.Scalar.Kind.I64 -> "readLong" to "writeLong"
-            KotlinKmpCAbiType.Scalar.Kind.F32 -> "readFloat" to "writeFloat"
-            KotlinKmpCAbiType.Scalar.Kind.F64 -> "readDouble" to "writeDouble"
-        }
-
-    private fun enumMemoryPrimitives(scalar: KotlinKmpCAbiType.Scalar): Triple<String, String, String> =
-        when (scalar.kind) {
-            KotlinKmpCAbiType.Scalar.Kind.I8 ->
-                if (scalar.unsigned) Triple("readUByte", "writeUByte", "value.toUByte()")
-                else Triple("readByte", "writeByte", "value")
-            KotlinKmpCAbiType.Scalar.Kind.I16 ->
-                if (scalar.unsigned) Triple("readUShort", "writeUShort", "value.toUShort()")
-                else Triple("readShort", "writeShort", "value")
-            KotlinKmpCAbiType.Scalar.Kind.I32 ->
-                if (scalar.unsigned) Triple("readUInt", "writeUInt", "value.toUInt()")
-                else Triple("readInt", "writeInt", "value")
-            KotlinKmpCAbiType.Scalar.Kind.I64 ->
-                if (scalar.unsigned) Triple("readULong", "writeULong", "value.toULong()")
-                else Triple("readLong", "writeLong", "value")
-            else -> error("Unsupported enum carrier ${scalar.kind}")
-        }
-
-    private fun isStructType(type: Type): Boolean = when {
-        type is Type.Declared -> {
-            val tree = type.tree()
-            (tree.kind() == Declaration.Scoped.Kind.STRUCT || tree.kind() == Declaration.Scoped.Kind.UNION) &&
-                    tree.members().filterIsInstance<Declaration.Variable>().isNotEmpty() &&
-                    !ClangUnnamedRecord.isPresent(tree)
-        }
-        type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> {
-            val inner = type.type()
-            isStructType(inner)
-        }
-        else -> false
-    }
-
-    private fun canonicalRecordDeclaration(type: Type): Declaration.Scoped? = when (type) {
-        is Type.Declared -> type.tree().takeIf { record ->
-            record.kind() == Declaration.Scoped.Kind.STRUCT || record.kind() == Declaration.Scoped.Kind.UNION
-        }
-        is Type.Delegated -> canonicalRecordDeclaration(type.type())
-        is Type.Array -> canonicalRecordDeclaration(type.elementType())
-        else -> null
     }
 
     private fun mapJnaType(type: Type): String {

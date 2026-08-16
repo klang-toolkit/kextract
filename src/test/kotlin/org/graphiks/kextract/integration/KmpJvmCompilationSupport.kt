@@ -140,7 +140,7 @@ internal val KFFI_COMMON_STUB =
     """
     package org.graphiks.kffi
 
-    expect class NativeAddress
+    expect value class NativeAddress(val rawValue: Long)
     interface Callback
     enum class CallbackPolicy { ONCE, REPEATING }
     fun interface CallbackExceptionHandler {
@@ -216,7 +216,38 @@ internal val KFFI_COMMON_STUB =
     expect value class CString(val handler: NativeAddress)
     @JvmInline
     value class ArrayHolder<T>(val handler: NativeAddress)
-    expect class MemoryAllocator()
+    expect class MemoryAllocator() {
+        fun allocate(byteSize: Long): NativeAddress
+        fun allocateBuffer(size: ULong): MemoryBuffer
+    }
+    expect class MemoryBuffer(handler: NativeAddress, size: ULong) {
+        val size: ULong
+        val handler: NativeAddress
+        fun writeByte(value: Byte, offset: ULong)
+        fun readByte(offset: ULong): Byte
+        fun writeUByte(value: UByte, offset: ULong)
+        fun readUByte(offset: ULong): UByte
+        fun writeShort(value: Short, offset: ULong)
+        fun readShort(offset: ULong): Short
+        fun writeUShort(value: UShort, offset: ULong)
+        fun readUShort(offset: ULong): UShort
+        fun writeInt(value: Int, offset: ULong)
+        fun readInt(offset: ULong): Int
+        fun writeUInt(value: UInt, offset: ULong)
+        fun readUInt(offset: ULong): UInt
+        fun writeLong(value: Long, offset: ULong)
+        fun readLong(offset: ULong): Long
+        fun writeULong(value: ULong, offset: ULong)
+        fun readULong(offset: ULong): ULong
+        fun writeFloat(value: Float, offset: ULong)
+        fun readFloat(offset: ULong): Float
+        fun writeDouble(value: Double, offset: ULong)
+        fun readDouble(offset: ULong): Double
+        fun writePointer(value: NativeAddress, offset: ULong)
+        fun readPointer(offset: ULong): NativeAddress
+        fun readBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong)
+        fun writeBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong)
+    }
     interface CStructure {
         val handler: NativeAddress
     }
@@ -228,6 +259,7 @@ internal val KFFI_JVM_STUB =
 
     import java.lang.foreign.Arena
     import java.lang.foreign.MemorySegment
+    import java.lang.foreign.ValueLayout
 
     object TestNativeSymbols {
         private val symbols = mutableMapOf<String, MemorySegment>()
@@ -240,14 +272,54 @@ internal val KFFI_JVM_STUB =
             symbols[name] ?: error("Missing test symbol: ${'$'}name")
     }
 
-    class JvmNativeAddress(val handler: MemorySegment) {
-    constructor(rawValue: Long) : this(MemorySegment.ofAddress(rawValue))
-}
-    actual typealias NativeAddress = JvmNativeAddress
+    @JvmInline
+    actual value class NativeAddress actual constructor(actual val rawValue: Long) {
+        val handler: MemorySegment get() = MemorySegment.ofAddress(rawValue)
+    }
     @JvmInline
     actual value class CString actual constructor(actual val handler: NativeAddress)
     actual class MemoryAllocator actual constructor() {
-        fun allocate(byteSize: Long): NativeAddress = NativeAddress(Arena.global().allocate(byteSize))
+        private val arena = Arena.global()
+        actual fun allocate(byteSize: Long): NativeAddress = NativeAddress(arena.allocate(byteSize).address())
+        actual fun allocateBuffer(size: ULong): MemoryBuffer =
+            MemoryBuffer(NativeAddress(arena.allocate(size.toLong()).address()), size)
+    }
+    actual class MemoryBuffer actual constructor(
+        actual val handler: NativeAddress,
+        actual val size: ULong,
+    ) {
+        private val segment: MemorySegment = MemorySegment.ofAddress(handler.rawValue).reinterpret(size.toLong())
+        actual fun writeByte(value: Byte, offset: ULong) { segment.set(ValueLayout.JAVA_BYTE, offset.toLong(), value) }
+        actual fun readByte(offset: ULong): Byte = segment.get(ValueLayout.JAVA_BYTE, offset.toLong())
+        actual fun writeUByte(value: UByte, offset: ULong) { segment.set(ValueLayout.JAVA_BYTE, offset.toLong(), value.toByte()) }
+        actual fun readUByte(offset: ULong): UByte = segment.get(ValueLayout.JAVA_BYTE, offset.toLong()).toUByte()
+        actual fun writeShort(value: Short, offset: ULong) { segment.set(ValueLayout.JAVA_SHORT, offset.toLong(), value) }
+        actual fun readShort(offset: ULong): Short = segment.get(ValueLayout.JAVA_SHORT, offset.toLong())
+        actual fun writeUShort(value: UShort, offset: ULong) { segment.set(ValueLayout.JAVA_SHORT, offset.toLong(), value.toShort()) }
+        actual fun readUShort(offset: ULong): UShort = segment.get(ValueLayout.JAVA_SHORT, offset.toLong()).toUShort()
+        actual fun writeInt(value: Int, offset: ULong) { segment.set(ValueLayout.JAVA_INT, offset.toLong(), value) }
+        actual fun readInt(offset: ULong): Int = segment.get(ValueLayout.JAVA_INT, offset.toLong())
+        actual fun writeUInt(value: UInt, offset: ULong) { segment.set(ValueLayout.JAVA_INT, offset.toLong(), value.toInt()) }
+        actual fun readUInt(offset: ULong): UInt = segment.get(ValueLayout.JAVA_INT, offset.toLong()).toUInt()
+        actual fun writeLong(value: Long, offset: ULong) { segment.set(ValueLayout.JAVA_LONG, offset.toLong(), value) }
+        actual fun readLong(offset: ULong): Long = segment.get(ValueLayout.JAVA_LONG, offset.toLong())
+        actual fun writeULong(value: ULong, offset: ULong) { segment.set(ValueLayout.JAVA_LONG, offset.toLong(), value.toLong()) }
+        actual fun readULong(offset: ULong): ULong = segment.get(ValueLayout.JAVA_LONG, offset.toLong()).toULong()
+        actual fun writeFloat(value: Float, offset: ULong) { segment.set(ValueLayout.JAVA_FLOAT, offset.toLong(), value) }
+        actual fun readFloat(offset: ULong): Float = segment.get(ValueLayout.JAVA_FLOAT, offset.toLong())
+        actual fun writeDouble(value: Double, offset: ULong) { segment.set(ValueLayout.JAVA_DOUBLE, offset.toLong(), value) }
+        actual fun readDouble(offset: ULong): Double = segment.get(ValueLayout.JAVA_DOUBLE, offset.toLong())
+        actual fun writePointer(value: NativeAddress, offset: ULong) {
+            segment.set(ValueLayout.ADDRESS, offset.toLong(), MemorySegment.ofAddress(value.rawValue))
+        }
+        actual fun readPointer(offset: ULong): NativeAddress =
+            NativeAddress(segment.get(ValueLayout.ADDRESS, offset.toLong()).address())
+        actual fun readBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong) {
+            segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().get(array, arrayIndex.toInt(), size.toInt())
+        }
+        actual fun writeBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong) {
+            segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().put(array, arrayIndex.toInt(), size.toInt())
+        }
     }
     fun findOrThrow(name: String): MemorySegment {
         CallbackRuntime.symbolResolutionCount += 1
@@ -285,7 +357,7 @@ internal val KFFI_JVM_ENGINE_STUB =
             val methodHandle = MethodHandles.privateLookupIn(dispatcherClass, MethodHandles.lookup())
                 .findStatic(dispatcherClass, dispatchMethod, descriptor.toMethodType())
             return NativeAddress(
-                MemorySegment.ofAddress(linker.upcallStub(methodHandle, descriptor, arena).address()),
+                MemorySegment.ofAddress(linker.upcallStub(methodHandle, descriptor, arena).address()).address(),
             )
         }
 

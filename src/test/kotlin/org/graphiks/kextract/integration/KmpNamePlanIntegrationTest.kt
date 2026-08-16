@@ -39,9 +39,12 @@ class KmpNamePlanIntegrationTest : FreeSpec({
             listOf(first.common, first.jvm, first.native, first.android).forEach { source ->
                 forbiddenPaths.forEach { path -> source shouldNotContain path }
             }
-            first.jvm shouldContain ".withName(\"Outer\")"
-            first.jvm shouldContain ".withName(\"data\")"
-            first.jvm shouldContain ".withName(\"pair\")"
+            // Memory-backed JVM structs bake Clang offsets into accessors; the
+            // anonymous union sits at offset 8 and the whole record spans 24 bytes.
+            first.jvm shouldContain "actual interface Outer {"
+            first.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
+            first.jvm shouldContain "get() = buffer.readPointer(8uL)"
+            first.jvm shouldNotContain ".withName("
             first.jvm shouldNotContain "union (unnamed at"
             first.jvm shouldNotContain "struct (unnamed at"
             first.android shouldNotContain "unnamed_at"
@@ -157,7 +160,10 @@ class KmpNamePlanIntegrationTest : FreeSpec({
                 when_ = 2
             } sealed;
 
-            int fun(class class, int when, int when_);
+            // Struct-by-value JVM downcalls still need the FFM layout companion
+            // (M5.2 rewrites function emission); the keyword-safety contract is
+            // exercised through a pointer parameter here.
+            int fun(class* class, int when, int when_);
             int fun_(int value);
             """.trimIndent(),
         )
@@ -183,9 +189,9 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.common shouldContain "typealias sealed_"
         generated.common shouldContain "const val when_"
         generated.common shouldContain "const val when__2"
-        generated.common shouldContain "expect fun fun_(class_: class_, when_: Int, when__2: Int): Int"
+        generated.common shouldContain "expect fun fun_(class_: class_?, when_: Int, when__2: Int): Int"
         generated.common shouldContain "expect fun fun__2(value: Int): Int"
-        generated.jvm shouldContain "actual fun fun_(class_: class_, when_: Int, when__2: Int): Int"
+        generated.jvm shouldContain "actual fun fun_(class_: class_?, when_: Int, when__2: Int): Int"
         generated.native shouldContain "webgpu.native.`fun`("
         generated.native shouldContain "this.`when`"
         generated.android shouldContain "actual var when_: Int"
@@ -312,8 +318,13 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         cases.forEach { case ->
             val source = case.sourceSet.source(generated)
             val alias = "Kffi${case.preferredName}"
-            source shouldContain "import ${case.qualifiedName} as $alias"
-            source shouldNotContain "import ${case.qualifiedName}\n"
+            // The JVM imports FFM classifiers only when the emitted code uses them
+            // (structs are memory-backed since M5.1); every import that IS emitted
+            // must still be aliased away from the shadowing C classifier.
+            if (case.qualifiedName in source) {
+                source shouldContain "import ${case.qualifiedName} as $alias"
+                source shouldNotContain "import ${case.qualifiedName}\n"
+            }
         }
         generated.native shouldContain ".Kffireinterpret<"
         generated.native shouldContain ".Kffipointed"

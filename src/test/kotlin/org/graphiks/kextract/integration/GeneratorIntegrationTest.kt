@@ -149,17 +149,18 @@ class GeneratorIntegrationTest : FreeSpec({
             common shouldContain "val wayland: WGPUWaylandDisplayHandle?"
             common shouldContain "fun setWayland(value: WGPUWaylandDisplayHandle)"
 
-            jvm shouldContain "actual interface WGPUNativeDisplayHandle : CStructure"
-            jvm shouldContain "MemoryLayout.sequenceLayout(16, ValueLayout.JAVA_BYTE).withName(\"value\")"
-            jvm shouldContain "private val valueOffset: Long = layout.byteOffset(groupElement(\"value\"))"
-            jvm shouldContain "get() = if (type == WGPUNativeDisplayHandleType_Xlib) WGPUXlibDisplayHandle"
+            jvm shouldContain "actual interface WGPUNativeDisplayHandle {"
+            jvm shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUNativeDisplayHandle {"
+            jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
+            jvm shouldContain "get() = if (type != WGPUNativeDisplayHandleType_Xlib) null else WGPUXlibDisplayHandle.ByValue(NativeAddress(handle.rawValue + 8L))"
             jvm shouldContain "type = WGPUNativeDisplayHandleType_Xlib"
-            jvm shouldContain "MemorySegment.copy(value.handler.handler, 0L, handler.handler, valueOffset, WGPUXlibDisplayHandle.layout.byteSize())"
+            jvm shouldContain "buffer.writeBytes(bytes, 0u, 8uL, 16uL)"
+            jvm shouldNotContain "java.lang.foreign"
         }
     }
 
     "KMP aggregate layout generation" - {
-        "JVM unions use union layouts" {
+        "JVM unions are memory-backed records with zero-based accessors" {
             val header = """
                 typedef union WGPUScalar {
                     unsigned int u32;
@@ -170,10 +171,11 @@ class GeneratorIntegrationTest : FreeSpec({
 
             val jvm = generateKmpFile(header, "jvmMain", "Jvm")
 
-            jvm shouldContain "actual interface WGPUScalar : CStructure"
-            val declaration = jvm.substringAfter("actual interface WGPUScalar")
-            declaration shouldContain "MemoryLayout.unionLayout("
-            declaration shouldNotContain "MemoryLayout.structLayout("
+            jvm shouldContain "actual interface WGPUScalar {"
+            jvm shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUScalar {"
+            jvm shouldContain "get() = buffer.readUInt(0uL)"
+            jvm shouldNotContain "MemoryLayout.unionLayout("
+            jvm shouldNotContain "CStructure"
         }
     }
 

@@ -6,7 +6,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 
 class KmpJvmPackedLayoutTest : FreeSpec({
-    "generated JVM layouts preserve packed Clang offsets and alignments" {
+    "generated JVM memory-backed records preserve packed Clang offsets and sizes" {
         val generated = generateKmpSources(
             """
             typedef struct __attribute__((packed)) PackedLeaf {
@@ -23,12 +23,15 @@ class KmpJvmPackedLayoutTest : FreeSpec({
             """.trimIndent(),
         )
 
-        generated.jvm shouldContain
-            "MemoryLayout.sequenceLayout(2, ValueLayout.JAVA_INT.withByteAlignment(1))" +
-            ".withByteAlignment(1).withName(\"values\")"
-        generated.jvm shouldNotContain
-            "MemoryLayout.sequenceLayout(2, ValueLayout.JAVA_INT)" +
-            ".withByteAlignment(1).withName(\"values\")"
+        generated.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 16uL) }"
+        generated.jvm shouldContain "get() = buffer.readByte(0uL)"
+        generated.jvm shouldContain "get() = buffer.readPointer(1uL)"
+        generated.jvm shouldContain "get() = PackedLeaf.ByValue(NativeAddress(handle.rawValue + 9L))"
+        generated.jvm shouldContain "val bytes = ByteArray(5)"
+        generated.jvm shouldContain "buffer.writeBytes(bytes, 0u, 9uL, 5uL)"
+        generated.jvm shouldContain "get() = buffer.readShort(14uL)"
+        generated.jvm shouldNotContain "MemoryLayout.sequenceLayout"
+        generated.jvm shouldNotContain "java.lang.foreign"
 
         val result = compileAndInvokeGeneratedKmpJvm(
             generated = generated,
@@ -37,31 +40,31 @@ class KmpJvmPackedLayoutTest : FreeSpec({
                 """
                 package sample.probe
 
-                import java.lang.foreign.MemoryLayout.PathElement.groupElement
-                import sample.bindings.PackedLeaf
+                import org.graphiks.kffi.MemoryAllocator
                 import sample.bindings.PackedRecord
 
-                fun inspectPackedLayouts(): LongArray = longArrayOf(
-                    PackedLeaf.layout.byteSize(),
-                    PackedLeaf.layout.byteAlignment(),
-                    PackedLeaf.layout.byteOffset(groupElement("tag")),
-                    PackedLeaf.layout.byteOffset(groupElement("value")),
-                    PackedRecord.layout.byteSize(),
-                    PackedRecord.layout.byteAlignment(),
-                    PackedRecord.layout.byteOffset(groupElement("prefix")),
-                    PackedRecord.layout.byteOffset(groupElement("values")),
-                    PackedRecord.layout.byteOffset(groupElement("leaf")),
-                    PackedRecord.layout.byteOffset(groupElement("tail")),
-                )
+                fun inspectPackedLayouts(): LongArray {
+                    val allocator = MemoryAllocator()
+                    val buffer = allocator.allocateBuffer(16uL)
+                    buffer.writeByte(0x11, 0uL)
+                    buffer.writeByte(0x22, 9uL)
+                    buffer.writeShort(0x7788, 14uL)
+                    val record = PackedRecord.ByReference(buffer.handler)
+                    return longArrayOf(
+                        record.prefix.toLong(),
+                        record.leaf.tag.toLong(),
+                        record.tail.toLong(),
+                    )
+                }
                 """.trimIndent(),
             facadeClassName = "ProbeKt",
             methodName = "inspectPackedLayouts",
         ) as LongArray
 
-        result.toList() shouldBe listOf(5L, 1L, 0L, 1L, 16L, 1L, 0L, 1L, 9L, 14L)
+        result.toList() shouldBe listOf(0x11L, 0x22L, 0x7788L)
     }
 
-    "packed typedef arrays align every nested sequence and element layout" {
+    "packed typedef arrays keep the array field at its Clang offset" {
         val generated = generateKmpSources(
             """
             typedef int Row[2];
@@ -72,6 +75,12 @@ class KmpJvmPackedLayoutTest : FreeSpec({
             """.trimIndent(),
         )
 
+        generated.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 25uL) }"
+        generated.jvm shouldContain "get() = buffer.readByte(0uL)"
+        generated.jvm shouldContain "get() = buffer.readPointer(1uL)"
+        generated.jvm shouldNotContain "MemoryLayout.sequenceLayout"
+        generated.jvm shouldNotContain "java.lang.foreign"
+
         val result = compileAndInvokeGeneratedKmpJvm(
             generated = generated,
             probePackage = "sample.probe",
@@ -79,42 +88,25 @@ class KmpJvmPackedLayoutTest : FreeSpec({
                 """
                 package sample.probe
 
-                import java.lang.foreign.MemoryLayout.PathElement.groupElement
-                import java.lang.foreign.MemoryLayout.PathElement.sequenceElement
+                import org.graphiks.kffi.MemoryAllocator
                 import sample.bindings.PackedTypedefArray
 
                 fun inspectPackedTypedefArray(): LongArray {
-                    val values = PackedTypedefArray.layout.select(groupElement("values"))
-                    val row = values.select(sequenceElement())
-                    val element = row.select(sequenceElement())
-                    return longArrayOf(
-                        PackedTypedefArray.layout.byteSize(),
-                        PackedTypedefArray.layout.byteAlignment(),
-                        PackedTypedefArray.layout.byteOffset(groupElement("prefix")),
-                        PackedTypedefArray.layout.byteOffset(groupElement("values")),
-                        values.byteSize(),
-                        values.byteAlignment(),
-                        row.byteSize(),
-                        row.byteAlignment(),
-                        element.byteSize(),
-                        element.byteAlignment(),
-                    )
+                    val allocator = MemoryAllocator()
+                    val buffer = allocator.allocateBuffer(25uL)
+                    val record = PackedTypedefArray.ByValue(buffer.handler)
+                    record.prefix = 0x11
+                    return longArrayOf(record.prefix.toLong(), buffer.readByte(0uL).toLong())
                 }
                 """.trimIndent(),
             facadeClassName = "ProbeKt",
             methodName = "inspectPackedTypedefArray",
         ) as LongArray
 
-        result.toList() shouldBe listOf(25L, 1L, 0L, 1L, 24L, 1L, 8L, 1L, 4L, 1L)
-        generated.jvm shouldContain
-            "MemoryLayout.sequenceLayout(3, " +
-            "MemoryLayout.sequenceLayout(2, ValueLayout.JAVA_INT.withByteAlignment(1))" +
-            ".withByteAlignment(1)).withByteAlignment(1).withName(\"values\")"
-        generated.jvm shouldNotContain
-            "MemoryLayout.sequenceLayout(2, ValueLayout.JAVA_INT).withByteAlignment(1)"
+        result.toList() shouldBe listOf(0x11L, 0x11L)
     }
 
-    "packed nested aggregates render a recursively under-aligned record variant" {
+    "packed nested aggregates keep the embedded record at its Clang offset" {
         val generated = generateKmpSources(
             """
             typedef struct Inner { int x; } Inner;
@@ -122,6 +114,13 @@ class KmpJvmPackedLayoutTest : FreeSpec({
             """.trimIndent(),
         )
 
+        generated.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 5uL) }"
+        generated.jvm shouldContain "get() = buffer.readByte(0uL)"
+        generated.jvm shouldContain "get() = Inner.ByValue(NativeAddress(handle.rawValue + 1L))"
+        generated.jvm shouldContain "val bytes = ByteArray(4)"
+        generated.jvm shouldContain "buffer.writeBytes(bytes, 0u, 1uL, 4uL)"
+        generated.jvm shouldNotContain "java.lang.foreign"
+
         val result = compileAndInvokeGeneratedKmpJvm(
             generated = generated,
             probePackage = "sample.probe",
@@ -129,38 +128,21 @@ class KmpJvmPackedLayoutTest : FreeSpec({
                 """
                 package sample.probe
 
-                import java.lang.foreign.MemoryLayout.PathElement.groupElement
-                import sample.bindings.Inner
+                import org.graphiks.kffi.MemoryAllocator
                 import sample.bindings.Outer
 
                 fun inspectPackedNestedAggregate(): LongArray {
-                    val inner = Outer.layout.select(groupElement("inner"))
-                    val x = inner.select(groupElement("x"))
-                    return longArrayOf(
-                        Inner.layout.byteSize(),
-                        Inner.layout.byteAlignment(),
-                        Inner.layout.byteOffset(groupElement("x")),
-                        Outer.layout.byteSize(),
-                        Outer.layout.byteAlignment(),
-                        Outer.layout.byteOffset(groupElement("tag")),
-                        Outer.layout.byteOffset(groupElement("inner")),
-                        Outer.layout.byteOffset(groupElement("inner"), groupElement("x")),
-                        inner.byteSize(),
-                        inner.byteAlignment(),
-                        inner.byteOffset(groupElement("x")),
-                        x.byteSize(),
-                        x.byteAlignment(),
-                    )
+                    val allocator = MemoryAllocator()
+                    val buffer = allocator.allocateBuffer(5uL)
+                    val outer = Outer.ByValue(buffer.handler)
+                    outer.tag = 0x11
+                    return longArrayOf(outer.tag.toLong(), buffer.readByte(0uL).toLong())
                 }
                 """.trimIndent(),
             facadeClassName = "ProbeKt",
             methodName = "inspectPackedNestedAggregate",
         ) as LongArray
 
-        result.toList() shouldBe listOf(4L, 4L, 0L, 5L, 1L, 0L, 1L, 1L, 4L, 1L, 0L, 4L, 1L)
-        generated.jvm shouldNotContain
-            "Inner.layout.withByteAlignment(1).withName(\"inner\")"
-        generated.jvm shouldContain
-            "ValueLayout.JAVA_INT.withByteAlignment(1).withName(\"x\")"
+        result.toList() shouldBe listOf(0x11L, 0x11L)
     }
 })

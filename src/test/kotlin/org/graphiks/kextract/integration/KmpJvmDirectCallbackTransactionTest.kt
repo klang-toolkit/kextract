@@ -23,7 +23,7 @@ class KmpJvmDirectCallbackTransactionTest : FreeSpec({
                 typedef struct SamplePayload { int value; } SamplePayload;
                 typedef void (*SampleCallback)(void *userdata);
                 void sample_set_callback(
-                    SamplePayload payload,
+                    SamplePayload* payload,
                     SampleCallback callback,
                     void *userdata
                 );

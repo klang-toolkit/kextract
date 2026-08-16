@@ -35,7 +35,6 @@ internal val GENERATED_CALLBACK_RESERVED_IDENTIFIERS = setOf(
     "MemoryAllocator",
     "CString",
     "ArrayHolder",
-    "CStructure",
     "FunctionDescriptor",
     "MethodHandle",
     "MethodHandles",

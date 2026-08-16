@@ -175,9 +175,9 @@ class KmpJvmEnumAbiTest : FreeSpec({
         generated.jvm shouldContain
             "NarrowOptions((roundTrip_HANDLE.invokeExact(value.rawValue.toInt()) as Int).toUInt().toLong())"
         generated.jvm shouldContain
-            "get() = NarrowOptions((value_VH.get(handler.handler, 0L) as Int).toUInt().toLong())"
+            "get() = NarrowOptions((buffer.readInt(0uL)).toUInt().toLong())"
         generated.jvm shouldContain
-            "set(value) = value_VH.set(handler.handler, 0L, value.rawValue.toInt())"
+            "set(value) { buffer.writeInt(value.rawValue.toInt(), 0uL) }"
         generated.native shouldContain
             "webgpu.native.roundTrip(value.rawValue.toUInt())"
         generated.native shouldContain

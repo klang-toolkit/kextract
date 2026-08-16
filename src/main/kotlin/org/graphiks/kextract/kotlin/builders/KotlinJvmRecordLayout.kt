@@ -19,6 +19,9 @@ internal data class KotlinJvmRecordLayout(
     val alignmentBytes: Long,
     val members: List<KotlinJvmRecordMemberLayout>,
 ) {
+    fun field(cName: String): KotlinJvmRecordMemberLayout =
+        requireNotNull(members.firstOrNull { it.cName == cName }) { "no field '$cName' in ${declaration.name()}" }
+
     fun render(builder: SourceBuilder) {
         val memoryLayout = "java.lang.foreign.MemoryLayout"
         val layoutElements = layoutElements(memoryLayout)
