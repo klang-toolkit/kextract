@@ -248,9 +248,6 @@ internal val KFFI_COMMON_STUB =
         fun readBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong)
         fun writeBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong)
     }
-    interface CStructure {
-        val handler: NativeAddress
-    }
     """.trimIndent()
 
 internal val KFFI_JVM_STUB =
