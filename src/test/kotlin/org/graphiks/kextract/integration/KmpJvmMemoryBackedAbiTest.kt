@@ -218,8 +218,9 @@ class KmpJvmMemoryBackedAbiTest : FreeSpec({
     }
 
     "generated JVM memory-backed sources compile against the kffi runtime" {
-        // Struct-by-value downcalls still reference the FFM `X.layout` companion
-        // until M5.2 rewrites function emission; scalar downcalls compile today.
+        // The JVM downlink path still rides FFM until M5.2 rewrites function
+        // emission, so this fixture keeps struct-by-value functions out of the
+        // compile check; scalar downcalls compile today.
         val generated = generateKmpSources(
             """
             typedef struct WGPUPoint { int x; int y; } WGPUPoint;
