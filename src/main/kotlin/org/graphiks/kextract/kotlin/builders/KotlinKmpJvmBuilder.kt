@@ -551,7 +551,8 @@ internal class KotlinKmpJvmBuilder(
      * - struct par valeur en dernier argument, retour Unit :
      *   `callStructArg&lt;ArgStructName&gt;(fn, …, structPtr)` (SetLabel/…, FreeMembers) ;
      * - struct par valeur seul en argument, retour pointeur :
-     *   `callStructArg&lt;ArgStructName&gt;(fn, structPtr): Long` (wgpuGetProcAddress).
+     *   `callStructArgWGPUStringViewRetP(fn, structPtr): Long` (wgpuGetProcAddress —
+     *   nom dédié au retour pointeur, pas d'overload sur la forme Unit).
      *
      * Toute autre forme (plusieurs structs, struct non dernier, retour non couvert)
      * ou tout struct hors [jvmEngineStructWrappers] échoue à la génération avec un
@@ -582,31 +583,38 @@ internal class KotlinKmpJvmBuilder(
 
     /**
      * Signatures EXACTES des wrappers struct-by-value du moteur, miroir de la table
-     * de JvmDowncallEngine : nom du wrapper → formes `&lt;argLetters&gt;|&lt;returnKind&gt;`
-     * où argLetters encode chaque paramètre (I/L/P/F/D/S/B comme les wrappers
-     * scalaires, S = struct par valeur à sa position C) et returnKind vaut V (Unit),
-     * P (pointeur, résultat Long du moteur) ou S (struct par valeur, ByValue).
-     * Toute signature hors table échoue à la génération plutôt que d'émettre un
-     * appel irrésolu (arity/type) qui ne compilerait pas.
+     * de JvmDowncallEngine : nom de forme canonique → (forme `&lt;argLetters&gt;|&lt;returnKind&gt;`
+     * → nom réel du wrapper émis). argLetters encode chaque paramètre
+     * (I/L/P/F/D/S/B comme les wrappers scalaires, S = struct par valeur à sa
+     * position C) et returnKind vaut V (Unit), P (pointeur, résultat Long du
+     * moteur) ou S (struct par valeur, ByValue). La valeur du mapping est le nom
+     * exact de la méthode du moteur — les formes dont le retour diverge de la forme
+     * canonique portent un nom dédié (callStructArgWGPUStringViewRetP pour le
+     * retour pointeur, jamais d'overload). Toute signature hors table échoue à la
+     * génération plutôt que d'émettre un appel irrésolu (arity/type) qui ne
+     * compilerait pas.
      */
-    private val jvmEngineStructWrapperShapes: Map<String, Set<String>> = mapOf(
-        "callStructArgBox" to setOf("S|V"),
-        "callStructArgWGPUStringView" to setOf("S|P", "PS|V"),
-        "callStructArgWGPUAdapterInfo" to setOf("S|V"),
-        "callStructArgWGPUSupportedFeatures" to setOf("S|V"),
-        "callStructArgWGPUSupportedInstanceFeatures" to setOf("S|V"),
-        "callStructArgWGPUSupportedWGSLLanguageFeatures" to setOf("S|V"),
-        "callStructArgWGPUSurfaceCapabilities" to setOf("S|V"),
-        "callStructReturnBox" to setOf("I|S"),
-        "callStructReturnWGPUFuture" to setOf("P|S"),
-        "callStructReturnWGPUFutureWGPUQueueWorkDoneCallbackInfo" to setOf("PS|S"),
-        "callStructReturnWGPUFutureWGPUPopErrorScopeCallbackInfo" to setOf("PS|S"),
-        "callStructReturnWGPUFutureWGPUCompilationInfoCallbackInfo" to setOf("PS|S"),
-        "callStructReturnWGPUFutureWGPURequestAdapterCallbackInfo" to setOf("PPS|S"),
-        "callStructReturnWGPUFutureWGPURequestDeviceCallbackInfo" to setOf("PPS|S"),
-        "callStructReturnWGPUFutureWGPUCreateRenderPipelineAsyncCallbackInfo" to setOf("PPS|S"),
-        "callStructReturnWGPUFutureWGPUCreateComputePipelineAsyncCallbackInfo" to setOf("PPS|S"),
-        "callStructReturnWGPUFutureWGPUBufferMapCallbackInfo" to setOf("PLLLS|S"),
+    private val jvmEngineStructWrapperShapes: Map<String, Map<String, String>> = mapOf(
+        "callStructArgBox" to mapOf("S|V" to "callStructArgBox"),
+        "callStructArgWGPUStringView" to mapOf(
+            "S|P" to "callStructArgWGPUStringViewRetP",
+            "PS|V" to "callStructArgWGPUStringView",
+        ),
+        "callStructArgWGPUAdapterInfo" to mapOf("S|V" to "callStructArgWGPUAdapterInfo"),
+        "callStructArgWGPUSupportedFeatures" to mapOf("S|V" to "callStructArgWGPUSupportedFeatures"),
+        "callStructArgWGPUSupportedInstanceFeatures" to mapOf("S|V" to "callStructArgWGPUSupportedInstanceFeatures"),
+        "callStructArgWGPUSupportedWGSLLanguageFeatures" to mapOf("S|V" to "callStructArgWGPUSupportedWGSLLanguageFeatures"),
+        "callStructArgWGPUSurfaceCapabilities" to mapOf("S|V" to "callStructArgWGPUSurfaceCapabilities"),
+        "callStructReturnBox" to mapOf("I|S" to "callStructReturnBox"),
+        "callStructReturnWGPUFuture" to mapOf("P|S" to "callStructReturnWGPUFuture"),
+        "callStructReturnWGPUFutureWGPUQueueWorkDoneCallbackInfo" to mapOf("PS|S" to "callStructReturnWGPUFutureWGPUQueueWorkDoneCallbackInfo"),
+        "callStructReturnWGPUFutureWGPUPopErrorScopeCallbackInfo" to mapOf("PS|S" to "callStructReturnWGPUFutureWGPUPopErrorScopeCallbackInfo"),
+        "callStructReturnWGPUFutureWGPUCompilationInfoCallbackInfo" to mapOf("PS|S" to "callStructReturnWGPUFutureWGPUCompilationInfoCallbackInfo"),
+        "callStructReturnWGPUFutureWGPURequestAdapterCallbackInfo" to mapOf("PPS|S" to "callStructReturnWGPUFutureWGPURequestAdapterCallbackInfo"),
+        "callStructReturnWGPUFutureWGPURequestDeviceCallbackInfo" to mapOf("PPS|S" to "callStructReturnWGPUFutureWGPURequestDeviceCallbackInfo"),
+        "callStructReturnWGPUFutureWGPUCreateRenderPipelineAsyncCallbackInfo" to mapOf("PPS|S" to "callStructReturnWGPUFutureWGPUCreateRenderPipelineAsyncCallbackInfo"),
+        "callStructReturnWGPUFutureWGPUCreateComputePipelineAsyncCallbackInfo" to mapOf("PPS|S" to "callStructReturnWGPUFutureWGPUCreateComputePipelineAsyncCallbackInfo"),
+        "callStructReturnWGPUFutureWGPUBufferMapCallbackInfo" to mapOf("PLLLS|S" to "callStructReturnWGPUFutureWGPUBufferMapCallbackInfo"),
     )
 
     private fun emitStructByValueFunction(
@@ -663,7 +671,8 @@ internal class KotlinKmpJvmBuilder(
                 is KotlinKmpCAbiType.Address -> "P"
             else -> error(structByValueShapeError(decl, structReturn))
         }
-        if ("$argLetters|$returnKind" !in (jvmEngineStructWrapperShapes[wrapper] ?: emptySet())) {
+        val emittedWrapper = jvmEngineStructWrapperShapes[wrapper]?.get("$argLetters|$returnKind")
+        if (emittedWrapper == null) {
             error(structByValueShapeError(decl, structReturn))
         }
         val params = (
@@ -675,7 +684,7 @@ internal class KotlinKmpJvmBuilder(
         builder.appendLine("private val ${name}_ADDR: Long by lazy { ${symbolResolver()}(\"$cName\") }")
         builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
-        val call = structByValueCall(decl, returnStructName, argStruct)
+        val call = structByValueCall(decl, emittedWrapper, argStruct)
         when {
             structReturn -> builder.appendLine("return $returnType.ByValue($call)")
             returnType == "Unit" -> {
@@ -697,20 +706,15 @@ internal class KotlinKmpJvmBuilder(
      * L'appel wrapper du moteur pour une fonction struct-by-value : les arguments
      * scalaires/pointeurs sont convertis en carriers bruts (toRawJvmArgument), le
      * struct par valeur est passé par son `handler.rawValue` à sa position C (dernier
-     * argument). L'allocator n'est passé que pour les retours struct (convention FFM).
+     * argument). [wrapper] est le nom EXACT de la méthode du moteur résolu par
+     * [jvmEngineStructWrapperShapes] ; l'allocator n'est passé que pour les retours
+     * struct (convention FFM), identifiés par le préfixe callStructReturn.
      */
     private fun structByValueCall(
         decl: Declaration.Function,
-        returnStructName: String?,
+        wrapper: String,
         argStruct: Declaration.Variable?,
     ): String {
-        val argStructName = argStruct?.let { typeMapper.mapFunctionType(it.type()) }
-        val wrapper = when {
-            returnStructName != null && argStructName != null ->
-                "callStructReturn$returnStructName$argStructName"
-            returnStructName != null -> "callStructReturn$returnStructName"
-            else -> "callStructArg$argStructName"
-        }
         val argStructParamName = argStruct?.let { namePlan.parameter(it) }
         val rawArgs = decl.parameters().map { param ->
             val paramName = namePlan.parameter(param)
@@ -721,7 +725,7 @@ internal class KotlinKmpJvmBuilder(
             }
         }
         return "$jvmDowncallEngine.$wrapper(${functionAddress(decl)}" +
-            (if (returnStructName != null) ", allocator" else "") +
+            (if (wrapper.startsWith("callStructReturn")) ", allocator" else "") +
             rawArgs.joinToString("") { ", $it" } + ")"
     }
 

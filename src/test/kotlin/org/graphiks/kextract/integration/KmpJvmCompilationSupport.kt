@@ -514,7 +514,7 @@ internal val KFFI_JVM_ENGINE_STUB =
 
         // M5.3 : wrappers struct-by-value wgpu — signatures miroir de JvmDowncallEngine.
         fun callStructArgWGPUStringView(fn: Long, p1: Long, structPtr: Long) {}
-        fun callStructArgWGPUStringView(fn: Long, structPtr: Long): Long = 0L
+        fun callStructArgWGPUStringViewRetP(fn: Long, structPtr: Long): Long = 0L
         fun callStructArgWGPUAdapterInfo(fn: Long, structPtr: Long) {}
         fun callStructArgWGPUSupportedFeatures(fn: Long, structPtr: Long) {}
         fun callStructArgWGPUSupportedInstanceFeatures(fn: Long, structPtr: Long) {}

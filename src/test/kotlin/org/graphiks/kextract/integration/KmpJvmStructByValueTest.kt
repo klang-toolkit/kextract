@@ -226,7 +226,7 @@ class KmpJvmStructByValueTest : FreeSpec({
         source shouldNotContain "FunctionDescriptor"
     }
 
-    "wgpu proc-address shape emits callStructArg with a pointer return" {
+    "wgpu proc-address shape emits callStructArgWGPUStringViewRetP with a pointer return" {
         val source = generateJvm(
             """
             typedef struct { void* data; unsigned long long length; } WGPUStringView;
@@ -235,7 +235,7 @@ class KmpJvmStructByValueTest : FreeSpec({
             """.trimIndent(),
         )
         source shouldContain
-            "JvmDowncallEngine.callStructArgWGPUStringView(wgpuGetProcAddress_ADDR, procName.handler.rawValue)"
+            "JvmDowncallEngine.callStructArgWGPUStringViewRetP(wgpuGetProcAddress_ADDR, procName.handler.rawValue)"
     }
 
     "wgpu WGPUFuture-style shape emits callStructReturn with the callbackInfo struct arg" {
