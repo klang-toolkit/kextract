@@ -50,9 +50,9 @@ class KmpJvmMemoryBackedAbiTest : FreeSpec({
         source shouldContain "actual var x: Int"
         source shouldContain "actual var y: Long"
         source shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : Box {"
-        source shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 16uL) }"
-        source shouldContain "get() = buffer.readInt(0uL)"
-        source shouldContain "get() = buffer.readLong(8uL)"
+        source shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 16uL) }"
+        source shouldContain "get() = mem.readInt(0uL)"
+        source shouldContain "get() = mem.readLong(8uL)"
         source shouldNotContain "java.lang.foreign"
         source shouldNotContain "VarHandle"
         source shouldNotContain "MethodHandle"
@@ -73,10 +73,10 @@ class KmpJvmMemoryBackedAbiTest : FreeSpec({
         source shouldContain "actual interface WGPUScalar {"
         source shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUScalar {"
         source shouldContain "class ByValue(val handle: NativeAddress = NativeAddress(0L)) : WGPUScalar {"
-        source shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 8uL) }"
-        source shouldContain "get() = buffer.readUInt(0uL)"
-        source shouldContain "get() = buffer.readFloat(0uL)"
-        source shouldContain "get() = buffer.readULong(0uL)"
+        source shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 8uL) }"
+        source shouldContain "get() = mem.readUInt(0uL)"
+        source shouldContain "get() = mem.readFloat(0uL)"
+        source shouldContain "get() = mem.readULong(0uL)"
         source shouldNotContain "MemoryLayout.unionLayout("
         source shouldNotContain "java.lang.foreign"
     }
@@ -92,7 +92,7 @@ class KmpJvmMemoryBackedAbiTest : FreeSpec({
         val generated = generateKmpSources(header)
 
         generated.jvm shouldContain "class ByValue(val handle: NativeAddress = NativeAddress(0L)) : U {"
-        generated.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 4uL) }"
+        generated.jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 4uL) }"
         generated.jvm shouldNotContain "java.lang.foreign"
 
         val result = compileAndInvokeGeneratedKmpJvm(
@@ -175,11 +175,11 @@ class KmpJvmMemoryBackedAbiTest : FreeSpec({
         generated.jvm shouldContain "actual fun setXlib(value: WGPUXlibDisplayHandle)"
         generated.jvm shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUNativeDisplayHandle {"
         generated.jvm shouldContain "class ByValue(val handle: NativeAddress = NativeAddress(0L)) : WGPUNativeDisplayHandle {"
-        generated.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
+        generated.jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
         generated.jvm shouldContain
             "get() = if (type != WGPUNativeDisplayHandleType_Xlib) null else WGPUXlibDisplayHandle.ByValue(NativeAddress(handle.rawValue + 8L))"
         generated.jvm shouldContain "val bytes = ByteArray(16)"
-        generated.jvm shouldContain "buffer.writeBytes(bytes, 0u, 8uL, 16uL)"
+        generated.jvm shouldContain "mem.writeBytes(bytes, 0u, 8uL, 16uL)"
         generated.jvm shouldNotContain "java.lang.foreign"
 
         val probe =

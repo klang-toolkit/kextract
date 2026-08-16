@@ -151,10 +151,10 @@ class GeneratorIntegrationTest : FreeSpec({
 
             jvm shouldContain "actual interface WGPUNativeDisplayHandle {"
             jvm shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUNativeDisplayHandle {"
-            jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
+            jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
             jvm shouldContain "get() = if (type != WGPUNativeDisplayHandleType_Xlib) null else WGPUXlibDisplayHandle.ByValue(NativeAddress(handle.rawValue + 8L))"
             jvm shouldContain "type = WGPUNativeDisplayHandleType_Xlib"
-            jvm shouldContain "buffer.writeBytes(bytes, 0u, 8uL, 16uL)"
+            jvm shouldContain "mem.writeBytes(bytes, 0u, 8uL, 16uL)"
             jvm shouldNotContain "java.lang.foreign"
         }
     }
@@ -173,7 +173,7 @@ class GeneratorIntegrationTest : FreeSpec({
 
             jvm shouldContain "actual interface WGPUScalar {"
             jvm shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUScalar {"
-            jvm shouldContain "get() = buffer.readUInt(0uL)"
+            jvm shouldContain "get() = mem.readUInt(0uL)"
             jvm shouldNotContain "MemoryLayout.unionLayout("
             jvm shouldNotContain "CStructure"
         }

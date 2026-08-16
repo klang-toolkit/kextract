@@ -628,9 +628,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         common shouldContain "canonicalId = \"typedef:COpaquePointerVar\""
         common shouldContain "fun invoke(value: NativeAddress?)"
         jvm shouldContain
-            "callback.invoke(value.takeIf { it != MemorySegment.NULL }?.let(::NativeAddress))"
+            "callback.invoke(value.takeIf { it != MemorySegment.NULL }?.let { NativeAddress(it.address()) })"
         native shouldContain "private val COpaquePointerVar_2Trampoline = staticCFunction"
-        native shouldContain "callback.invoke(value?.let(::NativeAddress))"
+        native shouldContain "callback.invoke(value?.let { NativeAddress.fromPointer(it) })"
         native shouldNotContain "reinterpret<COpaquePointerVar_2>()"
         android shouldContain "actual fun COpaquePointerVar_2.Companion.register("
         generated.values.forEach { source ->
@@ -992,7 +992,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             trampoline shouldContain "catch (failure: Throwable)"
             trampoline shouldContain "CallbackRuntime.reportUnroutedFailure(failure)"
         }
-        native shouldContain "userdata = userdata2?.let(::NativeAddress),"
+        native shouldContain "userdata = userdata2?.let { NativeAddress.fromPointer(it) },"
         native shouldContain "type = NoUserdataCallbackType,\n            userdata = null,"
         native.split("staticCFunction<").size shouldBe 3
         native shouldNotContain "private var SampleCallback_callback"
@@ -1010,7 +1010,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         common shouldContain "typealias LargeStatus = ULong"
         common shouldContain "const val LargeStatus_High : LargeStatus = 4294967296uL"
         jvm shouldContain
-            "private val descriptor: FunctionDescriptor = FunctionDescriptor.ofVoid(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, SamplePayload.layout, ValueLayout.ADDRESS, ValueLayout.ADDRESS)"
+            "private val descriptor: FunctionDescriptor = FunctionDescriptor.ofVoid(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, JvmDowncallEngine.structLayout(\"SamplePayload\"), ValueLayout.ADDRESS, ValueLayout.ADDRESS)"
         jvm shouldContain """
             private fun invoke(
                 status: Long,
@@ -1076,7 +1076,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
     "struct-by-value callback parameters keep raw carriers until post-claim conversion" {
         val generated = generateKmp(abiCallbacks)
 
-        generated.getValue("jvmMain") shouldContain "SamplePayload(NativeAddress(payload)),"
+        generated.getValue("jvmMain") shouldContain "SamplePayload(NativeAddress(payload.address())),"
         generated.getValue("nativeMain") shouldContain "SamplePayload.ByValue(payload),"
     }
 
@@ -1085,9 +1085,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
         generated.getValue("commonMain") shouldContain "device: NativeAddress?,"
         generated.getValue("jvmMain") shouldContain
-            "device.takeIf { it != MemorySegment.NULL }?.let(::NativeAddress),"
+            "device.takeIf { it != MemorySegment.NULL }?.let { NativeAddress(it.address()) },"
         generated.getValue("nativeMain") shouldContain
-            "device?.let(::NativeAddress),"
+            "device?.let { NativeAddress.fromPointer(it) },"
         generated.getValue("androidMain") shouldContain
             "actual fun AbiCallback.Companion.register("
         generated.values.forEach { source ->

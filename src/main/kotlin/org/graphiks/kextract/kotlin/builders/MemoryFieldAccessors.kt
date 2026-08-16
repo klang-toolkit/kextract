@@ -118,7 +118,7 @@ internal fun nativeDisplayUnionFields(
 
 /**
  * Emits the getter/setter pair for one struct field over the enclosing
- * implementation's `private val buffer: MemoryBuffer`. [offsetBytes] and
+ * implementation's `private val mem: MemoryBuffer`. [offsetBytes] and
  * [sizeBytes] come from the target record layout plan (Clang offsets).
  */
 internal fun emitMemoryFieldAccessors(
@@ -137,28 +137,28 @@ internal fun emitMemoryFieldAccessors(
     val offset = offsetBytes
     when {
         fieldType == cString -> {
-            builder.appendLine("get() = buffer.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let(::$cString)")
-            builder.appendLine("set(value) { buffer.writePointer(value?.handler ?: $nativeAddress(0L), ${offset}uL) }")
+            builder.appendLine("get() = mem.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let(::$cString)")
+            builder.appendLine("set(value) { mem.writePointer(value?.handler ?: $nativeAddress(0L), ${offset}uL) }")
         }
         fieldType == nativeAddress -> {
-            builder.appendLine("get() = buffer.readPointer(${offset}uL)")
-            builder.appendLine("set(value) { buffer.writePointer(value, ${offset}uL) }")
+            builder.appendLine("get() = mem.readPointer(${offset}uL)")
+            builder.appendLine("set(value) { mem.writePointer(value, ${offset}uL) }")
         }
         fieldType == "$nativeAddress?" -> {
-            builder.appendLine("get() = buffer.readPointer(${offset}uL).takeIf { it.rawValue != 0L }")
-            builder.appendLine("set(value) { buffer.writePointer(value ?: $nativeAddress(0L), ${offset}uL) }")
+            builder.appendLine("get() = mem.readPointer(${offset}uL).takeIf { it.rawValue != 0L }")
+            builder.appendLine("set(value) { mem.writePointer(value ?: $nativeAddress(0L), ${offset}uL) }")
         }
         typeMapper.isOptionsEnumType(field.type()) -> {
             val scalar = abiIndex.enum(typeMapper.enumDeclaration(field.type()))
             val (read, write) = memoryPrimitives(scalar)
-            builder.appendLine("get() = $fieldType(${scalar.jvmCarrierToOptionsRaw("buffer.$read(${offset}uL)")})")
-            builder.appendLine("set(value) { buffer.$write(${scalar.optionsRawToJvmCarrier("value.rawValue")}, ${offset}uL) }")
+            builder.appendLine("get() = $fieldType(${scalar.jvmCarrierToOptionsRaw("mem.$read(${offset}uL)")})")
+            builder.appendLine("set(value) { mem.$write(${scalar.optionsRawToJvmCarrier("value.rawValue")}, ${offset}uL) }")
         }
         typeMapper.isEnumType(field.type()) -> {
             val scalar = abiIndex.enum(typeMapper.enumDeclaration(field.type()))
             val (read, write, cast) = enumMemoryPrimitives(scalar)
-            builder.appendLine("get() = buffer.$read(${offset}uL) as $fieldType")
-            builder.appendLine("set(value) { buffer.$write($cast, ${offset}uL) }")
+            builder.appendLine("get() = mem.$read(${offset}uL) as $fieldType")
+            builder.appendLine("set(value) { mem.$write($cast, ${offset}uL) }")
         }
         isStructType(field.type()) -> {
             val fieldSize = sizeBytes
@@ -167,7 +167,7 @@ internal fun emitMemoryFieldAccessors(
             builder.indent()
             builder.appendLine("val bytes = ByteArray($fieldSize)")
             builder.appendLine("$memoryBuffer(value.handler, ${fieldSize}uL).readBytes(bytes, 0u, 0uL, ${fieldSize}uL)")
-            builder.appendLine("buffer.writeBytes(bytes, 0u, ${offset}uL, ${fieldSize}uL)")
+            builder.appendLine("mem.writeBytes(bytes, 0u, ${offset}uL, ${fieldSize}uL)")
             builder.unindent()
             builder.appendLine("}")
         }
@@ -175,8 +175,8 @@ internal fun emitMemoryFieldAccessors(
             check(sizeBytes == carrierBytesFor(fieldType)) {
                 "field ${field.name()}: C size $sizeBytes != carrier ${carrierBytesFor(fieldType)}"
             }
-            builder.appendLine("get() = buffer.readByte(${offset}uL) != 0.toByte()")
-            builder.appendLine("set(value) { buffer.writeByte(if (value) 1 else 0, ${offset}uL) }")
+            builder.appendLine("get() = mem.readByte(${offset}uL) != 0.toByte()")
+            builder.appendLine("set(value) { mem.writeByte(if (value) 1 else 0, ${offset}uL) }")
         }
         fieldType in memoryScalarPrimitives -> {
             val (read, write) = memoryPrimitives(fieldType)
@@ -184,17 +184,17 @@ internal fun emitMemoryFieldAccessors(
             check(sizeBytes == carrierBytes) {
                 "field ${field.name()}: C size $sizeBytes != carrier $carrierBytes"
             }
-            builder.appendLine("get() = buffer.$read(${offset}uL)")
-            builder.appendLine("set(value) { buffer.$write(value, ${offset}uL) }")
+            builder.appendLine("get() = mem.$read(${offset}uL)")
+            builder.appendLine("set(value) { mem.$write(value, ${offset}uL) }")
         }
         fieldType.endsWith("?") -> {
             val nonOpt = fieldType.removeSuffix("?")
-            builder.appendLine("get() = buffer.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let { $nonOpt(it) }")
-            builder.appendLine("set(value) { buffer.writePointer(value?.handler ?: $nativeAddress(0L), ${offset}uL) }")
+            builder.appendLine("get() = mem.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let { $nonOpt(it) }")
+            builder.appendLine("set(value) { mem.writePointer(value?.handler ?: $nativeAddress(0L), ${offset}uL) }")
         }
         else -> {
-            builder.appendLine("get() = buffer.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let { $fieldType(it) } ?: error(\"$propertyName is null\")")
-            builder.appendLine("set(value) { buffer.writePointer(value.handler, ${offset}uL) }")
+            builder.appendLine("get() = mem.readPointer(${offset}uL).takeIf { it.rawValue != 0L }?.let { $fieldType(it) } ?: error(\"$propertyName is null\")")
+            builder.appendLine("set(value) { mem.writePointer(value.handler, ${offset}uL) }")
         }
     }
 }

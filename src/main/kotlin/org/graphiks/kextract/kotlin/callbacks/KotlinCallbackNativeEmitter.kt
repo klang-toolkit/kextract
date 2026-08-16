@@ -60,7 +60,10 @@ internal class KotlinCallbackNativeEmitter(
         builder.appendLine("${namePlan.runtime(CALLBACK_RUNTIME)}.dispatchSafely(")
         builder.indent()
         builder.appendLine("type = ${callback.runtimeTypeName},")
-        val routingUserdata = callback.routingUserdataParameter?.name?.let { "$it?.let(::${namePlan.runtime(NATIVE_ADDRESS)})" } ?: "null"
+        val routingUserdata = callback.routingUserdataParameter
+            ?.name
+            ?.let { "$it?.let { ${namePlan.runtime(NATIVE_ADDRESS)}.fromPointer(it) }" }
+            ?: "null"
         builder.appendLine("userdata = $routingUserdata,")
         builder.unindent()
         builder.appendLine(") { callback ->")
@@ -113,7 +116,7 @@ internal class KotlinCallbackNativeEmitter(
         builder.appendLine("): $registrationType<${callback.typeName}> = ${namePlan.runtime(CALLBACK_RUNTIME)}.$operation(")
         builder.indent()
         builder.appendLine("type = ${callback.runtimeTypeName},")
-        builder.appendLine("trampoline = ${namePlan.runtime(NATIVE_ADDRESS)}(${callback.trampolineName}),")
+        builder.appendLine("trampoline = ${namePlan.runtime(NATIVE_ADDRESS)}.fromPointer(${callback.trampolineName}),")
         builder.appendLine("policy = policy,")
         builder.appendLine("onError = onError,")
         builder.appendLine("callback = callback,")
@@ -132,16 +135,16 @@ internal class KotlinCallbackNativeEmitter(
             isEnum(type) -> enumApplicationValue(name, mapped, cAbiType)
             cAbiType is KotlinKmpCAbiType.StructValue -> "$mapped.ByValue($name)"
             cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(NATIVE_ADDRESS)}?" ->
-                "$name?.let(::${namePlan.runtime(NATIVE_ADDRESS)})"
+                "$name?.let { ${namePlan.runtime(NATIVE_ADDRESS)}.fromPointer(it) }"
             cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(C_STRING)}?" ->
-                "$name?.let(::${namePlan.runtime(NATIVE_ADDRESS)})?.let(::${namePlan.runtime(C_STRING)})"
+                "$name?.let { ${namePlan.runtime(NATIVE_ADDRESS)}.fromPointer(it) }?.let(::${namePlan.runtime(C_STRING)})"
             cAbiType is KotlinKmpCAbiType.Address && mapped.endsWith("?") -> {
                 val nonNullable = mapped.removeSuffix("?")
                 if (cAbiType.pointerDepth > 1) {
                     "$name?.${namePlan.runtime(REINTERPRET)}<${namePlan.runtime(C_OPAQUE_POINTER_VAR)}>()?.${namePlan.runtime(POINTED)}?.value" +
-                        "?.let(::${namePlan.runtime(NATIVE_ADDRESS)})?.let { $nonNullable(it) }"
+                        "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}.fromPointer(it) }?.let { $nonNullable(it) }"
                 } else {
-                    "$name?.let(::${namePlan.runtime(NATIVE_ADDRESS)})?.let { $nonNullable(it) }"
+                    "$name?.let { ${namePlan.runtime(NATIVE_ADDRESS)}.fromPointer(it) }?.let { $nonNullable(it) }"
                 }
             }
             else -> name

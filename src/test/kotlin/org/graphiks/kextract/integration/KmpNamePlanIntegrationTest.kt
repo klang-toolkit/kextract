@@ -42,8 +42,8 @@ class KmpNamePlanIntegrationTest : FreeSpec({
             // Memory-backed JVM structs bake Clang offsets into accessors; the
             // anonymous union sits at offset 8 and the whole record spans 24 bytes.
             first.jvm shouldContain "actual interface Outer {"
-            first.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
-            first.jvm shouldContain "get() = buffer.readPointer(8uL)"
+            first.jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
+            first.jvm shouldContain "get() = mem.readPointer(8uL)"
             first.jvm shouldNotContain ".withName("
             first.jvm shouldNotContain "union (unnamed at"
             first.jvm shouldNotContain "struct (unnamed at"
@@ -196,9 +196,9 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.native shouldContain "this.`when`"
         generated.android shouldContain "actual var when_: Int"
         generated.android shouldContain "actual var when__2: Int"
-        generated.android shouldContain "get() = buffer.readInt(0uL)"
-        generated.android shouldContain "set(value) { buffer.writeInt(value, 0uL) }"
-        generated.android shouldContain "get() = buffer.readInt(4uL)"
+        generated.android shouldContain "get() = mem.readInt(0uL)"
+        generated.android shouldContain "set(value) { mem.writeInt(value, 0uL) }"
+        generated.android shouldContain "get() = mem.readInt(4uL)"
     }
 
     "opaque handles use their planned public names in fields and functions" {
@@ -336,7 +336,7 @@ class KmpNamePlanIntegrationTest : FreeSpec({
             "class ByReference(val handle: KffiNativeAddress = KffiNativeAddress(0L)) : RuntimeAliasExercise {"
         generated.android shouldContain
             "class ByValue(val handle: KffiNativeAddress = KffiNativeAddress(0L)) : RuntimeAndroidAliasExercise {"
-        generated.android shouldContain "private val buffer: KffiMemoryBuffer by lazy { KffiMemoryBuffer(handle, 4uL) }"
+        generated.android shouldContain "private val mem: KffiMemoryBuffer by lazy { KffiMemoryBuffer(handle, 4uL) }"
         generated.android shouldContain "get() = reinterpret.ByValue(KffiNativeAddress(handle.rawValue + 0L))"
     }
 })

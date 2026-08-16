@@ -23,13 +23,13 @@ class KmpJvmPackedLayoutTest : FreeSpec({
             """.trimIndent(),
         )
 
-        generated.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 16uL) }"
-        generated.jvm shouldContain "get() = buffer.readByte(0uL)"
-        generated.jvm shouldContain "get() = buffer.readPointer(1uL)"
+        generated.jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 16uL) }"
+        generated.jvm shouldContain "get() = mem.readByte(0uL)"
+        generated.jvm shouldContain "get() = mem.readPointer(1uL)"
         generated.jvm shouldContain "get() = PackedLeaf.ByValue(NativeAddress(handle.rawValue + 9L))"
         generated.jvm shouldContain "val bytes = ByteArray(5)"
-        generated.jvm shouldContain "buffer.writeBytes(bytes, 0u, 9uL, 5uL)"
-        generated.jvm shouldContain "get() = buffer.readShort(14uL)"
+        generated.jvm shouldContain "mem.writeBytes(bytes, 0u, 9uL, 5uL)"
+        generated.jvm shouldContain "get() = mem.readShort(14uL)"
         generated.jvm shouldNotContain "MemoryLayout.sequenceLayout"
         generated.jvm shouldNotContain "java.lang.foreign"
 
@@ -75,9 +75,9 @@ class KmpJvmPackedLayoutTest : FreeSpec({
             """.trimIndent(),
         )
 
-        generated.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 25uL) }"
-        generated.jvm shouldContain "get() = buffer.readByte(0uL)"
-        generated.jvm shouldContain "get() = buffer.readPointer(1uL)"
+        generated.jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 25uL) }"
+        generated.jvm shouldContain "get() = mem.readByte(0uL)"
+        generated.jvm shouldContain "get() = mem.readPointer(1uL)"
         generated.jvm shouldNotContain "MemoryLayout.sequenceLayout"
         generated.jvm shouldNotContain "java.lang.foreign"
 
@@ -114,11 +114,11 @@ class KmpJvmPackedLayoutTest : FreeSpec({
             """.trimIndent(),
         )
 
-        generated.jvm shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, 5uL) }"
-        generated.jvm shouldContain "get() = buffer.readByte(0uL)"
+        generated.jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 5uL) }"
+        generated.jvm shouldContain "get() = mem.readByte(0uL)"
         generated.jvm shouldContain "get() = Inner.ByValue(NativeAddress(handle.rawValue + 1L))"
         generated.jvm shouldContain "val bytes = ByteArray(4)"
-        generated.jvm shouldContain "buffer.writeBytes(bytes, 0u, 1uL, 4uL)"
+        generated.jvm shouldContain "mem.writeBytes(bytes, 0u, 1uL, 4uL)"
         generated.jvm shouldNotContain "java.lang.foreign"
 
         val result = compileAndInvokeGeneratedKmpJvm(

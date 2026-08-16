@@ -570,22 +570,22 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
 
         generated.bridge shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUAdapterInfo {"
         generated.bridge shouldContain "class ByValue(val handle: NativeAddress = NativeAddress(0L)) : WGPUAdapterInfo {"
-        generated.bridge shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, ${size}uL) }"
+        generated.bridge shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, ${size}uL) }"
 
-        generated.bridge shouldContain "get() = buffer.readUInt(${vendorIDOffset}uL)"
-        generated.bridge shouldContain "set(value) { buffer.writeUInt(value, ${vendorIDOffset}uL) }"
-        generated.bridge shouldContain "get() = buffer.readULong(${adapterIDOffset}uL)"
-        generated.bridge shouldContain "set(value) { buffer.writeULong(value, ${adapterIDOffset}uL) }"
-        generated.bridge shouldContain "get() = buffer.readPointer(${vendorNameOffset}uL).takeIf { it.rawValue != 0L }?.let(::CString)"
-        generated.bridge shouldContain "set(value) { buffer.writePointer(value?.handler ?: NativeAddress(0L), ${vendorNameOffset}uL) }"
-        generated.bridge shouldContain "get() = buffer.readPointer(${layout.field("nextInChain").offsetBytes}uL).takeIf { it.rawValue != 0L }?.let { WGPUChainedStruct(it) }"
-        generated.bridge shouldContain "set(value) { buffer.writePointer(value?.handler ?: NativeAddress(0L), ${layout.field("nextInChain").offsetBytes}uL) }"
-        generated.bridge shouldContain "get() = buffer.readByte(${hostOffset}uL) != 0.toByte()"
-        generated.bridge shouldContain "set(value) { buffer.writeByte(if (value) 1 else 0, ${hostOffset}uL) }"
+        generated.bridge shouldContain "get() = mem.readUInt(${vendorIDOffset}uL)"
+        generated.bridge shouldContain "set(value) { mem.writeUInt(value, ${vendorIDOffset}uL) }"
+        generated.bridge shouldContain "get() = mem.readULong(${adapterIDOffset}uL)"
+        generated.bridge shouldContain "set(value) { mem.writeULong(value, ${adapterIDOffset}uL) }"
+        generated.bridge shouldContain "get() = mem.readPointer(${vendorNameOffset}uL).takeIf { it.rawValue != 0L }?.let(::CString)"
+        generated.bridge shouldContain "set(value) { mem.writePointer(value?.handler ?: NativeAddress(0L), ${vendorNameOffset}uL) }"
+        generated.bridge shouldContain "get() = mem.readPointer(${layout.field("nextInChain").offsetBytes}uL).takeIf { it.rawValue != 0L }?.let { WGPUChainedStruct(it) }"
+        generated.bridge shouldContain "set(value) { mem.writePointer(value?.handler ?: NativeAddress(0L), ${layout.field("nextInChain").offsetBytes}uL) }"
+        generated.bridge shouldContain "get() = mem.readByte(${hostOffset}uL) != 0.toByte()"
+        generated.bridge shouldContain "set(value) { mem.writeByte(if (value) 1 else 0, ${hostOffset}uL) }"
         generated.bridge shouldContain "get() = WGPULimits.ByValue(NativeAddress(handle.rawValue + ${limitsOffset}L))"
-        generated.bridge shouldContain "buffer.writeBytes(bytes, 0u, ${limitsOffset}uL, ${layout.field("limits").sizeBytes}uL)"
-        generated.bridge shouldContain "get() = WGPUFeatureFlags((buffer.readInt(${flagsOffset}uL)).toUInt().toLong())"
-        generated.bridge shouldContain "set(value) { buffer.writeInt(value.rawValue.toInt(), ${flagsOffset}uL) }"
+        generated.bridge shouldContain "mem.writeBytes(bytes, 0u, ${limitsOffset}uL, ${layout.field("limits").sizeBytes}uL)"
+        generated.bridge shouldContain "get() = WGPUFeatureFlags((mem.readInt(${flagsOffset}uL)).toUInt().toLong())"
+        generated.bridge shouldContain "set(value) { mem.writeInt(value.rawValue.toInt(), ${flagsOffset}uL) }"
         generated.bridge shouldContain "override val handler: NativeAddress"
         generated.bridge shouldContain "get() = handle"
     }
@@ -619,12 +619,12 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         val container = androidLayout(GENERAL_UNION_HEADER, "WGPUUnionContainer")
 
         generated.bridge shouldContain "actual interface WGPUScalar {"
-        generated.bridge shouldContain "get() = buffer.readUInt(0uL)"
-        generated.bridge shouldContain "get() = buffer.readDouble(0uL)"
-        generated.bridge shouldContain "get() = buffer.readByte(0uL) != 0.toByte()"
-        generated.bridge shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, ${layout.sizeBytes}uL) }"
+        generated.bridge shouldContain "get() = mem.readUInt(0uL)"
+        generated.bridge shouldContain "get() = mem.readDouble(0uL)"
+        generated.bridge shouldContain "get() = mem.readByte(0uL) != 0.toByte()"
+        generated.bridge shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, ${layout.sizeBytes}uL) }"
         generated.bridge shouldContain "get() = WGPUScalar.ByValue(NativeAddress(handle.rawValue + ${container.field("scalar").offsetBytes}L))"
-        generated.bridge shouldContain "set(value) { buffer.writePointer(value?.handler ?: NativeAddress(0L), ${container.field("scalarPointer").offsetBytes}uL) }"
+        generated.bridge shouldContain "set(value) { mem.writePointer(value?.handler ?: NativeAddress(0L), ${container.field("scalarPointer").offsetBytes}uL) }"
     }
 
     "functions resolve symbols once and call the typed NativeEngine wrapper" {
@@ -734,7 +734,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUNativeDisplayHandle {"
         generated.bridge shouldContain "get() = if (type != WGPUNativeDisplayHandleType_Xlib) null else WGPUXlibDisplayHandle.ByValue(NativeAddress(handle.rawValue + ${dataOffset}L))"
         generated.bridge shouldContain "val bytes = ByteArray($xlibSize)"
-        generated.bridge shouldContain "buffer.writeBytes(bytes, 0u, ${dataOffset}uL, ${xlibSize}uL)"
+        generated.bridge shouldContain "mem.writeBytes(bytes, 0u, ${dataOffset}uL, ${xlibSize}uL)"
 
         val probe =
             """
@@ -844,8 +844,8 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.common shouldContain "typealias WGPUFoo = UInt"
         generated.common shouldNotContain "value class WGPUFoo"
 
-        generated.bridge shouldContain "WGPUInstanceBackend((buffer.readInt(0uL))"
-        generated.bridge shouldContain "set(value) { buffer.writeInt(value.rawValue.toInt(), 0uL) }"
+        generated.bridge shouldContain "WGPUInstanceBackend((mem.readInt(0uL))"
+        generated.bridge shouldContain "set(value) { mem.writeInt(value.rawValue.toInt(), 0uL) }"
         generated.bridge shouldContain "as WGPUFoo"
         generated.bridge shouldNotContain "as WGPUInstanceBackend"
     }

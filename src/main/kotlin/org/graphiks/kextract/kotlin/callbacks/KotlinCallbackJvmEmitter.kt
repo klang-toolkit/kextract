@@ -10,6 +10,7 @@ import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_REGISTRATION
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_RUNTIME
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_RUNTIME_API
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.FUNCTION_DESCRIPTOR
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_DOWNCALL_ENGINE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_STATIC
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_UPCALL_ENGINE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.LINKER
@@ -164,7 +165,15 @@ internal class KotlinCallbackJvmEmitter(
         val rawParameters = callback.rawParameters()
         val functionDescriptor = namePlan.runtime(FUNCTION_DESCRIPTOR)
         val descriptor = "$functionDescriptor.ofVoid(" +
-            rawParameters.joinToString(", ") { planJvmLayout(it.cAbiType.jvmLayout) } +
+            rawParameters.joinToString(", ") { parameter ->
+                val cAbiType = parameter.cAbiType
+                if (cAbiType is KotlinKmpCAbiType.StructValue) {
+                    "${namePlan.runtime(JVM_DOWNCALL_ENGINE)}.structLayout(" +
+                        "\"${namePlan.declaration(cAbiType.declaration)}\")"
+                } else {
+                    planJvmLayout(cAbiType.jvmLayout)
+                }
+            } +
             ")"
 
         builder.appendLine("@${namePlan.runtime(OPT_IN)}(${namePlan.runtime(CALLBACK_RUNTIME_API)}::class)")
@@ -184,7 +193,10 @@ internal class KotlinCallbackJvmEmitter(
         builder.appendLine("}")
         builder.appendLine("val address: ${namePlan.runtime(NATIVE_ADDRESS)} by lazy {")
         builder.indent()
-        builder.appendLine("${namePlan.runtime(NATIVE_ADDRESS)}(${namePlan.runtime(LINKER)}.nativeLinker().upcallStub(methodHandle, descriptor, ${namePlan.runtime(ARENA)}.global()))")
+        builder.appendLine(
+            "${namePlan.runtime(NATIVE_ADDRESS)}(" +
+                "${namePlan.runtime(LINKER)}.nativeLinker().upcallStub(methodHandle, descriptor, ${namePlan.runtime(ARENA)}.global()).address())",
+        )
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
@@ -204,7 +216,10 @@ internal class KotlinCallbackJvmEmitter(
         builder.appendLine("type = ${callback.runtimeTypeName},")
         val routingUserdata = callback.routingUserdataParameter
             ?.name
-            ?.let { "$it.takeIf { it != ${namePlan.runtime(MEMORY_SEGMENT)}.NULL }?.let(::${namePlan.runtime(NATIVE_ADDRESS)})" }
+            ?.let {
+                "$it.takeIf { it != ${namePlan.runtime(MEMORY_SEGMENT)}.NULL }" +
+                    "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(it.address()) }"
+            }
             ?: "null"
         builder.appendLine("userdata = $routingUserdata,")
         builder.unindent()
@@ -315,11 +330,14 @@ internal class KotlinCallbackJvmEmitter(
             mapped == "ULong" -> "$name.toULong()"
             mapped == "UShort" -> "$name.toUShort()"
             mapped == "UByte" -> "$name.toUByte()"
-            cAbiType is KotlinKmpCAbiType.StructValue -> "$mapped(${namePlan.runtime(NATIVE_ADDRESS)}($name))"
+            cAbiType is KotlinKmpCAbiType.StructValue ->
+                "$mapped(${namePlan.runtime(NATIVE_ADDRESS)}($name.address()))"
             cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(NATIVE_ADDRESS)}?" ->
-                "$name.takeIf { it != ${namePlan.runtime(MEMORY_SEGMENT)}.NULL }?.let(::${namePlan.runtime(NATIVE_ADDRESS)})"
+                "$name.takeIf { it != ${namePlan.runtime(MEMORY_SEGMENT)}.NULL }" +
+                    "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(it.address()) }"
             cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(C_STRING)}?" ->
-                "$name.takeIf { it != ${namePlan.runtime(MEMORY_SEGMENT)}.NULL }?.let(::${namePlan.runtime(NATIVE_ADDRESS)})?.let(::${namePlan.runtime(C_STRING)})"
+                "$name.takeIf { it != ${namePlan.runtime(MEMORY_SEGMENT)}.NULL }" +
+                    "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(it.address()) }?.let(::${namePlan.runtime(C_STRING)})"
             cAbiType is KotlinKmpCAbiType.Address && mapped.endsWith("?") -> {
                 val nonNullable = mapped.removeSuffix("?")
                 if (cAbiType.pointerDepth > 1) {
@@ -327,10 +345,10 @@ internal class KotlinCallbackJvmEmitter(
                         "?.reinterpret(${namePlan.runtime(VALUE_LAYOUT)}.ADDRESS.byteSize())" +
                         "?.get(${namePlan.runtime(VALUE_LAYOUT)}.ADDRESS, 0L)" +
                         "?.takeIf { it != ${namePlan.runtime(MEMORY_SEGMENT)}.NULL }" +
-                        "?.let(::${namePlan.runtime(NATIVE_ADDRESS)})?.let { $nonNullable(it) }"
+                        "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(it.address()) }?.let { $nonNullable(it) }"
                 } else {
                     "$name.takeIf { it != ${namePlan.runtime(MEMORY_SEGMENT)}.NULL }" +
-                        "?.let(::${namePlan.runtime(NATIVE_ADDRESS)})?.let { $nonNullable(it) }"
+                        "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(it.address()) }?.let { $nonNullable(it) }"
                 }
             }
             else -> name

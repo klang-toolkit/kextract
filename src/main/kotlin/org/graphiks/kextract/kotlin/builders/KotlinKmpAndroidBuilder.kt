@@ -700,11 +700,11 @@ internal class KotlinKmpAndroidBuilder(
         builder.appendLine()
         builder.appendLine("class $name(val handle: $nativeAddress = $nativeAddress(0L)) : WGPUNativeDisplayHandle {")
         builder.indent()
-        builder.appendLine("private val buffer: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
+        builder.appendLine("private val mem: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
         builder.appendLine("override var type: WGPUNativeDisplayHandleType")
         builder.indent()
-        builder.appendLine("get() = buffer.$typeRead(${typeOffset}uL) as WGPUNativeDisplayHandleType")
-        builder.appendLine("set(value) { buffer.$typeWrite($typeCast, ${typeOffset}uL) }")
+        builder.appendLine("get() = mem.$typeRead(${typeOffset}uL) as WGPUNativeDisplayHandleType")
+        builder.appendLine("set(value) { mem.$typeWrite($typeCast, ${typeOffset}uL) }")
         builder.unindent()
         unionFields.forEach { field ->
             val fieldName = namePlan.member(field)
@@ -721,7 +721,7 @@ internal class KotlinKmpAndroidBuilder(
             builder.appendLine("type = $discriminator")
             builder.appendLine("val bytes = ByteArray($memberSize)")
             builder.appendLine("$memoryBuffer(value.handler, ${memberSize}uL).readBytes(bytes, 0u, 0uL, ${memberSize}uL)")
-            builder.appendLine("buffer.writeBytes(bytes, 0u, ${dataOffset}uL, ${memberSize}uL)")
+            builder.appendLine("mem.writeBytes(bytes, 0u, ${dataOffset}uL, ${memberSize}uL)")
             builder.unindent()
             builder.appendLine("}")
         }
@@ -743,7 +743,7 @@ internal class KotlinKmpAndroidBuilder(
         builder.appendLine()
         builder.appendLine("class $implName(val handle: $nativeAddress = $nativeAddress(0L)) : $structName {")
         builder.indent()
-        builder.appendLine("private val buffer: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
+        builder.appendLine("private val mem: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
         fields.forEach { field ->
             val propertyName = namePlan.member(field)
             val fieldType = typeMapper.mapType(field.type())

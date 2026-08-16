@@ -229,17 +229,18 @@ internal class KotlinCallbackAndroidEmitter(
             mapped == "UShort" -> "$name.toUShort()"
             mapped == "UByte" -> "$name.toUByte()"
             mapped == "Boolean" && mapJnaType(parameter.type) == "Int" -> "$name != 0"
-            cAbiType is KotlinKmpCAbiType.StructValue -> "$mapped.ByValue($name)"
+            cAbiType is KotlinKmpCAbiType.StructValue ->
+                "$mapped.ByValue(${jnaStructValueConversion(name)})"
             cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(NATIVE_ADDRESS)}?" ->
                 jnaAddressConversion(name)
             cAbiType is KotlinKmpCAbiType.Address && mapped == "${namePlan.runtime(C_STRING)}?" ->
-                "$name?.let(::${namePlan.runtime(C_STRING)})"
+                jnaCStringConversion(name)
             cAbiType is KotlinKmpCAbiType.Address && mapped.endsWith("?") -> {
                 val nonNullable = mapped.removeSuffix("?")
                 if (cAbiType.pointerDepth > 1) {
-                    "$name?.getPointer(0L)?.let { $nonNullable(it) }"
+                    "$name?.getPointer(0L)?.let { $nonNullable(${jnaNativeAddressOf("it")}) }"
                 } else {
-                    "$name?.let { $nonNullable(it) }"
+                    "${jnaAddressConversion(name)}?.let { $nonNullable(it) }"
                 }
             }
             else -> name
@@ -264,6 +265,19 @@ internal class KotlinCallbackAndroidEmitter(
     private fun jnaAddressConversion(name: String): String =
         "$name?.takeIf { com.sun.jna.Pointer.nativeValue(it) != 0L }" +
             "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(com.sun.jna.Pointer.nativeValue(it)) }"
+
+    /** Converts a JNA `Pointer` upcall argument to a non-null [NATIVE_ADDRESS] (null -> address 0). */
+    private fun jnaStructValueConversion(name: String): String =
+        "${jnaAddressConversion(name)} ?: ${namePlan.runtime(NATIVE_ADDRESS)}(0L)"
+
+    /** Converts a JNA `Pointer` upcall argument to a [C_STRING], preserving null. */
+    private fun jnaCStringConversion(name: String): String =
+        "$name?.takeIf { com.sun.jna.Pointer.nativeValue(it) != 0L }" +
+            "?.let { ${namePlan.runtime(C_STRING)}(${namePlan.runtime(NATIVE_ADDRESS)}(com.sun.jna.Pointer.nativeValue(it))) }"
+
+    /** [NATIVE_ADDRESS] of a non-null JNA `Pointer` expression (must not be null at that point). */
+    private fun jnaNativeAddressOf(expression: String): String =
+        "${namePlan.runtime(NATIVE_ADDRESS)}(com.sun.jna.Pointer.nativeValue($expression))"
 
     private fun routingUserdataConversion(callback: KotlinCallbackModel): String {
         val name = callback.routingUserdataParameter?.name ?: return "null"
