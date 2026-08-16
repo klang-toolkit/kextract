@@ -43,15 +43,15 @@ class KmpAllocatorConsistencyTest : FreeSpec({
     }
 
     // Les formes sans wrapper moteur JVM (makeBox(void), wgpuPointByValue,
-    // wgpuRoundTrip) échouent à la génération multiplateforme avec une erreur
-    // claire (KmpJvmStructByValueTest) — le jeu ci-dessous ne garde que les
-    // formes supportées par chaque backend.
+    // wgpuRoundTrip) et les structs hors de la table des wrappers (Box2) échouent
+    // à la génération multiplateforme avec une erreur claire (KmpJvmStructByValueTest)
+    // — le jeu ci-dessous ne garde que les formes supportées par chaque backend.
     val header = """
         typedef struct { int a; } Box;
         typedef struct { int a; int b; } Box2;
         typedef struct WGPUPoint { int x; int y; } WGPUPoint;
         typedef struct WGPUAdapterImpl* WGPUAdapter;
-        Box2 makeBox2(int x);
+        Box makeBox(int x);
         void consumeBox(Box b);
         WGPUAdapter wgpuAdapterGetAdapter(void);
         void wgpuAdapterRelease(WGPUAdapter adapter);
@@ -69,7 +69,7 @@ class KmpAllocatorConsistencyTest : FreeSpec({
 
     "struct-by-value returns carry allocator; pointer, opaque-handle and void returns do not" {
         val common = generate(header, "commonMain")
-        common shouldContain "expect fun makeBox2(allocator: MemoryAllocator, x: Int): Box2"
+        common shouldContain "expect fun makeBox(allocator: MemoryAllocator, x: Int): Box"
         common shouldContain "expect fun consumeBox(b: Box): Unit"
         common shouldContain "expect fun wgpuAdapterGetAdapter(): WGPUAdapter?"
         common shouldContain "expect fun wgpuAdapterRelease(adapter: WGPUAdapter?): Unit"

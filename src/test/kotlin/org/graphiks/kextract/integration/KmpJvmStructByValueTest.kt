@@ -147,6 +147,19 @@ class KmpJvmStructByValueTest : FreeSpec({
         errors shouldContain "Box modifyBox(b: Box, x: Int)"
     }
 
+    "supported shape on a struct without an engine wrapper fails loudly" {
+        // La forme (retour struct, un argument Int) est supportée, mais le wrapper
+        // callStructReturn<Name> n'existe que pour les structs de la table du moteur
+        // (actuellement Box) — Rect générerait callStructReturnRect, irrésolu.
+        val errors = generateJvmFailure(
+            """
+            typedef struct { int x; int y; } Rect;
+            Rect makeRect(int x);
+            """.trimIndent(),
+        )
+        errors shouldContain "struct-by-value wrapper for 'Rect' not yet implemented in JvmDowncallEngine"
+    }
+
     "registerStructLayout maps enum, unsigned, float and nested struct fields" {
         val source = generateJvm(
             """

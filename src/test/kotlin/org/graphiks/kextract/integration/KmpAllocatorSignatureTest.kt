@@ -37,19 +37,19 @@ class KmpAllocatorSignatureTest : FreeSpec({
         }
     }
 
-    // makeBox(void) (retour struct sans argument) n'a pas de forme moteur JVM :
-    // la génération échoue avec une erreur claire (KmpJvmStructByValueTest couvre
-    // l'erreur) — les formes supportées sont makeBox2(int) et consumeBox(Box).
+    // makeBox(void) (retour struct sans argument) et tout struct hors de la table
+    // des wrappers du moteur JVM (actuellement Box) échouent à la génération avec
+    // une erreur claire (KmpJvmStructByValueTest couvre les erreurs).
     val header = """
         typedef struct { int a; } Box;
         typedef struct { int a; int b; } Box2;
         void consumeBox(Box b);
-        Box2 makeBox2(int x);
+        Box makeBox(int x);
     """.trimIndent()
 
     "common expect carries allocator on struct-by-value returns only" {
         val source = generate(header, "commonMain")
-        source shouldContain "expect fun makeBox2(allocator: MemoryAllocator, x: Int): Box2"
+        source shouldContain "expect fun makeBox(allocator: MemoryAllocator, x: Int): Box"
         val consumeLine = source.lineSequence().first { it.contains("expect fun consumeBox") }
         consumeLine shouldContain "expect fun consumeBox(b: Box): Unit"
         consumeLine shouldNotContain "allocator"
@@ -57,19 +57,19 @@ class KmpAllocatorSignatureTest : FreeSpec({
 
     "android actual uses the caller allocator for the out buffer" {
         val source = generate(header, "androidMain")
-        source shouldContain "actual fun makeBox2(allocator: MemoryAllocator, x: Int): Box2"
-        source shouldContain "val out = allocator.allocateBuffer(8uL)"
+        source shouldContain "actual fun makeBox(allocator: MemoryAllocator, x: Int): Box"
+        source shouldContain "val out = allocator.allocateBuffer(4uL)"
         val consumeLine = source.lineSequence().first { it.contains("actual fun consumeBox") }
         consumeLine shouldNotContain "allocator"
     }
 
     "jvm actual carries the allocator parameter on struct-by-value returns" {
         val source = generate(header, "jvmMain")
-        source shouldContain "actual fun makeBox2(allocator: MemoryAllocator, x: Int): Box2"
+        source shouldContain "actual fun makeBox(allocator: MemoryAllocator, x: Int): Box"
     }
 
     "native actual carries the allocator parameter on struct-by-value returns" {
         val source = generate(header, "nativeMain")
-        source shouldContain "actual fun makeBox2(allocator: MemoryAllocator, x: Int): Box2"
+        source shouldContain "actual fun makeBox(allocator: MemoryAllocator, x: Int): Box"
     }
 })

@@ -548,10 +548,19 @@ internal class KotlinKmpJvmBuilder(
      * ni de MemoryLayout dans le code généré. Formes couvertes par la table actuelle
      * du moteur : retour struct avec un unique argument scalaire Int
      * (callStructReturn&lt;Name&gt;), ou unique argument struct avec retour Unit
-     * (callStructArg&lt;Name&gt;). Toute autre forme échoue à la génération avec un
-     * message clair plutôt que d'émettre un fichier qui ne compile pas ; M5.2
-     * généralise la table des formes.
+     * (callStructArg&lt;Name&gt;), pour les structs de [jvmEngineStructWrappers]. Toute
+     * autre forme ou tout autre struct échoue à la génération avec un message clair
+     * plutôt que d'émettre un fichier qui ne compile pas ; M5.2 généralise la table.
      */
+    /**
+     * Wrappers struct-by-value implémentés par JvmDowncallEngine, indexés par le
+     * nom planifié du struct : seul « Box » existe aujourd'hui (callStructArgBox /
+     * callStructReturnBox) — M5.2 étend la table. Une forme supportée sur un autre
+     * struct émettrait callStructArg&lt;Name&gt; / callStructReturn&lt;Name&gt;, irrésolu à la
+     * compilation : la garde échoue à la génération avec un message clair.
+     */
+    private val jvmEngineStructWrappers = setOf("Box")
+
     private fun emitStructByValueFunction(
         decl: Declaration.Function,
         structArgs: List<Declaration.Variable>,
@@ -560,6 +569,11 @@ internal class KotlinKmpJvmBuilder(
         val name = namePlan.declaration(decl)
         val cName = decl.name()
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
+        val structName = if (structReturn) {
+            typeMapper.mapFunctionType(decl.type().returnType())
+        } else {
+            typeMapper.mapFunctionType(decl.parameters().single().type())
+        }
         val supported = when {
             structReturn ->
                 structArgs.isEmpty() &&
@@ -573,6 +587,12 @@ internal class KotlinKmpJvmBuilder(
         if (!supported) {
             error(structByValueShapeError(decl, structReturn))
         }
+        if (structName !in jvmEngineStructWrappers) {
+            error(
+                "struct-by-value wrapper for '$structName' not yet implemented in " +
+                    "JvmDowncallEngine (M5.2 extends the table)",
+            )
+        }
         val params = (
             typeMapper.allocatorParams(decl.type().returnType()) +
                 decl.parameters().map { param ->
@@ -583,7 +603,6 @@ internal class KotlinKmpJvmBuilder(
         builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
         if (structReturn) {
-            val structName = typeMapper.mapFunctionType(decl.type().returnType())
             val rawArgs = decl.parameters().map { param ->
                 val paramName = namePlan.parameter(param)
                 toRawJvmArgument(paramName, param.type())
@@ -594,7 +613,6 @@ internal class KotlinKmpJvmBuilder(
         } else {
             val structParam = decl.parameters().single()
             val paramName = namePlan.parameter(structParam)
-            val structName = typeMapper.mapFunctionType(structParam.type())
             builder.appendLine("$jvmDowncallEngine.callStructArg$structName(${name}_ADDR, $paramName.handler.rawValue)")
             builder.appendLine("return")
         }

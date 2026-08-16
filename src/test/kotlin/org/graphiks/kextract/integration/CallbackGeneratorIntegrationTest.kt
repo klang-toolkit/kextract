@@ -808,7 +808,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                     void * userdata1;
                     void * userdata2;
                 } WGPUQueueWorkDoneCallbackInfo;
-                void wgpuQueueOnSubmittedWorkDone(WGPUQueueWorkDoneCallbackInfo callbackInfo);
+                void wgpuQueueOnSubmittedWorkDone(WGPUQueueWorkDoneCallbackInfo const * callbackInfo);
             """.trimIndent(),
             config,
         ).getValue("commonMain")

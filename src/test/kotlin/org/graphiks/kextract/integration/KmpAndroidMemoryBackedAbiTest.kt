@@ -179,8 +179,8 @@ private val FUNCTION_HEADER =
 
 private val STRUCT_VALUE_HEADER =
     """
-    typedef struct WGPUPoint { int x; int y; } WGPUPoint;
-    WGPUPoint wgpuPointByValue(int x);
+    typedef struct Box { int x; int y; } Box;
+    Box wgpuPointByValue(int x);
     """.trimIndent()
 
 private val DIRECT_CALLBACK_BINDING_HEADER =
@@ -671,10 +671,10 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "struct-by-value functions call through NativeEngine.callGeneric" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): WGPUPoint"
+        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): Box"
         generated.bridge shouldContain "private val wgpuPointByValue_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuPointByValue\") }"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
-        generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
+        generated.bridge shouldContain "return Box.ByValue(out.handler)"
     }
 
     "generated memory-backed sources compile against the kffi runtime" {
@@ -811,9 +811,9 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "struct-by-value functions pin the engine callGeneric path" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): WGPUPoint"
+        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): Box"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
-        generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
+        generated.bridge shouldContain "return Box.ByValue(out.handler)"
     }
 
     "isOptionsEnumType recognizes historical WGPUInstance options enums" {
