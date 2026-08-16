@@ -180,7 +180,7 @@ private val FUNCTION_HEADER =
 private val STRUCT_VALUE_HEADER =
     """
     typedef struct WGPUPoint { int x; int y; } WGPUPoint;
-    WGPUPoint wgpuPointByValue(WGPUPoint p);
+    WGPUPoint wgpuPointByValue(int x);
     """.trimIndent()
 
 private val DIRECT_CALLBACK_BINDING_HEADER =
@@ -191,7 +191,6 @@ private val DIRECT_CALLBACK_BINDING_HEADER =
 
     void sample_request(int input, SampleCallback callback, void * userdata);
     unsigned int sample_status(SampleCallback callback, void * userdata);
-    WGPUPoint sample_point(WGPUPoint p, SampleCallback callback, void * userdata);
     """.trimIndent()
 
 private fun directCallbackBindingConfig(): CallbackBindingsConfig =
@@ -205,12 +204,6 @@ private fun directCallbackBindingConfig(): CallbackBindingsConfig =
             },
             DirectFunctionBinding().also { binding ->
                 binding.function = "function:sample_status"
-                binding.callbackParameter = "callback"
-                binding.callbackType = "typedef:SampleCallback"
-                binding.routingUserdataParameter = "userdata"
-            },
-            DirectFunctionBinding().also { binding ->
-                binding.function = "function:sample_point"
                 binding.callbackParameter = "callback"
                 binding.callbackType = "typedef:SampleCallback"
                 binding.routingUserdataParameter = "userdata"
@@ -678,7 +671,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "struct-by-value functions call through NativeEngine.callGeneric" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, p: WGPUPoint): WGPUPoint"
+        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): WGPUPoint"
         generated.bridge shouldContain "private val wgpuPointByValue_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuPointByValue\") }"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
         generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
@@ -818,7 +811,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "struct-by-value functions pin the engine callGeneric path" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, p: WGPUPoint): WGPUPoint"
+        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): WGPUPoint"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
         generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
     }
@@ -932,33 +925,20 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "actual fun SampleCallback.Companion.register("
         generated.bridge shouldContain "internal actual fun sample_requestCallbackBindingPreflight("
         generated.bridge shouldContain "internal actual fun sample_statusCallbackBindingPreflight(): (NativeAddress?, NativeAddress?) -> Unit"
-        generated.bridge shouldContain "internal actual fun sample_pointCallbackBindingPreflight("
         generated.bridge shouldContain "NativeEngine.callV3IPP(sample_request_ADDR, input, callback.toAddress(), userdata.toAddress())"
         generated.bridge shouldContain "NativeEngine.callI2PP(sample_status_ADDR, callback.toAddress(), userdata.toAddress())"
-        generated.bridge shouldContain "NativeEngine.callGeneric(sample_point_ADDR, 3,"
 
         val probe =
             """
             package sample.probe
 
-            import org.graphiks.kffi.MemoryAllocator
             import org.graphiks.kffi.NativeAddress
-            import sample.bindings.WGPUPoint
-            import sample.bindings.sample_pointCallbackBindingPreflight
             import sample.bindings.sample_requestCallbackBindingPreflight
             import sample.bindings.sample_statusCallbackBindingPreflight
 
             fun runProbe(): LongArray {
                 sample_requestCallbackBindingPreflight(7)(NativeAddress(0x1000L), NativeAddress(0x2000L))
                 sample_statusCallbackBindingPreflight()(NativeAddress(0x1000L), NativeAddress(0x2000L))
-
-                val pBuffer = MemoryAllocator().allocateBuffer(8uL)
-                pBuffer.writeInt(1, 0uL)
-                pBuffer.writeInt(2, 4uL)
-                sample_pointCallbackBindingPreflight(WGPUPoint.ByValue(pBuffer.handler))(
-                    NativeAddress(0x1000L),
-                    NativeAddress(0x2000L),
-                )
                 return longArrayOf(1L)
             }
             """.trimIndent()

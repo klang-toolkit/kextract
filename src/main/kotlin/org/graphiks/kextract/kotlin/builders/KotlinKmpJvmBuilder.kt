@@ -545,10 +545,12 @@ internal class KotlinKmpJvmBuilder(
     /**
      * Émission struct-by-value (M5.2bis) : la signature est couverte par un wrapper
      * du moteur construit depuis le registre de layouts — jamais de FunctionDescriptor
-     * ni de MemoryLayout dans le code généré. Formes couvertes : retour struct avec
-     * arguments non-struct (callStructReturn&lt;Name&gt;), ou unique argument struct avec
-     * retour non-struct (callStructArg&lt;Name&gt;). Les formes combinées restent sur le
-     * chemin FFM transitoire jusqu'à M5.2.
+     * ni de MemoryLayout dans le code généré. Formes couvertes par la table actuelle
+     * du moteur : retour struct avec un unique argument scalaire Int
+     * (callStructReturn&lt;Name&gt;), ou unique argument struct avec retour Unit
+     * (callStructArg&lt;Name&gt;). Toute autre forme échoue à la génération avec un
+     * message clair plutôt que d'émettre un fichier qui ne compile pas ; M5.2
+     * généralise la table des formes.
      */
     private fun emitStructByValueFunction(
         decl: Declaration.Function,
@@ -558,20 +560,25 @@ internal class KotlinKmpJvmBuilder(
         val name = namePlan.declaration(decl)
         val cName = decl.name()
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
+        val supported = when {
+            structReturn ->
+                structArgs.isEmpty() &&
+                    decl.parameters().size == 1 &&
+                    rawJvmType(decl.parameters().single().type()) == "Int"
+            else ->
+                structArgs.size == 1 &&
+                    decl.parameters().size == 1 &&
+                    returnType == "Unit"
+        }
+        if (!supported) {
+            error(structByValueShapeError(decl, structReturn))
+        }
         val params = (
             typeMapper.allocatorParams(decl.type().returnType()) +
                 decl.parameters().map { param ->
                     "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
                 }
             ).joinToString(", ")
-        val supported = when {
-            structReturn -> structArgs.isEmpty()
-            else -> decl.parameters().size == 1
-        }
-        if (!supported) {
-            emitFfmFunction(decl)
-            return
-        }
         builder.appendLine("private val ${name}_ADDR: Long by lazy { $jvmDowncallEngine.resolveSymbol(\"$cName\") }")
         builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
@@ -594,6 +601,15 @@ internal class KotlinKmpJvmBuilder(
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
+    }
+
+    private fun structByValueShapeError(decl: Declaration.Function, structReturn: Boolean): String {
+        val signature = decl.parameters().joinToString(", ") { param ->
+            "${param.name()}: ${typeMapper.mapFunctionType(param.type())}"
+        }
+        val returnType = typeMapper.mapFunctionType(decl.type().returnType())
+        return "struct-by-value ${if (structReturn) "return" else "arg"} shape not supported by JVM engine: " +
+            "$returnType ${decl.name()}($signature)"
     }
 
     private fun emitFfmFunction(decl: Declaration.Function) {

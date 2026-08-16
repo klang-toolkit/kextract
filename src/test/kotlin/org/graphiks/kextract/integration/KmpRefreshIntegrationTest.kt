@@ -140,18 +140,24 @@ class KmpRefreshIntegrationTest : FreeSpec({
     }
 
     "multiplatform mode resolves forward-declared struct typedef function signatures" {
+        // La forme combinée (argument struct + retour struct) n'a pas de wrapper
+        // moteur JVM et échoue à la génération ; les deux positions (retour, argument)
+        // sont couvertes séparément par des formes supportées.
         val generated = generateKmpFromIncludedHeader(
             """
             typedef struct WGPUValue WGPUValue;
             typedef struct WGPUValue {
                 int value;
             } WGPUValue;
-            WGPUValue wgpuRoundTrip(WGPUValue value);
+            WGPUValue wgpuRoundTrip(int x);
+            void wgpuConsume(WGPUValue value);
             """.trimIndent(),
         )
 
         generated.getValue("commonMain") shouldContain
-            "expect fun wgpuRoundTrip(allocator: MemoryAllocator, value: WGPUValue): WGPUValue"
+            "expect fun wgpuRoundTrip(allocator: MemoryAllocator, x: Int): WGPUValue"
+        generated.getValue("commonMain") shouldContain
+            "expect fun wgpuConsume(value: WGPUValue): Unit"
     }
 
     "multiplatform output uses explicit source roots" {

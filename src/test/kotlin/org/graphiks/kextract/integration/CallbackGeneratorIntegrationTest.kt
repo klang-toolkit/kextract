@@ -633,7 +633,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 typedef void (*SampleCallback)(void * userdata);
                 typedef void (*NoUserdataCallback)(unsigned int value);
                 void sample_set_callback(
-                    SamplePayload payload,
+                    int payload,
                     SampleCallback callback,
                     void * userdata
                 );
@@ -648,7 +648,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
         common shouldContain """
             internal expect fun sample_set_callbackCallbackBindingPreflight(
-                payload: SamplePayload,
+                payload: Int,
             ): (NativeAddress?, NativeAddress?) -> Unit
         """.trimIndent()
         common shouldContain """
@@ -658,14 +658,14 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         """.trimIndent()
         common shouldContain """
             fun sample_set_callback(
-                payload: SamplePayload,
+                payload: Int,
                 policy: CallbackPolicy,
                 onError: CallbackExceptionHandler = CallbackExceptionHandler.Default,
                 callback: SampleCallback,
             ): CallbackRegistration<SampleCallback> {
         """.trimIndent()
         val safeSetter = common
-            .substringAfter("fun sample_set_callback(\n    payload: SamplePayload,\n    policy: CallbackPolicy,")
+            .substringAfter("fun sample_set_callback(\n    payload: Int,\n    policy: CallbackPolicy,")
             .substringBefore("\n}\n")
         safeSetter shouldContain "val preparedCall = sample_set_callbackCallbackBindingPreflight(payload)"
         safeSetter shouldContain "val prepared = SampleCallback.prepare("
@@ -698,9 +698,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
         jvm shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: SamplePayload,
+                payload: Int,
             ): (NativeAddress?, NativeAddress?) -> Unit {
-                val preparedPayload = payload.handler.handler
+                val preparedPayload = payload
                 val address = sample_set_callback_ADDR
                 val handle = sample_set_callback_HANDLE
                 return { callback, userdata ->
@@ -712,27 +712,24 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 }
             }
         """.trimIndent()
-        (jvm.indexOf("val preparedPayload = payload.handler.handler") <
+        (jvm.indexOf("val preparedPayload = payload") <
             jvm.indexOf("val address = sample_set_callback_ADDR")) shouldBe true
         native shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: SamplePayload,
+                payload: Int,
             ): (NativeAddress?, NativeAddress?) -> Unit {
-                val preparedPayload = payload.toCValue()
+                val preparedPayload = payload
         """.trimIndent()
         native shouldContain "return { callback, userdata ->"
         native shouldContain "webgpu.native.sample_set_callback("
         native shouldContain "preparedPayload,"
         android shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: SamplePayload,
+                payload: Int,
             ): (NativeAddress?, NativeAddress?) -> Unit {
         """.trimIndent()
         android shouldContain "return { callback, userdata ->"
-        android shouldContain "NativeEngine.callGeneric(sample_set_callback_ADDR, 3,"
-        android shouldContain "MemoryBuffer(payload.handler, 4uL).readBytes(payloadBytes, 0u, 0uL, 4uL)"
-        android shouldContain "args.writeLong(callback.toAddress(), 8uL)"
-        android shouldContain "args.writeLong(userdata.toAddress(), 16uL)"
+        android shouldContain "NativeEngine.callV3IPP(sample_set_callback_ADDR, payload, callback.toAddress(), userdata.toAddress())"
         android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
         android shouldNotContain "val prepared = SampleCallback.prepare("
