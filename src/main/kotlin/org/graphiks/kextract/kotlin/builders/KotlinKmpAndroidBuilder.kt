@@ -372,17 +372,16 @@ internal class KotlinKmpAndroidBuilder(
 
     /**
      * Struct-by-value downcalls ride `callGeneric(fn, argc, typeSpec, argsPtr, outPtr)`.
-     * typeSpec is `"<return>:<arg0>,<arg1>,..."` where each code is `v p i8 u8 i16 u16
-     * i32 u32 i64 u64 f32 f64` or `s<size>` for a struct-by-value slot. The argument
-     * buffer packs each arg in declaration order at its natural alignment (scalars and
-     * pointers at their carrier width, structs at their C record alignment); the out
-     * buffer receives the return value (struct bytes, or the scalar carrier).
+     * typeSpec is `"<return>:<arg0>,<arg1>,..."`. Scalar codes are `v p b8 i8 u8 i16
+     * u16 i32 u32 i64 u64 f32 f64`; a struct is encoded recursively as
+     * `s<size>@<alignment>(<field0>,<field1>,...)`; and a fixed array as
+     * `a<count>(<element>)`. The native engine validates the emitted struct size and
+     * alignment against libffi before making the call.
      *
-     * NOTE: the engine's generic reader currently IGNORES typeSpec and reads every arg
-     * as an 8-byte uint64 carrier, so struct-by-value args packed here at full size are
-     * truncated to 8 bytes at runtime (43 of 44 wgpu generic sites). Tracking:
-     * TODO(M6/P2) implement per-arg ffi_type selection in the engine reader to honor
-     * typeSpec exactly as this emission packs it.
+     * The argument buffer packs each argument in declaration order at its natural
+     * alignment. Struct values are copied at their complete C layout, while scalar and
+     * pointer values use their carrier width; the output buffer receives either a struct
+     * value or the scalar carrier.
      */
     private fun emitGenericDowncall(
         function: Declaration.Function,
@@ -408,7 +407,7 @@ internal class KotlinKmpAndroidBuilder(
                     val layout = layoutPlan[abi.declaration]
                     val offset = alignTo(cursor, layout.alignmentBytes)
                     cursor = offset + layout.sizeBytes
-                    typeSpecCodes += "s${layout.sizeBytes}"
+                    typeSpecCodes += engineGenericTypeSpec(parameter.type())
                     slotEmissions += emitStructSlot(parameter, argExpr, layout.sizeBytes, offset)
                 }
                 else -> {
@@ -422,8 +421,7 @@ internal class KotlinKmpAndroidBuilder(
         }
         val returnCode = when {
             returnAbi == null -> "v"
-            returnAbi is KotlinKmpCAbiType.StructValue -> "s${layoutPlan[returnAbi.declaration].sizeBytes}"
-            else -> engineTypeSpecCode(returnAbi)
+            else -> engineGenericTypeSpec(functionType.returnType())
         }
         val typeSpec = "\"$returnCode:${typeSpecCodes.joinToString(",")}\""
         val argsSize = cursor.coerceAtLeast(8L)
@@ -581,6 +579,38 @@ internal class KotlinKmpAndroidBuilder(
             KotlinKmpCAbiType.Scalar.Kind.F32 -> "f32"
             KotlinKmpCAbiType.Scalar.Kind.F64 -> "f64"
         }
+    }
+
+    private fun engineGenericTypeSpec(type: Type): String {
+        val abi = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT)
+        return when (abi) {
+            is KotlinKmpCAbiType.StructValue -> engineStructTypeSpec(abi.declaration)
+            else -> engineTypeSpecCode(abi)
+        }
+    }
+
+    private fun engineStructTypeSpec(declaration: Declaration.Scoped): String {
+        require(declaration.kind() == Declaration.Scoped.Kind.STRUCT) {
+            "Android generic downcalls do not support unions by value: ${declaration.name()}"
+        }
+        val layout = layoutPlan[declaration]
+        val fields = layout.fields.joinToString(",") { field ->
+            engineStructFieldTypeSpec(field.field.type())
+        }
+        return "s${layout.sizeBytes}@${layout.alignmentBytes}($fields)"
+    }
+
+    private fun engineStructFieldTypeSpec(type: Type): String = when {
+        type is Type.Array -> {
+            val count = requireNotNull(type.elementCount()) {
+                "Android generic downcalls require a fixed-size array field"
+            }
+            require(count > 0L) { "Android generic downcalls do not support zero-length array fields" }
+            "a$count(${engineStructFieldTypeSpec(type.elementType())})"
+        }
+        type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER ->
+            engineStructFieldTypeSpec(type.type())
+        else -> engineGenericTypeSpec(type)
     }
 
     private fun engineWritePrimitive(abi: KotlinKmpCAbiType): String = when (abi) {

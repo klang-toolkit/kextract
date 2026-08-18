@@ -183,6 +183,17 @@ private val STRUCT_VALUE_HEADER =
     WGPUPoint wgpuPointByValue(WGPUPoint p);
     """.trimIndent()
 
+private val NESTED_ARRAY_STRUCT_VALUE_HEADER =
+    """
+    typedef struct WGPUPoint { float x; float y; } WGPUPoint;
+    typedef struct WGPUPacket {
+        unsigned int tag;
+        WGPUPoint point;
+        unsigned short samples[3];
+    } WGPUPacket;
+    WGPUPacket wgpuPacketByValue(WGPUPacket packet);
+    """.trimIndent()
+
 private val DIRECT_CALLBACK_BINDING_HEADER =
     """
     typedef struct WGPUPoint { int x; int y; } WGPUPoint;
@@ -675,13 +686,22 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldNotContain "com.sun.jna"
     }
 
-    "struct-by-value functions call through NativeEngine.callGeneric" {
+    "struct-by-value functions emit complete libffi layouts" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
         generated.bridge shouldContain "actual fun wgpuPointByValue(p: WGPUPoint): WGPUPoint"
         generated.bridge shouldContain "private val wgpuPointByValue_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuPointByValue\") }"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
+        generated.bridge shouldContain "\"s8@4(i32,i32):s8@4(i32,i32)\""
         generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
+    }
+
+    "struct-by-value layouts encode nested structs and fixed arrays" {
+        val generated = generateAndroidSources(NESTED_ARRAY_STRUCT_VALUE_HEADER)
+
+        generated.bridge shouldContain "actual fun wgpuPacketByValue(packet: WGPUPacket): WGPUPacket"
+        generated.bridge shouldContain
+            "\"s20@4(i32,s8@4(f32,f32),a3(i16)):s20@4(i32,s8@4(f32,f32),a3(i16))\""
     }
 
     "generated memory-backed sources compile against the kffi runtime" {
@@ -690,6 +710,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         compileGeneratedAndroid(generateAndroidSources(NATIVE_DISPLAY_HEADER))
         compileGeneratedAndroid(generateAndroidSources(FUNCTION_HEADER))
         compileGeneratedAndroid(generateAndroidSources(STRUCT_VALUE_HEADER))
+        compileGeneratedAndroid(generateAndroidSources(NESTED_ARRAY_STRUCT_VALUE_HEADER))
         compileGeneratedAndroid(generateAndroidSources(DIRECT_CALLBACK_BINDING_HEADER, directCallbackBindingConfig()))
     }
 
