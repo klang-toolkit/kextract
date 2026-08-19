@@ -70,6 +70,28 @@ internal class KotlinKmpAndroidBuilder(
             .filterNot { it in excludedBridgeSymbols }
             .forEach { builder.appendLine(namePlan.importLine(it)) }
         builder.appendLine()
+        builder.appendLine("private object KextractAndroidBootstrap {")
+        builder.indent()
+        builder.appendLine("init {")
+        builder.indent()
+        builder.appendLine("java.lang.System.loadLibrary(\"${escapeKotlinString(libraryName)}\")")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
+        builder.appendLine(
+            "private val libraryHandle: kotlin.Long by lazy { " +
+                "$nativeEngine.loadNativeLibrary(" +
+                "java.lang.System.mapLibraryName(\"${escapeKotlinString(libraryName)}\")" +
+                ").takeIf { it != 0L } ?: error(\"Unable to load native library: ${escapeKotlinString(libraryName)}\")" +
+                " }",
+        )
+        builder.appendLine(
+            "fun resolve(name: kotlin.String): kotlin.Long = " +
+                "$nativeEngine.resolveSymbolIn(libraryHandle, name)",
+        )
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
     }
 
     override fun visitScoped(decl: Declaration.Scoped) {
@@ -137,6 +159,7 @@ internal class KotlinKmpAndroidBuilder(
                 KotlinCallbackAndroidEmitter(
                     typeMapper::mapFunctionType,
                     ::mapJnaType,
+                    ::mapJnaFieldType,
                     namePlan,
                 ).emit(builder, callbackModels)
                 KotlinCallbackBindingEmitter(typeMapper::mapFunctionType, namePlan).emitAndroid(
@@ -172,7 +195,7 @@ internal class KotlinKmpAndroidBuilder(
                     "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
                 }
         ).joinToString(", ")
-        builder.appendLine("private val ${name}_ADDR: Long by lazy { $nativeEngine.resolveSymbol(\"${escapeKotlinString(decl.name())}\") }")
+        builder.appendLine("private val ${name}_ADDR: Long by lazy { KextractAndroidBootstrap.resolve(\"${escapeKotlinString(decl.name())}\") }")
         builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
         emitEngineDowncall(
@@ -421,8 +444,19 @@ internal class KotlinKmpAndroidBuilder(
                 }
             }
         }
+        // A WGPUFuture is a one-word struct (`uint64_t id`). On Android's
+        // AArch64 libffi path, describing that return as an ffi struct is not
+        // ABI-stable even though its C representation is one register. Use
+        // the equivalent scalar carrier and keep exposing the memory-backed
+        // WGPUFuture wrapper to Kotlin callers.
+        val scalarStructReturn = if (returnAbi is KotlinKmpCAbiType.StructValue) {
+            scalarStructReturn(functionType.returnType())
+        } else {
+            null
+        }
         val returnCode = when {
             returnAbi == null -> "v"
+            scalarStructReturn != null -> engineTypeSpecCode(scalarStructReturn)
             else -> engineGenericTypeSpec(functionType.returnType())
         }
         val typeSpec = "\"$returnCode:${typeSpecCodes.joinToString(",")}\""
@@ -548,6 +582,18 @@ internal class KotlinKmpAndroidBuilder(
                 }
             }
         }
+    }
+
+    private fun scalarStructReturn(type: Type): KotlinKmpCAbiType.Scalar? {
+        val abi = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT)
+            as? KotlinKmpCAbiType.StructValue ?: return null
+        val layout = layoutPlan[abi.declaration]
+        if (layout.sizeBytes != 8L || layout.alignmentBytes != 8L || layout.fields.size != 1) return null
+        val field = layout.fields.single()
+        if (field.offsetBytes != 0L) return null
+        val fieldAbi = KotlinKmpCAbiType.from(field.field.type(), KotlinKmpAbiContext.DIRECT)
+            as? KotlinKmpCAbiType.Scalar ?: return null
+        return fieldAbi.takeIf { it.kind == KotlinKmpCAbiType.Scalar.Kind.I64 }
     }
 
     /** Width in bytes of an engine argument carrier for the generic packed buffer. */
@@ -811,10 +857,20 @@ internal class KotlinKmpAndroidBuilder(
         else -> fieldType
     }
 
-    private fun mapJnaType(type: Type): String {
+    private fun mapJnaType(type: Type): String = mapJnaType(type, structByValue = true)
+
+    private fun mapJnaFieldType(type: Type): String = mapJnaType(type, structByValue = false)
+
+    private fun mapJnaType(type: Type, structByValue: Boolean): String {
         return when {
         typeMapper.isEnumType(type) -> "Int"
         type is Type.Primitive -> mapJnaPrimitive(type.kind())
+        isStructType(type) -> {
+            val declaration = canonicalRecordDeclaration(type)
+                ?: return "com.sun.jna.Pointer?"
+            val name = "${namePlan.declaration(declaration)}Jna"
+            if (structByValue) "$name.ByValue" else name
+        }
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.UNSIGNED -> {
             val inner = type.type()
             if (inner is Type.Primitive) {
@@ -834,7 +890,6 @@ internal class KotlinKmpAndroidBuilder(
             val inner = type.type()
             when {
                 typeMapper.isEnumType(inner) -> "Int"
-                isStructType(inner) -> "com.sun.jna.Pointer?"
                 inner is Type.Primitive -> mapJnaPrimitive(inner.kind())
                 inner is Type.Delegated && inner.kind() == Type.Delegated.Kind.UNSIGNED -> {
                     val innerInner = inner.type()

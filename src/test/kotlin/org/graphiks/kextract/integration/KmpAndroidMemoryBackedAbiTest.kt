@@ -187,6 +187,12 @@ private val STRUCT_VALUE_HEADER =
     Box wgpuPointByValue(int x);
     """.trimIndent()
 
+private val SINGLE_WORD_STRUCT_RETURN_HEADER =
+    """
+    typedef struct WGPUFuture { unsigned long long id; } WGPUFuture;
+    WGPUFuture wgpuRequestFuture(void);
+    """.trimIndent()
+
 private val NESTED_ARRAY_STRUCT_VALUE_HEADER =
     """
     typedef struct WGPUPoint { float x; float y; } WGPUPoint;
@@ -455,6 +461,17 @@ private val MEMBACK_KFFI_ENGINE_STUB =
     object NativeEngine {
         private val handlers = ConcurrentHashMap<Long, (List<Long>) -> Long>()
         private val next = AtomicLong(0x1000L)
+        private const val fixtureLibraryHandle = 0x7000L
+
+        fun loadNativeLibrary(path: String): Long {
+            check(path == "libfixture.so") { "Unexpected native library path: ${'$'}path" }
+            return fixtureLibraryHandle
+        }
+
+        fun resolveSymbolIn(handle: Long, name: String): Long {
+            check(handle == fixtureLibraryHandle) { "Unexpected native library handle: ${'$'}handle" }
+            return resolveSymbol(name)
+        }
 
         fun resolveSymbol(name: String): Long {
             val address = next.getAndIncrement()
@@ -517,7 +534,21 @@ private fun compileGeneratedAndroid(sources: AndroidSources, probe: String? = nu
         val probeFile = probe?.let { workspace.resolve("probe.kt") }
         val output = Files.createDirectories(workspace.resolve("classes"))
         common.toFile().writeText(sources.common)
-        bridge.toFile().writeText(sources.bridge)
+        // The generated Android bridge loads its declared APK library and resolves
+        // symbols through its handle. These JVM-hosted tests use a fake NativeEngine,
+        // so keep the source assertions above but omit the platform load while
+        // executing the generated probe.
+        bridge.toFile().writeText(
+            sources.bridge
+                .replace(
+                    "java.lang.System.loadLibrary(\"fixture\")",
+                    "// Native library loading is supplied by the Android APK",
+                )
+                .replace(
+                    "java.lang.System.mapLibraryName(\"fixture\")",
+                    "\"libfixture.so\"",
+                ),
+        )
         kffiCommon.toFile().writeText(MEMBACK_KFFI_COMMON_STUB)
         kffiAndroid.toFile().writeText(MEMBACK_KFFI_ANDROID_STUB)
         kffiEngine.toFile().writeText(MEMBACK_KFFI_ENGINE_STUB)
@@ -650,10 +681,15 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "functions resolve symbols once and call the typed NativeEngine wrapper" {
         val generated = generateAndroidSources(FUNCTION_HEADER)
 
-        generated.bridge shouldContain "private val wgpuFoo_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuFoo\") }"
-        generated.bridge shouldContain "private val wgpuBar_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuBar\") }"
-        generated.bridge shouldContain "private val wgpuGetLabel_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuGetLabel\") }"
-        generated.bridge shouldContain "private val wgpuCreateInstance_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuCreateInstance\") }"
+        generated.bridge shouldContain "private object KextractAndroidBootstrap"
+        generated.bridge shouldContain "java.lang.System.loadLibrary(\"fixture\")"
+        generated.bridge shouldContain "private val libraryHandle: kotlin.Long by lazy"
+        generated.bridge shouldContain "NativeEngine.loadNativeLibrary(java.lang.System.mapLibraryName(\"fixture\"))"
+        generated.bridge shouldContain "NativeEngine.resolveSymbolIn(libraryHandle, name)"
+        generated.bridge shouldContain "private val wgpuFoo_ADDR: Long by lazy { KextractAndroidBootstrap.resolve(\"wgpuFoo\") }"
+        generated.bridge shouldContain "private val wgpuBar_ADDR: Long by lazy { KextractAndroidBootstrap.resolve(\"wgpuBar\") }"
+        generated.bridge shouldContain "private val wgpuGetLabel_ADDR: Long by lazy { KextractAndroidBootstrap.resolve(\"wgpuGetLabel\") }"
+        generated.bridge shouldContain "private val wgpuCreateInstance_ADDR: Long by lazy { KextractAndroidBootstrap.resolve(\"wgpuCreateInstance\") }"
 
         generated.bridge shouldContain "actual fun wgpuFoo(a: UInt, b: UInt, c: UInt, d: UInt): UInt"
         generated.bridge shouldContain "return NativeEngine.callI4IIII(wgpuFoo_ADDR, a.toInt(), b.toInt(), c.toInt(), d.toInt()).toInt().toUInt()"
@@ -701,10 +737,20 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
         generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): Box"
-        generated.bridge shouldContain "private val wgpuPointByValue_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuPointByValue\") }"
+        generated.bridge shouldContain "private val wgpuPointByValue_ADDR: Long by lazy { KextractAndroidBootstrap.resolve(\"wgpuPointByValue\") }"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
         generated.bridge shouldContain "\"s8@4(i32,i32):i32\""
         generated.bridge shouldContain "return Box.ByValue(out.handler)"
+    }
+
+    "single-word struct returns use their scalar Android ABI carrier" {
+        val generated = generateAndroidSources(SINGLE_WORD_STRUCT_RETURN_HEADER)
+
+        generated.bridge shouldContain "actual fun wgpuRequestFuture(allocator: MemoryAllocator): WGPUFuture"
+        generated.bridge shouldContain "NativeEngine.callGeneric(wgpuRequestFuture_ADDR, 0,"
+        generated.bridge shouldContain "\"u64:\""
+        generated.bridge shouldNotContain "\"s8@8(u64):\""
+        generated.bridge shouldContain "return WGPUFuture.ByValue(out.handler)"
     }
 
     "struct-by-value layouts encode nested structs and fixed arrays" {
@@ -721,6 +767,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         compileGeneratedAndroid(generateAndroidSources(NATIVE_DISPLAY_HEADER))
         compileGeneratedAndroid(generateAndroidSources(FUNCTION_HEADER))
         compileGeneratedAndroid(generateAndroidSources(STRUCT_VALUE_HEADER))
+        compileGeneratedAndroid(generateAndroidSources(SINGLE_WORD_STRUCT_RETURN_HEADER))
         compileGeneratedAndroid(generateAndroidSources(NESTED_ARRAY_STRUCT_VALUE_HEADER))
         compileGeneratedAndroid(generateAndroidSources(DIRECT_CALLBACK_BINDING_HEADER, directCallbackBindingConfig()))
     }

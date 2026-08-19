@@ -901,7 +901,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
     }
 
     "queue callback keeps application userdata and reserves final routing userdata" {
-        val common = generateKmp(
+        val generated = generateKmp(
             """
                 typedef enum WGPUQueueWorkDoneStatus {
                     WGPUQueueWorkDoneStatus_Success = 0
@@ -917,7 +917,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                     void * userdata2
                 );
             """.trimIndent(),
-        ).getValue("commonMain")
+        )
+        val common = generated.getValue("commonMain")
+        val android = generated.getValue("androidMain")
 
         common shouldContain """
             fun interface WGPUQueueWorkDoneCallback : Callback {
@@ -931,6 +933,10 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             }
         """.trimIndent()
         common shouldNotContain "userdata2: NativeAddress?"
+        android shouldContain "private open class WGPUStringViewJna : com.sun.jna.Structure"
+        android shouldContain "message: WGPUStringViewJna.ByValue"
+        android shouldContain
+            "WGPUStringView.ByValue(NativeAddress(com.sun.jna.Pointer.nativeValue(message.getPointer())))"
     }
 
     "callbacks without userdata expose explicit unsafe re-arming" {

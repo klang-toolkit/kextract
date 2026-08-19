@@ -1,5 +1,7 @@
 package org.graphiks.kextract.kotlin.callbacks
 
+import org.graphiks.kextract.Declaration
+import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.Type
 import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.C_STRING
@@ -16,14 +18,18 @@ import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.PREPARED_CALLBACK_REG
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.UNSAFE_CALLBACK_REARM_API
 import org.graphiks.kextract.kotlin.abi.KotlinKmpCAbiType
 import org.graphiks.kextract.kotlin.builders.SourceBuilder
+import org.graphiks.kextract.kotlin.builders.canonicalRecordDeclaration
+import org.graphiks.kextract.kotlin.builders.isStructType
 import org.graphiks.kextract.pipeline.isEnum
 
 internal class KotlinCallbackAndroidEmitter(
     private val mapType: (Type) -> String,
     private val mapJnaType: (Type) -> String,
+    private val mapJnaFieldType: (Type) -> String,
     private val namePlan: KotlinKmpNamePlan,
 ) {
     fun emit(builder: SourceBuilder, callbacks: List<KotlinCallbackModel>) {
+        emitJnaStructCarriers(builder, callbacks)
         callbacks.forEach { callback ->
             emitTrampoline(builder, callback)
             emitRegistrationOperation(builder, callback, "register", internal = false)
@@ -38,6 +44,64 @@ internal class KotlinCallbackAndroidEmitter(
                 )
             }
         }
+    }
+
+    /**
+     * JNA needs a real Structure.ByValue carrier for C records passed by value.
+     * A Pointer carrier has the wrong ABI: it shifts every argument following the
+     * record, which is especially visible for callbacks carrying userdata.
+     */
+    private fun emitJnaStructCarriers(builder: SourceBuilder, callbacks: List<KotlinCallbackModel>) {
+        val declarations = mutableListOf<Declaration.Scoped>()
+        val seen = mutableSetOf<String>()
+
+        fun collect(type: Type) {
+            if (!isStructType(type)) return
+            val declaration = canonicalRecordDeclaration(type) ?: return
+            val name = namePlan.declaration(declaration)
+            if (!seen.add(name)) return
+            declarations += declaration
+            declaration.members()
+                .filterIsInstance<Declaration.Variable>()
+                .filterNot(Skip::isPresent)
+                .forEach { collect(it.type()) }
+        }
+
+        callbacks.asSequence()
+            .flatMap { it.rawParameters().asSequence() }
+            .forEach { collect(it.type) }
+
+        declarations.forEach { declaration ->
+            val name = namePlan.declaration(declaration)
+            val fields = declaration.members()
+                .filterIsInstance<Declaration.Variable>()
+                .filterNot(Skip::isPresent)
+            builder.appendLine("private open class ${name}Jna : com.sun.jna.Structure {")
+            builder.indent()
+            fields.forEach { field ->
+                val fieldType = mapJnaFieldType(field.type())
+                builder.appendLine("@JvmField var ${namePlan.member(field)}: $fieldType = ${jnaDefaultValue(fieldType)}")
+            }
+            builder.appendLine()
+            builder.appendLine("constructor() : super()")
+            builder.appendLine("constructor(pointer: com.sun.jna.Pointer?) : super(pointer)")
+            builder.appendLine(
+                "override fun getFieldOrder() = listOf<String>(${fields.joinToString(", ") { "\"${namePlan.member(it)}\"" }})",
+            )
+            builder.appendLine()
+            builder.appendLine(
+                "class ByValue(pointer: com.sun.jna.Pointer? = null) : ${name}Jna(pointer), com.sun.jna.Structure.ByValue",
+            )
+            builder.unindent()
+            builder.appendLine("}")
+            builder.appendLine()
+        }
+    }
+
+    private fun jnaDefaultValue(type: String): String = when (type) {
+        "Byte", "Short", "Int", "Long", "Float", "Double" -> "0"
+        "com.sun.jna.Pointer?" -> "null"
+        else -> "$type()"
     }
 
     private fun emitTrampoline(builder: SourceBuilder, callback: KotlinCallbackModel) {
@@ -266,9 +330,9 @@ internal class KotlinCallbackAndroidEmitter(
         "$name?.takeIf { com.sun.jna.Pointer.nativeValue(it) != 0L }" +
             "?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(com.sun.jna.Pointer.nativeValue(it)) }"
 
-    /** Converts a JNA `Pointer` upcall argument to a non-null [NATIVE_ADDRESS] (null -> address 0). */
+    /** Converts a JNA by-value Structure upcall argument to a memory-backed record view. */
     private fun jnaStructValueConversion(name: String): String =
-        "${jnaAddressConversion(name)} ?: ${namePlan.runtime(NATIVE_ADDRESS)}(0L)"
+        "${namePlan.runtime(NATIVE_ADDRESS)}(com.sun.jna.Pointer.nativeValue($name.getPointer()))"
 
     /** Converts a JNA `Pointer` upcall argument to a [C_STRING], preserving null. */
     private fun jnaCStringConversion(name: String): String =
