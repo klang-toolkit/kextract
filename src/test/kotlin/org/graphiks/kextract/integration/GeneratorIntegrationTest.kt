@@ -455,6 +455,22 @@ class GeneratorIntegrationTest : FreeSpec({
             src shouldContain "allocator: SegmentAllocator"
         }
 
+        "struct-by-value JVM functions use the canonical generic shape" {
+            val src = generateKmpFile(
+                """
+                typedef struct Pair { int left; double right; } Pair;
+                int sum_pair(Pair pair);
+                """.trimIndent(),
+                sourceSet = "jvmMain",
+                suffix = "Jvm",
+            )
+
+            src shouldContain "JvmDowncallEngine.FunctionShape"
+            src shouldContain "JvmDowncallEngine.AbiType.Struct(\"Pair_\")"
+            src shouldContain "JvmDowncallEngine.callGeneric"
+            src shouldNotContain "sumPair_HANDLE"
+        }
+
         "FunctionDescriptor and MethodHandle are emitted" {
             val src = generate("int square(int n);")
 

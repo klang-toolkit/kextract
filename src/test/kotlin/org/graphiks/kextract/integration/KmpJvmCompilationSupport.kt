@@ -100,6 +100,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
         val jvm = workspace.resolve("sampleJvm.kt")
         val kffiCommon = workspace.resolve("kffiCommon.kt")
         val kffiJvm = workspace.resolve("kffiJvm.kt")
+        val kffiJvmEngine = workspace.resolve("kffiJvmEngine.kt")
         val probe = workspace.resolve("probe.kt")
         val output = Files.createDirectories(workspace.resolve("classes"))
 
@@ -107,6 +108,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
         jvm.toFile().writeText(generated.jvm)
         kffiCommon.toFile().writeText(KFFI_COMMON_STUB)
         kffiJvm.toFile().writeText(KFFI_JVM_STUB)
+        kffiJvmEngine.toFile().writeText(KFFI_JVM_ENGINE_STUB)
         probe.toFile().writeText(probeSource)
 
         K2JVMCompiler().exec(
@@ -118,7 +120,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
             "-classpath", System.getProperty("java.class.path"),
             "-d", output.toString(),
             common.toString(), jvm.toString(),
-            kffiCommon.toString(), kffiJvm.toString(), probe.toString(),
+            kffiCommon.toString(), kffiJvm.toString(), kffiJvmEngine.toString(), probe.toString(),
         ) shouldBe ExitCode.OK
 
         URLClassLoader(
@@ -248,5 +250,41 @@ internal val KFFI_JVM_STUB =
     fun findOrThrow(name: String): MemorySegment {
         CallbackRuntime.symbolResolutionCount += 1
         return TestNativeSymbols.find(name)
+    }
+
+    """.trimIndent()
+
+internal val KFFI_JVM_ENGINE_STUB =
+    """
+    package org.graphiks.kffi.engine
+
+    object JvmDowncallEngine {
+        sealed class AbiType {
+            object Void : AbiType()
+            object Bool : AbiType()
+            object I8 : AbiType()
+            object I16 : AbiType()
+            object Char16 : AbiType()
+            object I32 : AbiType()
+            object I64 : AbiType()
+            object F32 : AbiType()
+            object F64 : AbiType()
+            object Pointer : AbiType()
+            data class Struct(val name: String) : AbiType()
+        }
+        data class FunctionShape(val result: AbiType, val arguments: List<AbiType>)
+        enum class FieldKind { INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64, POINTER, STRUCT, ARRAY, PADDING }
+        data class StructField(
+            val cName: String,
+            val kind: FieldKind,
+            val offsetBytes: Long,
+            val arrayElementKind: FieldKind? = null,
+            val arrayLength: Long = 0L,
+            val arrayElementName: String? = null,
+            val structName: String? = null,
+        )
+        fun registerStructLayout(name: String, sizeBytes: Long, alignmentBytes: Long, fields: List<StructField>) = Unit
+        fun resolveSymbol(name: String): Long = error("No JVM downcall engine in this compilation stub")
+        fun callGeneric(fn: Long, shape: FunctionShape, vararg args: Any?): Any? = error("No JVM downcall engine in this compilation stub")
     }
     """.trimIndent()

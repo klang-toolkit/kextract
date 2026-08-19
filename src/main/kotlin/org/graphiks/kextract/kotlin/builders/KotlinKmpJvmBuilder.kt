@@ -38,6 +38,8 @@ import org.graphiks.kextract.kotlin.utils.TypeMapper
 import org.graphiks.kextract.pipeline.isStructOrUnion
 import org.graphiks.kextract.pipeline.isEnum
 import org.graphiks.kextract.pipeline.Options
+import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiContext
+import org.graphiks.kextract.kotlin.abi.KotlinKmpCAbiType
 import org.graphiks.kextract.kotlin.utils.KotlinIdentifierAllocator
 
 internal class KotlinKmpJvmBuilder(
@@ -57,12 +59,14 @@ internal class KotlinKmpJvmBuilder(
     private val files = mutableListOf<KotlinSourceFile>()
     private val generatedNames = mutableSetOf<String>()
     private val generatedStructNames = mutableSetOf<String>()
+    private val genericStructDeclarations = linkedSetOf<Declaration.Scoped>()
     private val callbackTypeNames = callbackModels.mapTo(mutableSetOf(), KotlinCallbackModel::typeName)
     private val typeMapper = KmpTypeMapper(
         namePlan,
         abiIndex = abiIndex,
     )
     private val nativeAddress = namePlan.runtime(NATIVE_ADDRESS)
+    private val jvmDowncallEngine = "org.graphiks.kffi.engine.JvmDowncallEngine"
     private val cString = namePlan.runtime(C_STRING)
     private val arrayHolder = namePlan.runtime(ARRAY_HOLDER)
     private val memoryAllocator = namePlan.runtime(MEMORY_ALLOCATOR)
@@ -294,6 +298,7 @@ internal class KotlinKmpJvmBuilder(
                     directBindingModels,
                     ::toRawJvmArgument,
                 )
+                emitJvmEngineStructRegistrations()
             }
             else -> {}
         }
@@ -476,6 +481,14 @@ internal class KotlinKmpJvmBuilder(
     }
 
     private fun emitFunction(decl: Declaration.Function) {
+        if (usesGenericJvmDowncall(decl)) {
+            emitGenericFunction(decl)
+        } else {
+            emitDirectFunction(decl)
+        }
+    }
+
+    private fun emitDirectFunction(decl: Declaration.Function) {
         val name = namePlan.declaration(decl)
         val cName = decl.name()
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
@@ -503,6 +516,212 @@ internal class KotlinKmpJvmBuilder(
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
+    }
+
+    private fun emitGenericFunction(decl: Declaration.Function) {
+        val name = namePlan.declaration(decl)
+        val cName = decl.name()
+        val returnType = typeMapper.mapFunctionType(decl.type().returnType())
+        val params = decl.parameters().map { param ->
+            val paramName = namePlan.parameter(param)
+            "$paramName: ${typeMapper.mapFunctionType(param.type())}"
+        }
+        val rawArgs = decl.parameters().map { param ->
+            val paramName = namePlan.parameter(param)
+            toRawJvmGenericArgument(paramName, param.type())
+        }
+        rememberGenericStructs(decl.type().returnType())
+        decl.type().argumentTypes().forEach(::rememberGenericStructs)
+        val shape = buildString {
+            append("$jvmDowncallEngine.FunctionShape(")
+            append("result = ")
+            append(jvmAbiTypeExpression(decl.type().returnType()))
+            append(", arguments = listOf(")
+            append(decl.type().argumentTypes().joinToString(", ") { jvmAbiTypeExpression(it) })
+            append("))")
+        }
+        builder.appendLine("private val ${name}_SHAPE: $jvmDowncallEngine.FunctionShape = $shape")
+        builder.appendLine("private val ${name}_ADDR: Long by lazy { $jvmDowncallEngine.resolveSymbol(\"$cName\") }")
+        val invokeArgs = listOf("${name}_ADDR", "${name}_SHAPE") + rawArgs
+        val invoke = "$jvmDowncallEngine.callGeneric(${invokeArgs.joinToString(", ")})"
+        builder.appendLine("actual fun $name(${params.joinToString(", ")}): $returnType {")
+        builder.indent()
+        emitFunctionReturn(decl.type().returnType(), returnType, invoke)
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
+    }
+
+    private fun usesGenericJvmDowncall(decl: Declaration.Function): Boolean =
+        directBindingModels.none { it.binding.function === decl } &&
+            (isGenericStructValue(decl.type().returnType()) ||
+                decl.type().argumentTypes().any(::isGenericStructValue))
+
+    private fun isGenericStructValue(type: Type): Boolean {
+        val abi = runCatching { KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT) }
+            .getOrNull() ?: return false
+        return abi is KotlinKmpCAbiType.StructValue &&
+            abi.declaration.kind() == Declaration.Scoped.Kind.STRUCT
+    }
+
+    private fun jvmAbiTypeExpression(type: Type): String {
+        if (type is Type.Primitive && type.kind() == Type.Primitive.Kind.Void) {
+            return "$jvmDowncallEngine.AbiType.Void"
+        }
+        val abi = try {
+            KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT)
+        } catch (unsupported: UnsupportedOperationException) {
+            if (type is Type.Primitive && type.kind() == Type.Primitive.Kind.Long) {
+                KotlinKmpCAbiType.Scalar(KotlinKmpCAbiType.Scalar.Kind.I64, unsigned = false)
+            } else {
+                throw unsupported
+            }
+        }
+        val prefix = "$jvmDowncallEngine.AbiType"
+        return when (abi) {
+            is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+                KotlinKmpCAbiType.Scalar.Kind.BOOL -> "$prefix.Bool"
+                KotlinKmpCAbiType.Scalar.Kind.I8 -> "$prefix.I8"
+                KotlinKmpCAbiType.Scalar.Kind.I16 -> "$prefix.I16"
+                KotlinKmpCAbiType.Scalar.Kind.I32 -> "$prefix.I32"
+                KotlinKmpCAbiType.Scalar.Kind.I64 -> "$prefix.I64"
+                KotlinKmpCAbiType.Scalar.Kind.CHAR16 -> "$prefix.Char16"
+                KotlinKmpCAbiType.Scalar.Kind.F32 -> "$prefix.F32"
+                KotlinKmpCAbiType.Scalar.Kind.F64 -> "$prefix.F64"
+            }
+            is KotlinKmpCAbiType.Address -> "$prefix.Pointer"
+            is KotlinKmpCAbiType.StructValue ->
+                "$prefix.Struct(\"${namePlan.declaration(abi.declaration)}\")"
+        }
+    }
+
+    private fun toRawJvmGenericArgument(name: String, type: Type): String {
+        val kmpType = typeMapper.mapFunctionType(type)
+        val rawType = rawJvmType(type)
+        return when {
+            rawType != memorySegment -> toRawJvmArgument(name, type)
+            kmpType == "$nativeAddress?" -> name
+            kmpType == nativeAddress -> name
+            kmpType.endsWith("?") -> "$name?.handler"
+            kmpType == memorySegment -> name
+            else -> "$name.handler"
+        }
+    }
+
+    private fun emitJvmEngineStructRegistrations() {
+        genericStructDeclarations.forEach { declaration ->
+            emitJvmEngineStructRegistration(recordLayouts[declaration])
+        }
+    }
+
+    private fun emitJvmEngineStructRegistration(layout: KotlinJvmRecordLayout) {
+        val layoutName = namePlan.declaration(layout.declaration)
+        val registrationName = privateNames.allocate("${layoutName}JvmLayoutRegistration", "jvmLayoutRegistration")
+        val fields = buildList {
+            var previousEnd = 0L
+            layout.members.forEach { member ->
+                val gap = member.offsetBytes - previousEnd
+                if (gap > 0L) {
+                    add(
+                        "$jvmDowncallEngine.StructField(" +
+                            "cName = \"__padding_${size}\", " +
+                            "kind = $jvmDowncallEngine.FieldKind.PADDING, " +
+                            "offsetBytes = $gap",
+                    )
+                }
+                add(renderJvmEngineField(member))
+                previousEnd = member.offsetBytes + member.sizeBytes
+            }
+            val finalPadding = layout.sizeBytes - previousEnd
+            if (finalPadding > 0L) {
+                add(
+                    "$jvmDowncallEngine.StructField(" +
+                        "cName = \"__padding_${size}\", " +
+                        "kind = $jvmDowncallEngine.FieldKind.PADDING, " +
+                        "offsetBytes = $finalPadding",
+                )
+            }
+        }
+        builder.appendLine("private val $registrationName = $jvmDowncallEngine.registerStructLayout(")
+        builder.indent()
+        builder.appendLine("name = \"$layoutName\",")
+        builder.appendLine("sizeBytes = $layoutName.layout.byteSize(),")
+        builder.appendLine("alignmentBytes = $layoutName.layout.byteAlignment(),")
+        builder.appendLine("fields = listOf(")
+        builder.indent()
+        fields.forEachIndexed { index, field ->
+            val comma = if (index < fields.lastIndex) "," else ""
+            builder.appendLine("$field)$comma")
+        }
+        builder.unindent()
+        builder.appendLine(")")
+        builder.unindent()
+        builder.appendLine(")")
+    }
+
+    private fun rememberGenericStructs(type: Type) {
+        arrayType(type)?.let { array ->
+            rememberGenericStructs(array.elementType())
+            return
+        }
+        val abi = runCatching { KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT) }
+            .getOrNull() ?: return
+        if (abi is KotlinKmpCAbiType.StructValue &&
+            abi.declaration.kind() == Declaration.Scoped.Kind.STRUCT &&
+            genericStructDeclarations.add(abi.declaration)
+        ) {
+            abi.declaration.members()
+                .filterIsInstance<Declaration.Variable>()
+                .forEach { field -> rememberGenericStructs(field.type()) }
+        }
+    }
+
+    private fun renderJvmEngineField(member: KotlinJvmRecordMemberLayout): String {
+        val array = arrayType(member.field.type())
+        if (array != null) {
+            val element = engineFieldKind(array.elementType())
+            val elementName = engineFieldStructName(array.elementType())
+            return "$jvmDowncallEngine.StructField(" +
+                "cName = \"${member.cName}\", " +
+                "kind = $jvmDowncallEngine.FieldKind.ARRAY, " +
+                "offsetBytes = ${member.offsetBytes}L, " +
+                "arrayElementKind = $jvmDowncallEngine.FieldKind.$element, " +
+                "arrayLength = ${array.elementCount() ?: 0L}L" +
+                (elementName?.let { ", arrayElementName = \"$it\"" } ?: "")
+        }
+        val kind = engineFieldKind(member.field.type())
+        val structName = engineFieldStructName(member.field.type())
+        return "$jvmDowncallEngine.StructField(" +
+            "cName = \"${member.cName}\", " +
+            "kind = $jvmDowncallEngine.FieldKind.$kind, " +
+            "offsetBytes = ${member.offsetBytes}L" +
+            (structName?.let { ", structName = \"$it\"" } ?: "")
+    }
+
+    private fun engineFieldKind(type: Type): String = when (val abi = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.FIELD)) {
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL,
+            KotlinKmpCAbiType.Scalar.Kind.I8 -> "INT8"
+            KotlinKmpCAbiType.Scalar.Kind.I16,
+            KotlinKmpCAbiType.Scalar.Kind.CHAR16 -> "INT16"
+            KotlinKmpCAbiType.Scalar.Kind.I32 -> "INT32"
+            KotlinKmpCAbiType.Scalar.Kind.I64 -> "INT64"
+            KotlinKmpCAbiType.Scalar.Kind.F32 -> "FLOAT32"
+            KotlinKmpCAbiType.Scalar.Kind.F64 -> "FLOAT64"
+        }
+        is KotlinKmpCAbiType.Address -> "POINTER"
+        is KotlinKmpCAbiType.StructValue -> "STRUCT"
+    }
+
+    private fun engineFieldStructName(type: Type): String? =
+        (KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.FIELD) as? KotlinKmpCAbiType.StructValue)
+            ?.declaration
+            ?.let(namePlan::declaration)
+
+    private fun arrayType(type: Type): Type.Array? = when (type) {
+        is Type.Array -> type
+        is Type.Delegated -> arrayType(type.type())
+        else -> null
     }
 
     private fun emitFunctionReturn(type: Type, returnType: String, invoke: String) {
