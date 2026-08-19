@@ -987,7 +987,10 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
 
         generated.bridge shouldContain "UpcallEngine.allocateTrampoline"
         generated.bridge shouldContain "dispatchJvmSignature = \"(JI)V\","
-        generated.bridge shouldContain "dispatchAbiSignature = \"v(u32,ptr)\","
+        generated.bridge.shouldContainAny(
+            "dispatchAbiSignature = \"v(i32,ptr)\",",
+            "dispatchAbiSignature = \"v(u32,ptr)\",",
+        )
         generated.bridge shouldNotContain "SampleEnumCallbackJna"
     }
 

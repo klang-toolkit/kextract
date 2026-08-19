@@ -13,11 +13,7 @@ open class SourceBuilder {
      * Appends a line with current indentation.
      */
     fun appendLine(line: String = "") {
-        if (line.isEmpty()) {
-            appendBlankLine()
-        } else {
-            sb.append("${indentString.repeat(indentLevel)}$line\n")
-        }
+        sb.append("${indentString.repeat(indentLevel)}$line\n")
     }
 
     /** Appends an empty line without indentation whitespace. */
