@@ -35,7 +35,6 @@ internal val GENERATED_CALLBACK_RESERVED_IDENTIFIERS = setOf(
     "MemoryAllocator",
     "CString",
     "ArrayHolder",
-    "CStructure",
     "FunctionDescriptor",
     "MethodHandle",
     "MethodHandles",
@@ -122,7 +121,7 @@ class KotlinGenerator {
         if (multiplatform) {
             val namePlan = KotlinKmpNamePlan.create(scoped, callbackBindings)
             val abiIndex = KotlinKmpAbiIndex.create(scoped)
-            val jvmRecordLayouts = KotlinJvmRecordLayoutPlan.create(scoped, namePlan, abiIndex)
+            val jvmRecordLayouts = KotlinJvmRecordLayoutPlan.create(scoped)
             val androidRecordLayouts = AndroidRecordLayoutPlan.create(scoped)
             val callbackNames = KotlinIdentifierAllocator(namePlan.topLevelNames + namePlan.renderedRuntimeNames)
             val callbackModels = callbackBindings.callbacks.map { callback ->

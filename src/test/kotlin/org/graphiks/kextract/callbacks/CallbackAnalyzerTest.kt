@@ -937,7 +937,7 @@ class CallbackAnalyzerTest {
             } SampleUniqueDescriptor;
 
             void sampleSetCallback(SampleCallback callback, void * userdata2);
-            void sampleOwnCallbackInfo(SampleCallbackInfo callbackInfo);
+            void sampleOwnCallbackInfo(SampleCallbackInfo const * callbackInfo);
             void sampleOwnAmbiguousDescriptor(SampleDescriptor const * descriptor);
             void sampleOwnNestedCallbackInfo(SampleUniqueDescriptor const * descriptor);
         """.trimIndent()

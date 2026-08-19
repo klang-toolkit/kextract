@@ -290,9 +290,12 @@ internal class KotlinKmpCommonBuilder(
     override fun visitFunction(decl: Declaration.Function) {
         if (Skip.isPresent(decl)) return
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
-        val params = decl.parameters().map { param ->
-            "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
-        }.joinToString(", ")
+        val params = (
+            typeMapper.allocatorParams(decl.type().returnType()) +
+                decl.parameters().map { param ->
+                    "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
+                }
+        ).joinToString(", ")
         emitKDoc(decl)
         builder.appendLine("expect fun ${namePlan.declaration(decl)}($params): $returnType")
         builder.appendLine()

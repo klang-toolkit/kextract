@@ -13,7 +13,6 @@ import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.CALLBACK_RUNTIME_API
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_ALLOCATOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.OPT_IN
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.SUPPRESS
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.UNSAFE_CALLBACK_REARM_API
 import org.graphiks.kextract.kotlin.builders.SourceBuilder
 import org.graphiks.kextract.kotlin.utils.KotlinIdentifierAllocator
@@ -32,34 +31,32 @@ internal class KotlinCallbackBindingEmitter(
         callbackInfoBindings.forEach { emitCallbackInfoFactory(builder, it, callbackModelsByCanonicalId) }
     }
 
+    /**
+     * Émission du preflight JVM : le corps se limite au lambda d'appel — les
+     * conversions de valeur et la résolution de symbole (lazy `_ADDR`) sont
+     * différées à l'invocation, comme sur Android. Le lambda résout chaque
+     * paramètre C vers le nom d'application brut ([RenderedParameter.name]) que
+     * l'émission du downcall convertit ; il n'y a donc pas de valeurs préparées.
+     */
     fun emitJvm(
         builder: SourceBuilder,
         bindings: List<KotlinDirectFunctionBindingModel>,
-        toRawArgument: (String, Type) -> String,
+        emitEngineDowncall: (Declaration.Function, asLastExpression: Boolean, (Declaration.Variable) -> String) -> Unit,
     ) {
         bindings.forEach { model ->
             val binding = model.binding
-            val name = namePlan.declaration(binding.function)
             val parameters = applicationParameters(binding)
-            builder.appendLine("@${namePlan.runtime(SUPPRESS)}(\"UNUSED_VARIABLE\")")
             emitPreflightHeader(builder, binding, model.preflightName, parameters, actual = true)
             builder.indent()
-            parameters.forEach { parameter ->
-                builder.appendLine(
-                    "val ${parameter.preparedName} = ${toRawArgument(parameter.name, parameter.variable.type())}",
-                )
-            }
-            builder.appendLine("val address = ${name}_ADDR")
-            builder.appendLine("val handle = ${name}_HANDLE")
             builder.appendLine("return { ${preparedCallLambdaParameters(binding)} ->")
             builder.indent()
-            builder.appendLine("handle.invokeExact(")
-            builder.indent()
-            preparedPlatformArguments(binding, parameters, toRawArgument).forEach { argument ->
-                builder.appendLine("$argument,")
+            emitEngineDowncall(binding.function, true) { parameter ->
+                when (parameter) {
+                    binding.callbackParameter -> "callback"
+                    binding.routingUserdataParameter -> "userdata"
+                    else -> parameters.single { it.variable === parameter }.name
+                }
             }
-            builder.unindent()
-            builder.appendLine(")")
             builder.unindent()
             builder.appendLine("}")
             builder.unindent()

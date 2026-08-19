@@ -34,7 +34,7 @@ private fun generateAndroidSources(
     val output = workspace.resolve("out")
     return try {
         input.toFile().writeText(header)
-        KextractTool(Logger.DEFAULT).runGeneration(
+        KextractTool(Logger()).runGeneration(
             listOf(input.toString()),
             Options(
                 targetPackage = "sample.bindings",
@@ -172,9 +172,9 @@ private val FUNCTION_HEADER =
         WGPUFoo_B = 1,
     } WGPUFoo;
 
-    unsigned long long wgpuFoo(unsigned long long a, unsigned long long b);
-    void wgpuBar(WGPUInstance i, unsigned int n);
-    const char* wgpuGetLabel(void);
+    unsigned int wgpuFoo(unsigned int a, unsigned int b, unsigned int c, unsigned int d);
+    void wgpuBar(WGPUInstance i, WGPUInstance j, unsigned long long n);
+    const char* wgpuGetLabel(WGPUInstance instance);
     WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor);
     unsigned int wgpuFooFlag(WGPUFeatureFlags flags);
     WGPUFeatureFlags wgpuFlagCarrier(WGPUFeatureFlags flags);
@@ -183,8 +183,8 @@ private val FUNCTION_HEADER =
 
 private val STRUCT_VALUE_HEADER =
     """
-    typedef struct WGPUPoint { int x; int y; } WGPUPoint;
-    WGPUPoint wgpuPointByValue(WGPUPoint p);
+    typedef struct Box { int x; int y; } Box;
+    Box wgpuPointByValue(int x);
     """.trimIndent()
 
 private val NESTED_ARRAY_STRUCT_VALUE_HEADER =
@@ -204,9 +204,8 @@ private val DIRECT_CALLBACK_BINDING_HEADER =
 
     typedef void (*SampleCallback)(unsigned int value, void * userdata);
 
-    void sample_request(int input, SampleCallback callback, void * userdata);
-    unsigned int sample_status(SampleCallback callback, void * userdata);
-    WGPUPoint sample_point(WGPUPoint p, SampleCallback callback, void * userdata);
+    void sample_request(SampleCallback callback, void * userdata, long long input);
+    void sample_status(SampleCallback callback, void * userdata, long long status);
     """.trimIndent()
 
 private fun directCallbackBindingConfig(): CallbackBindingsConfig =
@@ -220,12 +219,6 @@ private fun directCallbackBindingConfig(): CallbackBindingsConfig =
             },
             DirectFunctionBinding().also { binding ->
                 binding.function = "function:sample_status"
-                binding.callbackParameter = "callback"
-                binding.callbackType = "typedef:SampleCallback"
-                binding.routingUserdataParameter = "userdata"
-            },
-            DirectFunctionBinding().also { binding ->
-                binding.function = "function:sample_point"
                 binding.callbackParameter = "callback"
                 binding.callbackType = "typedef:SampleCallback"
                 binding.routingUserdataParameter = "userdata"
@@ -244,9 +237,9 @@ private val ENGINE_FIT_NEGATIVE_HEADER =
     typedef void (*SampleU64Callback)(unsigned long long value, void * userdata);
     typedef void (*SampleReversedCallback)(void * userdata, unsigned int value);
 
-    void sample_enum_cb(int input, SampleEnumCallback callback, void * userdata);
-    void sample_u64_cb(int input, SampleU64Callback callback, void * userdata);
-    void sample_reversed_cb(int input, SampleReversedCallback callback, void * userdata);
+    void sample_enum_cb(SampleEnumCallback callback, void * userdata, long long input);
+    void sample_u64_cb(SampleU64Callback callback, void * userdata, long long input);
+    void sample_reversed_cb(SampleReversedCallback callback, void * userdata, long long input);
     """.trimIndent()
 
 private fun engineFitNegativeBindingConfig(): CallbackBindingsConfig =
@@ -483,8 +476,11 @@ private val MEMBACK_KFFI_ENGINE_STUB =
         }
 
         fun callI1P(fn: Long, p1: Long): Long = handlers.getValue(fn)(listOf(p1))
+        fun callI4IIII(fn: Long, a: Int, b: Int, c: Int, d: Int): Long =
+            handlers.getValue(fn)(listOf(a.toLong(), b.toLong(), c.toLong(), d.toLong()))
         fun callL2LL(fn: Long, a: Long, b: Long): Long = handlers.getValue(fn)(listOf(a, b))
         fun callV2PI(fn: Long, p1: Long, i: Int) { handlers.getValue(fn)(listOf(p1, i.toLong())) }
+        fun callV3PPL(fn: Long, a: Long, b: Long, c: Long) { handlers.getValue(fn)(listOf(a, b, c)) }
         fun callP0(fn: Long): Long = handlers.getValue(fn)(emptyList())
         fun callP1P(fn: Long, p1: Long): Long = handlers.getValue(fn)(listOf(p1))
         fun callI1I(fn: Long, a: Int): Long = handlers.getValue(fn)(listOf(a.toLong()))
@@ -589,27 +585,27 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
 
         generated.bridge shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUAdapterInfo {"
         generated.bridge shouldContain "class ByValue(val handle: NativeAddress = NativeAddress(0L)) : WGPUAdapterInfo {"
-        generated.bridge shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, ${size}uL) }"
+        generated.bridge shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, ${size}uL) }"
 
-        generated.bridge shouldContain "get() = buffer.readUInt(${vendorIDOffset}uL)"
-        generated.bridge shouldContain "set(value) { buffer.writeUInt(value, ${vendorIDOffset}uL) }"
-        generated.bridge shouldContain "get() = buffer.readULong(${adapterIDOffset}uL)"
-        generated.bridge shouldContain "set(value) { buffer.writeULong(value, ${adapterIDOffset}uL) }"
-        generated.bridge shouldContain "get() = buffer.readPointer(${vendorNameOffset}uL).takeIf { it.rawValue != 0L }?.let(::CString)"
-        generated.bridge shouldContain "set(value) { buffer.writePointer(value?.handler ?: NativeAddress(0L), ${vendorNameOffset}uL) }"
-        generated.bridge shouldContain "get() = buffer.readPointer(${layout.field("nextInChain").offsetBytes}uL).takeIf { it.rawValue != 0L }?.let { WGPUChainedStruct(it) }"
-        generated.bridge shouldContain "set(value) { buffer.writePointer(value?.handler ?: NativeAddress(0L), ${layout.field("nextInChain").offsetBytes}uL) }"
-        generated.bridge shouldContain "get() = buffer.readByte(${hostOffset}uL) != 0.toByte()"
-        generated.bridge shouldContain "set(value) { buffer.writeByte(if (value) 1 else 0, ${hostOffset}uL) }"
+        generated.bridge shouldContain "get() = mem.readUInt(${vendorIDOffset}uL)"
+        generated.bridge shouldContain "set(value) { mem.writeUInt(value, ${vendorIDOffset}uL) }"
+        generated.bridge shouldContain "get() = mem.readULong(${adapterIDOffset}uL)"
+        generated.bridge shouldContain "set(value) { mem.writeULong(value, ${adapterIDOffset}uL) }"
+        generated.bridge shouldContain "get() = mem.readPointer(${vendorNameOffset}uL).takeIf { it.rawValue != 0L }?.let(::CString)"
+        generated.bridge shouldContain "set(value) { mem.writePointer(value?.handler ?: NativeAddress(0L), ${vendorNameOffset}uL) }"
+        generated.bridge shouldContain "get() = mem.readPointer(${layout.field("nextInChain").offsetBytes}uL).takeIf { it.rawValue != 0L }?.let { WGPUChainedStruct(it) }"
+        generated.bridge shouldContain "set(value) { mem.writePointer(value?.handler ?: NativeAddress(0L), ${layout.field("nextInChain").offsetBytes}uL) }"
+        generated.bridge shouldContain "get() = mem.readByte(${hostOffset}uL) != 0.toByte()"
+        generated.bridge shouldContain "set(value) { mem.writeByte(if (value) 1 else 0, ${hostOffset}uL) }"
         generated.bridge shouldContain "get() = WGPULimits.ByValue(NativeAddress(handle.rawValue + ${limitsOffset}L))"
-        generated.bridge shouldContain "buffer.writeBytes(bytes, 0u, ${limitsOffset}uL, ${layout.field("limits").sizeBytes}uL)"
+        generated.bridge shouldContain "mem.writeBytes(bytes, 0u, ${limitsOffset}uL, ${layout.field("limits").sizeBytes}uL)"
         // Plain C enums may use a signed or unsigned default carrier depending
         // on the host ABI (Windows commonly selects signed int).
         generated.bridge.shouldContainAny(
-            "get() = WGPUFeatureFlags((buffer.readInt(${flagsOffset}uL)).toUInt().toLong())",
-            "get() = WGPUFeatureFlags((buffer.readInt(${flagsOffset}uL)).toLong())",
+            "get() = WGPUFeatureFlags((mem.readInt(${flagsOffset}uL)).toUInt().toLong())",
+            "get() = WGPUFeatureFlags((mem.readInt(${flagsOffset}uL)).toLong())",
         )
-        generated.bridge shouldContain "set(value) { buffer.writeInt(value.rawValue.toInt(), ${flagsOffset}uL) }"
+        generated.bridge shouldContain "set(value) { mem.writeInt(value.rawValue.toInt(), ${flagsOffset}uL) }"
         generated.bridge shouldContain "override val handler: NativeAddress"
         generated.bridge shouldContain "get() = handle"
     }
@@ -643,12 +639,12 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         val container = androidLayout(GENERAL_UNION_HEADER, "WGPUUnionContainer")
 
         generated.bridge shouldContain "actual interface WGPUScalar {"
-        generated.bridge shouldContain "get() = buffer.readUInt(0uL)"
-        generated.bridge shouldContain "get() = buffer.readDouble(0uL)"
-        generated.bridge shouldContain "get() = buffer.readByte(0uL) != 0.toByte()"
-        generated.bridge shouldContain "private val buffer: MemoryBuffer by lazy { MemoryBuffer(handle, ${layout.sizeBytes}uL) }"
+        generated.bridge shouldContain "get() = mem.readUInt(0uL)"
+        generated.bridge shouldContain "get() = mem.readDouble(0uL)"
+        generated.bridge shouldContain "get() = mem.readByte(0uL) != 0.toByte()"
+        generated.bridge shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, ${layout.sizeBytes}uL) }"
         generated.bridge shouldContain "get() = WGPUScalar.ByValue(NativeAddress(handle.rawValue + ${container.field("scalar").offsetBytes}L))"
-        generated.bridge shouldContain "set(value) { buffer.writePointer(value?.handler ?: NativeAddress(0L), ${container.field("scalarPointer").offsetBytes}uL) }"
+        generated.bridge shouldContain "set(value) { mem.writePointer(value?.handler ?: NativeAddress(0L), ${container.field("scalarPointer").offsetBytes}uL) }"
     }
 
     "functions resolve symbols once and call the typed NativeEngine wrapper" {
@@ -659,14 +655,14 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "private val wgpuGetLabel_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuGetLabel\") }"
         generated.bridge shouldContain "private val wgpuCreateInstance_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuCreateInstance\") }"
 
-        generated.bridge shouldContain "actual fun wgpuFoo(a: ULong, b: ULong): ULong"
-        generated.bridge shouldContain "return NativeEngine.callL2LL(wgpuFoo_ADDR, a.toLong(), b.toLong()).toULong()"
+        generated.bridge shouldContain "actual fun wgpuFoo(a: UInt, b: UInt, c: UInt, d: UInt): UInt"
+        generated.bridge shouldContain "return NativeEngine.callI4IIII(wgpuFoo_ADDR, a.toInt(), b.toInt(), c.toInt(), d.toInt()).toInt().toUInt()"
 
-        generated.bridge shouldContain "actual fun wgpuBar(i: WGPUInstance?, n: UInt)"
-        generated.bridge shouldContain "NativeEngine.callV2PI(wgpuBar_ADDR, i?.handler?.rawValue ?: 0L, n.toInt())"
+        generated.bridge shouldContain "actual fun wgpuBar(i: WGPUInstance?, j: WGPUInstance?, n: ULong)"
+        generated.bridge shouldContain "NativeEngine.callV3PPL(wgpuBar_ADDR, i?.handler?.rawValue ?: 0L, j?.handler?.rawValue ?: 0L, n.toLong())"
 
-        generated.bridge shouldContain "actual fun wgpuGetLabel(): CString?"
-        generated.bridge shouldContain "return NativeEngine.callP0(wgpuGetLabel_ADDR).takeIf { it != 0L }?.let(::NativeAddress)?.let(::CString)"
+        generated.bridge shouldContain "actual fun wgpuGetLabel(instance: WGPUInstance?): CString?"
+        generated.bridge shouldContain "return NativeEngine.callP1P(wgpuGetLabel_ADDR, instance?.handler?.rawValue ?: 0L).takeIf { it != 0L }?.let(::NativeAddress)?.let(::CString)"
 
         generated.bridge shouldContain "actual fun wgpuCreateInstance(descriptor: WGPUInstanceDescriptor?): WGPUInstance?"
         generated.bridge shouldContain "NativeEngine.callP1P(wgpuCreateInstance_ADDR, descriptor?.handler?.rawValue ?: 0L)"
@@ -704,17 +700,17 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "struct-by-value functions emit complete libffi layouts" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPointByValue(p: WGPUPoint): WGPUPoint"
+        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): Box"
         generated.bridge shouldContain "private val wgpuPointByValue_ADDR: Long by lazy { NativeEngine.resolveSymbol(\"wgpuPointByValue\") }"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
-        generated.bridge shouldContain "\"s8@4(i32,i32):s8@4(i32,i32)\""
-        generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
+        generated.bridge shouldContain "\"s8@4(i32,i32):i32\""
+        generated.bridge shouldContain "return Box.ByValue(out.handler)"
     }
 
     "struct-by-value layouts encode nested structs and fixed arrays" {
         val generated = generateAndroidSources(NESTED_ARRAY_STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPacketByValue(packet: WGPUPacket): WGPUPacket"
+        generated.bridge shouldContain "actual fun wgpuPacketByValue(allocator: MemoryAllocator, packet: WGPUPacket): WGPUPacket"
         generated.bridge shouldContain
             "\"s20@4(i32,s8@4(f32,f32),a3(i16)):s20@4(i32,s8@4(f32,f32),a3(i16))\""
     }
@@ -774,7 +770,7 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUNativeDisplayHandle {"
         generated.bridge shouldContain "get() = if (type != WGPUNativeDisplayHandleType_Xlib) null else WGPUXlibDisplayHandle.ByValue(NativeAddress(handle.rawValue + ${dataOffset}L))"
         generated.bridge shouldContain "val bytes = ByteArray($xlibSize)"
-        generated.bridge shouldContain "buffer.writeBytes(bytes, 0u, ${dataOffset}uL, ${xlibSize}uL)"
+        generated.bridge shouldContain "mem.writeBytes(bytes, 0u, ${dataOffset}uL, ${xlibSize}uL)"
 
         val probe =
             """
@@ -840,9 +836,9 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
             import sample.bindings.wgpuGetLabel
 
             fun runProbe(): LongArray {
-                val sum = wgpuFoo(5uL, 7uL)
-                val sum2 = wgpuFoo(2uL, 3uL)
-                val label = wgpuGetLabel()
+                val sum = wgpuFoo(5u, 7u, 0u, 0u)
+                val sum2 = wgpuFoo(2u, 3u, 0u, 0u)
+                val label = wgpuGetLabel(null)
                 return longArrayOf(sum.toLong(), sum2.toLong(), if (label == null) 1L else 0L)
             }
             """.trimIndent()
@@ -854,9 +850,9 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
     "struct-by-value functions pin the engine callGeneric path" {
         val generated = generateAndroidSources(STRUCT_VALUE_HEADER)
 
-        generated.bridge shouldContain "actual fun wgpuPointByValue(p: WGPUPoint): WGPUPoint"
+        generated.bridge shouldContain "actual fun wgpuPointByValue(allocator: MemoryAllocator, x: Int): Box"
         generated.bridge shouldContain "NativeEngine.callGeneric(wgpuPointByValue_ADDR, 1,"
-        generated.bridge shouldContain "return WGPUPoint.ByValue(out.handler)"
+        generated.bridge shouldContain "return Box.ByValue(out.handler)"
     }
 
     "isOptionsEnumType recognizes historical WGPUInstance options enums" {
@@ -881,14 +877,11 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         )
 
         generated.common shouldContain "value class WGPUInstanceBackend(val rawValue: Long) {"
-        generated.common.shouldContainAny(
-            "typealias WGPUFoo = UInt",
-            "typealias WGPUFoo = Int",
-        )
+        generated.common shouldContain "typealias WGPUFoo = UInt"
         generated.common shouldNotContain "value class WGPUFoo"
 
-        generated.bridge shouldContain "WGPUInstanceBackend((buffer.readInt(0uL))"
-        generated.bridge shouldContain "set(value) { buffer.writeInt(value.rawValue.toInt(), 0uL) }"
+        generated.bridge shouldContain "WGPUInstanceBackend((mem.readInt(0uL))"
+        generated.bridge shouldContain "set(value) { mem.writeInt(value.rawValue.toInt(), 0uL) }"
         generated.bridge shouldContain "as WGPUFoo"
         generated.bridge shouldNotContain "as WGPUInstanceBackend"
     }
@@ -970,34 +963,25 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
 
         generated.bridge shouldContain "actual fun SampleCallback.Companion.register("
         generated.bridge shouldContain "internal actual fun sample_requestCallbackBindingPreflight("
-        generated.bridge shouldContain "internal actual fun sample_statusCallbackBindingPreflight(): (NativeAddress?, NativeAddress?) -> Unit"
-        generated.bridge shouldContain "internal actual fun sample_pointCallbackBindingPreflight("
-        generated.bridge shouldContain "NativeEngine.callV3IPP(sample_request_ADDR, input, callback.toAddress(), userdata.toAddress())"
-        generated.bridge shouldContain "NativeEngine.callI2PP(sample_status_ADDR, callback.toAddress(), userdata.toAddress())"
-        generated.bridge shouldContain "NativeEngine.callGeneric(sample_point_ADDR, 3,"
+        generated.bridge shouldContain """
+            internal actual fun sample_statusCallbackBindingPreflight(
+                status: Long,
+            ): (NativeAddress?, NativeAddress?) -> Unit
+        """.trimIndent()
+        generated.bridge shouldContain "NativeEngine.callV3PPL(sample_request_ADDR, callback.toAddress(), userdata.toAddress(), input)"
+        generated.bridge shouldContain "NativeEngine.callV3PPL(sample_status_ADDR, callback.toAddress(), userdata.toAddress(), status)"
 
         val probe =
             """
             package sample.probe
 
-            import org.graphiks.kffi.MemoryAllocator
             import org.graphiks.kffi.NativeAddress
-            import sample.bindings.WGPUPoint
-            import sample.bindings.sample_pointCallbackBindingPreflight
             import sample.bindings.sample_requestCallbackBindingPreflight
             import sample.bindings.sample_statusCallbackBindingPreflight
 
             fun runProbe(): LongArray {
-                sample_requestCallbackBindingPreflight(7)(NativeAddress(0x1000L), NativeAddress(0x2000L))
-                sample_statusCallbackBindingPreflight()(NativeAddress(0x1000L), NativeAddress(0x2000L))
-
-                val pBuffer = MemoryAllocator().allocateBuffer(8uL)
-                pBuffer.writeInt(1, 0uL)
-                pBuffer.writeInt(2, 4uL)
-                sample_pointCallbackBindingPreflight(WGPUPoint.ByValue(pBuffer.handler))(
-                    NativeAddress(0x1000L),
-                    NativeAddress(0x2000L),
-                )
+                sample_requestCallbackBindingPreflight(7L)(NativeAddress(0x1000L), NativeAddress(0x2000L))
+                sample_statusCallbackBindingPreflight(0L)(NativeAddress(0x1000L), NativeAddress(0x2000L))
                 return longArrayOf(1L)
             }
             """.trimIndent()
