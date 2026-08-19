@@ -510,7 +510,7 @@ internal class KotlinKmpJvmBuilder(
                 appendLine("// imbriqués ne sont pas garantis initialisés à ce moment.")
                 appendLine("private val __kffiJvmStructLayouts: Unit = run {")
                 structLayoutRegistrations.forEach { registration ->
-                    registration.lineSequence().forEach { line ->
+                    registration.trimEnd().lineSequence().forEach { line ->
                         appendLine("    $line")
                     }
                 }

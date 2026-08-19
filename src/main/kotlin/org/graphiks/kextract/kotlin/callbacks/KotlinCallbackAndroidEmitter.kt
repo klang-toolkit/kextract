@@ -17,6 +17,8 @@ import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.UPCALL_ENGINE
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.PREPARED_CALLBACK_REGISTRATION
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.UNSAFE_CALLBACK_REARM_API
 import org.graphiks.kextract.kotlin.abi.KotlinKmpCAbiType
+import org.graphiks.kextract.kotlin.abi.AndroidRecordLayoutPlan
+import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiContext
 import org.graphiks.kextract.kotlin.builders.SourceBuilder
 import org.graphiks.kextract.kotlin.builders.canonicalRecordDeclaration
 import org.graphiks.kextract.kotlin.builders.isStructType
@@ -27,9 +29,10 @@ internal class KotlinCallbackAndroidEmitter(
     private val mapJnaType: (Type) -> String,
     private val mapJnaFieldType: (Type) -> String,
     private val namePlan: KotlinKmpNamePlan,
+    private val layoutPlan: AndroidRecordLayoutPlan,
 ) {
     fun emit(builder: SourceBuilder, callbacks: List<KotlinCallbackModel>) {
-        emitJnaStructCarriers(builder, callbacks)
+        emitJnaStructCarriers(builder, callbacks.filterNot { it.engineAbiSignature() != null })
         callbacks.forEach { callback ->
             emitTrampoline(builder, callback)
             emitRegistrationOperation(builder, callback, "register", internal = false)
@@ -105,31 +108,98 @@ internal class KotlinCallbackAndroidEmitter(
     }
 
     private fun emitTrampoline(builder: SourceBuilder, callback: KotlinCallbackModel) {
-        if (callback.isEngineUpcallFit()) {
-            emitEngineUpcallTrampoline(builder, callback)
+        val abiSignature = callback.engineAbiSignature()
+        if (abiSignature != null) {
+            emitEngineUpcallTrampoline(builder, callback, abiSignature)
         } else {
             emitJnaTrampoline(builder, callback)
         }
     }
 
     /**
-     * M4.1's [UPCALL_ENGINE] closure is fixed to the CIF `(uint32_t value, void * routing_userdata)`
-     * -> void, dispatching to a static `dispatch(token: Long, value: Int)`. A callback fits that
-     * engine only when its raw C signature is exactly that shape: a single 32-bit integer value
-     * argument followed by the routing userdata, with nothing else in between.
+     * Builds the C ABI descriptor consumed by kffi's Android libffi bridge.
+     * kffi reserves a final `ptr` parameter for callback routing userdata.
+     * Unsupported or interleaved routing shapes retain the JNA fallback so
+     * other consumers are not silently emitted with an invalid ABI.
      */
-    private fun KotlinCallbackModel.isEngineUpcallFit(): Boolean {
-        if (!hasRoutingUserdata) return false
-        val value = parameters.singleOrNull() ?: return false
-        /* I32-backed enums need the JNA path until the shared enum-application bug is fixed (TODO(M5.5)) */
-        if (isEnum(value.type)) return false
-        val routing = routingUserdataParameter ?: return false
-        if (routing.index < value.index) return false
-        val scalar = value.cAbiType as? KotlinKmpCAbiType.Scalar ?: return false
-        return scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32
+    private fun KotlinCallbackModel.engineAbiSignature(): String? = runCatching {
+        val rawParameters = rawParameters()
+        if (routingUserdataParameter != null && rawParameters.lastOrNull() !== routingUserdataParameter) {
+            return null
+        }
+        if (routingUserdataParameter == null && rawParameters.lastOrNull()?.cAbiType is KotlinKmpCAbiType.Address) {
+            return null
+        }
+        "v(${rawParameters.joinToString(",") { abiTypeSpec(it.cAbiType) }})"
+    }.getOrNull()
+
+    private fun abiTypeSpec(abi: KotlinKmpCAbiType): String = when (abi) {
+        is KotlinKmpCAbiType.Address -> "ptr"
+        is KotlinKmpCAbiType.StructValue -> {
+            require(abi.declaration.kind() == Declaration.Scoped.Kind.STRUCT) {
+                "Android upcall ABI does not support union arguments by value: ${abi.declaration.name()}"
+            }
+            val fields = layoutPlan[abi.declaration].fields
+                .flatMap { abiFieldTypeSpecs(it.field.type()) }
+            require(fields.isNotEmpty()) {
+                "Android upcall ABI does not support empty structs by value: ${abi.declaration.name()}"
+            }
+            "struct(${fields.joinToString(",")})"
+        }
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL -> "u8"
+            KotlinKmpCAbiType.Scalar.Kind.I8 -> if (abi.unsigned) "u8" else "i8"
+            KotlinKmpCAbiType.Scalar.Kind.I16 -> if (abi.unsigned) "u16" else "i16"
+            KotlinKmpCAbiType.Scalar.Kind.CHAR16 -> "u16"
+            KotlinKmpCAbiType.Scalar.Kind.I32 -> if (abi.unsigned) "u32" else "i32"
+            KotlinKmpCAbiType.Scalar.Kind.I64 -> if (abi.unsigned) "u64" else "i64"
+            KotlinKmpCAbiType.Scalar.Kind.F32 -> "float"
+            KotlinKmpCAbiType.Scalar.Kind.F64 -> "double"
+        }
     }
 
-    private fun emitEngineUpcallTrampoline(builder: SourceBuilder, callback: KotlinCallbackModel) {
+    private fun abiFieldTypeSpecs(type: Type): List<String> = when (type) {
+        is Type.Array -> {
+            val count = requireNotNull(type.elementCount()) {
+                "Android upcall ABI requires fixed-size struct arrays"
+            }
+            require(count > 0L) { "Android upcall ABI does not support empty struct arrays" }
+            List(count.toInt()) { abiFieldTypeSpecs(type.elementType()) }.flatten()
+        }
+        else -> listOf(abiTypeSpec(KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.CALLBACK)))
+    }
+
+    private fun KotlinCallbackModel.dispatchJvmSignature(): String {
+        val carriers = buildList {
+            if (hasRoutingUserdata) add("J")
+            addAll(parameters.map { jniCarrier(it.cAbiType) })
+        }.joinToString("")
+        return "($carriers)V"
+    }
+
+    private fun jniCarrier(abi: KotlinKmpCAbiType): String = when (abi) {
+        is KotlinKmpCAbiType.Address,
+        is KotlinKmpCAbiType.StructValue,
+        -> "J"
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL,
+            KotlinKmpCAbiType.Scalar.Kind.I8,
+            -> "B"
+            KotlinKmpCAbiType.Scalar.Kind.I16,
+            KotlinKmpCAbiType.Scalar.Kind.CHAR16,
+            -> "S"
+            KotlinKmpCAbiType.Scalar.Kind.I32 -> "I"
+            KotlinKmpCAbiType.Scalar.Kind.I64 -> "J"
+            KotlinKmpCAbiType.Scalar.Kind.F32 -> "F"
+            KotlinKmpCAbiType.Scalar.Kind.F64 -> "D"
+        }
+    }
+
+    private fun emitEngineUpcallTrampoline(
+        builder: SourceBuilder,
+        callback: KotlinCallbackModel,
+        abiSignature: String,
+    ) {
         builder.appendLine("@${namePlan.runtime(OPT_IN)}(${namePlan.runtime(CALLBACK_RUNTIME_API)}::class)")
         builder.appendLine("private object ${callback.trampolineName} {")
         builder.indent()
@@ -139,25 +209,32 @@ internal class KotlinCallbackAndroidEmitter(
         builder.indent()
         builder.appendLine("dispatcherClass = ${callback.trampolineName}::class.java,")
         builder.appendLine("dispatchMethod = \"dispatch\",")
-        builder.appendLine("dispatchSig = \"(JI)V\",")
+        builder.appendLine("dispatchJvmSignature = \"${callback.dispatchJvmSignature()}\",")
+        builder.appendLine("dispatchAbiSignature = \"$abiSignature\",")
         builder.unindent()
         builder.appendLine("))")
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
         builder.appendLine("@${namePlan.runtime(JVM_STATIC)}")
-        builder.appendLine("fun dispatch(token: Long, value: Int) {")
+        val dispatchParameters = buildList {
+            if (callback.hasRoutingUserdata) add("token: Long")
+            addAll(callback.parameters.map { "${it.name}: ${jniKotlinType(it.cAbiType)}" })
+        }
+        builder.appendLine("fun dispatch(${dispatchParameters.joinToString(", ")}) {")
         builder.indent()
         builder.appendLine("try {")
         builder.indent()
         builder.appendLine("${namePlan.runtime(CALLBACK_RUNTIME)}.dispatchSafely(")
         builder.indent()
         builder.appendLine("type = ${callback.runtimeTypeName},")
-        builder.appendLine("userdata = ${namePlan.runtime(NATIVE_ADDRESS)}(token),")
+        builder.appendLine(
+            "userdata = ${if (callback.hasRoutingUserdata) "${namePlan.runtime(NATIVE_ADDRESS)}(token)" else "null"},",
+        )
         builder.unindent()
         builder.appendLine(") { callback ->")
         builder.indent()
-        builder.appendLine("callback.invoke(${adaptEngineValue(callback)})")
+        emitEngineInvocation(builder, callback)
         builder.unindent()
         builder.appendLine("}")
         builder.unindent()
@@ -251,6 +328,74 @@ internal class KotlinCallbackAndroidEmitter(
         }
         builder.unindent()
         builder.appendLine(")")
+    }
+
+    private fun jniKotlinType(abi: KotlinKmpCAbiType): String = when (abi) {
+        is KotlinKmpCAbiType.Address,
+        is KotlinKmpCAbiType.StructValue,
+        -> "Long"
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL,
+            KotlinKmpCAbiType.Scalar.Kind.I8,
+            -> "Byte"
+            KotlinKmpCAbiType.Scalar.Kind.I16,
+            KotlinKmpCAbiType.Scalar.Kind.CHAR16,
+            -> "Short"
+            KotlinKmpCAbiType.Scalar.Kind.I32 -> "Int"
+            KotlinKmpCAbiType.Scalar.Kind.I64 -> "Long"
+            KotlinKmpCAbiType.Scalar.Kind.F32 -> "Float"
+            KotlinKmpCAbiType.Scalar.Kind.F64 -> "Double"
+        }
+    }
+
+    private fun emitEngineInvocation(builder: SourceBuilder, callback: KotlinCallbackModel) {
+        if (callback.parameters.size <= 1) {
+            val arguments = callback.parameters.joinToString(", ") { adaptEngineArgument(it) }
+            builder.appendLine("callback.invoke($arguments)")
+            return
+        }
+
+        builder.appendLine("callback.invoke(")
+        builder.indent()
+        callback.parameters.forEach { parameter ->
+            builder.appendLine("${adaptEngineArgument(parameter)},")
+        }
+        builder.unindent()
+        builder.appendLine(")")
+    }
+
+    private fun adaptEngineArgument(parameter: KotlinCallbackParameter): String {
+        val name = parameter.name
+        val mapped = mapType(parameter.type)
+        val cAbiType = parameter.cAbiType
+        return when {
+            isEnum(parameter.type) && isOptionsStyle(mapped) ->
+                "$mapped(${optionsRawValue(name, cAbiType)})"
+            isEnum(parameter.type) -> enumApplicationValue(name, mapped, cAbiType)
+            cAbiType is KotlinKmpCAbiType.StructValue ->
+                "$mapped.ByValue(${namePlan.runtime(NATIVE_ADDRESS)}($name))"
+            cAbiType is KotlinKmpCAbiType.Address ->
+                nativeAddressConversion(name, mapped)
+            mapped == "Boolean" -> "$name != 0.toByte()"
+            mapped == "UInt" -> "$name.toUInt()"
+            mapped == "ULong" -> "$name.toULong()"
+            mapped == "UShort" -> "$name.toUShort()"
+            mapped == "UByte" -> "$name.toUByte()"
+            else -> name
+        }
+    }
+
+    private fun nativeAddressConversion(name: String, mapped: String): String {
+        val address = "$name.takeIf { it != 0L }?.let { ${namePlan.runtime(NATIVE_ADDRESS)}(it) }"
+        return when {
+            mapped == "${namePlan.runtime(NATIVE_ADDRESS)}?" -> address
+            mapped == "${namePlan.runtime(C_STRING)}?" -> "$address?.let(::${namePlan.runtime(C_STRING)})"
+            mapped.endsWith("?") -> {
+                val nonNullable = mapped.removeSuffix("?")
+                "$address?.let { $nonNullable(it) }"
+            }
+            else -> name
+        }
     }
 
     private fun emitRegistrationOperation(

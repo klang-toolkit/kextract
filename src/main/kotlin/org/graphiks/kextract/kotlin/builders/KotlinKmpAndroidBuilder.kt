@@ -161,6 +161,7 @@ internal class KotlinKmpAndroidBuilder(
                     ::mapJnaType,
                     ::mapJnaFieldType,
                     namePlan,
+                    layoutPlan,
                 ).emit(builder, callbackModels)
                 KotlinCallbackBindingEmitter(typeMapper::mapFunctionType, namePlan).emitAndroid(
                     builder,

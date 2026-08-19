@@ -516,7 +516,8 @@ private val MEMBACK_KFFI_ENGINE_STUB =
         fun allocateTrampoline(
             dispatcherClass: Class<*>,
             dispatchMethod: String,
-            dispatchSig: String,
+            dispatchJvmSignature: String,
+            dispatchAbiSignature: String,
         ): Long = 0x6000L
 
         fun freeTrampoline(address: Long) = Unit
@@ -963,7 +964,8 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "NativeAddress(UpcallEngine.allocateTrampoline("
         generated.bridge shouldContain "dispatcherClass = SampleCallbackTrampoline::class.java,"
         generated.bridge shouldContain "dispatchMethod = \"dispatch\","
-        generated.bridge shouldContain "dispatchSig = \"(JI)V\","
+        generated.bridge shouldContain "dispatchJvmSignature = \"(JI)V\","
+        generated.bridge shouldContain "dispatchAbiSignature = \"v(u32,ptr)\","
         generated.bridge shouldContain "@JvmStatic"
         generated.bridge shouldContain "fun dispatch(token: Long, value: Int) {"
         generated.bridge shouldContain "CallbackRuntime.dispatchSafely("
@@ -977,26 +979,28 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         compileGeneratedAndroid(generated)
     }
 
-    "enum-backed callback values are excluded from the engine fit gate" {
+    "enum-backed callback values use the dynamic engine ABI" {
         val generated = generateAndroidSources(
             ENGINE_FIT_NEGATIVE_HEADER,
             engineFitNegativeBindingConfig(),
         )
 
-        generated.bridge shouldContain "private fun interface SampleEnumCallbackJna : com.sun.jna.Callback"
-        generated.bridge shouldNotContain "UpcallEngine.allocateTrampoline"
-        generated.bridge shouldNotContain "dispatchSig = \"(JI)V\","
+        generated.bridge shouldContain "UpcallEngine.allocateTrampoline"
+        generated.bridge shouldContain "dispatchJvmSignature = \"(JI)V\","
+        generated.bridge shouldContain "dispatchAbiSignature = \"v(u32,ptr)\","
+        generated.bridge shouldNotContain "SampleEnumCallbackJna"
     }
 
-    "non-I32 callback scalars are excluded from the engine fit gate" {
+    "non-I32 callback scalars use the dynamic engine ABI" {
         val generated = generateAndroidSources(
             ENGINE_FIT_NEGATIVE_HEADER,
             engineFitNegativeBindingConfig(),
         )
 
-        generated.bridge shouldContain "private fun interface SampleU64CallbackJna : com.sun.jna.Callback"
-        generated.bridge shouldNotContain "UpcallEngine.allocateTrampoline"
-        generated.bridge shouldNotContain "dispatchSig = \"(JI)V\","
+        generated.bridge shouldContain "UpcallEngine.allocateTrampoline"
+        generated.bridge shouldContain "dispatchJvmSignature = \"(JJ)V\","
+        generated.bridge shouldContain "dispatchAbiSignature = \"v(u64,ptr)\","
+        generated.bridge shouldNotContain "SampleU64CallbackJna"
     }
 
     "reversed routing-order callbacks are excluded from the engine fit gate" {
@@ -1004,10 +1008,11 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
             ENGINE_FIT_NEGATIVE_HEADER,
             engineFitNegativeBindingConfig(),
         )
+        val reversedCallback = generated.bridge.substringAfter("private fun interface SampleReversedCallbackJna")
 
         generated.bridge shouldContain "private fun interface SampleReversedCallbackJna : com.sun.jna.Callback"
-        generated.bridge shouldNotContain "UpcallEngine.allocateTrampoline"
-        generated.bridge shouldNotContain "dispatchSig = \"(JI)V\","
+        reversedCallback shouldNotContain "UpcallEngine.allocateTrampoline"
+        reversedCallback shouldNotContain "dispatchJvmSignature = \"(JI)V\","
     }
 
     "direct callback binding preflights compile their Android lambda bodies" {

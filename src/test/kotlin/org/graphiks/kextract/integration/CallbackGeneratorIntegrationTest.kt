@@ -413,6 +413,12 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         );
     """.trimIndent()
 
+    "generated source does not contain trailing whitespace" {
+        generateKmp(abiCallbacks).values.forEach { source ->
+            source.lineSequence().none { it.endsWith(' ') } shouldBe true
+        }
+    }
+
     "callback names are valid and collision-free in every generated target" {
         val config = CallbackBindingsConfig().also { bindings ->
             bindings.directFunctionBindings = listOf(
@@ -933,10 +939,13 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             }
         """.trimIndent()
         common shouldNotContain "userdata2: NativeAddress?"
-        android shouldContain "private open class WGPUStringViewJna : com.sun.jna.Structure"
-        android shouldContain "message: WGPUStringViewJna.ByValue"
+        android shouldContain "private object WGPUQueueWorkDoneCallbackTrampoline"
+        android shouldContain "dispatchJvmSignature = \"(JIJJ)V\""
         android shouldContain
-            "WGPUStringView.ByValue(NativeAddress(com.sun.jna.Pointer.nativeValue(message.getPointer())))"
+            "dispatchAbiSignature = \"v(u32,struct(ptr,u64),ptr,ptr)\""
+        android shouldContain "message: Long"
+        android shouldContain "WGPUStringView.ByValue(NativeAddress(message))"
+        android shouldNotContain "com.sun.jna"
     }
 
     "callbacks without userdata expose explicit unsafe re-arming" {
@@ -1126,26 +1135,26 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         native shouldNotContain "staticCFunction<Unit> {  ->"
     }
 
-    "Android callbacks outside the fixed engine CIF keep a documented JNA fallback" {
+    "Android callbacks use the dynamic kffi ABI engine" {
         val android = generateKmp(genericCallbacks).getValue("androidMain")
 
         listOf("SampleCallback", "NoUserdataCallback").forEach { callbackType ->
             android shouldContain "actual fun ${callbackType}.Companion.register("
             android shouldContain "internal actual fun ${callbackType}.Companion.prepare("
-            android shouldContain "private fun interface ${callbackType}Jna : com.sun.jna.Callback"
-            android shouldContain "private val callback: ${callbackType}Jna = ${callbackType}Jna"
+            android shouldContain "private object ${callbackType}Trampoline"
+            android shouldContain "UpcallEngine.allocateTrampoline("
         }
         android shouldContain "actual fun NoUserdataCallback.Companion.rearmAfterNativeQuiescence("
-        android shouldContain "NativeAddress(com.sun.jna.Pointer.nativeValue(com.sun.jna.CallbackReference.getFunctionPointer(callback)))"
-        android shouldContain "TODO(M5.5)"
+        android shouldContain "dispatchJvmSignature = \"(JIJ)V\""
+        android shouldContain "dispatchAbiSignature = \"v(u32,ptr,ptr)\""
+        android shouldContain "dispatchJvmSignature = \"(I)V\""
+        android shouldContain "dispatchAbiSignature = \"v(u32)\""
         android shouldContain "CallbackRuntime.register("
         android shouldContain "CallbackRuntime.prepare("
         android shouldContain "CallbackRuntime.rearmAfterNativeQuiescence("
         android shouldContain "CallbackRuntime.dispatchSafely("
         android shouldContain "CallbackRuntime.reportUnroutedFailure(failure)"
-        android shouldNotContain "UpcallEngine.allocateTrampoline"
-        android shouldNotContain "fun dispatch(token: Long, value: Int)"
-        android shouldNotContain "Android/JNA callback registration is not supported"
+        android shouldNotContain "com.sun.jna"
     }
 
     "Android routed callbacks in the fixed (u32, routing userdata) shape allocate upcall trampolines" {
@@ -1174,7 +1183,8 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         android shouldContain "NativeAddress(UpcallEngine.allocateTrampoline("
         android shouldContain "dispatcherClass = SampleCallbackTrampoline::class.java,"
         android shouldContain "dispatchMethod = \"dispatch\","
-        android shouldContain "dispatchSig = \"(JI)V\","
+        android shouldContain "dispatchJvmSignature = \"(JI)V\","
+        android shouldContain "dispatchAbiSignature = \"v(u32,ptr)\","
         android shouldContain "@JvmStatic"
         android shouldContain "fun dispatch(token: Long, value: Int) {"
         android shouldContain "CallbackRuntime.dispatchSafely("
