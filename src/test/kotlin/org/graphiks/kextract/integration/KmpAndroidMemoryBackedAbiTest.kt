@@ -877,7 +877,15 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         )
 
         generated.common shouldContain "value class WGPUInstanceBackend(val rawValue: Long) {"
-        generated.common shouldContain "typealias WGPUFoo = UInt"
+        // Plain C enums have no fixed underlying type. libclang reports the
+        // carrier selected by the target ABI: the Windows/MSVC target uses a
+        // signed 32-bit int here, while Unix targets may select unsigned int.
+        // Both carriers have the same four-byte ABI width, so this assertion
+        // must validate the plain-enum mapping without hard-coding signedness.
+        generated.common.shouldContainAny(
+            "typealias WGPUFoo = UInt",
+            "typealias WGPUFoo = Int",
+        )
         generated.common shouldNotContain "value class WGPUFoo"
 
         generated.bridge shouldContain "WGPUInstanceBackend((mem.readInt(0uL))"
