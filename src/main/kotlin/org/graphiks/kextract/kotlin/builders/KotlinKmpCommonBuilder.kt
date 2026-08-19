@@ -114,7 +114,7 @@ internal class KotlinKmpCommonBuilder(
                     if (!generatedNames.add(name)) return
                     val constants = decl.members().filterIsInstance<Declaration.Constant>().filterNot(Skip::isPresent)
                     emitKDoc(decl)
-                    if (isOptionsStyle(name)) {
+                    if (isOptionsStyleName(name)) {
                         emitValueClass(name, constants, abiIndex.enum(decl))
                     } else {
                         emitEnumClass(decl, constants)
@@ -195,9 +195,6 @@ internal class KotlinKmpCommonBuilder(
         builder.appendLine("}")
         builder.appendLine()
     }
-
-    private fun isOptionsStyle(name: String): Boolean =
-        name.endsWith("Options") || name.endsWith("Flags") || name.endsWith("Mask")
 
     private fun emitFlagTypedefs(decl: Declaration.Scoped) {
         val typedefs = decl.members()
@@ -293,9 +290,12 @@ internal class KotlinKmpCommonBuilder(
     override fun visitFunction(decl: Declaration.Function) {
         if (Skip.isPresent(decl)) return
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
-        val params = decl.parameters().map { param ->
-            "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
-        }.joinToString(", ")
+        val params = (
+            typeMapper.allocatorParams(decl.type().returnType()) +
+                decl.parameters().map { param ->
+                    "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
+                }
+        ).joinToString(", ")
         emitKDoc(decl)
         builder.appendLine("expect fun ${namePlan.declaration(decl)}($params): $returnType")
         builder.appendLine()

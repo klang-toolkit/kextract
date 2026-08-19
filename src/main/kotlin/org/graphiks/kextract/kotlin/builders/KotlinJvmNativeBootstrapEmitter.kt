@@ -10,7 +10,6 @@ internal class KotlinJvmNativeBootstrapEmitter(
     private val bundleIndex: KotlinJvmNativeBundleIndex,
     private val bootstrapName: String,
     private val delegateResolverName: String,
-    private val memorySegmentName: String,
 ) {
     fun emit(builder: SourceBuilder) {
         val bundledPlatforms = bundleIndex.platforms.filter(::hasDeclaredLibrary)
@@ -18,7 +17,7 @@ internal class KotlinJvmNativeBootstrapEmitter(
         builder.indent()
         builder.appendLine("@kotlin.jvm.Volatile private var loaded: kotlin.Boolean = false")
         builder.appendBlankLine()
-        builder.appendLine("fun resolve(name: kotlin.String): $memorySegmentName {")
+        builder.appendLine("fun resolve(name: kotlin.String): kotlin.Long {")
         builder.indent()
         builder.appendLine("load()")
         builder.appendLine("return $delegateResolverName(name)")

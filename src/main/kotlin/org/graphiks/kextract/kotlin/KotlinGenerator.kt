@@ -10,6 +10,7 @@ import org.graphiks.kextract.kotlin.builders.KotlinKmpJvmBuilder
 import org.graphiks.kextract.kotlin.builders.KotlinKmpNativeBuilder
 import org.graphiks.kextract.kotlin.builders.KotlinJvmRecordLayoutPlan
 import org.graphiks.kextract.kotlin.builders.KotlinToplevelBuilder
+import org.graphiks.kextract.kotlin.abi.AndroidRecordLayoutPlan
 import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiIndex
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackModel
 import org.graphiks.kextract.kotlin.callbacks.KotlinDirectFunctionBindingModel
@@ -34,7 +35,6 @@ internal val GENERATED_CALLBACK_RESERVED_IDENTIFIERS = setOf(
     "MemoryAllocator",
     "CString",
     "ArrayHolder",
-    "CStructure",
     "FunctionDescriptor",
     "MethodHandle",
     "MethodHandles",
@@ -121,7 +121,8 @@ class KotlinGenerator {
         if (multiplatform) {
             val namePlan = KotlinKmpNamePlan.create(scoped, callbackBindings)
             val abiIndex = KotlinKmpAbiIndex.create(scoped)
-            val jvmRecordLayouts = KotlinJvmRecordLayoutPlan.create(scoped, namePlan, abiIndex)
+            val jvmRecordLayouts = KotlinJvmRecordLayoutPlan.create(scoped)
+            val androidRecordLayouts = AndroidRecordLayoutPlan.create(scoped)
             val callbackNames = KotlinIdentifierAllocator(namePlan.topLevelNames + namePlan.renderedRuntimeNames)
             val callbackModels = callbackBindings.callbacks.map { callback ->
                 KotlinCallbackModel.from(callback, callbackNames)
@@ -147,6 +148,7 @@ class KotlinGenerator {
                 callbackBindings,
                 namePlan,
                 jvmRecordLayouts,
+                androidRecordLayouts,
                 abiIndex,
                 jvmNativeLibraries,
                 jvmNativeBundleIndex,
@@ -178,6 +180,7 @@ class KotlinGenerator {
         callbackBindings: ValidatedCallbackBindings,
         namePlan: KotlinKmpNamePlan,
         jvmRecordLayouts: KotlinJvmRecordLayoutPlan,
+        androidRecordLayouts: AndroidRecordLayoutPlan,
         abiIndex: KotlinKmpAbiIndex,
         jvmNativeLibraries: List<Options.Library>,
         jvmNativeBundleIndex: KotlinJvmNativeBundleIndex,
@@ -212,6 +215,7 @@ class KotlinGenerator {
             callbackModels,
             directBindingModels,
             namePlan,
+            androidRecordLayouts,
             abiIndex,
         ).also { scoped.accept(it); addAll(it.getFiles()) }
         KotlinKmpNativeBuilder(

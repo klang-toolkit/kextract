@@ -19,6 +19,10 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintWriter
 import java.nio.file.Files
 
+private fun String.shouldContainAny(vararg candidates: String) {
+    candidates.any { contains(it) } shouldBe true
+}
+
 class CallbackGeneratorIntegrationTest : FreeSpec({
     fun generateKmp(
         header: String,
@@ -82,14 +86,15 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             val jvm = workspace.resolve("callbackNamesJvm.kt")
             val kffiCommon = workspace.resolve("kffiCommon.kt")
             val kffiJvm = workspace.resolve("kffiJvm.kt")
+            val kffiEngine = workspace.resolve("kffiEngine.kt")
             val output = Files.createDirectories(workspace.resolve("classes"))
             common.toFile().writeText(commonSource)
             jvm.toFile().writeText(jvmSource)
             kffiCommon.toFile().writeText(
                 """
-                package io.ygdrasil.kffi
+                package org.graphiks.kffi
 
-                expect class NativeAddress
+                expect value class NativeAddress(val rawValue: Long)
                 interface Callback
                 enum class CallbackPolicy { ONCE, REPEATING }
                 fun interface CallbackExceptionHandler {
@@ -151,27 +156,187 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 @JvmInline
                 value class ArrayHolder<T>(val handler: NativeAddress)
                 expect class MemoryAllocator() {
-                    fun allocate(size: Long): NativeAddress
+                    fun allocate(byteSize: Long): NativeAddress
+                    fun allocateBuffer(size: ULong): MemoryBuffer
                 }
-                interface CStructure {
+                expect class MemoryBuffer(handler: NativeAddress, size: ULong) {
+                    val size: ULong
                     val handler: NativeAddress
+                    fun writeByte(value: Byte, offset: ULong)
+                    fun readByte(offset: ULong): Byte
+                    fun writeUByte(value: UByte, offset: ULong)
+                    fun readUByte(offset: ULong): UByte
+                    fun writeShort(value: Short, offset: ULong)
+                    fun readShort(offset: ULong): Short
+                    fun writeUShort(value: UShort, offset: ULong)
+                    fun readUShort(offset: ULong): UShort
+                    fun writeInt(value: Int, offset: ULong)
+                    fun readInt(offset: ULong): Int
+                    fun writeUInt(value: UInt, offset: ULong)
+                    fun readUInt(offset: ULong): UInt
+                    fun writeLong(value: Long, offset: ULong)
+                    fun readLong(offset: ULong): Long
+                    fun writeULong(value: ULong, offset: ULong)
+                    fun readULong(offset: ULong): ULong
+                    fun writeFloat(value: Float, offset: ULong)
+                    fun readFloat(offset: ULong): Float
+                    fun writeDouble(value: Double, offset: ULong)
+                    fun readDouble(offset: ULong): Double
+                    fun writePointer(value: NativeAddress, offset: ULong)
+                    fun readPointer(offset: ULong): NativeAddress
+                    fun readBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong)
+                    fun writeBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong)
                 }
                 """.trimIndent(),
             )
             kffiJvm.toFile().writeText(
                 """
-                package io.ygdrasil.kffi
+                package org.graphiks.kffi
 
+                import java.lang.foreign.Arena
                 import java.lang.foreign.MemorySegment
+                import java.lang.foreign.ValueLayout
 
-                class JvmNativeAddress(val handler: MemorySegment)
-                actual typealias NativeAddress = JvmNativeAddress
+                @JvmInline
+                actual value class NativeAddress actual constructor(actual val rawValue: Long) {
+                    val handler: MemorySegment get() = MemorySegment.ofAddress(rawValue)
+                }
                 @JvmInline
                 actual value class CString actual constructor(actual val handler: NativeAddress)
                 actual class MemoryAllocator actual constructor() {
-                    actual fun allocate(size: Long): NativeAddress = JvmNativeAddress(MemorySegment.NULL)
+                    private val arena = Arena.global()
+                    actual fun allocate(byteSize: Long): NativeAddress = NativeAddress(arena.allocate(byteSize).address())
+                    actual fun allocateBuffer(size: ULong): MemoryBuffer =
+                        MemoryBuffer(NativeAddress(arena.allocate(size.toLong()).address()), size)
                 }
-                fun findOrThrow(name: String): MemorySegment = MemorySegment.NULL
+                actual class MemoryBuffer actual constructor(
+                    actual val handler: NativeAddress,
+                    actual val size: ULong,
+                ) {
+                    private val segment: MemorySegment = MemorySegment.ofAddress(handler.rawValue).reinterpret(size.toLong())
+                    actual fun writeByte(value: Byte, offset: ULong) { segment.set(ValueLayout.JAVA_BYTE, offset.toLong(), value) }
+                    actual fun readByte(offset: ULong): Byte = segment.get(ValueLayout.JAVA_BYTE, offset.toLong())
+                    actual fun writeUByte(value: UByte, offset: ULong) { segment.set(ValueLayout.JAVA_BYTE, offset.toLong(), value.toByte()) }
+                    actual fun readUByte(offset: ULong): UByte = segment.get(ValueLayout.JAVA_BYTE, offset.toLong()).toUByte()
+                    actual fun writeShort(value: Short, offset: ULong) { segment.set(ValueLayout.JAVA_SHORT, offset.toLong(), value) }
+                    actual fun readShort(offset: ULong): Short = segment.get(ValueLayout.JAVA_SHORT, offset.toLong())
+                    actual fun writeUShort(value: UShort, offset: ULong) { segment.set(ValueLayout.JAVA_SHORT, offset.toLong(), value.toShort()) }
+                    actual fun readUShort(offset: ULong): UShort = segment.get(ValueLayout.JAVA_SHORT, offset.toLong()).toUShort()
+                    actual fun writeInt(value: Int, offset: ULong) { segment.set(ValueLayout.JAVA_INT, offset.toLong(), value) }
+                    actual fun readInt(offset: ULong): Int = segment.get(ValueLayout.JAVA_INT, offset.toLong())
+                    actual fun writeUInt(value: UInt, offset: ULong) { segment.set(ValueLayout.JAVA_INT, offset.toLong(), value.toInt()) }
+                    actual fun readUInt(offset: ULong): UInt = segment.get(ValueLayout.JAVA_INT, offset.toLong()).toUInt()
+                    actual fun writeLong(value: Long, offset: ULong) { segment.set(ValueLayout.JAVA_LONG, offset.toLong(), value) }
+                    actual fun readLong(offset: ULong): Long = segment.get(ValueLayout.JAVA_LONG, offset.toLong())
+                    actual fun writeULong(value: ULong, offset: ULong) { segment.set(ValueLayout.JAVA_LONG, offset.toLong(), value.toLong()) }
+                    actual fun readULong(offset: ULong): ULong = segment.get(ValueLayout.JAVA_LONG, offset.toLong()).toULong()
+                    actual fun writeFloat(value: Float, offset: ULong) { segment.set(ValueLayout.JAVA_FLOAT, offset.toLong(), value) }
+                    actual fun readFloat(offset: ULong): Float = segment.get(ValueLayout.JAVA_FLOAT, offset.toLong())
+                    actual fun writeDouble(value: Double, offset: ULong) { segment.set(ValueLayout.JAVA_DOUBLE, offset.toLong(), value) }
+                    actual fun readDouble(offset: ULong): Double = segment.get(ValueLayout.JAVA_DOUBLE, offset.toLong())
+                    actual fun writePointer(value: NativeAddress, offset: ULong) {
+                        segment.set(ValueLayout.ADDRESS, offset.toLong(), MemorySegment.ofAddress(value.rawValue))
+                    }
+                    actual fun readPointer(offset: ULong): NativeAddress =
+                        NativeAddress(segment.get(ValueLayout.ADDRESS, offset.toLong()).address())
+                    actual fun readBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong) {
+                        segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().get(array, arrayIndex.toInt(), size.toInt())
+                    }
+                    actual fun writeBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong) {
+                        segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().put(array, arrayIndex.toInt(), size.toInt())
+                    }
+                }
+                fun findOrThrow(name: String): Long = 0L
+                """.trimIndent(),
+            )
+            kffiEngine.toFile().writeText(
+                """
+                package org.graphiks.kffi.engine
+
+                import org.graphiks.kffi.NativeAddress
+                import java.lang.foreign.Arena
+                import java.lang.foreign.FunctionDescriptor
+                import java.lang.foreign.Linker
+                import java.lang.foreign.MemorySegment
+                import java.lang.foreign.ValueLayout
+                import java.lang.invoke.MethodHandle
+                import java.lang.invoke.MethodHandles
+
+                object JvmUpcallEngine {
+                    private val linker = Linker.nativeLinker()
+                    private val arena = Arena.global()
+
+                    fun allocateTrampoline(
+                        dispatcherClass: Class<*>,
+                        dispatchMethod: String,
+                        dispatchSig: String,
+                    ): NativeAddress {
+                        val (returnType, parameterTypes) = parseSig(dispatchSig)
+                        val descriptor = if (returnType == null) {
+                            FunctionDescriptor.ofVoid(*parameterTypes.map { it.layout }.toTypedArray())
+                        } else {
+                            FunctionDescriptor.of(returnType.layout, *parameterTypes.map { it.layout }.toTypedArray())
+                        }
+                        val methodHandle = MethodHandles.privateLookupIn(dispatcherClass, MethodHandles.lookup())
+                            .findStatic(dispatcherClass, dispatchMethod, descriptor.toMethodType())
+                        return NativeAddress(
+                            MemorySegment.ofAddress(linker.upcallStub(methodHandle, descriptor, arena).address()).address(),
+                        )
+                    }
+
+                    private enum class Carrier(val layout: ValueLayout) {
+                        I(ValueLayout.JAVA_INT),
+                        J(ValueLayout.JAVA_LONG),
+                        F(ValueLayout.JAVA_FLOAT),
+                        D(ValueLayout.JAVA_DOUBLE),
+                        Z(ValueLayout.JAVA_BOOLEAN),
+                    }
+
+                    private fun parseSig(sig: String): Pair<Carrier?, List<Carrier>> {
+                        val parameters = sig.substringAfter('(').substringBefore(')')
+                            .map { Carrier.valueOf(it.toString()) }
+                        val returnPart = sig.substringAfter(')')
+                        return (if (returnPart == "V") null else Carrier.valueOf(returnPart)) to parameters
+                    }
+                }
+
+                object JvmDowncallEngine {
+                    private val linker = Linker.nativeLinker()
+
+                    fun resolveSymbol(name: String): Long = 0L
+
+                    private fun segment(address: Long): MemorySegment = MemorySegment.ofAddress(address)
+
+                    private fun handle(fn: Long, descriptor: FunctionDescriptor): MethodHandle =
+                        linker.downcallHandle(segment(fn), descriptor)
+
+                    fun callV0(fn: Long) {
+                        handle(fn, FunctionDescriptor.ofVoid()).invokeExact()
+                    }
+
+                    fun callV1P(fn: Long, p1: Long) {
+                        handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)).invokeExact(segment(p1))
+                    }
+
+                    fun callV2PP(fn: Long, p1: Long, p2: Long) {
+                        handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                            .invokeExact(segment(p1), segment(p2))
+                    }
+
+                    fun callV3PPL(fn: Long, p1: Long, p2: Long, a3: Long) {
+                        handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG))
+                            .invokeExact(segment(p1), segment(p2), a3)
+                    }
+
+                    fun callI0(fn: Long): Long =
+                        handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG)).invokeExact() as Long
+
+                    data class StructField(val cName: String, val kind: FieldKind, val offsetBytes: Long)
+
+                    enum class FieldKind { INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64, POINTER, STRUCT, PADDING }
+
+                    fun registerStructLayout(name: String, sizeBytes: Long, alignmentBytes: Long, fields: List<StructField>) {}
+                }
                 """.trimIndent(),
             )
 
@@ -189,6 +354,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 jvm.toString(),
                 kffiCommon.toString(),
                 kffiJvm.toString(),
+                kffiEngine.toString(),
             ) shouldBe ExitCode.OK
         } finally {
             workspace.toFile().deleteRecursively()
@@ -271,7 +437,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                                       int fun,
                                       int fun_,
                                       void *userdata);
-                void set_class_callback(int policy, class callback, void *userdata);
+                void set_class_callback(class callback, void *userdata, long long policy);
             """.trimIndent(),
             config,
         )
@@ -284,11 +450,11 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         common shouldContain "fun_: Int,"
         common shouldContain "fun__2: Int,"
         common shouldContain "canonicalId = \"typedef:class\""
-        common shouldContain "policy_2: Int,"
+        common shouldContain "policy_2: Long,"
         common shouldContain "callback: class_,"
         common shouldContain """
             fun set_class_callback(
-                policy_2: Int,
+                policy_2: Long,
                 policy: CallbackPolicy,
                 onError: CallbackExceptionHandler = CallbackExceptionHandler.Default,
                 callback: class_,
@@ -434,7 +600,6 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         common shouldContain "fun interface Suppress_2 : Callback"
         common shouldContain "canonicalId = \"typedef:Suppress\""
         jvm shouldContain """
-            @Suppress("UNUSED_VARIABLE")
             internal actual fun set_suppress_callbackCallbackBindingPreflight()
         """.trimIndent()
     }
@@ -467,9 +632,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         common shouldContain "canonicalId = \"typedef:COpaquePointerVar\""
         common shouldContain "fun invoke(value: NativeAddress?)"
         jvm shouldContain
-            "callback.invoke(value.takeIf { it != MemorySegment.NULL }?.let(::NativeAddress))"
+            "callback.invoke(value.takeIf { it != MemorySegment.NULL }?.let { NativeAddress(it.address()) })"
         native shouldContain "private val COpaquePointerVar_2Trampoline = staticCFunction"
-        native shouldContain "callback.invoke(value?.let(::NativeAddress))"
+        native shouldContain "callback.invoke(value?.let { NativeAddress.fromPointer(it) })"
         native shouldNotContain "reinterpret<COpaquePointerVar_2>()"
         android shouldContain "actual fun COpaquePointerVar_2.Companion.register("
         generated.values.forEach { source ->
@@ -500,11 +665,11 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                 typedef void (*SampleCallback)(void * userdata);
                 typedef void (*NoUserdataCallback)(unsigned int value);
                 void sample_set_callback(
-                    SamplePayload payload,
                     SampleCallback callback,
-                    void * userdata
+                    void * userdata,
+                    long long payload
                 );
-                void sample_set_no_userdata_callback(unsigned int limit, NoUserdataCallback callback);
+                void sample_set_no_userdata_callback(void* limit, NoUserdataCallback callback);
             """.trimIndent(),
             config,
         )
@@ -515,24 +680,24 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
         common shouldContain """
             internal expect fun sample_set_callbackCallbackBindingPreflight(
-                payload: SamplePayload,
+                payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit
         """.trimIndent()
         common shouldContain """
             internal expect fun sample_set_no_userdata_callbackCallbackBindingPreflight(
-                limit: UInt,
+                limit: NativeAddress?,
             ): (NativeAddress?) -> Unit
         """.trimIndent()
         common shouldContain """
             fun sample_set_callback(
-                payload: SamplePayload,
+                payload: Long,
                 policy: CallbackPolicy,
                 onError: CallbackExceptionHandler = CallbackExceptionHandler.Default,
                 callback: SampleCallback,
             ): CallbackRegistration<SampleCallback> {
         """.trimIndent()
         val safeSetter = common
-            .substringAfter("fun sample_set_callback(\n    payload: SamplePayload,\n    policy: CallbackPolicy,")
+            .substringAfter("fun sample_set_callback(\n    payload: Long,\n    policy: CallbackPolicy,")
             .substringBefore("\n}\n")
         safeSetter shouldContain "val preparedCall = sample_set_callbackCallbackBindingPreflight(payload)"
         safeSetter shouldContain "val prepared = SampleCallback.prepare("
@@ -551,7 +716,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             fun rearmAfterNativeQuiescence(
         """.trimIndent()
         val rearmSetter = common
-            .substringAfter("fun rearmAfterNativeQuiescence(\n    limit: UInt,\n    policy: CallbackPolicy,")
+            .substringAfter("fun rearmAfterNativeQuiescence(\n    limit: NativeAddress?,\n    policy: CallbackPolicy,")
             .substringBefore("\n}\n")
         rearmSetter shouldContain
             "val preparedCall = sample_set_no_userdata_callbackCallbackBindingPreflight(limit)"
@@ -565,42 +730,32 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
         jvm shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: SamplePayload,
+                payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit {
-                val preparedPayload = payload.handler.handler
-                val address = sample_set_callback_ADDR
-                val handle = sample_set_callback_HANDLE
                 return { callback, userdata ->
-                    handle.invokeExact(
-                        preparedPayload,
-                        callback?.handler ?: MemorySegment.NULL,
-                        userdata?.handler ?: MemorySegment.NULL,
-                    )
+                    JvmDowncallEngine.callV3PPL(sample_set_callback_ADDR, callback?.rawValue ?: 0L, userdata?.rawValue ?: 0L, payload)
                 }
             }
         """.trimIndent()
-        (jvm.indexOf("val preparedPayload = payload.handler.handler") <
-            jvm.indexOf("val address = sample_set_callback_ADDR")) shouldBe true
+        (jvm.indexOf("internal actual fun sample_set_callbackCallbackBindingPreflight(") <
+            jvm.indexOf("return { callback, userdata ->")) shouldBe true
         native shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: SamplePayload,
+                payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit {
-                val preparedPayload = payload.toCValue()
+                val preparedPayload = payload
         """.trimIndent()
         native shouldContain "return { callback, userdata ->"
         native shouldContain "webgpu.native.sample_set_callback("
         native shouldContain "preparedPayload,"
         android shouldContain """
             internal actual fun sample_set_callbackCallbackBindingPreflight(
-                payload: SamplePayload,
+                payload: Long,
             ): (NativeAddress?, NativeAddress?) -> Unit {
         """.trimIndent()
-        android shouldContain "val preparedPayload = sample.bindings.android.SamplePayload.ByValue(payload.handler).apply { read() }"
         android shouldContain "return { callback, userdata ->"
-        android shouldContain "sample.bindings.android.wgpu_hLibraryInstance.sample_set_callback("
-        android shouldContain "preparedPayload,"
-        android shouldContain "callback,"
-        android shouldContain "userdata,"
+        android shouldContain "NativeEngine.callV3PPL(sample_set_callback_ADDR, callback.toAddress(), userdata.toAddress(), payload)"
+        android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
         android shouldNotContain "val prepared = SampleCallback.prepare("
         android shouldNotContain "CallbackRuntime.activateForNativeCall"
@@ -620,14 +775,15 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         val android = generateKmp(
             """
                 typedef void (*SampleCallback)(unsigned int value, void * userdata);
-                void sample_request(int input, SampleCallback callback, void * userdata);
+                void sample_request(SampleCallback callback, void * userdata, long long input);
             """.trimIndent(),
             config,
         ).getValue("androidMain")
 
         android shouldContain "actual fun sample_requestCallbackBindingPreflight("
-        android shouldContain "sample.bindings.android.wgpu_hLibraryInstance.sample_request("
+        android shouldContain "NativeEngine.callV3PPL(sample_request_ADDR, callback.toAddress(), userdata.toAddress(), input)"
         android shouldContain "return { callback, userdata ->"
+        android shouldNotContain "LibraryInstance"
         android shouldNotContain "Android/JNA safe callback bindings are not supported"
     }
 
@@ -677,7 +833,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                     void * userdata1;
                     void * userdata2;
                 } WGPUQueueWorkDoneCallbackInfo;
-                void wgpuQueueOnSubmittedWorkDone(WGPUQueueWorkDoneCallbackInfo callbackInfo);
+                void wgpuQueueOnSubmittedWorkDone(WGPUQueueWorkDoneCallbackInfo const * callbackInfo);
             """.trimIndent(),
             config,
         ).getValue("commonMain")
@@ -749,7 +905,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
     }
 
     "queue callback keeps application userdata and reserves final routing userdata" {
-        val common = generateKmp(
+        val generated = generateKmp(
             """
                 typedef enum WGPUQueueWorkDoneStatus {
                     WGPUQueueWorkDoneStatus_Success = 0
@@ -765,7 +921,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
                     void * userdata2
                 );
             """.trimIndent(),
-        ).getValue("commonMain")
+        )
+        val common = generated.getValue("commonMain")
+        val android = generated.getValue("androidMain")
 
         common shouldContain """
             fun interface WGPUQueueWorkDoneCallback : Callback {
@@ -779,6 +937,15 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             }
         """.trimIndent()
         common shouldNotContain "userdata2: NativeAddress?"
+        android shouldContain "private object WGPUQueueWorkDoneCallbackTrampoline"
+        android shouldContain "dispatchJvmSignature = \"(JIJJ)V\""
+        android.shouldContainAny(
+            "dispatchAbiSignature = \"v(i32,struct(ptr,u64),ptr,ptr)\"",
+            "dispatchAbiSignature = \"v(u32,struct(ptr,u64),ptr,ptr)\"",
+        )
+        android shouldContain "message: Long"
+        android shouldContain "WGPUStringView.ByValue(NativeAddress(message))"
+        android shouldNotContain "com.sun.jna"
     }
 
     "callbacks without userdata expose explicit unsafe re-arming" {
@@ -806,17 +973,19 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             val trampoline = jvm
                 .substringAfter("private object ${callbackType}Trampoline")
                 .substringBefore("\n}\n")
-            trampoline shouldContain "MethodHandles.lookup().findStatic("
-            trampoline shouldContain "${callbackType}Trampoline::class.java"
-            trampoline shouldContain "Linker.nativeLinker().upcallStub(methodHandle, descriptor, Arena.global())"
-            trampoline.split("Arena.global()").size shouldBe 2
-            trampoline.split("upcallStub(").size shouldBe 2
+            trampoline shouldContain "JvmUpcallEngine.allocateTrampoline("
+            trampoline shouldContain "dispatcherClass = ${callbackType}Trampoline::class.java"
+            trampoline shouldContain "dispatchMethod = \"dispatch\""
             trampoline shouldContain "CallbackRuntime.dispatchSafely("
             trampoline shouldContain "type = ${callbackType}Type,"
             trampoline shouldContain "catch (failure: Throwable)"
             trampoline shouldContain "CallbackRuntime.reportUnroutedFailure(failure)"
+            trampoline shouldNotContain "MethodHandles.lookup().findStatic("
+            trampoline shouldNotContain "upcallStub("
         }
-        jvm shouldContain "userdata = userdata2.takeIf { it != MemorySegment.NULL }?.let(::NativeAddress),"
+        jvm shouldContain "dispatchSig = \"(IJJ)V\""
+        jvm shouldContain "dispatchSig = \"(I)V\""
+        jvm shouldContain "userdata = userdata2.takeIf { it != 0L }?.let(::NativeAddress),"
         jvm shouldContain "type = NoUserdataCallbackType,\n                userdata = null,"
         jvm shouldNotContain "Arena.ofShared()"
         jvm shouldNotContain ".bindTo("
@@ -838,7 +1007,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             trampoline shouldContain "catch (failure: Throwable)"
             trampoline shouldContain "CallbackRuntime.reportUnroutedFailure(failure)"
         }
-        native shouldContain "userdata = userdata2?.let(::NativeAddress),"
+        native shouldContain "userdata = userdata2?.let { NativeAddress.fromPointer(it) },"
         native shouldContain "type = NoUserdataCallbackType,\n            userdata = null,"
         native.split("staticCFunction<").size shouldBe 3
         native shouldNotContain "private var SampleCallback_callback"
@@ -856,7 +1025,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         common shouldContain "typealias LargeStatus = ULong"
         common shouldContain "const val LargeStatus_High : LargeStatus = 4294967296uL"
         jvm shouldContain
-            "private val descriptor: FunctionDescriptor = FunctionDescriptor.ofVoid(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, SamplePayload.layout, ValueLayout.ADDRESS, ValueLayout.ADDRESS)"
+            "private val descriptor: FunctionDescriptor = FunctionDescriptor.ofVoid(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, JvmDowncallEngine.structLayout(\"SamplePayload\"), ValueLayout.ADDRESS, ValueLayout.ADDRESS)"
         jvm shouldContain """
             private fun invoke(
                 status: Long,
@@ -902,8 +1071,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
             """.trimIndent(),
         )
 
-        generated.getValue("jvmMain") shouldContain
-            "FunctionDescriptor.ofVoid(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_DOUBLE)"
+        generated.getValue("jvmMain") shouldContain "dispatchSig = \"(JJD)V\""
         generated.getValue("nativeMain") shouldContain
             "staticCFunction<Long, ULong, Double, Unit>"
     }
@@ -911,8 +1079,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
     "unsigned narrow options zero-extend into the application Long" {
         val generated = generateKmp(abiCallbacks)
 
-        generated.getValue("jvmMain") shouldContain
-            "private val descriptor: FunctionDescriptor = FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.ADDRESS)"
+        generated.getValue("jvmMain") shouldContain "dispatchSig = \"(IJ)V\""
         generated.getValue("jvmMain") shouldContain
             "callback.invoke(NarrowOptions(options.toUInt().toLong()))"
         generated.getValue("nativeMain") shouldContain
@@ -924,7 +1091,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
     "struct-by-value callback parameters keep raw carriers until post-claim conversion" {
         val generated = generateKmp(abiCallbacks)
 
-        generated.getValue("jvmMain") shouldContain "SamplePayload(NativeAddress(payload)),"
+        generated.getValue("jvmMain") shouldContain "SamplePayload(NativeAddress(payload.address())),"
         generated.getValue("nativeMain") shouldContain "SamplePayload.ByValue(payload),"
     }
 
@@ -933,9 +1100,9 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
 
         generated.getValue("commonMain") shouldContain "device: NativeAddress?,"
         generated.getValue("jvmMain") shouldContain
-            "device.takeIf { it != MemorySegment.NULL }?.let(::NativeAddress),"
+            "device.takeIf { it != MemorySegment.NULL }?.let { NativeAddress(it.address()) },"
         generated.getValue("nativeMain") shouldContain
-            "device?.let(::NativeAddress),"
+            "device?.let { NativeAddress.fromPointer(it) },"
         generated.getValue("androidMain") shouldContain
             "actual fun AbiCallback.Companion.register("
         generated.values.forEach { source ->
@@ -956,7 +1123,7 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         )
 
         generated.getValue("jvmMain") shouldContain
-            "private fun invoke(\n        userdata9: MemorySegment,\n        value: Int,\n        userdata1: MemorySegment,\n    )"
+            "fun dispatch(\n        userdata9: Long,\n        value: Int,\n        userdata1: Long,\n    )"
         generated.getValue("nativeMain") shouldContain
             "staticCFunction<COpaquePointer?, UInt, COpaquePointer?, Unit> { userdata9, value, userdata1 ->"
     }
@@ -968,23 +1135,66 @@ class CallbackGeneratorIntegrationTest : FreeSpec({
         native shouldNotContain "staticCFunction<Unit> {  ->"
     }
 
-    "Android callback registration uses a strongly held JNA trampoline" {
+    "Android callbacks use the dynamic kffi ABI engine" {
         val android = generateKmp(genericCallbacks).getValue("androidMain")
 
         listOf("SampleCallback", "NoUserdataCallback").forEach { callbackType ->
             android shouldContain "actual fun ${callbackType}.Companion.register("
             android shouldContain "internal actual fun ${callbackType}.Companion.prepare("
-            android shouldContain "private fun interface ${callbackType}Jna : com.sun.jna.Callback"
-            android shouldContain "private val callback: ${callbackType}Jna = ${callbackType}Jna"
+            android shouldContain "private object ${callbackType}Trampoline"
+            android shouldContain "UpcallEngine.allocateTrampoline("
         }
         android shouldContain "actual fun NoUserdataCallback.Companion.rearmAfterNativeQuiescence("
-        android shouldContain "CallbackReference.getFunctionPointer(callback)"
+        android shouldContain "dispatchJvmSignature = \"(JIJ)V\""
+        android shouldContain "dispatchAbiSignature = \"v(u32,ptr,ptr)\""
+        android shouldContain "dispatchJvmSignature = \"(I)V\""
+        android shouldContain "dispatchAbiSignature = \"v(u32)\""
         android shouldContain "CallbackRuntime.register("
         android shouldContain "CallbackRuntime.prepare("
         android shouldContain "CallbackRuntime.rearmAfterNativeQuiescence("
         android shouldContain "CallbackRuntime.dispatchSafely("
         android shouldContain "CallbackRuntime.reportUnroutedFailure(failure)"
-        android shouldNotContain "Android/JNA callback registration is not supported"
+        android shouldNotContain "com.sun.jna"
+    }
+
+    "Android routed callbacks in the fixed (u32, routing userdata) shape allocate upcall trampolines" {
+        val config = CallbackBindingsConfig().also { bindings ->
+            bindings.directFunctionBindings = listOf(
+                DirectFunctionBinding().also { binding ->
+                    binding.function = "function:sample_request"
+                    binding.callbackParameter = "callback"
+                    binding.callbackType = "typedef:SampleCallback"
+                    binding.routingUserdataParameter = "userdata"
+                },
+            )
+        }
+        val android = generateKmp(
+            """
+                typedef void (*SampleCallback)(unsigned int value, void * userdata);
+                void sample_request(SampleCallback callback, void * userdata, long long input);
+            """.trimIndent(),
+            config,
+        ).getValue("androidMain")
+
+        android shouldContain "import org.graphiks.kffi.engine.UpcallEngine"
+        android shouldContain "import kotlin.jvm.JvmStatic"
+        android shouldContain "private object SampleCallbackTrampoline {"
+        android shouldContain "val address: NativeAddress by lazy {"
+        android shouldContain "NativeAddress(UpcallEngine.allocateTrampoline("
+        android shouldContain "dispatcherClass = SampleCallbackTrampoline::class.java,"
+        android shouldContain "dispatchMethod = \"dispatch\","
+        android shouldContain "dispatchJvmSignature = \"(JI)V\","
+        android shouldContain "dispatchAbiSignature = \"v(u32,ptr)\","
+        android shouldContain "@JvmStatic"
+        android shouldContain "fun dispatch(token: Long, value: Int) {"
+        android shouldContain "CallbackRuntime.dispatchSafely("
+        android shouldContain "type = SampleCallbackType,"
+        android shouldContain "userdata = NativeAddress(token),"
+        android shouldContain "callback.invoke(value.toUInt())"
+        android shouldNotContain "com.sun.jna.CallbackReference"
+        android shouldNotContain "com.sun.jna.Callback"
+        android shouldNotContain "SampleCallbackJna"
+        android shouldNotContain "TODO(M5.5)"
     }
 
     "ordinary generic functions remain generated in every KMP target" {

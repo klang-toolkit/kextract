@@ -219,6 +219,7 @@ private fun compileBootstrapProbe(generated: GeneratedKmpSources, workspace: Pat
     val jvm = workspace.resolve("sampleJvm.kt").also { it.writeText(generated.jvm) }
     val kffiCommon = workspace.resolve("kffiCommon.kt").also { it.writeText(KFFI_COMMON_STUB) }
     val kffiJvm = workspace.resolve("kffiJvm.kt").also { it.writeText(REAL_KFFI_JVM_STUB) }
+    val kffiEngine = workspace.resolve("kffiEngine.kt").also { it.writeText(REAL_KFFI_JVM_ENGINE_STUB) }
     val probe = workspace.resolve("probe.kt").also { it.writeText(BOOTSTRAP_PROBE) }
     val classes = workspace.resolve("classes").createDirectories()
 
@@ -231,37 +232,150 @@ private fun compileBootstrapProbe(generated: GeneratedKmpSources, workspace: Pat
         "-classpath", System.getProperty("java.class.path"),
         "-d", classes.toString(),
         common.toString(), jvm.toString(),
-        kffiCommon.toString(), kffiJvm.toString(), probe.toString(),
+        kffiCommon.toString(), kffiJvm.toString(), kffiEngine.toString(), probe.toString(),
     ) shouldBe ExitCode.OK
     return classes
 }
 
 private val REAL_KFFI_JVM_STUB =
     """
-    package io.ygdrasil.kffi
+    package org.graphiks.kffi
 
     import java.lang.foreign.Arena
     import java.lang.foreign.MemorySegment
     import java.lang.foreign.SymbolLookup
+    import java.lang.foreign.ValueLayout
 
-    class JvmNativeAddress(val handler: MemorySegment)
-    actual typealias NativeAddress = JvmNativeAddress
+    @JvmInline
+    actual value class NativeAddress actual constructor(actual val rawValue: Long) {
+        val handler: MemorySegment get() = MemorySegment.ofAddress(rawValue)
+    }
     @JvmInline
     actual value class CString actual constructor(actual val handler: NativeAddress)
     actual class MemoryAllocator actual constructor() {
-        fun allocate(byteSize: Long): NativeAddress = NativeAddress(Arena.global().allocate(byteSize))
+        private val arena = Arena.global()
+        actual fun allocate(byteSize: Long): NativeAddress = NativeAddress(arena.allocate(byteSize).address())
+        actual fun allocateBuffer(size: ULong): MemoryBuffer =
+            MemoryBuffer(NativeAddress(arena.allocate(size.toLong()).address()), size)
     }
-    fun findOrThrow(name: String): MemorySegment =
+    actual class MemoryBuffer actual constructor(
+        actual val handler: NativeAddress,
+        actual val size: ULong,
+    ) {
+        private val segment: MemorySegment = MemorySegment.ofAddress(handler.rawValue).reinterpret(size.toLong())
+        actual fun writeByte(value: Byte, offset: ULong) { segment.set(ValueLayout.JAVA_BYTE, offset.toLong(), value) }
+        actual fun readByte(offset: ULong): Byte = segment.get(ValueLayout.JAVA_BYTE, offset.toLong())
+        actual fun writeUByte(value: UByte, offset: ULong) { segment.set(ValueLayout.JAVA_BYTE, offset.toLong(), value.toByte()) }
+        actual fun readUByte(offset: ULong): UByte = segment.get(ValueLayout.JAVA_BYTE, offset.toLong()).toUByte()
+        actual fun writeShort(value: Short, offset: ULong) { segment.set(ValueLayout.JAVA_SHORT, offset.toLong(), value) }
+        actual fun readShort(offset: ULong): Short = segment.get(ValueLayout.JAVA_SHORT, offset.toLong())
+        actual fun writeUShort(value: UShort, offset: ULong) { segment.set(ValueLayout.JAVA_SHORT, offset.toLong(), value.toShort()) }
+        actual fun readUShort(offset: ULong): UShort = segment.get(ValueLayout.JAVA_SHORT, offset.toLong()).toUShort()
+        actual fun writeInt(value: Int, offset: ULong) { segment.set(ValueLayout.JAVA_INT, offset.toLong(), value) }
+        actual fun readInt(offset: ULong): Int = segment.get(ValueLayout.JAVA_INT, offset.toLong())
+        actual fun writeUInt(value: UInt, offset: ULong) { segment.set(ValueLayout.JAVA_INT, offset.toLong(), value.toInt()) }
+        actual fun readUInt(offset: ULong): UInt = segment.get(ValueLayout.JAVA_INT, offset.toLong()).toUInt()
+        actual fun writeLong(value: Long, offset: ULong) { segment.set(ValueLayout.JAVA_LONG, offset.toLong(), value) }
+        actual fun readLong(offset: ULong): Long = segment.get(ValueLayout.JAVA_LONG, offset.toLong())
+        actual fun writeULong(value: ULong, offset: ULong) { segment.set(ValueLayout.JAVA_LONG, offset.toLong(), value.toLong()) }
+        actual fun readULong(offset: ULong): ULong = segment.get(ValueLayout.JAVA_LONG, offset.toLong()).toULong()
+        actual fun writeFloat(value: Float, offset: ULong) { segment.set(ValueLayout.JAVA_FLOAT, offset.toLong(), value) }
+        actual fun readFloat(offset: ULong): Float = segment.get(ValueLayout.JAVA_FLOAT, offset.toLong())
+        actual fun writeDouble(value: Double, offset: ULong) { segment.set(ValueLayout.JAVA_DOUBLE, offset.toLong(), value) }
+        actual fun readDouble(offset: ULong): Double = segment.get(ValueLayout.JAVA_DOUBLE, offset.toLong())
+        actual fun writePointer(value: NativeAddress, offset: ULong) {
+            segment.set(ValueLayout.ADDRESS, offset.toLong(), MemorySegment.ofAddress(value.rawValue))
+        }
+        actual fun readPointer(offset: ULong): NativeAddress =
+            NativeAddress(segment.get(ValueLayout.ADDRESS, offset.toLong()).address())
+        actual fun readBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong) {
+            segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().get(array, arrayIndex.toInt(), size.toInt())
+        }
+        actual fun writeBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong) {
+            segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().put(array, arrayIndex.toInt(), size.toInt())
+        }
+    }
+    fun findOrThrow(name: String): Long =
         SymbolLookup.loaderLookup().find(name).orElseThrow {
             UnsatisfiedLinkError("Missing native test symbol: ${'$'}name")
+        }.address()
+    """.trimIndent()
+
+private val REAL_KFFI_JVM_ENGINE_STUB =
+    """
+    package org.graphiks.kffi.engine
+
+    import org.graphiks.kffi.NativeAddress
+    import java.lang.foreign.Arena
+    import java.lang.foreign.FunctionDescriptor
+    import java.lang.foreign.Linker
+    import java.lang.foreign.MemorySegment
+    import java.lang.foreign.ValueLayout
+    import java.lang.invoke.MethodHandle
+    import java.lang.invoke.MethodHandles
+
+    object JvmUpcallEngine {
+        private val linker = Linker.nativeLinker()
+        private val arena = Arena.global()
+
+        fun allocateTrampoline(
+            dispatcherClass: Class<*>,
+            dispatchMethod: String,
+            dispatchSig: String,
+        ): NativeAddress {
+            val (returnType, parameterTypes) = parseSig(dispatchSig)
+            val descriptor = if (returnType == null) {
+                FunctionDescriptor.ofVoid(*parameterTypes.map { it.layout }.toTypedArray())
+            } else {
+                FunctionDescriptor.of(returnType.layout, *parameterTypes.map { it.layout }.toTypedArray())
+            }
+            val methodHandle = MethodHandles.privateLookupIn(dispatcherClass, MethodHandles.lookup())
+                .findStatic(dispatcherClass, dispatchMethod, descriptor.toMethodType())
+            return NativeAddress(
+                MemorySegment.ofAddress(linker.upcallStub(methodHandle, descriptor, arena).address()).address(),
+            )
         }
+
+        private enum class Carrier(val layout: ValueLayout) {
+            I(ValueLayout.JAVA_INT),
+            J(ValueLayout.JAVA_LONG),
+            F(ValueLayout.JAVA_FLOAT),
+            D(ValueLayout.JAVA_DOUBLE),
+            Z(ValueLayout.JAVA_BOOLEAN),
+        }
+
+        private fun parseSig(sig: String): Pair<Carrier?, List<Carrier>> {
+            val parameters = sig.substringAfter('(').substringBefore(')')
+                .map { Carrier.valueOf(it.toString()) }
+            val returnPart = sig.substringAfter(')')
+            return (if (returnPart == "V") null else Carrier.valueOf(returnPart)) to parameters
+        }
+    }
+
+    object JvmDowncallEngine {
+        private val linker = Linker.nativeLinker()
+
+        fun resolveSymbol(name: String): Long = org.graphiks.kffi.findOrThrow(name)
+
+        private fun segment(address: Long): MemorySegment = MemorySegment.ofAddress(address)
+
+        private fun handle(fn: Long, descriptor: FunctionDescriptor): MethodHandle =
+            linker.downcallHandle(segment(fn), descriptor)
+
+        fun callV0(fn: Long) {
+            handle(fn, FunctionDescriptor.ofVoid()).invokeExact()
+        }
+
+        fun callI0(fn: Long): Long =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG)).invokeExact() as Long
+    }
     """.trimIndent()
 
 private val BOOTSTRAP_PROBE =
     """
     package sample.bindings
 
-    import io.ygdrasil.kffi.CallbackPolicy
+    import org.graphiks.kffi.CallbackPolicy
     import java.nio.file.FileAlreadyExistsException
     import java.nio.file.Files
     import java.nio.file.Path

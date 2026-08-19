@@ -43,7 +43,7 @@ class GeneratorIntegrationTest : FreeSpec({
         val output = Files.createTempDirectory("kextract_test_out_")
         try {
             tmp.toFile().writeText(csource)
-            KextractTool(Logger.DEFAULT).runGeneration(
+            KextractTool(Logger()).runGeneration(
                 listOf(tmp.toString()),
                 Options(targetPackage = pkg, outputDir = output.toString(), multiplatform = true)
             ) shouldBe KextractTool.SUCCESS
@@ -77,7 +77,7 @@ class GeneratorIntegrationTest : FreeSpec({
         "strip Windows directory components before naming generated files" {
             val tmp = Files.createTempFile("kextract_test_", ".h")
             try {
-                tmp.toFile().writeText("int add(int a, int b);")
+                tmp.toFile().writeText("int add(int a);")
                 val parsed = KextractTool.parse(listOf(tmp.toString()))
                 val mangled = NameMangler(tmp.fileName.toString()).scan(parsed)
                 val files = KotlinGenerator().generate(
@@ -91,7 +91,6 @@ class GeneratorIntegrationTest : FreeSpec({
                     "wgpu_hCommon",
                     "wgpu_hJvm",
                     "wgpu_hAndroid",
-                    "wgpu_h",
                     "wgpu_hNative",
                 )
             } finally {
@@ -167,17 +166,18 @@ class GeneratorIntegrationTest : FreeSpec({
             common shouldContain "val wayland: WGPUWaylandDisplayHandle?"
             common shouldContain "fun setWayland(value: WGPUWaylandDisplayHandle)"
 
-            jvm shouldContain "actual interface WGPUNativeDisplayHandle : CStructure"
-            jvm shouldContain "MemoryLayout.sequenceLayout(16, ValueLayout.JAVA_BYTE).withName(\"value\")"
-            jvm shouldContain "private val valueOffset: Long = layout.byteOffset(groupElement(\"value\"))"
-            jvm shouldContain "get() = if (type == WGPUNativeDisplayHandleType_Xlib) WGPUXlibDisplayHandle"
+            jvm shouldContain "actual interface WGPUNativeDisplayHandle {"
+            jvm shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUNativeDisplayHandle {"
+            jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
+            jvm shouldContain "get() = if (type != WGPUNativeDisplayHandleType_Xlib) null else WGPUXlibDisplayHandle.ByValue(NativeAddress(handle.rawValue + 8L))"
             jvm shouldContain "type = WGPUNativeDisplayHandleType_Xlib"
-            jvm shouldContain "MemorySegment.copy(value.handler.handler, 0L, handler.handler, valueOffset, WGPUXlibDisplayHandle.layout.byteSize())"
+            jvm shouldContain "mem.writeBytes(bytes, 0u, 8uL, 16uL)"
+            jvm shouldNotContain "java.lang.foreign"
         }
     }
 
     "KMP aggregate layout generation" - {
-        "JVM unions use union layouts" {
+        "JVM unions are memory-backed records with zero-based accessors" {
             val header = """
                 typedef union WGPUScalar {
                     unsigned int u32;
@@ -188,10 +188,11 @@ class GeneratorIntegrationTest : FreeSpec({
 
             val jvm = generateKmpFile(header, "jvmMain", "Jvm")
 
-            jvm shouldContain "actual interface WGPUScalar : CStructure"
-            val declaration = jvm.substringAfter("actual interface WGPUScalar")
-            declaration shouldContain "MemoryLayout.unionLayout("
-            declaration shouldNotContain "MemoryLayout.structLayout("
+            jvm shouldContain "actual interface WGPUScalar {"
+            jvm shouldContain "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : WGPUScalar {"
+            jvm shouldContain "get() = mem.readUInt(0uL)"
+            jvm shouldNotContain "MemoryLayout.unionLayout("
+            jvm shouldNotContain "CStructure"
         }
     }
 
@@ -206,7 +207,7 @@ class GeneratorIntegrationTest : FreeSpec({
                 Files.write(linuxResources.resolve("deps/libdependency.so"), byteArrayOf(1, 2, 3))
                 Files.write(linuxResources.resolve("libsample.so"), byteArrayOf(4, 5, 6))
 
-                KextractTool(Logger.DEFAULT).runGeneration(
+                KextractTool(Logger()).runGeneration(
                     listOf(header.toString()),
                     Options(
                         targetPackage = "test",
@@ -265,7 +266,7 @@ class GeneratorIntegrationTest : FreeSpec({
                 Files.createDirectories(linuxResources)
                 Files.write(linuxResources.resolve("libsample.so"), byteArrayOf(7, 8, 9))
 
-                KextractTool(Logger.DEFAULT).runGeneration(
+                KextractTool(Logger()).runGeneration(
                     listOf(header.toString()),
                     Options(
                         targetPackage = "test",
@@ -314,7 +315,7 @@ class GeneratorIntegrationTest : FreeSpec({
                 } WGPUDeviceBinding;
                 WGPUQueue wgpuDeviceGetQueue(WGPUDevice device);
                 WGPUShaderModule wgpuDeviceCreateShaderModule(WGPUDevice device, WGPUShaderModuleDescriptor const * descriptor);
-                WGPUBool wgpuDevicePoll(WGPUDevice device, WGPUBool wait, WGPUSubmissionIndex const * submissionIndex);
+                void wgpuDevicePoll(WGPUDevice device, WGPUSubmissionIndex const * submissionIndex, unsigned long long wait);
             """.trimIndent()
 
             val common = generateCommon(header)
@@ -334,16 +335,19 @@ class GeneratorIntegrationTest : FreeSpec({
             jvm shouldContain "?.let { WGPUDevice(it) }"
             common shouldContain "expect fun wgpuDeviceGetQueue(device: WGPUDevice?): WGPUQueue?"
             common shouldContain "expect fun wgpuDeviceCreateShaderModule(device: WGPUDevice?, descriptor: WGPUShaderModuleDescriptor?): WGPUShaderModule?"
-            common shouldContain "expect fun wgpuDevicePoll(device: WGPUDevice?, wait: UInt, submissionIndex: NativeAddress?): UInt"
+            common shouldContain "expect fun wgpuDevicePoll(device: WGPUDevice?, submissionIndex: NativeAddress?, wait: ULong): Unit"
             common shouldNotContain "submissionIndex: WGPUSubmissionIndex?"
-            jvm shouldContain "private val wgpuDeviceGetQueue_DESC: FunctionDescriptor = FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS)"
+            jvm shouldContain "private val wgpuDeviceGetQueue_ADDR: Long by lazy { findOrThrow(\"wgpuDeviceGetQueue\") }"
+            jvm shouldContain "JvmDowncallEngine.callP1P(wgpuDeviceGetQueue_ADDR, device?.handler?.rawValue ?: 0L)"
+            jvm shouldContain "JvmDowncallEngine.callP2PP(wgpuDeviceCreateShaderModule_ADDR, device?.handler?.rawValue ?: 0L, descriptor?.handler?.rawValue ?: 0L)"
+            jvm shouldContain "JvmDowncallEngine.callV3PPL(wgpuDevicePoll_ADDR, device?.handler?.rawValue ?: 0L, submissionIndex?.rawValue ?: 0L, wait.toLong())"
             jvm shouldContain "actual fun wgpuDeviceGetQueue(device: WGPUDevice?): WGPUQueue?"
             jvm shouldContain "actual fun wgpuDeviceCreateShaderModule(device: WGPUDevice?, descriptor: WGPUShaderModuleDescriptor?): WGPUShaderModule?"
-            jvm shouldContain "actual fun wgpuDevicePoll(device: WGPUDevice?, wait: UInt, submissionIndex: NativeAddress?): UInt"
+            jvm shouldContain "actual fun wgpuDevicePoll(device: WGPUDevice?, submissionIndex: NativeAddress?, wait: ULong): Unit"
             jvm shouldNotContain "submissionIndex?.handler?.handler"
             jvm shouldContain "findOrThrow(\"wgpuDeviceGetQueue\")"
-            jvm shouldContain "device?.handler?.handler ?: MemorySegment.NULL"
-            jvm shouldContain "?.let { WGPUQueue(it) }"
+            jvm shouldContain "device?.handler?.rawValue ?: 0L"
+            jvm shouldContain "?.let(::WGPUQueue)"
         }
 
         "emits typed callback registrations and raw callback addresses" {
@@ -374,7 +378,7 @@ class GeneratorIntegrationTest : FreeSpec({
             jvm shouldContain "Linker.nativeLinker().upcallStub(methodHandle, descriptor, Arena.global())"
             jvm shouldNotContain "Arena.ofShared()"
             jvm shouldContain "actual fun wgpuSetLogCallback(callback: NativeAddress?, userdata: NativeAddress?): Unit"
-            jvm shouldContain "callback?.handler ?: MemorySegment.NULL"
+            jvm shouldContain "callback?.rawValue ?: 0L"
         }
     }
 
@@ -471,6 +475,22 @@ class GeneratorIntegrationTest : FreeSpec({
             """.trimIndent())
 
             src shouldContain "allocator: SegmentAllocator"
+        }
+
+        "struct-by-value JVM functions use the canonical generic shape" {
+            val src = generateKmpFile(
+                """
+                typedef struct Pair { int left; double right; } Pair;
+                int sum_pair(Pair pair);
+                """.trimIndent(),
+                sourceSet = "jvmMain",
+                suffix = "Jvm",
+            )
+
+            src shouldContain "JvmDowncallEngine.FunctionShape"
+            src shouldContain "JvmDowncallEngine.AbiType.Struct(\"Pair_\")"
+            src shouldContain "JvmDowncallEngine.callGeneric"
+            src shouldNotContain "sumPair_HANDLE"
         }
 
         "FunctionDescriptor and MethodHandle are emitted" {

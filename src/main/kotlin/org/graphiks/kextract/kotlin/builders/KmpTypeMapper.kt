@@ -5,6 +5,7 @@ import org.graphiks.kextract.Type
 import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.ARRAY_HOLDER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.C_STRING
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_ALLOCATOR
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
 import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiIndex
 import org.graphiks.kextract.pipeline.isEnum
@@ -96,9 +97,7 @@ internal class KmpTypeMapper(
     }
 
     fun isOptionsEnumType(type: Type): Boolean =
-        isEnumType(type) && namePlan.declaration(enumDeclaration(type)).let { name ->
-            name.endsWith("Options") || name.endsWith("Flags") || name.endsWith("Mask")
-        }
+        isEnumType(type) && isOptionsStyleName(namePlan.declaration(enumDeclaration(type)))
 
     fun isInlineStructOrUnion(type: Type): Boolean {
         val fieldType = mapType(type)
@@ -107,6 +106,46 @@ internal class KmpTypeMapper(
             fieldType != cString &&
             !fieldType.endsWith("?")
     }
+
+    /**
+     * True when [type] is a struct/union value (not a pointer to one). Shared by the
+     * common/expect builder and every per-target actual builder so the generated
+     * `allocator: MemoryAllocator` first parameter on struct-by-value returns stays
+     * consistent across source sets.
+     *
+     * Mirrors the record emission predicate of the builders: the record must be
+     * named (unnamed records map to NativeAddress) and not an opaque `XxxImpl`
+     * handle, whose typedef is a pointer and maps to a value class instead.
+     */
+    fun returnsStructByValue(type: Type): Boolean = when {
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> false
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> returnsStructByValue(type.type())
+        type is Type.Declared -> returnsStructByValueTree(type.tree())
+        else -> false
+    }
+
+    private fun returnsStructByValueTree(tree: Declaration): Boolean = when (tree) {
+        is Declaration.Typedef -> returnsStructByValue(tree.type())
+        is Declaration.Scoped ->
+            (tree.kind() == Declaration.Scoped.Kind.STRUCT || tree.kind() == Declaration.Scoped.Kind.UNION) &&
+                tree.name().isNotEmpty() &&
+                !tree.name().contains("unnamed") &&
+                !(tree.name().endsWith("Impl") && tree.members().isEmpty())
+        else -> false
+    }
+
+    /**
+     * The `allocator: MemoryAllocator` parameter declaration prepended to a binding
+     * whose return value is a struct by value, or an empty list for every other
+     * function. Rendered identically by the common/expect builder and all actual
+     * builders, keeping signatures aligned across source sets.
+     */
+    fun allocatorParams(type: Type): List<String> =
+        if (returnsStructByValue(type)) {
+            listOf("allocator: ${namePlan.runtime(MEMORY_ALLOCATOR)}")
+        } else {
+            emptyList()
+        }
 
     private fun mapUnsigned(inner: Type): String = if (inner is Type.Primitive) {
         when (inner.kind()) {
@@ -196,3 +235,20 @@ internal class KmpTypeMapper(
     }
 
 }
+
+/**
+ * Canonical NS_OPTIONS-style predicate shared by the common builder and the
+ * per-target builders. EndsWith Options/Flags/Mask mirrors cinterop's heuristic;
+ * the WGPUInstance* names are historical wgpu options enums that must be emitted
+ * as [value class]es on every target (a common value class with a generic-enum
+ * Android accessor would not compile).
+ *
+ * public (not internal): kextract tests reference kmain types without a friend-path.
+ */
+fun isOptionsStyleName(name: String): Boolean =
+    name.endsWith("Options") ||
+        name.endsWith("Flags") ||
+        name.endsWith("Mask") ||
+        name == "WGPUInstanceBackend" ||
+        name == "WGPUInstanceFlag" ||
+        name == "WGPUFlags"

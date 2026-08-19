@@ -3,31 +3,29 @@
 package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
-import org.graphiks.kextract.DeclarationImpl.ClangUnnamedRecord
 import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.Type
 import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.ARRAY_HOLDER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.C_STRING
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JNA_LIBRARY
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JNA_NATIVE
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JNA_POINTER
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JNA_STRUCTURE
-import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JNA_UNION
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.JVM_FIELD
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_ALLOCATOR
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.MEMORY_BUFFER
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ADDRESS
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.NATIVE_ENGINE
+import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol.TO_ADDRESS
 import org.graphiks.kextract.kotlin.KotlinKmpSourceSet
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackBindingEmitter
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackAndroidEmitter
 import org.graphiks.kextract.kotlin.callbacks.KotlinCallbackModel
 import org.graphiks.kextract.kotlin.callbacks.KotlinDirectFunctionBindingModel
+import org.graphiks.kextract.kotlin.abi.AndroidRecordLayout
+import org.graphiks.kextract.kotlin.abi.AndroidRecordLayoutPlan
+import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiContext
 import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiIndex
+import org.graphiks.kextract.kotlin.abi.KotlinKmpCAbiType
 import org.graphiks.kextract.kotlin.models.KotlinSourceFile
-import org.graphiks.kextract.pipeline.LayoutUtils
-import org.graphiks.kextract.kotlin.utils.TypeMapper
-import org.graphiks.kextract.pipeline.isEnum
 
 internal class KotlinKmpAndroidBuilder(
     private val targetPackage: String,
@@ -36,45 +34,64 @@ internal class KotlinKmpAndroidBuilder(
     private val callbackModels: List<KotlinCallbackModel>,
     private val directBindingModels: List<KotlinDirectFunctionBindingModel>,
     private val namePlan: KotlinKmpNamePlan,
+    private val layoutPlan: AndroidRecordLayoutPlan,
     private val abiIndex: KotlinKmpAbiIndex,
 ) : Declaration.Visitor<Unit> {
 
     private val builder = SourceBuilder()
-    private val jnaBuilder = SourceBuilder()
-    private val jnaFunctionsBuilder = SourceBuilder()
     private val files = mutableListOf<KotlinSourceFile>()
     private val generatedNames = mutableSetOf<String>()
     private val callbackTypeNames = callbackModels.mapTo(mutableSetOf(), KotlinCallbackModel::typeName)
-    private val androidPackage = if (targetPackage.isEmpty()) "android" else "$targetPackage.android"
     private val typeMapper = KmpTypeMapper(namePlan, arraysAsHolders = false, abiIndex = abiIndex)
     private val nativeAddress = namePlan.runtime(NATIVE_ADDRESS)
+    private val nativeEngine = namePlan.runtime(NATIVE_ENGINE)
     private val cString = namePlan.runtime(C_STRING)
     private val arrayHolder = namePlan.runtime(ARRAY_HOLDER)
     private val memoryAllocator = namePlan.runtime(MEMORY_ALLOCATOR)
-    private val jnaPointer = namePlan.runtime(JNA_POINTER)
-    private val jnaLibrary = namePlan.runtime(JNA_LIBRARY)
-    private val jnaNative = namePlan.runtime(JNA_NATIVE)
-    private val jnaStructure = namePlan.runtime(JNA_STRUCTURE)
-    private val jnaUnion = namePlan.runtime(JNA_UNION)
-    private val jvmField = namePlan.runtime(JVM_FIELD)
+    private val memoryBuffer = namePlan.runtime(MEMORY_BUFFER)
+    private val toAddress = namePlan.runtime(TO_ADDRESS)
+
+    private val excludedBridgeSymbols = setOf(
+        KotlinKmpRuntimeSymbol.JNA_POINTER,
+        KotlinKmpRuntimeSymbol.JNA_STRUCTURE,
+        KotlinKmpRuntimeSymbol.JNA_UNION,
+        KotlinKmpRuntimeSymbol.JNA_CALLBACK_REFERENCE,
+        JVM_FIELD,
+    )
 
     init {
         if (targetPackage.isNotEmpty()) {
             builder.appendLine("package $targetPackage")
             builder.appendLine()
         }
-        jnaBuilder.appendLine("package $androidPackage")
-        jnaBuilder.appendLine()
 
         KotlinKmpRuntimeSymbol.entries
             .filter { KotlinKmpSourceSet.ANDROID in it.sourceSets }
-            .filterNot { it in setOf(JNA_LIBRARY, JNA_STRUCTURE, JNA_UNION, JVM_FIELD) }
+            .filterNot { it in excludedBridgeSymbols }
             .forEach { builder.appendLine(namePlan.importLine(it)) }
         builder.appendLine()
-
-        listOf(JNA_LIBRARY, JNA_NATIVE, JNA_POINTER, JNA_STRUCTURE, JNA_UNION, JVM_FIELD)
-            .forEach { jnaBuilder.appendLine(namePlan.importLine(it)) }
-        jnaBuilder.appendLine()
+        builder.appendLine("private object KextractAndroidBootstrap {")
+        builder.indent()
+        builder.appendLine("init {")
+        builder.indent()
+        builder.appendLine("java.lang.System.loadLibrary(\"${escapeKotlinString(libraryName)}\")")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
+        builder.appendLine(
+            "private val libraryHandle: kotlin.Long by lazy { " +
+                "$nativeEngine.loadNativeLibrary(" +
+                "java.lang.System.mapLibraryName(\"${escapeKotlinString(libraryName)}\")" +
+                ").takeIf { it != 0L } ?: error(\"Unable to load native library: ${escapeKotlinString(libraryName)}\")" +
+                " }",
+        )
+        builder.appendLine(
+            "fun resolve(name: kotlin.String): kotlin.Long = " +
+                "$nativeEngine.resolveSymbolIn(libraryHandle, name)",
+        )
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
     }
 
     override fun visitScoped(decl: Declaration.Scoped) {
@@ -91,11 +108,9 @@ internal class KotlinKmpAndroidBuilder(
                     return
                 }
 
+                val layout = layoutPlan[decl]
+                val sizeBytes = layout.sizeBytes
                 val fields = decl.members().filterIsInstance<Declaration.Variable>().filterNot(Skip::isPresent)
-                val jnaByReference = namePlan.jnaByReference(decl)
-                val jnaByValue = namePlan.jnaByValue(decl)
-                val rawJnaByReference = "$androidPackage.$structName.$jnaByReference"
-                val rawJnaByValue = "$androidPackage.$structName.$jnaByValue"
 
                 // 1. Generate the Bridge Actual Interface
                 builder.appendLine("actual interface $structName {")
@@ -104,358 +119,55 @@ internal class KotlinKmpAndroidBuilder(
                 fields.forEach { field ->
                     val fieldName = namePlan.member(field)
                     val fieldType = typeMapper.mapType(field.type())
-                    if (fieldType == cString) {
-                        builder.appendLine("actual var $fieldName: $cString?")
-                    } else if (fieldType.startsWith(arrayHolder)) {
-                        builder.appendLine("actual var $fieldName: $fieldType?")
-                    } else if (fieldType.endsWith("?") || fieldType == nativeAddress) {
-                        builder.appendLine("actual var $fieldName: $fieldType")
-                    } else {
-                        builder.appendLine("actual var $fieldName: $fieldType")
-                    }
+                    builder.appendLine("actual var $fieldName: ${interfaceFieldType(fieldType)}")
                 }
                 builder.appendLine("actual val handler: $nativeAddress")
 
                 // Companion object
                 builder.appendLine("actual companion object {")
                 builder.indent()
-                builder.appendLine("actual operator fun invoke(address: $nativeAddress): $structName {")
-                builder.indent()
-                builder.appendLine("return ByReference($rawJnaByReference(address))")
-                builder.unindent()
-                builder.appendLine("}")
-                builder.appendLine()
-                builder.appendLine("actual fun allocate(allocator: $memoryAllocator): $structName {")
-                builder.indent()
-                builder.appendLine("val ref = $rawJnaByReference()")
-                builder.appendLine("allocator.register(ref)")
-                builder.appendLine("return ByReference(ref)")
-                builder.unindent()
-                builder.appendLine("}")
-                builder.appendLine()
+                builder.appendLine("actual operator fun invoke(address: $nativeAddress): $structName = ByReference(address)")
+                builder.appendLine("actual fun allocate(allocator: $memoryAllocator): $structName = ByReference(allocator.allocateBuffer(${sizeBytes}uL).handler)")
                 builder.appendLine("actual fun allocateArray(allocator: $memoryAllocator, size: UInt, provider: (UInt, $structName) -> Unit): $arrayHolder<$structName> {")
                 builder.indent()
-                builder.appendLine("val ref = $rawJnaByValue()")
-                builder.appendLine("val array = ref.toArray(size.toInt())")
-                builder.appendLine("array.forEachIndexed { index, struct ->")
+                // Zero size still bumps a non-null pointer; callers treat that as an empty, harmless region.
+                builder.appendLine("val buffer = allocator.allocateBuffer(${sizeBytes}uL * size)")
+                builder.appendLine("val result = $arrayHolder<$structName>(buffer.handler)")
+                builder.appendLine("repeat(size.toInt()) { index ->")
                 builder.indent()
-                builder.appendLine("provider(index.toUInt(), ByValue(struct as $rawJnaByValue))")
+                builder.appendLine("provider(index.toUInt(), ByValue($nativeAddress(buffer.handler.rawValue + index.toLong() * ${sizeBytes}L)))")
                 builder.unindent()
                 builder.appendLine("}")
-                builder.appendLine("val pointer = if (size == 0u) com.sun.jna.Pointer.NULL else array.first().pointer")
-                builder.appendLine("return $arrayHolder(pointer)")
+                builder.appendLine("return result")
                 builder.unindent()
                 builder.appendLine("}")
                 builder.unindent()
                 builder.appendLine("}") // End companion object
 
-                // Generate ByReference Implementation
-                builder.appendLine()
-                builder.appendLine("class ByReference(val handle: $rawJnaByReference = $rawJnaByReference(com.sun.jna.Pointer.NULL)) : $structName {")
-                builder.indent()
-                fields.forEach { field ->
-                    val fieldName = namePlan.rawIdentifier(field)
-                    val propertyName = namePlan.member(field)
-                    val fieldType = typeMapper.mapType(field.type())
-                    if (fieldType == cString) {
-                        builder.appendLine("override var $propertyName: $cString?")
-                    } else if (fieldType.startsWith(arrayHolder)) {
-                        builder.appendLine("override var $propertyName: $fieldType?")
-                    } else if (fieldType.endsWith("?") || fieldType == nativeAddress) {
-                        builder.appendLine("override var $propertyName: $fieldType")
-                    } else {
-                        builder.appendLine("override var $propertyName: $fieldType")
-                    }
-                    val inlineJnaType = inlineRecordJnaType(field.type())
-                    if (decl.kind() == Declaration.Scoped.Kind.UNION) {
-                        builder.indent()
-                        emitUnionFieldAccessors(field)
-                        builder.unindent()
-                    } else if (inlineJnaType != null) {
-                        builder.indent()
-                        emitInlineRecordAccessors(field, fieldType)
-                        builder.unindent()
-                    } else if (isStructType(field.type())) {
-                        builder.indent()
-                        val isOpt = fieldType == cString || fieldType.startsWith(arrayHolder) || fieldType.endsWith("?")
-                        val nonOpt = fieldType.removeSuffix("?")
-                        val jnaType = mapJnaType(field.type())
-                        val rawFieldJnaByReference = requireNotNull(jnaByReferenceType(field.type()))
-                        if (fieldType.startsWith(arrayHolder)) {
-                            builder.appendLine("get() = handle.$fieldName?.let { $nonOpt.ByReference(it) }")
-                            builder.appendLine("set(value) { handle.$fieldName = (value as? $nonOpt.ByReference)?.handle }")
-                        } else if (nonOpt == "WGPUNativeDisplayHandle") {
-                            if (isOpt) {
-                                builder.appendLine("get() = handle.$fieldName?.let { WGPUNativeDisplayHandle.ByReference($rawFieldJnaByReference(it)) }")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as? WGPUNativeDisplayHandle.ByReference)?.handle?.pointer }")
-                            } else {
-                                builder.appendLine("get() = handle.$fieldName?.let { WGPUNativeDisplayHandle.ByReference($rawFieldJnaByReference(it)) } ?: error(\"$fieldName is null\")")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as WGPUNativeDisplayHandle.ByReference).handle.pointer }")
-                            }
-                        } else if (jnaType == "$jnaPointer?") {
-                            if (isOpt) {
-                                builder.appendLine("get() = handle.$fieldName?.let { $nonOpt.ByReference($rawFieldJnaByReference(it)) }")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as? $nonOpt.ByReference)?.handle?.pointer }")
-                            } else {
-                                builder.appendLine("get() = handle.$fieldName?.let { $fieldType.ByReference($rawFieldJnaByReference(it)) } ?: error(\"$fieldName is null\")")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as $fieldType.ByReference).handle.pointer }")
-                            }
-                        } else {
-                            if (isOpt) {
-                                builder.appendLine("get() = handle.$fieldName?.let { $nonOpt.ByReference(it) }")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as? $nonOpt.ByReference)?.handle }")
-                            } else {
-                                builder.appendLine("get() = handle.$fieldName?.let { $fieldType.ByReference(it) } ?: error(\"$fieldName is null\")")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as $fieldType.ByReference).handle }")
-                            }
-                        }
-                        builder.unindent()
-                    } else {
-                        builder.indent()
-                        val isEnum = typeMapper.isEnumType(field.type())
-                        when {
-                            fieldType == cString -> {
-                                builder.appendLine("get() = handle.$fieldName?.let(::$cString)")
-                                builder.appendLine("set(value) { handle.$fieldName = value?.handler }")
-                            }
-                            fieldType == nativeAddress -> {
-                                builder.appendLine("get() = handle.$fieldName ?: com.sun.jna.Pointer.NULL")
-                                builder.appendLine("set(value) { handle.$fieldName = value }")
-                            }
-                            fieldType == "$nativeAddress?" -> {
-                                builder.appendLine("get() = handle.$fieldName")
-                                builder.appendLine("set(value) { handle.$fieldName = value }")
-                            }
-                            fieldType == "Boolean" -> {
-                                builder.appendLine("get() = handle.$fieldName")
-                                builder.appendLine("set(value) { handle.$fieldName = value }")
-                            }
-                            isEnum || fieldType == "UInt" -> {
-                                builder.appendLine("get() = handle.$fieldName.toUInt() as $fieldType")
-                                builder.appendLine("set(value) { handle.$fieldName = value.toInt() }")
-                            }
-                            fieldType == "ULong" || fieldType.endsWith("Flags") || fieldType.endsWith("Usage") -> {
-                                builder.appendLine("get() = handle.$fieldName.toULong() as $fieldType")
-                                builder.appendLine("set(value) { handle.$fieldName = value.toLong() }")
-                            }
-                            fieldType == "UShort" -> {
-                                builder.appendLine("get() = handle.$fieldName.toUShort() as $fieldType")
-                                builder.appendLine("set(value) { handle.$fieldName = value.toShort() }")
-                            }
-                            fieldType == "UByte" -> {
-                                builder.appendLine("get() = handle.$fieldName.toUByte() as $fieldType")
-                                builder.appendLine("set(value) { handle.$fieldName = value.toByte() }")
-                            }
-                            else -> {
-                                val isPrimitiveOrKffi = fieldType in listOf("Byte", "Short", "Int", "Long", "Float", "Double", "Boolean", cString, nativeAddress)
-                                if (!isPrimitiveOrKffi) {
-                                    if (fieldType.endsWith("?")) {
-                                        val nonOpt = fieldType.removeSuffix("?")
-                                        builder.appendLine("get() = handle.$fieldName?.let { $nonOpt(it) }")
-                                        builder.appendLine("set(value) { handle.$fieldName = value?.handler }")
-                                    } else {
-                                        builder.appendLine("get() = handle.$fieldName?.let { $fieldType(it) } ?: error(\"$fieldName is null\")")
-                                        builder.appendLine("set(value) { handle.$fieldName = value.handler }")
-                                    }
-                                } else {
-                                    builder.appendLine("get() = handle.$fieldName as $fieldType")
-                                    builder.appendLine("set(value) { handle.$fieldName = value }")
-                                }
-                            }
-                        }
-                        builder.unindent()
-                    }
-                }
-                builder.appendLine("override val handler: $nativeAddress")
-                builder.indent()
-                builder.appendLine("get() {")
-                builder.indent()
-                builder.appendLine("handle.write()")
-                builder.appendLine("return handle.pointer")
-                builder.unindent()
-                builder.appendLine("}")
-                builder.unindent()
-                builder.unindent()
-                builder.appendLine("}") // End ByReference
-
-                // Generate ByValue Implementation
-                builder.appendLine()
-                builder.appendLine("class ByValue(val handle: $rawJnaByValue = $rawJnaByValue(com.sun.jna.Pointer.NULL)) : $structName {")
-                builder.indent()
-                fields.forEach { field ->
-                    val fieldName = namePlan.rawIdentifier(field)
-                    val propertyName = namePlan.member(field)
-                    val fieldType = typeMapper.mapType(field.type())
-                    if (fieldType == cString) {
-                        builder.appendLine("override var $propertyName: $cString?")
-                    } else if (fieldType.startsWith(arrayHolder)) {
-                        builder.appendLine("override var $propertyName: $fieldType?")
-                    } else if (fieldType.endsWith("?") || fieldType == nativeAddress) {
-                        builder.appendLine("override var $propertyName: $fieldType")
-                    } else {
-                        builder.appendLine("override var $propertyName: $fieldType")
-                    }
-                    val inlineJnaType = inlineRecordJnaType(field.type())
-                    if (decl.kind() == Declaration.Scoped.Kind.UNION) {
-                        builder.indent()
-                        emitUnionFieldAccessors(field)
-                        builder.unindent()
-                    } else if (inlineJnaType != null) {
-                        builder.indent()
-                        emitInlineRecordAccessors(field, fieldType)
-                        builder.unindent()
-                    } else if (isStructType(field.type())) {
-                        builder.indent()
-                        val isOpt = fieldType == cString || fieldType.startsWith(arrayHolder) || fieldType.endsWith("?")
-                        val nonOpt = fieldType.removeSuffix("?")
-                        val jnaType = mapJnaType(field.type())
-                        val rawFieldJnaByReference = requireNotNull(jnaByReferenceType(field.type()))
-                        if (fieldType.startsWith(arrayHolder)) {
-                            builder.appendLine("get() = handle.$fieldName?.let { $nonOpt.ByReference(it) }")
-                            builder.appendLine("set(value) { handle.$fieldName = (value as? $nonOpt.ByReference)?.handle }")
-                        } else if (nonOpt == "WGPUNativeDisplayHandle") {
-                            if (isOpt) {
-                                builder.appendLine("get() = handle.$fieldName?.let { WGPUNativeDisplayHandle.ByReference($rawFieldJnaByReference(it)) }")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as? WGPUNativeDisplayHandle.ByReference)?.handle?.pointer }")
-                            } else {
-                                builder.appendLine("get() = handle.$fieldName?.let { WGPUNativeDisplayHandle.ByReference($rawFieldJnaByReference(it)) } ?: error(\"$fieldName is null\")")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as WGPUNativeDisplayHandle.ByReference).handle.pointer }")
-                            }
-                        } else if (jnaType == "$jnaPointer?") {
-                            if (isOpt) {
-                                builder.appendLine("get() = handle.$fieldName?.let { $nonOpt.ByReference($rawFieldJnaByReference(it)) }")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as? $nonOpt.ByReference)?.handle?.pointer }")
-                            } else {
-                                builder.appendLine("get() = handle.$fieldName?.let { $fieldType.ByReference($rawFieldJnaByReference(it)) } ?: error(\"$fieldName is null\")")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as $fieldType.ByReference).handle.pointer }")
-                            }
-                        } else {
-                            if (isOpt) {
-                                builder.appendLine("get() = handle.$fieldName?.let { $nonOpt.ByReference(it) }")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as? $nonOpt.ByReference)?.handle }")
-                            } else {
-                                builder.appendLine("get() = handle.$fieldName?.let { $fieldType.ByReference(it) } ?: error(\"$fieldName is null\")")
-                                builder.appendLine("set(value) { handle.$fieldName = (value as $fieldType.ByReference).handle }")
-                            }
-                        }
-                        builder.unindent()
-                    } else {
-                        builder.indent()
-                        val isEnum = typeMapper.isEnumType(field.type())
-                        when {
-                            fieldType == cString -> {
-                                builder.appendLine("get() = handle.$fieldName?.let(::$cString)")
-                                builder.appendLine("set(value) { handle.$fieldName = value?.handler }")
-                            }
-                            fieldType == nativeAddress -> {
-                                builder.appendLine("get() = handle.$fieldName ?: com.sun.jna.Pointer.NULL")
-                                builder.appendLine("set(value) { handle.$fieldName = value }")
-                            }
-                            fieldType == "$nativeAddress?" -> {
-                                builder.appendLine("get() = handle.$fieldName")
-                                builder.appendLine("set(value) { handle.$fieldName = value }")
-                            }
-                            fieldType == "Boolean" -> {
-                                builder.appendLine("get() = handle.$fieldName")
-                                builder.appendLine("set(value) { handle.$fieldName = value }")
-                            }
-                            isEnum || fieldType == "UInt" -> {
-                                builder.appendLine("get() = handle.$fieldName.toUInt() as $fieldType")
-                                builder.appendLine("set(value) { handle.$fieldName = value.toInt() }")
-                            }
-                            fieldType == "ULong" || fieldType.endsWith("Flags") || fieldType.endsWith("Usage") -> {
-                                builder.appendLine("get() = handle.$fieldName.toULong() as $fieldType")
-                                builder.appendLine("set(value) { handle.$fieldName = value.toLong() }")
-                            }
-                            fieldType == "UShort" -> {
-                                builder.appendLine("get() = handle.$fieldName.toUShort() as $fieldType")
-                                builder.appendLine("set(value) { handle.$fieldName = value.toShort() }")
-                            }
-                            fieldType == "UByte" -> {
-                                builder.appendLine("get() = handle.$fieldName.toUByte() as $fieldType")
-                                builder.appendLine("set(value) { handle.$fieldName = value.toByte() }")
-                            }
-                            else -> {
-                                val isPrimitiveOrKffi = fieldType in listOf("Byte", "Short", "Int", "Long", "Float", "Double", "Boolean", cString, nativeAddress)
-                                if (!isPrimitiveOrKffi) {
-                                    if (fieldType.endsWith("?")) {
-                                        val nonOpt = fieldType.removeSuffix("?")
-                                        builder.appendLine("get() = handle.$fieldName?.let { $nonOpt(it) }")
-                                        builder.appendLine("set(value) { handle.$fieldName = value?.handler }")
-                                    } else {
-                                        builder.appendLine("get() = handle.$fieldName?.let { $fieldType(it) } ?: error(\"$fieldName is null\")")
-                                        builder.appendLine("set(value) { handle.$fieldName = value.handler }")
-                                    }
-                                } else {
-                                    builder.appendLine("get() = handle.$fieldName as $fieldType")
-                                    builder.appendLine("set(value) { handle.$fieldName = value }")
-                                }
-                            }
-                        }
-                        builder.unindent()
-                    }
-                }
-                builder.appendLine("override val handler: $nativeAddress")
-                builder.indent()
-                builder.appendLine("get() {")
-                builder.indent()
-                builder.appendLine("handle.write()")
-                builder.appendLine("return handle.pointer")
-                builder.unindent()
-                builder.appendLine("}")
-                builder.unindent()
-                builder.unindent()
-                builder.appendLine("}") // End ByValue
+                // 2. Generate the memory-backed implementations
+                emitMemoryRecordImpl(structName, layout, fields, "ByReference")
+                emitMemoryRecordImpl(structName, layout, fields, "ByValue")
 
                 builder.unindent()
                 builder.appendLine("}") // End actual interface
                 builder.appendLine()
-
-
-                // 2. Generate the RAW JNA class
-                val jnaBase = if (decl.kind() == Declaration.Scoped.Kind.UNION) jnaUnion else jnaStructure
-                jnaBuilder.appendLine("open class $structName(pointer: $jnaPointer? = null) : $jnaBase(pointer) {")
-                jnaBuilder.indent()
-                fields.forEach { field ->
-                    val fieldName = namePlan.rawIdentifier(field)
-                    val fieldType = mapJnaType(field.type())
-                    jnaBuilder.appendLine("@$jvmField var $fieldName: ${fieldType} = ${getDefaultJnaValue(field.type())}")
-                }
-                jnaBuilder.appendLine("override fun getFieldOrder() = listOf<String>(${fields.joinToString(", ") { "\"${it.name()}\"" }})")
-
-                jnaBuilder.appendLine("class $jnaByReference(pointer: $jnaPointer? = null) : $structName(pointer), $jnaStructure.ByReference")
-                jnaBuilder.appendLine("class $jnaByValue(pointer: $jnaPointer? = null) : $structName(pointer), $jnaStructure.ByValue")
-                jnaBuilder.unindent()
-                jnaBuilder.appendLine("}")
-                jnaBuilder.appendLine()
             }
             Declaration.Scoped.Kind.TOPLEVEL -> {
                 for (member in decl.members()) {
                     member.accept(this)
                 }
-                jnaBuilder.appendLine("internal interface ${className}Library : $jnaLibrary {")
-                jnaBuilder.indent()
-                jnaBuilder.appendBlock(jnaFunctionsBuilder.toString().trimEnd())
-                jnaBuilder.unindent()
-                jnaBuilder.appendLine("}")
-                jnaBuilder.appendLine()
-                jnaBuilder.appendLine("internal val ${className}LibraryInstance: ${className}Library by lazy {")
-                jnaBuilder.indent()
-                jnaBuilder.appendLine("$jnaNative.load(\"${escapeKotlinString(libraryName)}\", ${className}Library::class.java)")
-                jnaBuilder.unindent()
-                jnaBuilder.appendLine("}")
-                jnaBuilder.appendLine()
                 KotlinCallbackAndroidEmitter(
                     typeMapper::mapFunctionType,
                     ::mapJnaType,
+                    ::mapJnaFieldType,
                     namePlan,
+                    layoutPlan,
                 ).emit(builder, callbackModels)
                 KotlinCallbackBindingEmitter(typeMapper::mapFunctionType, namePlan).emitAndroid(
                     builder,
                     directBindingModels,
-                    ::toRawJnaArgument,
-                ) { function ->
-                    "$androidPackage.${className}LibraryInstance.${namePlan.rawIdentifier(function)}"
+                ) { function, asLastExpression, argExpr ->
+                    emitEngineDowncall(function, asLastExpression, argExpr)
                 }
             }
             else -> {}
@@ -470,38 +182,28 @@ internal class KotlinKmpAndroidBuilder(
                     sourceRoot = "androidMain/kotlin",
                 ),
             )
-            files.add(
-                KotlinSourceFile(
-                    androidPackage,
-                    className,
-                    jnaBuilder.toString(),
-                    sourceRoot = "androidMain/kotlin",
-                ),
-            )
         }
     }
 
     override fun visitFunction(decl: Declaration.Function) {
         if (Skip.isPresent(decl)) return
         val name = namePlan.declaration(decl)
-        val rawName = namePlan.rawIdentifier(decl)
         val returnType = typeMapper.mapFunctionType(decl.type().returnType())
-        val params = decl.parameters().joinToString(", ") { param ->
-            "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
-        }
-        val rawParams = decl.parameters().joinToString(", ") { param ->
-            "${namePlan.parameter(param)}: ${rawJnaFunctionType(param.type())}"
-        }
-        val rawReturnType = rawJnaFunctionType(decl.type().returnType())
-        jnaFunctionsBuilder.appendLine("fun $rawName($rawParams): $rawReturnType")
-
-        val rawArguments = decl.parameters().joinToString(", ") { param ->
-            toRawJnaArgument(namePlan.parameter(param), param.type())
-        }
-        val call = "$androidPackage.${className}LibraryInstance.$rawName($rawArguments)"
+        val returnsStructByValue = typeMapper.returnsStructByValue(decl.type().returnType())
+        val params = (
+            typeMapper.allocatorParams(decl.type().returnType()) +
+                decl.parameters().map { param ->
+                    "${namePlan.parameter(param)}: ${typeMapper.mapFunctionType(param.type())}"
+                }
+        ).joinToString(", ")
+        builder.appendLine("private val ${name}_ADDR: Long by lazy { KextractAndroidBootstrap.resolve(\"${escapeKotlinString(decl.name())}\") }")
         builder.appendLine("actual fun $name($params): $returnType {")
         builder.indent()
-        emitFunctionReturn(decl.type().returnType(), returnType, call)
+        emitEngineDowncall(
+            function = decl,
+            callerAllocator = if (returnsStructByValue) "allocator" else null,
+            argExpr = { parameter -> namePlan.parameter(parameter) },
+        )
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
@@ -533,77 +235,466 @@ internal class KotlinKmpAndroidBuilder(
 
     fun getFiles(): List<KotlinSourceFile> = files
 
-    private fun rawJnaFunctionType(type: Type): String =
-        if (type is Type.Primitive && type.kind() == Type.Primitive.Kind.Void) {
-            "Unit"
-        } else {
-            mapJnaType(type)
+    /**
+     * The typed engine wrapper name `call<R><N><ARGS>` for [type], or `null` when the
+     * signature carries a struct-by-value arg or return and must ride the `callGeneric`
+     * path instead. R ∈ V/I/L/P/D/F/S/B (V void, P pointer, others by scalar carrier),
+     * N = arg count, ARGS = one letter per arg (I Int, L Long, P pointer-as-Long,
+     * D Double, F Float, S Short, B Byte). The engine C table implements a subset today;
+     * kextract emits against the full scheme and M5.5 grows the table to cover wgpu.
+     */
+    private fun wrapperForm(type: Type.Function): String? {
+        val returnLetter = engineReturnLetter(type.returnType()) ?: return null
+        val argLetters = type.argumentTypes().map { arg ->
+            engineArgLetter(KotlinKmpCAbiType.from(arg, KotlinKmpAbiContext.DIRECT))
         }
+        if (argLetters.any { it == null }) return null
+        val letters = argLetters.joinToString("") { it ?: "" }
+        return "call$returnLetter${argLetters.size}$letters"
+    }
 
-    private fun toRawJnaArgument(name: String, type: Type): String {
-        val kmpType = typeMapper.mapFunctionType(type)
-        val rawType = rawJnaFunctionType(type)
-        return when {
-            typeMapper.isOptionsEnumType(type) ->
-                abiIndex.enum(typeMapper.enumDeclaration(type)).optionsRawToJvmCarrier("$name.rawValue")
-            typeMapper.isEnumType(type) ->
-                abiIndex.enum(typeMapper.enumDeclaration(type)).toJvmCarrier(name)
-            returnsStructByValue(type) -> {
-                val record = requireNotNull(canonicalRecordDeclaration(type))
-                val rawByValue =
-                    "$androidPackage.${namePlan.declaration(record)}.${namePlan.jnaByValue(record)}"
-                "$rawByValue($name.handler).apply { read() }"
-            }
-            rawType == "$jnaPointer?" && kmpType in setOf(nativeAddress, "$nativeAddress?") -> name
-            rawType == "$jnaPointer?" && kmpType == "$cString?" -> "$name?.handler"
-            rawType == "$jnaPointer?" && kmpType.startsWith(arrayHolder) -> "$name?.handler"
-            rawType == "$jnaPointer?" && kmpType.endsWith("?") -> "$name?.handler"
-            rawType == "$jnaPointer?" -> "$name.handler"
-            rawType == "Int" && kmpType == "Boolean" -> "if ($name) 1 else 0"
-            rawType == "Int" && kmpType == "UInt" -> "$name.toInt()"
-            rawType == "Long" && kmpType == "ULong" -> "$name.toLong()"
-            rawType == "Short" && kmpType == "UShort" -> "$name.toShort()"
-            rawType == "Byte" && kmpType == "UByte" -> "$name.toByte()"
-            else -> name
+    private fun engineReturnLetter(type: Type): String? {
+        if (type is Type.Primitive && type.kind() == Type.Primitive.Kind.Void) return "V"
+        return engineArgLetter(KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT))
+    }
+
+    private fun engineArgLetter(abi: KotlinKmpCAbiType): String? = when (abi) {
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL,
+            KotlinKmpCAbiType.Scalar.Kind.I32,
+            -> "I"
+            KotlinKmpCAbiType.Scalar.Kind.I8 -> "B"
+            KotlinKmpCAbiType.Scalar.Kind.I16,
+            KotlinKmpCAbiType.Scalar.Kind.CHAR16,
+            -> "S"
+            KotlinKmpCAbiType.Scalar.Kind.I64 -> "L"
+            KotlinKmpCAbiType.Scalar.Kind.F32 -> "F"
+            KotlinKmpCAbiType.Scalar.Kind.F64 -> "D"
+        }
+        is KotlinKmpCAbiType.Address -> "P"
+        is KotlinKmpCAbiType.StructValue -> null
+    }
+
+    /**
+     * Emits the engine downcall statements for [function] into the current [builder].
+     * [argExpr] resolves each C parameter to the Kotlin expression carrying its value
+     * (the parameter name for `actual fun`s; the preflight parameter for direct bindings).
+     * Typed signatures use the `call<R><N><ARGS>` wrapper; struct-by-value signatures use
+     * `callGeneric` with a packed argument buffer and a documented typeSpec.
+     *
+     * When [asLastExpression] is set the downcall is emitted as the final expression of an
+     * enclosing lambda (an Android direct-binding preflight), so value conversions are
+     * emitted without an unqualified `return` (which is prohibited inside a lambda) and the
+     * call itself is the lambda's value.
+     */
+    private fun emitEngineDowncall(
+        function: Declaration.Function,
+        asLastExpression: Boolean = false,
+        argExpr: (Declaration.Variable) -> String,
+        callerAllocator: String? = null,
+    ) {
+        val wrapper = wrapperForm(function.type())
+        if (wrapper != null) {
+            emitTypedDowncall(function, wrapper, asLastExpression, argExpr)
+        } else {
+            emitGenericDowncall(function, asLastExpression, argExpr, callerAllocator)
         }
     }
 
-    private fun emitFunctionReturn(type: Type, returnType: String, call: String) {
+    private fun emitTypedDowncall(
+        function: Declaration.Function,
+        wrapper: String,
+        asLastExpression: Boolean = false,
+        argExpr: (Declaration.Variable) -> String,
+    ) {
+        val engineArgs = function.parameters()
+            .map { toEngineArgument(argExpr(it), it.type()) }
+            .joinToString(", ")
+        val call = "$nativeEngine.$wrapper(${functionAddress(function)}" +
+            (if (engineArgs.isEmpty()) "" else ", $engineArgs") + ")"
+        emitEngineReturn(function.type().returnType(), call, asLastExpression)
+    }
+
+    private fun functionAddress(function: Declaration.Function): String =
+        "${namePlan.declaration(function)}_ADDR"
+
+    private fun toEngineArgument(name: String, type: Type): String {
+        val kmpType = typeMapper.mapFunctionType(type)
+        return when (val abi = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT)) {
+            is KotlinKmpCAbiType.Address -> when {
+                kmpType == "$nativeAddress?" -> "$name.${toAddress}()"
+                kmpType == nativeAddress -> "$name.rawValue"
+                kmpType.endsWith("?") -> "$name?.handler?.rawValue ?: 0L"
+                else -> "$name.handler.rawValue"
+            }
+            is KotlinKmpCAbiType.Scalar -> when {
+                typeMapper.isOptionsEnumType(type) ->
+                    abiIndex.enum(typeMapper.enumDeclaration(type)).optionsRawToJvmCarrier("$name.rawValue")
+                typeMapper.isEnumType(type) ->
+                    abiIndex.enum(typeMapper.enumDeclaration(type)).toJvmCarrier(name)
+                kmpType == "Boolean" -> "if ($name) 1 else 0"
+                kmpType == "UInt" -> "$name.toInt()"
+                kmpType == "ULong" -> "$name.toLong()"
+                kmpType == "UShort" -> "$name.toShort()"
+                kmpType == "UByte" -> "$name.toByte()"
+                else -> name
+            }
+            is KotlinKmpCAbiType.StructValue ->
+                error("struct-by-value arguments ride the callGeneric path, not toEngineArgument")
+        }
+    }
+
+    private fun emitEngineReturn(type: Type, call: String, asLastExpression: Boolean = false) {
+        val returnType = typeMapper.mapFunctionType(type)
+        val resultPrefix = if (asLastExpression) "" else "return "
         if (returnType == "Unit") {
             builder.appendLine(call)
-            builder.appendLine("return")
+            if (!asLastExpression) builder.appendLine("return")
             return
         }
-        val rawType = rawJnaFunctionType(type)
         when {
             typeMapper.isOptionsEnumType(type) -> {
                 val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
                 builder.appendLine(
-                    "return $returnType(${scalar.jvmCarrierToOptionsRaw(call)})",
+                    "$resultPrefix$returnType(${scalar.jvmCarrierToOptionsRaw(narrowEngineCarrier(call, scalar))})",
                 )
             }
             typeMapper.isEnumType(type) -> {
                 val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
-                builder.appendLine("return ${scalar.fromJvmCarrier(call)}")
+                builder.appendLine("$resultPrefix${scalar.fromJvmCarrier(narrowEngineCarrier(call, scalar))}")
             }
-            returnType == "$nativeAddress?" -> builder.appendLine("return $call")
-            returnType == "$cString?" -> builder.appendLine("return $call?.let(::$cString)")
+            returnType == "$nativeAddress?" -> builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)")
+            returnType == "$cString?" -> builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$cString)")
             returnType.endsWith("?") && returnsPointer(type) -> {
                 val nonNullable = returnType.removeSuffix("?")
-                builder.appendLine("return $call?.let { $nonNullable(it) }")
+                builder.appendLine("$resultPrefix$call.takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$nonNullable)")
             }
-            returnsStructByValue(type) -> builder.appendLine("return $returnType.ByValue($call)")
-            rawType == "Int" && returnType == "Boolean" -> builder.appendLine("return $call != 0")
-            rawType == "Int" && returnType == "UInt" -> builder.appendLine("return $call.toUInt()")
-            rawType == "Long" && returnType == "ULong" -> builder.appendLine("return $call.toULong()")
-            rawType == "Short" && returnType == "UShort" -> builder.appendLine("return $call.toUShort()")
-            rawType == "Byte" && returnType == "UByte" -> builder.appendLine("return $call.toUByte()")
-            else -> builder.appendLine("return $call")
+            else -> {
+                val scalar = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT) as KotlinKmpCAbiType.Scalar
+                when {
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.BOOL -> builder.appendLine("$resultPrefix$call != 0L")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> builder.appendLine("$resultPrefix$call.toByte().toUByte()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> builder.appendLine("$resultPrefix$call.toShort().toUShort()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> builder.appendLine("$resultPrefix$call.toInt().toUInt()")
+                    scalar.unsigned && scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> builder.appendLine("$resultPrefix$call.toULong()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> builder.appendLine("$resultPrefix$call.toByte()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> builder.appendLine("$resultPrefix$call.toShort()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> builder.appendLine("$resultPrefix$call.toInt()")
+                    scalar.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> builder.appendLine("$resultPrefix$call")
+                    else -> builder.appendLine("$resultPrefix$call")
+                }
+            }
         }
     }
 
-    private fun returnsStructByValue(type: Type): Boolean =
-        !returnsPointer(type) && canonicalRecordDeclaration(type) != null
+    /** Narrows the engine's Long (or F/D) result to the scalar's jvmCarrier expression. */
+    private fun narrowEngineCarrier(call: String, scalar: KotlinKmpCAbiType.Scalar): String = when (scalar.kind) {
+        KotlinKmpCAbiType.Scalar.Kind.I8 -> "$call.toByte()"
+        KotlinKmpCAbiType.Scalar.Kind.I16, KotlinKmpCAbiType.Scalar.Kind.CHAR16 -> "$call.toShort()"
+        KotlinKmpCAbiType.Scalar.Kind.I32 -> "$call.toInt()"
+        else -> call
+    }
+
+    /**
+     * Struct-by-value downcalls ride `callGeneric(fn, argc, typeSpec, argsPtr, outPtr)`.
+     * typeSpec is `"<return>:<arg0>,<arg1>,..."`. Scalar codes are `v p b8 i8 u8 i16
+     * u16 i32 u32 i64 u64 f32 f64`; a struct is encoded recursively as
+     * `s<size>@<alignment>(<field0>,<field1>,...)`; and a fixed array as
+     * `a<count>(<element>)`. The native engine validates the emitted struct size and
+     * alignment against libffi before making the call.
+     *
+     * The argument buffer packs each argument in declaration order at its natural
+     * alignment. Struct values are copied at their complete C layout, while scalar and
+     * pointer values use their carrier width; the output buffer receives either a struct
+     * value or the scalar carrier.
+     */
+    private fun emitGenericDowncall(
+        function: Declaration.Function,
+        asLastExpression: Boolean = false,
+        argExpr: (Declaration.Variable) -> String,
+        callerAllocator: String? = null,
+    ) {
+        val functionType = function.type()
+        val params = function.parameters()
+        val returnType = typeMapper.mapFunctionType(functionType.returnType())
+        val returnAbi = if (returnType == "Unit") {
+            null
+        } else {
+            KotlinKmpCAbiType.from(functionType.returnType(), KotlinKmpAbiContext.DIRECT)
+        }
+
+        var cursor = 0L
+        val typeSpecCodes = mutableListOf<String>()
+        val slotEmissions = mutableListOf<(SourceBuilder) -> Unit>()
+        params.forEachIndexed { _, parameter ->
+            val abi = KotlinKmpCAbiType.from(parameter.type(), KotlinKmpAbiContext.DIRECT)
+            when (abi) {
+                is KotlinKmpCAbiType.StructValue -> {
+                    val layout = layoutPlan[abi.declaration]
+                    val offset = alignTo(cursor, layout.alignmentBytes)
+                    cursor = offset + layout.sizeBytes
+                    typeSpecCodes += engineGenericTypeSpec(parameter.type())
+                    slotEmissions += emitStructSlot(parameter, argExpr, layout.sizeBytes, offset)
+                }
+                else -> {
+                    val carrierBytes = engineCarrierBytes(abi)
+                    val offset = alignTo(cursor, carrierBytes)
+                    cursor = offset + carrierBytes
+                    typeSpecCodes += engineTypeSpecCode(abi)
+                    slotEmissions += emitScalarSlot(parameter, argExpr, abi, offset)
+                }
+            }
+        }
+        // A WGPUFuture is a one-word struct (`uint64_t id`). On Android's
+        // AArch64 libffi path, describing that return as an ffi struct is not
+        // ABI-stable even though its C representation is one register. Use
+        // the equivalent scalar carrier and keep exposing the memory-backed
+        // WGPUFuture wrapper to Kotlin callers.
+        val scalarStructReturn = if (returnAbi is KotlinKmpCAbiType.StructValue) {
+            scalarStructReturn(functionType.returnType())
+        } else {
+            null
+        }
+        val returnCode = when {
+            returnAbi == null -> "v"
+            scalarStructReturn != null -> engineTypeSpecCode(scalarStructReturn)
+            else -> engineGenericTypeSpec(functionType.returnType())
+        }
+        val typeSpec = "\"$returnCode:${typeSpecCodes.joinToString(",")}\""
+        val argsSize = cursor.coerceAtLeast(8L)
+        val outSize = when (val abi = returnAbi) {
+            is KotlinKmpCAbiType.StructValue -> layoutPlan[abi.declaration].sizeBytes
+            else -> 8L
+        }
+
+        builder.appendLine("val args = $memoryAllocator().allocateBuffer(${argsSize}uL)")
+        slotEmissions.forEach { it(builder) }
+        val outAllocator = callerAllocator ?: "$memoryAllocator()"
+        builder.appendLine("val out = $outAllocator.allocateBuffer(${outSize}uL)")
+        builder.appendLine(
+            "$nativeEngine.callGeneric(${functionAddress(function)}, ${params.size}, " +
+                "$typeSpec, args.handler.rawValue, out.handler.rawValue)",
+        )
+        emitGenericReturn(functionType.returnType(), returnType, returnAbi, asLastExpression)
+    }
+
+    private fun emitStructSlot(
+        parameter: Declaration.Variable,
+        argExpr: (Declaration.Variable) -> String,
+        sizeBytes: Long,
+        offset: Long,
+    ): (SourceBuilder) -> Unit = { target ->
+        val bytes = "${argExpr(parameter)}Bytes"
+        target.appendLine("val $bytes = ByteArray($sizeBytes)")
+        target.appendLine(
+            "$memoryBuffer(${argExpr(parameter)}.handler, ${sizeBytes}uL).readBytes($bytes, 0u, 0uL, ${sizeBytes}uL)",
+        )
+        target.appendLine("args.writeBytes($bytes, 0u, ${offset}uL, ${sizeBytes}uL)")
+    }
+
+    private fun emitScalarSlot(
+        parameter: Declaration.Variable,
+        argExpr: (Declaration.Variable) -> String,
+        abi: KotlinKmpCAbiType,
+        offset: Long,
+    ): (SourceBuilder) -> Unit = { target ->
+        val name = argExpr(parameter)
+        val value = when (abi) {
+            is KotlinKmpCAbiType.Address -> when (typeMapper.mapFunctionType(parameter.type())) {
+                "$nativeAddress?" -> "$name.${toAddress}()"
+                nativeAddress -> "$name.rawValue"
+                else -> "$name?.handler?.rawValue ?: 0L"
+            }
+            is KotlinKmpCAbiType.Scalar -> {
+                val kmpType = typeMapper.mapFunctionType(parameter.type())
+                when {
+                    typeMapper.isOptionsEnumType(parameter.type()) ->
+                        abiIndex.enum(typeMapper.enumDeclaration(parameter.type())).optionsRawToJvmCarrier("$name.rawValue")
+                    typeMapper.isEnumType(parameter.type()) ->
+                        abiIndex.enum(typeMapper.enumDeclaration(parameter.type())).toJvmCarrier(name)
+                    abi.kind == KotlinKmpCAbiType.Scalar.Kind.BOOL -> "(if ($name) 1 else 0).toByte()"
+                    abi.unsigned && abi.kind == KotlinKmpCAbiType.Scalar.Kind.I8 -> "$name.toByte()"
+                    abi.unsigned && abi.kind == KotlinKmpCAbiType.Scalar.Kind.I16 -> "$name.toShort()"
+                    abi.unsigned && abi.kind == KotlinKmpCAbiType.Scalar.Kind.I32 -> "$name.toInt()"
+                    abi.unsigned && abi.kind == KotlinKmpCAbiType.Scalar.Kind.I64 -> "$name.toLong()"
+                    else -> when (kmpType) {
+                        "UInt" -> "$name.toInt()"
+                        "ULong" -> "$name.toLong()"
+                        "UShort" -> "$name.toShort()"
+                        "UByte" -> "$name.toByte()"
+                        else -> name
+                    }
+                }
+            }
+            is KotlinKmpCAbiType.StructValue -> error("unreachable: struct slots pack separately")
+        }
+        target.appendLine("args.${engineWritePrimitive(abi)}($value, ${offset}uL)")
+    }
+
+    private fun emitGenericReturn(
+        type: Type,
+        returnType: String,
+        returnAbi: KotlinKmpCAbiType?,
+        asLastExpression: Boolean = false,
+    ) {
+        if (returnType == "Unit" || returnAbi == null) return
+        val resultPrefix = if (asLastExpression) "" else "return "
+        when (returnAbi) {
+            is KotlinKmpCAbiType.StructValue -> {
+                builder.appendLine("$resultPrefix$returnType.ByValue(out.handler)")
+            }
+            is KotlinKmpCAbiType.Address -> when {
+                returnType == "$nativeAddress?" -> builder.appendLine(resultPrefix + "out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)")
+                returnType == "$cString?" -> builder.appendLine(resultPrefix + "out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$cString)")
+                returnType.endsWith("?") -> {
+                    val nonNullable = returnType.removeSuffix("?")
+                    builder.appendLine(resultPrefix + "out.readLong(0uL).takeIf { it != 0L }?.let(::$nativeAddress)?.let(::$nonNullable)")
+                }
+                else -> builder.appendLine(resultPrefix + "out.readLong(0uL)")
+            }
+            is KotlinKmpCAbiType.Scalar -> {
+                val read = engineReadPrimitive(returnAbi)
+                when {
+                    typeMapper.isOptionsEnumType(type) -> {
+                        val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
+                        builder.appendLine(
+                            "$resultPrefix$returnType(${scalar.jvmCarrierToOptionsRaw("out.$read(0uL)")})",
+                        )
+                    }
+                    typeMapper.isEnumType(type) -> {
+                        val scalar = abiIndex.enum(typeMapper.enumDeclaration(type))
+                        builder.appendLine("$resultPrefix${scalar.fromJvmCarrier("out.$read(0uL)")}")
+                    }
+                    returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.BOOL ->
+                        builder.appendLine(resultPrefix + "out.readLong(0uL) != 0L")
+                    returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I8 ->
+                        builder.appendLine(resultPrefix + "out.readByte(0uL)")
+                    returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I16 ->
+                        builder.appendLine(resultPrefix + "out.readShort(0uL)")
+                    returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I32 ->
+                        builder.appendLine(resultPrefix + "out.readInt(0uL)")
+                    returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I64 ->
+                        builder.appendLine(resultPrefix + "out.readLong(0uL)")
+                    returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.F32 ->
+                        builder.appendLine(resultPrefix + "out.readFloat(0uL)")
+                    returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.F64 ->
+                        builder.appendLine(resultPrefix + "out.readDouble(0uL)")
+                    else -> builder.appendLine(resultPrefix + "out.readLong(0uL)")
+                }
+            }
+        }
+    }
+
+    private fun scalarStructReturn(type: Type): KotlinKmpCAbiType.Scalar? {
+        val abi = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT)
+            as? KotlinKmpCAbiType.StructValue ?: return null
+        val layout = layoutPlan[abi.declaration]
+        if (layout.sizeBytes != 8L || layout.alignmentBytes != 8L || layout.fields.size != 1) return null
+        val field = layout.fields.single()
+        if (field.offsetBytes != 0L) return null
+        val fieldAbi = KotlinKmpCAbiType.from(field.field.type(), KotlinKmpAbiContext.DIRECT)
+            as? KotlinKmpCAbiType.Scalar ?: return null
+        return fieldAbi.takeIf { it.kind == KotlinKmpCAbiType.Scalar.Kind.I64 }
+    }
+
+    /** Width in bytes of an engine argument carrier for the generic packed buffer. */
+    private fun engineCarrierBytes(abi: KotlinKmpCAbiType): Long = when (abi) {
+        is KotlinKmpCAbiType.Address -> 8L
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL,
+            KotlinKmpCAbiType.Scalar.Kind.I8,
+            -> 1L
+            KotlinKmpCAbiType.Scalar.Kind.I16,
+            KotlinKmpCAbiType.Scalar.Kind.CHAR16,
+            -> 2L
+            KotlinKmpCAbiType.Scalar.Kind.I32,
+            KotlinKmpCAbiType.Scalar.Kind.F32,
+            -> 4L
+            KotlinKmpCAbiType.Scalar.Kind.I64,
+            KotlinKmpCAbiType.Scalar.Kind.F64,
+            -> 8L
+        }
+        is KotlinKmpCAbiType.StructValue -> error("unreachable: struct slots pack separately")
+    }
+
+    private fun engineTypeSpecCode(abi: KotlinKmpCAbiType): String = when (abi) {
+        is KotlinKmpCAbiType.Address -> "p"
+        is KotlinKmpCAbiType.StructValue -> error("unreachable: struct slots pack separately")
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL -> "b8"
+            KotlinKmpCAbiType.Scalar.Kind.I8 -> if (abi.unsigned) "u8" else "i8"
+            KotlinKmpCAbiType.Scalar.Kind.I16, KotlinKmpCAbiType.Scalar.Kind.CHAR16 -> if (abi.unsigned) "u16" else "i16"
+            KotlinKmpCAbiType.Scalar.Kind.I32 -> if (abi.unsigned) "u32" else "i32"
+            KotlinKmpCAbiType.Scalar.Kind.I64 -> if (abi.unsigned) "u64" else "i64"
+            KotlinKmpCAbiType.Scalar.Kind.F32 -> "f32"
+            KotlinKmpCAbiType.Scalar.Kind.F64 -> "f64"
+        }
+    }
+
+    private fun engineGenericTypeSpec(type: Type): String {
+        val abi = KotlinKmpCAbiType.from(type, KotlinKmpAbiContext.DIRECT)
+        return when (abi) {
+            is KotlinKmpCAbiType.StructValue -> engineStructTypeSpec(abi.declaration)
+            else -> engineTypeSpecCode(abi)
+        }
+    }
+
+    private fun engineStructTypeSpec(declaration: Declaration.Scoped): String {
+        require(declaration.kind() == Declaration.Scoped.Kind.STRUCT) {
+            "Android generic downcalls do not support unions by value: ${declaration.name()}"
+        }
+        val layout = layoutPlan[declaration]
+        val fields = layout.fields.joinToString(",") { field ->
+            engineStructFieldTypeSpec(field.field.type())
+        }
+        return "s${layout.sizeBytes}@${layout.alignmentBytes}($fields)"
+    }
+
+    private fun engineStructFieldTypeSpec(type: Type): String = when {
+        type is Type.Array -> {
+            val count = requireNotNull(type.elementCount()) {
+                "Android generic downcalls require a fixed-size array field"
+            }
+            require(count > 0L) { "Android generic downcalls do not support zero-length array fields" }
+            "a$count(${engineStructFieldTypeSpec(type.elementType())})"
+        }
+        type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER ->
+            engineStructFieldTypeSpec(type.type())
+        else -> engineGenericTypeSpec(type)
+    }
+
+    private fun engineWritePrimitive(abi: KotlinKmpCAbiType): String = when (abi) {
+        is KotlinKmpCAbiType.Address -> "writeLong"
+        is KotlinKmpCAbiType.Scalar -> when (abi.kind) {
+            KotlinKmpCAbiType.Scalar.Kind.BOOL,
+            KotlinKmpCAbiType.Scalar.Kind.I8,
+            -> "writeByte"
+            KotlinKmpCAbiType.Scalar.Kind.I16,
+            KotlinKmpCAbiType.Scalar.Kind.CHAR16,
+            -> "writeShort"
+            KotlinKmpCAbiType.Scalar.Kind.I32 -> "writeInt"
+            KotlinKmpCAbiType.Scalar.Kind.I64 -> "writeLong"
+            KotlinKmpCAbiType.Scalar.Kind.F32 -> "writeFloat"
+            KotlinKmpCAbiType.Scalar.Kind.F64 -> "writeDouble"
+        }
+        is KotlinKmpCAbiType.StructValue -> error("unreachable")
+    }
+
+    private fun engineReadPrimitive(abi: KotlinKmpCAbiType.Scalar): String = when (abi.kind) {
+        KotlinKmpCAbiType.Scalar.Kind.BOOL,
+        KotlinKmpCAbiType.Scalar.Kind.I8,
+        -> "readByte"
+        KotlinKmpCAbiType.Scalar.Kind.I16,
+        KotlinKmpCAbiType.Scalar.Kind.CHAR16,
+        -> "readShort"
+        KotlinKmpCAbiType.Scalar.Kind.I32 -> "readInt"
+        KotlinKmpCAbiType.Scalar.Kind.I64 -> "readLong"
+        KotlinKmpCAbiType.Scalar.Kind.F32 -> "readFloat"
+        KotlinKmpCAbiType.Scalar.Kind.F64 -> "readDouble"
+    }
+
+    private fun alignTo(value: Long, alignment: Long): Long =
+        if (alignment <= 1L) value else ((value + alignment - 1L) / alignment) * alignment
 
     private fun returnsPointer(type: Type): Boolean = when {
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> true
@@ -617,236 +708,170 @@ internal class KotlinKmpAndroidBuilder(
         .replace("$", "\\$")
 
     private fun emitNativeDisplayHandle(decl: Declaration.Scoped) {
-        val rawJnaByReference =
-            "$androidPackage.WGPUNativeDisplayHandle.${namePlan.jnaByReference(decl)}"
-        val rawJnaByValue = "$androidPackage.WGPUNativeDisplayHandle.${namePlan.jnaByValue(decl)}"
+        val layout = layoutPlan[decl]
+        val sizeBytes = layout.sizeBytes
+        val unionField = decl.members()
+            .filterIsInstance<Declaration.Variable>()
+            .filterNot(Skip::isPresent)
+            .firstOrNull { typeMapper.declaredUnion(it.type()) != null }
+        val fields = decl.members()
+            .filterIsInstance<Declaration.Variable>()
+            .filterNot(Skip::isPresent)
+            .filterNot { it == unionField }
+        val unionFields = nativeDisplayUnionFields(typeMapper, decl)
+        val dataOffset = unionField?.let { layout.field(it.name()).offsetBytes } ?: 0L
+        val typeOffset = layout.field("type").offsetBytes
+
         builder.appendLine("actual interface WGPUNativeDisplayHandle {")
         builder.indent()
-        builder.appendLine("actual var type: WGPUNativeDisplayHandleType")
-        builder.appendLine("actual val xlib: WGPUXlibDisplayHandle?")
-        builder.appendLine("actual fun setXlib(value: WGPUXlibDisplayHandle)")
-        builder.appendLine("actual val xcb: WGPUXcbDisplayHandle?")
-        builder.appendLine("actual fun setXcb(value: WGPUXcbDisplayHandle)")
-        builder.appendLine("actual val wayland: WGPUWaylandDisplayHandle?")
-        builder.appendLine("actual fun setWayland(value: WGPUWaylandDisplayHandle)")
+        fields.forEach { field ->
+            val fieldType = typeMapper.mapType(field.type())
+            builder.appendLine("actual var ${namePlan.member(field)}: ${interfaceFieldType(fieldType)}")
+        }
+        unionFields.forEach { field ->
+            val type = typeMapper.mapType(field.type())
+            val setter = field.name().replaceFirstChar { it.titlecase() }
+            builder.appendLine("actual val ${namePlan.member(field)}: $type?")
+            builder.appendLine("actual fun set$setter(value: $type)")
+        }
         builder.appendLine("actual val handler: $nativeAddress")
+
         builder.appendLine("actual companion object {")
         builder.indent()
-        builder.appendLine("actual operator fun invoke(address: $nativeAddress): WGPUNativeDisplayHandle = ByReference($rawJnaByReference(address))")
-        builder.appendLine("actual fun allocate(allocator: $memoryAllocator): WGPUNativeDisplayHandle {")
-        builder.indent()
-        builder.appendLine("val ref = $rawJnaByReference()")
-        builder.appendLine("allocator.register(ref)")
-        builder.appendLine("return ByReference(ref)")
-        builder.unindent()
-        builder.appendLine("}")
+        builder.appendLine("actual operator fun invoke(address: $nativeAddress): WGPUNativeDisplayHandle = ByReference(address)")
+        builder.appendLine("actual fun allocate(allocator: $memoryAllocator): WGPUNativeDisplayHandle = ByReference(allocator.allocateBuffer(${sizeBytes}uL).handler)")
         builder.appendLine("actual fun allocateArray(allocator: $memoryAllocator, size: UInt, provider: (UInt, WGPUNativeDisplayHandle) -> Unit): $arrayHolder<WGPUNativeDisplayHandle> {")
         builder.indent()
-        builder.appendLine("val ref = $rawJnaByValue()")
-        builder.appendLine("val array = ref.toArray(size.toInt())")
-        builder.appendLine("array.forEachIndexed { index, struct -> provider(index.toUInt(), ByValue(struct as $rawJnaByValue)) }")
-        builder.appendLine("val pointer = if (size == 0u) com.sun.jna.Pointer.NULL else array.first().pointer")
-        builder.appendLine("return $arrayHolder(pointer)")
+        // Zero size still bumps a non-null pointer; callers treat that as an empty, harmless region.
+        builder.appendLine("val buffer = allocator.allocateBuffer(${sizeBytes}uL * size)")
+        builder.appendLine("val result = $arrayHolder<WGPUNativeDisplayHandle>(buffer.handler)")
+        builder.appendLine("repeat(size.toInt()) { index ->")
+        builder.indent()
+        builder.appendLine("provider(index.toUInt(), ByValue($nativeAddress(buffer.handler.rawValue + index.toLong() * ${sizeBytes}L)))")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine("return result")
         builder.unindent()
         builder.appendLine("}")
         builder.unindent()
         builder.appendLine("}")
-        emitNativeDisplayHandleAndroidImpl("ByReference", rawJnaByReference)
-        emitNativeDisplayHandleAndroidImpl("ByValue", rawJnaByValue)
+
+        emitNativeDisplayHandleImpl("ByReference", layout, unionFields, typeOffset, dataOffset)
+        emitNativeDisplayHandleImpl("ByValue", layout, unionFields, typeOffset, dataOffset)
+
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
-
-        jnaBuilder.appendLine("open class WGPUNativeDisplayHandle(pointer: $jnaPointer? = null) : $jnaStructure(pointer) {")
-        jnaBuilder.indent()
-        jnaBuilder.appendLine("@$jvmField var type: Int = 0")
-        jnaBuilder.appendLine("@$jvmField var data: Data = Data()")
-        jnaBuilder.appendLine("override fun getFieldOrder() = listOf<String>(\"type\", \"data\")")
-        jnaBuilder.appendLine("class Data : com.sun.jna.Union(), $jnaStructure.ByValue {")
-        jnaBuilder.indent()
-        listOf("WGPUXlibDisplayHandle", "WGPUXcbDisplayHandle", "WGPUWaylandDisplayHandle").forEach { type ->
-            val field = type.removePrefix("WGPU").removeSuffix("DisplayHandle").lowercase()
-            val helper = "$type.${namePlan.jnaByValue(type)}"
-            jnaBuilder.appendLine("@$jvmField var $field: $helper = $helper()")
-        }
-        jnaBuilder.unindent()
-        jnaBuilder.appendLine("}")
-        jnaBuilder.appendLine("class ${namePlan.jnaByReference(decl)}(pointer: $jnaPointer? = null) : WGPUNativeDisplayHandle(pointer), $jnaStructure.ByReference")
-        jnaBuilder.appendLine("class ${namePlan.jnaByValue(decl)}(pointer: $jnaPointer? = null) : WGPUNativeDisplayHandle(pointer), $jnaStructure.ByValue")
-        jnaBuilder.unindent()
-        jnaBuilder.appendLine("}")
-        jnaBuilder.appendLine()
     }
 
-    private fun emitNativeDisplayHandleAndroidImpl(name: String, handleType: String) {
-        builder.appendLine("class $name(val handle: $handleType = $handleType(com.sun.jna.Pointer.NULL)) : WGPUNativeDisplayHandle {")
+    private fun emitNativeDisplayHandleImpl(
+        name: String,
+        layout: AndroidRecordLayout,
+        unionFields: List<Declaration.Variable>,
+        typeOffset: Long,
+        dataOffset: Long,
+    ) {
+        val sizeBytes = layout.sizeBytes
+        val typeScalar = abiIndex.enum(typeMapper.enumDeclaration(layout.field("type").field.type()))
+        val (typeRead, typeWrite, typeCast) = enumMemoryPrimitives(typeScalar)
+        builder.appendLine()
+        builder.appendLine("class $name(val handle: $nativeAddress = $nativeAddress(0L)) : WGPUNativeDisplayHandle {")
         builder.indent()
+        builder.appendLine("private val mem: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
         builder.appendLine("override var type: WGPUNativeDisplayHandleType")
         builder.indent()
-        builder.appendLine("get() { handle.read(); return handle.type.toUInt() as WGPUNativeDisplayHandleType }")
-        builder.appendLine("set(value) { handle.type = value.toInt(); handle.write() }")
+        builder.appendLine("get() = mem.$typeRead(${typeOffset}uL) as WGPUNativeDisplayHandleType")
+        builder.appendLine("set(value) { mem.$typeWrite($typeCast, ${typeOffset}uL) }")
         builder.unindent()
-        listOf("xlib" to "WGPUXlibDisplayHandle", "xcb" to "WGPUXcbDisplayHandle", "wayland" to "WGPUWaylandDisplayHandle").forEach { (field, type) ->
-            val setter = field.replaceFirstChar { it.titlecase() }
-            builder.appendLine("override val $field: $type?")
+        unionFields.forEach { field ->
+            val fieldName = namePlan.member(field)
+            val type = typeMapper.mapType(field.type())
+            val setter = field.name().replaceFirstChar { it.titlecase() }
+            val discriminator = "WGPUNativeDisplayHandleType_$setter"
+            val memberSize = layoutPlan[requireNotNull(canonicalRecordDeclaration(field.type()))].sizeBytes
+            builder.appendLine("override val $fieldName: $type?")
             builder.indent()
-            builder.appendLine("get() {")
-            builder.indent()
-            builder.appendLine("handle.read()")
-            builder.appendLine("if (type != WGPUNativeDisplayHandleType_$setter) return null")
-            builder.appendLine("handle.data.readField(\"$field\")")
-            builder.appendLine("return $type.ByValue(handle.data.$field)")
-            builder.unindent()
-            builder.appendLine("}")
+            builder.appendLine("get() = if (type != $discriminator) null else $type.ByValue($nativeAddress(handle.rawValue + ${dataOffset}L))")
             builder.unindent()
             builder.appendLine("override fun set$setter(value: $type) {")
             builder.indent()
-            builder.appendLine("handle.type = WGPUNativeDisplayHandleType_$setter.toInt()")
-            builder.appendLine("val copy = $androidPackage.$type.${namePlan.jnaByValue(type)}(value.handler)")
-            builder.appendLine("copy.read()")
-            builder.appendLine("handle.data.$field = copy")
-            builder.appendLine("handle.data.writeField(\"$field\")")
-            builder.appendLine("handle.writeField(\"type\")")
-            builder.appendLine("handle.writeField(\"data\")")
+            builder.appendLine("type = $discriminator")
+            builder.appendLine("val bytes = ByteArray($memberSize)")
+            builder.appendLine("$memoryBuffer(value.handler, ${memberSize}uL).readBytes(bytes, 0u, 0uL, ${memberSize}uL)")
+            builder.appendLine("mem.writeBytes(bytes, 0u, ${dataOffset}uL, ${memberSize}uL)")
             builder.unindent()
             builder.appendLine("}")
         }
         builder.appendLine("override val handler: $nativeAddress")
         builder.indent()
-        builder.appendLine("get() { handle.write(); return handle.pointer }")
+        builder.appendLine("get() = handle")
         builder.unindent()
         builder.unindent()
         builder.appendLine("}")
     }
 
-    private fun isStructType(type: Type): Boolean = when {
-        type is Type.Declared -> {
-            val tree = type.tree()
-            (tree.kind() == Declaration.Scoped.Kind.STRUCT || tree.kind() == Declaration.Scoped.Kind.UNION) &&
-                    tree.members().filterIsInstance<Declaration.Variable>().isNotEmpty() &&
-                    !ClangUnnamedRecord.isPresent(tree)
-        }
-        type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> {
-            val inner = type.type()
-            isStructType(inner)
-        }
-        else -> false
-    }
-
-    private fun isOptionsStyle(name: String): Boolean =
-        name.endsWith("Options") || name.endsWith("Flags") || name.endsWith("Mask") || name == "WGPUInstanceBackend" || name == "WGPUInstanceFlag" || name == "WGPUFlags"
-
-    private fun inlineRecordJnaType(type: Type): String? =
-        inlineRecordDeclaration(type)
-            ?.takeIf { record -> record.name().isNotEmpty() && !record.name().contains("unnamed") }
-            ?.let { record ->
-                "$androidPackage.${namePlan.declaration(record)}.${namePlan.jnaByValue(record)}"
-            }
-
-    private fun inlineRecordDeclaration(type: Type): Declaration.Scoped? = when {
-        type is Type.Declared && isStructType(type) -> type.tree()
-        type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> inlineRecordDeclaration(type.type())
-        else -> null
-    }
-
-    private fun canonicalRecordDeclaration(type: Type): Declaration.Scoped? = when (type) {
-        is Type.Declared -> type.tree().takeIf { record ->
-            record.kind() == Declaration.Scoped.Kind.STRUCT || record.kind() == Declaration.Scoped.Kind.UNION
-        }
-        is Type.Delegated -> canonicalRecordDeclaration(type.type())
-        is Type.Array -> canonicalRecordDeclaration(type.elementType())
-        else -> null
-    }
-
-    private fun jnaByReferenceType(type: Type): String? = canonicalRecordDeclaration(type)?.let { record ->
-        "$androidPackage.${namePlan.declaration(record)}.${namePlan.jnaByReference(record)}"
-    }
-
-    private fun emitInlineRecordAccessors(field: Declaration.Variable, fieldType: String) {
-        val cFieldName = field.name()
-        val fieldName = namePlan.rawIdentifier(field)
-        builder.appendLine("get() {")
+    private fun emitMemoryRecordImpl(
+        structName: String,
+        layout: AndroidRecordLayout,
+        fields: List<Declaration.Variable>,
+        implName: String,
+    ) {
+        val sizeBytes = layout.sizeBytes
+        builder.appendLine()
+        builder.appendLine("class $implName(val handle: $nativeAddress = $nativeAddress(0L)) : $structName {")
         builder.indent()
-        builder.appendLine("handle.readField(\"$cFieldName\")")
-        builder.appendLine("return $fieldType.ByValue(handle.$fieldName)")
-        builder.unindent()
-        builder.appendLine("}")
-        builder.appendLine("set(value) {")
+        builder.appendLine("private val mem: $memoryBuffer by lazy { $memoryBuffer(handle, ${sizeBytes}uL) }")
+        fields.forEach { field ->
+            val propertyName = namePlan.member(field)
+            val fieldType = typeMapper.mapType(field.type())
+            builder.appendLine("override var $propertyName: ${interfaceFieldType(fieldType)}")
+            builder.indent()
+            val fieldLayout = layout.field(field.name())
+            emitMemoryFieldAccessors(
+                builder = builder,
+                typeMapper = typeMapper,
+                abiIndex = abiIndex,
+                nativeAddress = nativeAddress,
+                cString = cString,
+                memoryBuffer = memoryBuffer,
+                field = field,
+                propertyName = propertyName,
+                fieldType = fieldType,
+                offsetBytes = fieldLayout.offsetBytes,
+                sizeBytes = fieldLayout.sizeBytes,
+            )
+            builder.unindent()
+        }
+        builder.appendLine("override val handler: $nativeAddress")
         builder.indent()
-        builder.appendLine("val bytes = value.handler.getByteArray(0, handle.$fieldName.size())")
-        builder.appendLine("handle.readField(\"$cFieldName\")")
-        builder.appendLine("handle.$fieldName.pointer.write(0, bytes, 0, bytes.size)")
-        builder.appendLine("handle.readField(\"$cFieldName\")")
+        builder.appendLine("get() = handle")
+        builder.unindent()
         builder.unindent()
         builder.appendLine("}")
     }
 
-    private fun emitUnionFieldAccessors(field: Declaration.Variable) {
-        val cFieldName = field.name()
-        val fieldName = namePlan.rawIdentifier(field)
-        val fieldType = typeMapper.mapType(field.type())
-        val inlineJnaType = inlineRecordJnaType(field.type())
-        if (inlineJnaType != null) {
-            emitInlineRecordAccessors(field, fieldType)
-            return
-        }
-
-        val getter = when {
-            fieldType == cString -> "handle.$fieldName?.let(::$cString)"
-            fieldType == nativeAddress -> "handle.$fieldName ?: com.sun.jna.Pointer.NULL"
-            fieldType == "$nativeAddress?" -> "handle.$fieldName"
-            fieldType == "Boolean" -> "handle.$fieldName != 0"
-            typeMapper.isEnumType(field.type()) || fieldType == "UInt" ->
-                "handle.$fieldName.toUInt() as $fieldType"
-            fieldType == "ULong" || fieldType.endsWith("Flags") || fieldType.endsWith("Usage") ->
-                "handle.$fieldName.toULong() as $fieldType"
-            fieldType == "UShort" -> "handle.$fieldName.toUShort() as $fieldType"
-            fieldType == "UByte" -> "handle.$fieldName.toUByte() as $fieldType"
-            fieldType.startsWith(arrayHolder) -> "handle.$fieldName?.let { $arrayHolder(it) }"
-            fieldType !in listOf("Byte", "Short", "Int", "Long", "Float", "Double") && fieldType.endsWith("?") -> {
-                val nonOpt = fieldType.removeSuffix("?")
-                "handle.$fieldName?.let { $nonOpt(it) }"
-            }
-            fieldType !in listOf("Byte", "Short", "Int", "Long", "Float", "Double") ->
-                "handle.$fieldName?.let { $fieldType(it) } ?: error(\"$fieldName is null\")"
-            else -> "handle.$fieldName as $fieldType"
-        }
-        val assignment = when {
-            fieldType == nativeAddress || fieldType == "$nativeAddress?" ->
-                "handle.$fieldName = value"
-            fieldType == "Boolean" -> "handle.$fieldName = if (value) 1 else 0"
-            fieldType == cString || fieldType.startsWith(arrayHolder) || fieldType.endsWith("?") ->
-                "handle.$fieldName = value?.handler"
-            typeMapper.isEnumType(field.type()) || fieldType == "UInt" ->
-                "handle.$fieldName = value.toInt()"
-            fieldType == "ULong" || fieldType.endsWith("Flags") || fieldType.endsWith("Usage") ->
-                "handle.$fieldName = value.toLong()"
-            fieldType == "UShort" -> "handle.$fieldName = value.toShort()"
-            fieldType == "UByte" -> "handle.$fieldName = value.toByte()"
-            fieldType !in listOf("Byte", "Short", "Int", "Long", "Float", "Double") ->
-                "handle.$fieldName = value.handler"
-            else -> "handle.$fieldName = value"
-        }
-
-        builder.appendLine("get() {")
-        builder.indent()
-        builder.appendLine("handle.readField(\"$cFieldName\")")
-        builder.appendLine("return $getter")
-        builder.unindent()
-        builder.appendLine("}")
-        builder.appendLine("set(value) {")
-        builder.indent()
-        builder.appendLine(assignment)
-        builder.appendLine("handle.writeField(\"$cFieldName\")")
-        builder.unindent()
-        builder.appendLine("}")
+    private fun interfaceFieldType(fieldType: String): String = when {
+        fieldType == cString -> "$cString?"
+        fieldType.startsWith(arrayHolder) ->
+            // Inline C array fields would be wrong with pointer accessors; no wgpu struct uses them today.
+            "$fieldType?"
+        else -> fieldType
     }
 
-    private fun mapJnaType(type: Type): String {
-        inlineRecordJnaType(type)?.let { return it }
+    private fun mapJnaType(type: Type): String = mapJnaType(type, structByValue = true)
+
+    private fun mapJnaFieldType(type: Type): String = mapJnaType(type, structByValue = false)
+
+    private fun mapJnaType(type: Type, structByValue: Boolean): String {
         return when {
         typeMapper.isEnumType(type) -> "Int"
         type is Type.Primitive -> mapJnaPrimitive(type.kind())
+        isStructType(type) -> {
+            val declaration = canonicalRecordDeclaration(type)
+                ?: return "com.sun.jna.Pointer?"
+            val name = "${namePlan.declaration(declaration)}Jna"
+            if (structByValue) "$name.ByValue" else name
+        }
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.UNSIGNED -> {
             val inner = type.type()
             if (inner is Type.Primitive) {
@@ -861,12 +886,11 @@ internal class KotlinKmpAndroidBuilder(
                 "Int"
             }
         }
-        type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> "$jnaPointer?"
+        type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> "com.sun.jna.Pointer?"
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> {
             val inner = type.type()
             when {
                 typeMapper.isEnumType(inner) -> "Int"
-                isStructType(inner) -> "$jnaPointer?"
                 inner is Type.Primitive -> mapJnaPrimitive(inner.kind())
                 inner is Type.Delegated && inner.kind() == Type.Delegated.Kind.UNSIGNED -> {
                     val innerInner = inner.type()
@@ -882,20 +906,20 @@ internal class KotlinKmpAndroidBuilder(
                         "Int"
                     }
                 }
-                else -> "$jnaPointer?"
+                else -> "com.sun.jna.Pointer?"
             }
         }
         type is Type.Declared -> {
             val tree = type.tree()
             if (tree.kind() == Declaration.Scoped.Kind.STRUCT || tree.kind() == Declaration.Scoped.Kind.UNION) {
-                "$jnaPointer?"
+                "com.sun.jna.Pointer?"
             } else if (tree.kind() == Declaration.Scoped.Kind.ENUM) {
                 "Int"
             } else {
-                "$jnaPointer?"
+                "com.sun.jna.Pointer?"
             }
         }
-        else -> "$jnaPointer?"
+        else -> "com.sun.jna.Pointer?"
     }
     }
 
@@ -907,20 +931,6 @@ internal class KotlinKmpAndroidBuilder(
         Type.Primitive.Kind.Long, Type.Primitive.Kind.LongLong -> "Long"
         Type.Primitive.Kind.Float -> "Float"
         Type.Primitive.Kind.Double -> "Double"
-        else -> "$jnaPointer?"
-    }
-
-    private fun getDefaultJnaValue(type: Type): String {
-        inlineRecordJnaType(type)?.let { return "$it()" }
-        val jnaType = mapJnaType(type)
-        return when (jnaType) {
-            "Int" -> "0"
-            "Long" -> "0L"
-            "Byte" -> "0"
-            "Short" -> "0"
-            "Float" -> "0.0f"
-            "Double" -> "0.0"
-            else -> "null"
-        }
+        else -> "com.sun.jna.Pointer?"
     }
 }

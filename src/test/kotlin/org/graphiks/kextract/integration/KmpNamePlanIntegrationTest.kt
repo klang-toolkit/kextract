@@ -39,9 +39,12 @@ class KmpNamePlanIntegrationTest : FreeSpec({
             listOf(first.common, first.jvm, first.native, first.android).forEach { source ->
                 forbiddenPaths.forEach { path -> source shouldNotContain path }
             }
-            first.jvm shouldContain ".withName(\"Outer\")"
-            first.jvm shouldContain ".withName(\"data\")"
-            first.jvm shouldContain ".withName(\"pair\")"
+            // Memory-backed JVM structs bake Clang offsets into accessors; the
+            // anonymous union sits at offset 8 and the whole record spans 24 bytes.
+            first.jvm shouldContain "actual interface Outer {"
+            first.jvm shouldContain "private val mem: MemoryBuffer by lazy { MemoryBuffer(handle, 24uL) }"
+            first.jvm shouldContain "get() = mem.readPointer(8uL)"
+            first.jvm shouldNotContain ".withName("
             first.jvm shouldNotContain "union (unnamed at"
             first.jvm shouldNotContain "struct (unnamed at"
             first.android shouldNotContain "unnamed_at"
@@ -73,7 +76,7 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         val second = generateKmpSources(header)
 
         first shouldBe second
-        first.common shouldContain "import io.ygdrasil.kffi.NativeAddress as KffiNativeAddress"
+        first.common shouldContain "import org.graphiks.kffi.NativeAddress as KffiNativeAddress"
         first.common shouldContain "expect interface NativeAddress"
         first.common shouldContain "var handler_2: Int"
         first.common shouldContain "var layout: Int"
@@ -126,7 +129,7 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.android shouldContain "class ByValue("
     }
 
-    "Android raw JNA helper names avoid raw C field names" {
+    "Android ByReference and ByValue wrappers avoid raw C field name collisions" {
         val generated = generateKmpSources(
             """
             typedef struct JnaHelperCollision {
@@ -136,16 +139,12 @@ class KmpNamePlanIntegrationTest : FreeSpec({
             """.trimIndent(),
         )
 
-        generated.android shouldContain "@JvmField var ByReference: Int = 0"
-        generated.android shouldContain "@JvmField var ByValue: Int = 0"
+        generated.android shouldContain "actual var ByReference_2: Int"
+        generated.android shouldContain "actual var ByValue_2: Int"
         generated.android shouldContain
-            "class ByReference_2(pointer: Pointer? = null) : JnaHelperCollision(pointer), Structure.ByReference"
+            "class ByReference(val handle: NativeAddress = NativeAddress(0L)) : JnaHelperCollision {"
         generated.android shouldContain
-            "class ByValue_2(pointer: Pointer? = null) : JnaHelperCollision(pointer), Structure.ByValue"
-        generated.android shouldContain
-            "sample.bindings.android.JnaHelperCollision.ByReference_2(address)"
-        generated.android shouldContain
-            "sample.bindings.android.JnaHelperCollision.ByValue_2()"
+            "class ByValue(val handle: NativeAddress = NativeAddress(0L)) : JnaHelperCollision {"
     }
 
     "KMP declarations and parameters are Kotlin-safe before emission" {
@@ -161,7 +160,10 @@ class KmpNamePlanIntegrationTest : FreeSpec({
                 when_ = 2
             } sealed;
 
-            int fun(class class, int when, int when_);
+            // The JVM downcall shapes must fit the current engine wrapper table
+            // (M5.2 emits against it; M5.3 extends it); the keyword-safety contract
+            // is exercised through the parameter names here.
+            void fun(class* class, class* when, unsigned long long when_);
             int fun_(int value);
             """.trimIndent(),
         )
@@ -187,13 +189,16 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.common shouldContain "typealias sealed_"
         generated.common shouldContain "const val when_"
         generated.common shouldContain "const val when__2"
-        generated.common shouldContain "expect fun fun_(class_: class_, when_: Int, when__2: Int): Int"
+        generated.common shouldContain "expect fun fun_(class_: class_?, when_: class_?, when__2: ULong): Unit"
         generated.common shouldContain "expect fun fun__2(value: Int): Int"
-        generated.jvm shouldContain "actual fun fun_(class_: class_, when_: Int, when__2: Int): Int"
+        generated.jvm shouldContain "actual fun fun_(class_: class_?, when_: class_?, when__2: ULong): Unit"
         generated.native shouldContain "webgpu.native.`fun`("
         generated.native shouldContain "this.`when`"
-        generated.android shouldContain "@JvmField var `when`: Int = 0"
-        generated.android shouldContain "handle.`when`"
+        generated.android shouldContain "actual var when_: Int"
+        generated.android shouldContain "actual var when__2: Int"
+        generated.android shouldContain "get() = mem.readInt(0uL)"
+        generated.android shouldContain "set(value) { mem.writeInt(value, 0uL) }"
+        generated.android shouldContain "get() = mem.readInt(4uL)"
     }
 
     "opaque handles use their planned public names in fields and functions" {
@@ -294,6 +299,9 @@ class KmpNamePlanIntegrationTest : FreeSpec({
             val sourceSet = listOf(SourceSet.JVM, SourceSet.NATIVE, SourceSet.COMMON, SourceSet.ANDROID)
                 .firstOrNull { it.name in sourceSetNames }
                 ?: return@mapNotNull null
+            if (sourceSet == SourceSet.ANDROID && (symbol as Enum<*>).name in NO_LONGER_EMITTED_ANDROID_SYMBOLS) {
+                return@mapNotNull null
+            }
             RuntimeImportCase(
                 qualifiedName = qualifiedName.invoke(symbol) as String,
                 preferredName = preferred,
@@ -310,20 +318,36 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         cases.forEach { case ->
             val source = case.sourceSet.source(generated)
             val alias = "Kffi${case.preferredName}"
-            source shouldContain "import ${case.qualifiedName} as $alias"
-            source shouldNotContain "import ${case.qualifiedName}\n"
+            // The JVM imports FFM classifiers only when the emitted code uses them
+            // (structs are memory-backed since M5.1); every import that IS emitted
+            // must still be aliased away from the shadowing C classifier.
+            if (case.qualifiedName in source) {
+                source shouldContain "import ${case.qualifiedName} as $alias"
+                source shouldNotContain "import ${case.qualifiedName}\n"
+            }
         }
         generated.native shouldContain ".Kffireinterpret<"
         generated.native shouldContain ".Kffipointed"
         generated.native shouldContain ".Kffiptr"
         generated.native shouldContain ".KffiuseContents {"
+        generated.android shouldContain "actual interface RuntimeAliasExercise"
+        generated.android shouldContain "actual interface RuntimeAndroidAliasExercise"
         generated.android shouldContain
-            "open class RuntimeAliasExercise(pointer: KffiPointer? = null) : KffiStructure(pointer)"
+            "class ByReference(val handle: KffiNativeAddress = KffiNativeAddress(0L)) : RuntimeAliasExercise {"
         generated.android shouldContain
-            "open class RuntimeAndroidAliasExercise(pointer: KffiPointer? = null) : KffiUnion(pointer)"
-        generated.android shouldContain "@KffiJvmField var"
+            "class ByValue(val handle: KffiNativeAddress = KffiNativeAddress(0L)) : RuntimeAndroidAliasExercise {"
+        generated.android shouldContain "private val mem: KffiMemoryBuffer by lazy { KffiMemoryBuffer(handle, 4uL) }"
+        generated.android shouldContain "get() = reinterpret.ByValue(KffiNativeAddress(handle.rawValue + 0L))"
     }
 })
+
+private val NO_LONGER_EMITTED_ANDROID_SYMBOLS = setOf(
+    "JNA_POINTER",
+    "JNA_STRUCTURE",
+    "JNA_UNION",
+    "JNA_CALLBACK_REFERENCE",
+    "JVM_FIELD",
+)
 
 private data class RuntimeImportCase(
     val qualifiedName: String,

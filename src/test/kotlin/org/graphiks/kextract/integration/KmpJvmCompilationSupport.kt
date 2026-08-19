@@ -56,7 +56,7 @@ internal fun generateKmpSourcesFromHeaderPath(
     return try {
         input.toFile().writeText(header)
         writeJvmResources(output.resolve("jvmMain/resources"))
-        KextractTool(Logger.DEFAULT).runGeneration(
+        KextractTool(Logger()).runGeneration(
             listOf(input.toString()),
             Options(
                 targetPackage = packageName,
@@ -100,6 +100,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
         val jvm = workspace.resolve("sampleJvm.kt")
         val kffiCommon = workspace.resolve("kffiCommon.kt")
         val kffiJvm = workspace.resolve("kffiJvm.kt")
+        val kffiEngine = workspace.resolve("kffiEngine.kt")
         val probe = workspace.resolve("probe.kt")
         val output = Files.createDirectories(workspace.resolve("classes"))
 
@@ -107,6 +108,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
         jvm.toFile().writeText(generated.jvm)
         kffiCommon.toFile().writeText(KFFI_COMMON_STUB)
         kffiJvm.toFile().writeText(KFFI_JVM_STUB)
+        kffiEngine.toFile().writeText(KFFI_JVM_ENGINE_STUB)
         probe.toFile().writeText(probeSource)
 
         K2JVMCompiler().exec(
@@ -118,7 +120,7 @@ internal fun compileAndInvokeGeneratedKmpJvm(
             "-classpath", System.getProperty("java.class.path"),
             "-d", output.toString(),
             common.toString(), jvm.toString(),
-            kffiCommon.toString(), kffiJvm.toString(), probe.toString(),
+            kffiCommon.toString(), kffiJvm.toString(), kffiEngine.toString(), probe.toString(),
         ) shouldBe ExitCode.OK
 
         URLClassLoader(
@@ -136,9 +138,9 @@ internal fun compileAndInvokeGeneratedKmpJvm(
 
 internal val KFFI_COMMON_STUB =
     """
-    package io.ygdrasil.kffi
+    package org.graphiks.kffi
 
-    expect class NativeAddress
+    expect value class NativeAddress(val rawValue: Long)
     interface Callback
     enum class CallbackPolicy { ONCE, REPEATING }
     fun interface CallbackExceptionHandler {
@@ -214,18 +216,47 @@ internal val KFFI_COMMON_STUB =
     expect value class CString(val handler: NativeAddress)
     @JvmInline
     value class ArrayHolder<T>(val handler: NativeAddress)
-    expect class MemoryAllocator()
-    interface CStructure {
+    expect class MemoryAllocator() {
+        fun allocate(byteSize: Long): NativeAddress
+        fun allocateBuffer(size: ULong): MemoryBuffer
+    }
+    expect class MemoryBuffer(handler: NativeAddress, size: ULong) {
+        val size: ULong
         val handler: NativeAddress
+        fun writeByte(value: Byte, offset: ULong)
+        fun readByte(offset: ULong): Byte
+        fun writeUByte(value: UByte, offset: ULong)
+        fun readUByte(offset: ULong): UByte
+        fun writeShort(value: Short, offset: ULong)
+        fun readShort(offset: ULong): Short
+        fun writeUShort(value: UShort, offset: ULong)
+        fun readUShort(offset: ULong): UShort
+        fun writeInt(value: Int, offset: ULong)
+        fun readInt(offset: ULong): Int
+        fun writeUInt(value: UInt, offset: ULong)
+        fun readUInt(offset: ULong): UInt
+        fun writeLong(value: Long, offset: ULong)
+        fun readLong(offset: ULong): Long
+        fun writeULong(value: ULong, offset: ULong)
+        fun readULong(offset: ULong): ULong
+        fun writeFloat(value: Float, offset: ULong)
+        fun readFloat(offset: ULong): Float
+        fun writeDouble(value: Double, offset: ULong)
+        fun readDouble(offset: ULong): Double
+        fun writePointer(value: NativeAddress, offset: ULong)
+        fun readPointer(offset: ULong): NativeAddress
+        fun readBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong)
+        fun writeBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong)
     }
     """.trimIndent()
 
 internal val KFFI_JVM_STUB =
     """
-    package io.ygdrasil.kffi
+    package org.graphiks.kffi
 
     import java.lang.foreign.Arena
     import java.lang.foreign.MemorySegment
+    import java.lang.foreign.ValueLayout
 
     object TestNativeSymbols {
         private val symbols = mutableMapOf<String, MemorySegment>()
@@ -238,15 +269,283 @@ internal val KFFI_JVM_STUB =
             symbols[name] ?: error("Missing test symbol: ${'$'}name")
     }
 
-    class JvmNativeAddress(val handler: MemorySegment)
-    actual typealias NativeAddress = JvmNativeAddress
+    @JvmInline
+    actual value class NativeAddress actual constructor(actual val rawValue: Long) {
+        val handler: MemorySegment get() = MemorySegment.ofAddress(rawValue)
+    }
     @JvmInline
     actual value class CString actual constructor(actual val handler: NativeAddress)
     actual class MemoryAllocator actual constructor() {
-        fun allocate(byteSize: Long): NativeAddress = NativeAddress(Arena.global().allocate(byteSize))
+        private val arena = Arena.global()
+        actual fun allocate(byteSize: Long): NativeAddress = NativeAddress(arena.allocate(byteSize).address())
+        actual fun allocateBuffer(size: ULong): MemoryBuffer =
+            MemoryBuffer(NativeAddress(arena.allocate(size.toLong()).address()), size)
     }
-    fun findOrThrow(name: String): MemorySegment {
+    actual class MemoryBuffer actual constructor(
+        actual val handler: NativeAddress,
+        actual val size: ULong,
+    ) {
+        private val segment: MemorySegment = MemorySegment.ofAddress(handler.rawValue).reinterpret(size.toLong())
+        actual fun writeByte(value: Byte, offset: ULong) { segment.set(ValueLayout.JAVA_BYTE, offset.toLong(), value) }
+        actual fun readByte(offset: ULong): Byte = segment.get(ValueLayout.JAVA_BYTE, offset.toLong())
+        actual fun writeUByte(value: UByte, offset: ULong) { segment.set(ValueLayout.JAVA_BYTE, offset.toLong(), value.toByte()) }
+        actual fun readUByte(offset: ULong): UByte = segment.get(ValueLayout.JAVA_BYTE, offset.toLong()).toUByte()
+        actual fun writeShort(value: Short, offset: ULong) { segment.set(ValueLayout.JAVA_SHORT, offset.toLong(), value) }
+        actual fun readShort(offset: ULong): Short = segment.get(ValueLayout.JAVA_SHORT, offset.toLong())
+        actual fun writeUShort(value: UShort, offset: ULong) { segment.set(ValueLayout.JAVA_SHORT, offset.toLong(), value.toShort()) }
+        actual fun readUShort(offset: ULong): UShort = segment.get(ValueLayout.JAVA_SHORT, offset.toLong()).toUShort()
+        actual fun writeInt(value: Int, offset: ULong) { segment.set(ValueLayout.JAVA_INT, offset.toLong(), value) }
+        actual fun readInt(offset: ULong): Int = segment.get(ValueLayout.JAVA_INT, offset.toLong())
+        actual fun writeUInt(value: UInt, offset: ULong) { segment.set(ValueLayout.JAVA_INT, offset.toLong(), value.toInt()) }
+        actual fun readUInt(offset: ULong): UInt = segment.get(ValueLayout.JAVA_INT, offset.toLong()).toUInt()
+        actual fun writeLong(value: Long, offset: ULong) { segment.set(ValueLayout.JAVA_LONG, offset.toLong(), value) }
+        actual fun readLong(offset: ULong): Long = segment.get(ValueLayout.JAVA_LONG, offset.toLong())
+        actual fun writeULong(value: ULong, offset: ULong) { segment.set(ValueLayout.JAVA_LONG, offset.toLong(), value.toLong()) }
+        actual fun readULong(offset: ULong): ULong = segment.get(ValueLayout.JAVA_LONG, offset.toLong()).toULong()
+        actual fun writeFloat(value: Float, offset: ULong) { segment.set(ValueLayout.JAVA_FLOAT, offset.toLong(), value) }
+        actual fun readFloat(offset: ULong): Float = segment.get(ValueLayout.JAVA_FLOAT, offset.toLong())
+        actual fun writeDouble(value: Double, offset: ULong) { segment.set(ValueLayout.JAVA_DOUBLE, offset.toLong(), value) }
+        actual fun readDouble(offset: ULong): Double = segment.get(ValueLayout.JAVA_DOUBLE, offset.toLong())
+        actual fun writePointer(value: NativeAddress, offset: ULong) {
+            segment.set(ValueLayout.ADDRESS, offset.toLong(), MemorySegment.ofAddress(value.rawValue))
+        }
+        actual fun readPointer(offset: ULong): NativeAddress =
+            NativeAddress(segment.get(ValueLayout.ADDRESS, offset.toLong()).address())
+        actual fun readBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong) {
+            segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().get(array, arrayIndex.toInt(), size.toInt())
+        }
+        actual fun writeBytes(array: ByteArray, arrayIndex: ULong, bufferOffset: ULong, size: ULong) {
+            segment.asSlice(bufferOffset.toLong(), size.toLong()).asByteBuffer().put(array, arrayIndex.toInt(), size.toInt())
+        }
+    }
+    fun findOrThrow(name: String): Long {
         CallbackRuntime.symbolResolutionCount += 1
-        return TestNativeSymbols.find(name)
+        return TestNativeSymbols.find(name).address()
+    }
+    """.trimIndent()
+
+internal val KFFI_JVM_ENGINE_STUB =
+    """
+    package org.graphiks.kffi.engine
+
+    import org.graphiks.kffi.MemoryAllocator
+    import org.graphiks.kffi.NativeAddress
+    import org.graphiks.kffi.TestNativeSymbols
+    import java.lang.foreign.Arena
+    import java.lang.foreign.FunctionDescriptor
+    import java.lang.foreign.Linker
+    import java.lang.foreign.MemorySegment
+    import java.lang.foreign.ValueLayout
+    import java.lang.invoke.MethodHandle
+    import java.lang.invoke.MethodHandles
+
+    object JvmUpcallEngine {
+        private val linker = Linker.nativeLinker()
+        private val arena = Arena.global()
+
+        fun allocateTrampoline(
+            dispatcherClass: Class<*>,
+            dispatchMethod: String,
+            dispatchSig: String,
+        ): NativeAddress {
+            val (returnType, parameterTypes) = parseSig(dispatchSig)
+            val descriptor = if (returnType == null) {
+                FunctionDescriptor.ofVoid(*parameterTypes.map { it.layout }.toTypedArray())
+            } else {
+                FunctionDescriptor.of(returnType.layout, *parameterTypes.map { it.layout }.toTypedArray())
+            }
+            val methodHandle = MethodHandles.privateLookupIn(dispatcherClass, MethodHandles.lookup())
+                .findStatic(dispatcherClass, dispatchMethod, descriptor.toMethodType())
+            return NativeAddress(
+                MemorySegment.ofAddress(linker.upcallStub(methodHandle, descriptor, arena).address()).address(),
+            )
+        }
+
+        private enum class Carrier(val layout: ValueLayout) {
+            I(ValueLayout.JAVA_INT),
+            J(ValueLayout.JAVA_LONG),
+            F(ValueLayout.JAVA_FLOAT),
+            D(ValueLayout.JAVA_DOUBLE),
+            Z(ValueLayout.JAVA_BOOLEAN),
+        }
+
+        private fun parseSig(sig: String): Pair<Carrier?, List<Carrier>> {
+            val parameters = sig.substringAfter('(').substringBefore(')')
+                .map { Carrier.valueOf(it.toString()) }
+            val returnPart = sig.substringAfter(')')
+            return (if (returnPart == "V") null else Carrier.valueOf(returnPart)) to parameters
+        }
+    }
+
+    object JvmDowncallEngine {
+        private val linker = Linker.nativeLinker()
+
+        sealed class AbiType {
+            object Void : AbiType()
+            object Bool : AbiType()
+            object I8 : AbiType()
+            object I16 : AbiType()
+            object Char16 : AbiType()
+            object I32 : AbiType()
+            object I64 : AbiType()
+            object F32 : AbiType()
+            object F64 : AbiType()
+            object Pointer : AbiType()
+            data class Struct(val name: String) : AbiType()
+        }
+
+        data class FunctionShape(
+            val result: AbiType,
+            val arguments: List<AbiType>,
+        )
+
+        fun resolveSymbol(name: String): Long = TestNativeSymbols.find(name).address()
+
+        private fun segment(address: Long): MemorySegment = MemorySegment.ofAddress(address)
+
+        private fun handle(fn: Long, descriptor: FunctionDescriptor): MethodHandle =
+            linker.downcallHandle(segment(fn), descriptor)
+
+        fun callV0(fn: Long) {
+            handle(fn, FunctionDescriptor.ofVoid()).invokeExact()
+        }
+
+        fun callV1P(fn: Long, p1: Long) {
+            handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS)).invokeExact(segment(p1))
+        }
+
+        fun callV2PP(fn: Long, p1: Long, p2: Long) {
+            handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                .invokeExact(segment(p1), segment(p2))
+        }
+
+        fun callV3PPL(fn: Long, p1: Long, p2: Long, a3: Long) {
+            handle(fn, FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG))
+                .invokeExact(segment(p1), segment(p2), a3)
+        }
+
+        fun callV4PPPP(fn: Long, p1: Long, p2: Long, p3: Long, p4: Long) {
+            handle(
+                fn,
+                FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+            ).invokeExact(segment(p1), segment(p2), segment(p3), segment(p4))
+        }
+
+        fun callV5PIIII(fn: Long, p1: Long, a2: Int, a3: Int, a4: Int, a5: Int) {
+            handle(
+                fn,
+                FunctionDescriptor.ofVoid(
+                    ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT,
+                ),
+            ).invokeExact(segment(p1), a2, a3, a4, a5)
+        }
+
+        fun callI0(fn: Long): Long =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG)).invokeExact() as Long
+
+        fun callI1I(fn: Long, a1: Int): Long =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT)).invokeExact(a1) as Long
+
+        fun callI1P(fn: Long, a1: Long): Long =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS)).invokeExact(segment(a1)) as Long
+
+        fun callI4IIII(fn: Long, a1: Int, a2: Int, a3: Int, a4: Int): Long =
+            handle(
+                fn,
+                FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT),
+            ).invokeExact(a1, a2, a3, a4) as Long
+
+        fun callL8LLLLLLLL(
+            fn: Long,
+            a1: Long, a2: Long, a3: Long, a4: Long,
+            a5: Long, a6: Long, a7: Long, a8: Long,
+        ): Long = handle(
+            fn,
+            FunctionDescriptor.of(
+                ValueLayout.JAVA_LONG,
+                ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG,
+                ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG,
+            ),
+        ).invokeExact(a1, a2, a3, a4, a5, a6, a7, a8) as Long
+
+        fun callP1P(fn: Long, a1: Long): Long =
+            (handle(fn, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                .invokeExact(segment(a1)) as MemorySegment).address()
+
+        fun callP2PP(fn: Long, a1: Long, a2: Long): Long =
+            (handle(fn, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS))
+                .invokeExact(segment(a1), segment(a2)) as MemorySegment).address()
+
+        fun callP2PI(fn: Long, a1: Long, a2: Int): Long =
+            (handle(fn, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT))
+                .invokeExact(segment(a1), a2) as MemorySegment).address()
+
+        fun callP3PLL(fn: Long, a1: Long, a2: Long, a3: Long): Long =
+            (handle(fn, FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG))
+                .invokeExact(segment(a1), a2, a3) as MemorySegment).address()
+
+        fun callF1P(fn: Long, a1: Long): Float =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_FLOAT, ValueLayout.ADDRESS)).invokeExact(segment(a1)) as Float
+
+        fun callD1P(fn: Long, a1: Long): Double =
+            handle(fn, FunctionDescriptor.of(ValueLayout.JAVA_DOUBLE, ValueLayout.ADDRESS)).invokeExact(segment(a1)) as Double
+
+        fun callGeneric(fn: Long, shape: FunctionShape, vararg args: Any?): Any? = null
+
+        // M5.3 : union des signatures wgpu — signatures miroir de JvmDowncallEngine.
+        fun callI2PP(fn: Long, a1: Long, a2: Long): Long = 0L
+        fun callI2PI(fn: Long, a1: Long, a2: Int): Long = 0L
+        fun callL1P(fn: Long, a1: Long): Long = 0L
+        fun callI4PLPL(fn: Long, a1: Long, a2: Long, a3: Long, a4: Long): Long = 0L
+        fun callV2PI(fn: Long, p1: Long, a2: Int) {}
+        fun callV3PLP(fn: Long, p1: Long, a2: Long, p3: Long) {}
+        fun callV5PPLPL(fn: Long, p1: Long, p2: Long, a3: Long, p4: Long, a5: Long) {}
+        fun callV6PPPLPP(fn: Long, p1: Long, p2: Long, p3: Long, a4: Long, p5: Long, p6: Long) {}
+        fun callV6PIIIII(fn: Long, p1: Long, a2: Int, a3: Int, a4: Int, a5: Int, a6: Int) {}
+        fun callV5PIPLP(fn: Long, p1: Long, a2: Int, p3: Long, a4: Long, p5: Long) {}
+        fun callV5PPILL(fn: Long, p1: Long, p2: Long, a3: Int, a4: Long, a5: Long) {}
+        fun callV5PIPLL(fn: Long, p1: Long, a2: Int, p3: Long, a4: Long, a5: Long) {}
+        fun callI3PPP(fn: Long, a1: Long, a2: Long, a3: Long): Long = 0L
+        fun callL3PPP(fn: Long, a1: Long, a2: Long, a3: Long): Long = 0L
+        fun callL3PLP(fn: Long, a1: Long, a2: Long, a3: Long): Long = 0L
+        fun callI3PIP(fn: Long, a1: Long, a2: Int, a3: Long): Long = 0L
+        fun callV1I(fn: Long, a1: Int) {}
+        fun callV4PIIP(fn: Long, p1: Long, a2: Int, a3: Int, p4: Long) {}
+        fun callV4PPLI(fn: Long, p1: Long, p2: Long, a3: Long, a4: Int) {}
+        fun callV6PPLPLI(fn: Long, p1: Long, p2: Long, a3: Long, p4: Long, a5: Long, a6: Int) {}
+        fun callV3PPI(fn: Long, p1: Long, p2: Long, a3: Int) {}
+        fun callV4PPLL(fn: Long, p1: Long, p2: Long, a3: Long, a4: Long) {}
+        fun callV6PPLPLL(fn: Long, p1: Long, p2: Long, a3: Long, p4: Long, a5: Long, a6: Long) {}
+        fun callV6PPIIPL(fn: Long, p1: Long, p2: Long, a3: Int, a4: Int, p5: Long, a6: Long) {}
+        fun callV4PIII(fn: Long, p1: Long, a2: Int, a3: Int, a4: Int) {}
+        fun callV7PFFFFFF(fn: Long, p1: Long, a2: Float, a3: Float, a4: Float, a5: Float, a6: Float, a7: Float) {}
+
+        data class StructField(val cName: String, val kind: FieldKind, val offsetBytes: Long)
+
+        enum class FieldKind { INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64, POINTER, STRUCT, PADDING }
+
+        fun registerStructLayout(name: String, sizeBytes: Long, alignmentBytes: Long, fields: List<StructField>) {}
+
+        fun callStructArgBox(fn: Long, structPtr: Long) {}
+
+        fun callStructReturnBox(fn: Long, allocator: MemoryAllocator, a1: Int): NativeAddress = NativeAddress(0L)
+
+        // M5.3 : wrappers struct-by-value wgpu — signatures miroir de JvmDowncallEngine.
+        fun callStructArgWGPUStringView(fn: Long, p1: Long, structPtr: Long) {}
+        fun callStructArgWGPUStringViewRetP(fn: Long, structPtr: Long): Long = 0L
+        fun callStructArgWGPUAdapterInfo(fn: Long, structPtr: Long) {}
+        fun callStructArgWGPUSupportedFeatures(fn: Long, structPtr: Long) {}
+        fun callStructArgWGPUSupportedInstanceFeatures(fn: Long, structPtr: Long) {}
+        fun callStructArgWGPUSupportedWGSLLanguageFeatures(fn: Long, structPtr: Long) {}
+        fun callStructArgWGPUSurfaceCapabilities(fn: Long, structPtr: Long) {}
+        fun callStructReturnWGPUFuture(fn: Long, allocator: MemoryAllocator, p1: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUQueueWorkDoneCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUPopErrorScopeCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUCompilationInfoCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPURequestAdapterCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, p2: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPURequestDeviceCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, p2: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUCreateRenderPipelineAsyncCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, p2: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUCreateComputePipelineAsyncCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, p2: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
+        fun callStructReturnWGPUFutureWGPUBufferMapCallbackInfo(fn: Long, allocator: MemoryAllocator, p1: Long, a2: Long, a3: Long, a4: Long, structPtr: Long): NativeAddress = NativeAddress(0L)
     }
     """.trimIndent()
