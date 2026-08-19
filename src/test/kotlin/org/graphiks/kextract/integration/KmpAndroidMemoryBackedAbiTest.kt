@@ -21,6 +21,10 @@ import java.nio.file.Path
 
 private data class AndroidSources(val common: String, val bridge: String)
 
+private fun String.shouldContainAny(vararg candidates: String) {
+    candidates.any { contains(it) } shouldBe true
+}
+
 private fun generateAndroidSources(
     header: String,
     callbackBindings: CallbackBindingsConfig? = null,
@@ -599,7 +603,12 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "set(value) { buffer.writeByte(if (value) 1 else 0, ${hostOffset}uL) }"
         generated.bridge shouldContain "get() = WGPULimits.ByValue(NativeAddress(handle.rawValue + ${limitsOffset}L))"
         generated.bridge shouldContain "buffer.writeBytes(bytes, 0u, ${limitsOffset}uL, ${layout.field("limits").sizeBytes}uL)"
-        generated.bridge shouldContain "get() = WGPUFeatureFlags((buffer.readInt(${flagsOffset}uL)).toUInt().toLong())"
+        // Plain C enums may use a signed or unsigned default carrier depending
+        // on the host ABI (Windows commonly selects signed int).
+        generated.bridge.shouldContainAny(
+            "get() = WGPUFeatureFlags((buffer.readInt(${flagsOffset}uL)).toUInt().toLong())",
+            "get() = WGPUFeatureFlags((buffer.readInt(${flagsOffset}uL)).toLong())",
+        )
         generated.bridge shouldContain "set(value) { buffer.writeInt(value.rawValue.toInt(), ${flagsOffset}uL) }"
         generated.bridge shouldContain "override val handler: NativeAddress"
         generated.bridge shouldContain "get() = handle"
@@ -671,7 +680,10 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "return NativeEngine.callI1I(wgpuFooFlag_ADDR, flags.rawValue.toInt()).toInt().toUInt()"
 
         generated.bridge shouldContain "actual fun wgpuFlagCarrier(flags: WGPUFeatureFlags): WGPUFeatureFlags"
-        generated.bridge shouldContain "return WGPUFeatureFlags((NativeEngine.callI1I(wgpuFlagCarrier_ADDR, flags.rawValue.toInt()).toInt()).toUInt().toLong())"
+        generated.bridge.shouldContainAny(
+            "return WGPUFeatureFlags((NativeEngine.callI1I(wgpuFlagCarrier_ADDR, flags.rawValue.toInt()).toInt()).toUInt().toLong())",
+            "return WGPUFeatureFlags((NativeEngine.callI1I(wgpuFlagCarrier_ADDR, flags.rawValue.toInt()).toInt()).toLong())",
+        )
 
         generated.bridge shouldContain "actual fun wgpuPlainFoo(foo: WGPUFoo): WGPUFoo"
         generated.bridge shouldContain "return (NativeEngine.callI1I(wgpuPlainFoo_ADDR, foo.toInt()).toInt()).toUInt()"
@@ -866,7 +878,10 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         )
 
         generated.common shouldContain "value class WGPUInstanceBackend(val rawValue: Long) {"
-        generated.common shouldContain "typealias WGPUFoo = UInt"
+        generated.common.shouldContainAny(
+            "typealias WGPUFoo = UInt",
+            "typealias WGPUFoo = Int",
+        )
         generated.common shouldNotContain "value class WGPUFoo"
 
         generated.bridge shouldContain "WGPUInstanceBackend((buffer.readInt(0uL))"
