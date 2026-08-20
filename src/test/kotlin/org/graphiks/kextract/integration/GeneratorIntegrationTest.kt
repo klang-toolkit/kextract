@@ -433,6 +433,15 @@ class GeneratorIntegrationTest : FreeSpec({
             src shouldContain "WARNING"
             src shouldContain "union"
         }
+
+        "union generates an overlapping union layout" {
+            val src = generate("""
+                union Value { int i; float f; double d; };
+            """.trimIndent())
+
+            src shouldContain "MemoryLayout.unionLayout("
+            src shouldNotContain "MemoryLayout.structLayout("
+        }
     }
 
     "Function generation" - {
