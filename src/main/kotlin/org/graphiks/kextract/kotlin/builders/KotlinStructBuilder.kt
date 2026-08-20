@@ -11,7 +11,9 @@ import org.graphiks.kextract.kotlin.utils.TypeMapper
  */
 class KotlinStructBuilder(private val builder: SourceBuilder, private val toplevel: KotlinToplevelBuilder) {
 
-    fun visitStruct(decl: Declaration.Scoped) {
+    fun visitStruct(decl: Declaration.Scoped) = visitRecord(decl, "structLayout")
+
+    private fun visitRecord(decl: Declaration.Scoped, layoutFactory: String) {
         val className = toplevel.javaName(decl.name())
 
         // KDoc
@@ -28,7 +30,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.indent()
 
         // Layout
-        builder.appendLine("val layout: GroupLayout = MemoryLayout.structLayout(")
+        builder.appendLine("val layout: GroupLayout = MemoryLayout.$layoutFactory(")
         builder.indent()
         val fields = decl.members().filterIsInstance<Declaration.Variable>()
         fields.forEachIndexed { i, field ->
@@ -113,12 +115,12 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
     }
 
     fun visitUnion(decl: Declaration.Scoped) {
-        // Treat unions as structs (Kotlin has no native union support)
-        // Add a warning in KDoc
+        // Kotlin has no native union type, but MemoryLayout.unionLayout preserves
+        // the overlapping storage semantics of a C union.
         builder.appendLine("/**")
         builder.appendLine(" * WARNING: This was originally a C union. Fields overlap in memory!")
         builder.appendLine(" * {@snippet lang=c : ${decl.kind()} ${decl.name()}")
         builder.appendLine(" */")
-        visitStruct(decl) // Reuse struct logic
+        visitRecord(decl, "unionLayout")
     }
 }
