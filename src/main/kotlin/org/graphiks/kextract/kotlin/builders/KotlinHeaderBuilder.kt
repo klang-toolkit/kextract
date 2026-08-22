@@ -17,7 +17,7 @@ class KotlinHeaderBuilder(
 
     fun visitFunction(decl: Declaration.Function) {
         val name = toplevel.javaName(decl.name())
-        val returnType = TypeMapper.map(decl.type().returnType())
+        val returnType = toplevel.mapType(decl.type().returnType())
         val returnsStruct = isStructType(decl.type().returnType())
         val params = paramString(decl, returnsStruct)
         val allocatorPrefix = if (returnsStruct) "allocator, " else ""
@@ -127,7 +127,7 @@ class KotlinHeaderBuilder(
 
     fun visitVariable(decl: Declaration.Variable) {
         val name = toplevel.javaName(decl.name())
-        val type = TypeMapper.map(decl.type())
+        val type = toplevel.mapType(decl.type())
         val lookupName = toplevel.lookupName(decl)
 
         // KDoc
@@ -248,7 +248,7 @@ class KotlinHeaderBuilder(
 
         val enumDecl = KotlinEnumSupport.resolveEnum(decl.type())
         val generatedEnumName = enumDecl?.let(toplevel::generatedEnumKotlinName)
-        val type = generatedEnumName ?: TypeMapper.map(decl.type())
+        val type = generatedEnumName ?: toplevel.mapType(decl.type())
 
         // Skip string-valued constants when the type is MemorySegment (e.g. char* macros):
         // a Kotlin String literal cannot be assigned to a MemorySegment at compile time.
@@ -323,10 +323,10 @@ class KotlinHeaderBuilder(
     }
 
     // --- Utilities (call Java LayoutUtils) ---
-    fun layoutString(type: Type): String = LayoutUtils.layoutString(type)
+    fun layoutString(type: Type): String = toplevel.layoutString(type)
 
     fun functionDescriptorString(decl: Declaration.Function): String =
-        LayoutUtils.functionDescriptorString(decl.type(), variadicArgs[decl.name()] ?: 0)
+        toplevel.functionDescriptorString(decl.type(), variadicArgs[decl.name()] ?: 0)
 
     /**
      * Returns the default (null-safe) return value for a given type,
@@ -338,7 +338,8 @@ class KotlinHeaderBuilder(
         type == "Long" -> "0L"
         type == "Float" -> "0f"
         type == "Double" -> "0.0"
-        type == "Int" || type == "Short" || type == "Byte" || type == "Char" -> "0"
+        type == "Char" -> "'\\u0000'"
+        type == "Int" || type == "Short" || type == "Byte" -> "0"
         type == "MemorySegment" -> "MemorySegment.NULL"
         else -> "0"
     }
@@ -349,7 +350,7 @@ class KotlinHeaderBuilder(
         val totalArgs = fixedCount + variadicCount
         val args = (0 until totalArgs).map { i ->
             if (i < fixedCount) {
-                "arg${i}: ${TypeMapper.map(decl.type().argumentTypes()[i])}"
+                "arg${i}: ${toplevel.mapType(decl.type().argumentTypes()[i])}"
             } else {
                 "arg${i}: MemorySegment"
             }

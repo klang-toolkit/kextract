@@ -18,6 +18,7 @@ import org.graphiks.kextract.DeclarationImpl.Skip
 class UnsupportedFilter(
     private val logger: Logger,
     private val allowVariableWidthCallbackScalars: Boolean = false,
+    private val allowWChar: Boolean = false,
 ) : Declaration.Visitor<Unit> {
 
     private var firstNamedParent: Declaration? = null
@@ -31,7 +32,7 @@ class UnsupportedFilter(
         if (Skip.isPresent(funcTree)) return
         funcTree.forEachNested { it.accept(this) }
 
-        val unsupportedType = firstUnsupportedType(funcTree.type(), false)
+        val unsupportedType = firstUnsupportedType(funcTree.type(), false, allowWChar = allowWChar)
         if (unsupportedType != null) {
             warnSkip(funcTree.pos(), funcTree.name(), unsupportedType(unsupportedType))
             Skip.with(funcTree)
@@ -63,7 +64,7 @@ class UnsupportedFilter(
         firstNamedParent = saved
 
         val name = fieldName(incomingParent, varTree)
-        val unsupportedType = firstUnsupportedType(varTree.type(), false)
+        val unsupportedType = firstUnsupportedType(varTree.type(), false, allowWChar = allowWChar)
         if (unsupportedType != null) {
             warnSkip(varTree.pos(), name, unsupportedType(unsupportedType))
             Skip.with(varTree)
@@ -79,7 +80,7 @@ class UnsupportedFilter(
     override fun visitScoped(scoped: Scoped) {
         if (Skip.isPresent(scoped)) return
 
-        val unsupportedType = firstUnsupportedType(Type.declared(scoped), false)
+        val unsupportedType = firstUnsupportedType(Type.declared(scoped), false, allowWChar = allowWChar)
         if (unsupportedType != null) {
             warnSkip(scoped.pos(), scoped.name(), unsupportedType(unsupportedType))
             Skip.with(scoped)
@@ -110,7 +111,7 @@ class UnsupportedFilter(
             visitScoped((typedefTree.type() as Declared).tree())
         }
 
-        val unsupportedType = firstUnsupportedType(typedefTree.type(), false)
+        val unsupportedType = firstUnsupportedType(typedefTree.type(), false, allowWChar = allowWChar)
         if (unsupportedType != null) {
             warnSkip(typedefTree.pos(), typedefTree.name(), unsupportedType(unsupportedType))
             Skip.with(typedefTree)
@@ -127,7 +128,7 @@ class UnsupportedFilter(
         if (Skip.isPresent(d)) return
 
         val name = fieldName(firstNamedParent, d)
-        val unsupportedType = firstUnsupportedType(d.type(), false)
+        val unsupportedType = firstUnsupportedType(d.type(), false, allowWChar = allowWChar)
         if (unsupportedType != null) {
             warnSkip(d.pos(), name, unsupportedType(unsupportedType))
             Skip.with(d)
@@ -140,7 +141,12 @@ class UnsupportedFilter(
     override fun visitObjCCategory(d: Declaration.ObjCCategory) = Unit
 
     private fun checkFunctionTypeSupported(decl: Declaration, func: Type.Function, nameOfSkipped: String): Boolean {
-        val unsupportedType = firstUnsupportedType(func, false, allowVariableWidthCallbackScalars)
+        val unsupportedType = firstUnsupportedType(
+            func,
+            false,
+            allowVariableWidthCallbackScalars,
+            allowWChar,
+        )
         if (unsupportedType != null) {
             warnSkip(decl.pos(), nameOfSkipped, unsupportedType(unsupportedType))
             return false
@@ -175,13 +181,14 @@ class UnsupportedFilter(
             type: Type,
             allowVoid: Boolean,
             allowVariableWidthCallbackScalars: Boolean = false,
+            allowWChar: Boolean = false,
         ): Type? = when (type) {
             is Type.Primitive -> when (type.kind()) {
                 Type.Primitive.Kind.Char16,
                 Type.Primitive.Kind.Float128,
                 Type.Primitive.Kind.HalfFloat,
-                Type.Primitive.Kind.Int128,
-                Type.Primitive.Kind.WChar -> type
+                Type.Primitive.Kind.Int128 -> type
+                Type.Primitive.Kind.WChar -> if (allowWChar) null else type
                 Type.Primitive.Kind.LongDouble ->
                     if (allowVariableWidthCallbackScalars || TypeImpl.IS_WINDOWS) null else type
                 Type.Primitive.Kind.Void -> if (allowVoid) null else type
@@ -189,9 +196,9 @@ class UnsupportedFilter(
             }
             is Type.Function -> {
                 for (arg in type.argumentTypes()) {
-                    firstUnsupportedType(arg, false, allowVariableWidthCallbackScalars)?.let { return it }
+                    firstUnsupportedType(arg, false, allowVariableWidthCallbackScalars, allowWChar)?.let { return it }
                 }
-                firstUnsupportedType(type.returnType(), true, allowVariableWidthCallbackScalars)
+                firstUnsupportedType(type.returnType(), true, allowVariableWidthCallbackScalars, allowWChar)
             }
             is Declared -> {
                 if (type.tree().kind() == Kind.STRUCT || type.tree().kind() == Kind.UNION) {
@@ -200,10 +207,10 @@ class UnsupportedFilter(
             }
             is Type.Delegated -> {
                 if (type.kind() != Type.Delegated.Kind.POINTER)
-                    firstUnsupportedType(type.type(), allowVoid, allowVariableWidthCallbackScalars)
+                    firstUnsupportedType(type.type(), allowVoid, allowVariableWidthCallbackScalars, allowWChar)
                 else null
             }
-            is Type.Array -> firstUnsupportedType(type.elementType(), false, allowVariableWidthCallbackScalars)
+            is Type.Array -> firstUnsupportedType(type.elementType(), false, allowVariableWidthCallbackScalars, allowWChar)
             else -> if (type.isErroneous()) type else null
         }
 

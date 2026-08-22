@@ -514,17 +514,13 @@ class GeneratorIntegrationTest : FreeSpec({
             val src = generate("""
                 void* variadic_fn(int fixed1, long fixed2, ...);
             """.trimIndent(), variadicArgs = mapOf("variadic_fn" to 3))
-            val isWindowsHost = System.getProperty("os.name").startsWith("Windows")
-            val longCarrier = if (isWindowsHost) "Int" else "Long"
-            val longLayout = if (isWindowsHost) "JAVA_INT" else "JAVA_LONG"
-
             // FunctionDescriptor should include: return ADDRESS + 2 fixed + 3 variadic ADDRESS
-            src shouldContain "ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.$longLayout, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS"
+            src shouldContain "ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS"
             // firstVariadicArg(2) because 2 fixed args before variadic
             src shouldContain "Linker.Option.firstVariadicArg(2)"
             // Function signature should have 5 params: 2 typed + 3 MemorySegment
             src shouldContain "arg0: Int"
-            src shouldContain "arg1: $longCarrier"
+            src shouldContain "arg1: Long"
             src shouldContain "arg2: MemorySegment, arg3: MemorySegment, arg4: MemorySegment"
             // invokeExact should pass all 5 args
             src shouldContain "invokeExact(arg0, arg1, arg2, arg3, arg4)"
@@ -587,13 +583,11 @@ class GeneratorIntegrationTest : FreeSpec({
                 void f_float(float f);
                 void f_double(double d);
             """.trimIndent())
-            val longCarrier = if (System.getProperty("os.name").startsWith("Windows")) "Int" else "Long"
-
             src shouldContain "arg0: Boolean"  // _Bool
             src shouldContain "arg0: Byte"     // char
             src shouldContain "arg0: Short"
             src shouldContain "arg0: Int"
-            src shouldContain "fun f_long(arg0: $longCarrier): Unit"
+            src shouldContain "fun f_long(arg0: Long): Unit"
             src shouldContain "arg0: Float"
             src shouldContain "arg0: Double"
         }

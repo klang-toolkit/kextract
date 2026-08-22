@@ -3,8 +3,6 @@ package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.Type
-import org.graphiks.kextract.pipeline.LayoutUtils
-import org.graphiks.kextract.kotlin.utils.TypeMapper
 
 /**
  * Generates Kotlin code for structs and unions.
@@ -34,7 +32,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.indent()
         val fields = decl.members().filterIsInstance<Declaration.Variable>()
         fields.forEachIndexed { i, field ->
-            val layout = LayoutUtils.layoutString(field.type())
+            val layout = toplevel.layoutString(field.type())
             val comma = if (i < fields.count() - 1) "," else ""
             builder.appendLine("${layout}.withName(\"${field.name()}\")${comma}")
         }
@@ -76,7 +74,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         // Fields (properties + getters/setters using VarHandle for value types, asSlice for array types)
         decl.members().filterIsInstance<Declaration.Variable>().forEach { field ->
             val fieldName = toplevel.javaName(field.name())
-            val fieldType = TypeMapper.map(field.type())
+            val fieldType = toplevel.mapType(field.type())
             val isArray = isArrayType(field.type())
 
             builder.appendLine()

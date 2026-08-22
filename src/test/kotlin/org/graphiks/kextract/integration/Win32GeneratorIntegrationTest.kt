@@ -3,14 +3,13 @@ package org.graphiks.kextract.integration
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import org.graphiks.kextract.Type
 import org.graphiks.kextract.cli.DllEntry
 import org.graphiks.kextract.cli.DllMap
 import org.graphiks.kextract.kotlin.KotlinGenerator
 import org.graphiks.kextract.pipeline.KextractTool
-import org.graphiks.kextract.pipeline.LayoutUtils
+import org.graphiks.kextract.pipeline.Logger
 import org.graphiks.kextract.pipeline.NameMangler
-import org.graphiks.kextract.kotlin.utils.TypeMapper
+import org.graphiks.kextract.pipeline.Options
 import java.nio.file.Files
 
 class Win32GeneratorIntegrationTest : FreeSpec({
@@ -47,18 +46,50 @@ class Win32GeneratorIntegrationTest : FreeSpec({
         }
     }
 
+    fun runGeneration(csource: String, win32Mode: Boolean): String {
+        val header = Files.createTempFile("kextract_win32_wchar_", ".h")
+        val output = Files.createTempDirectory("kextract_win32_wchar_output_")
+        try {
+            header.toFile().writeText(csource)
+            KextractTool(Logger()).runGeneration(
+                listOf(header.toString()),
+                Options(
+                    clangArgs = listOf(
+                        "-x", "c++",
+                        "-target", "x86_64-pc-windows-msvc",
+                        "-fshort-wchar",
+                    ),
+                    targetPackage = "test",
+                    outputDir = output.toString(),
+                    win32Mode = win32Mode,
+                    dllMap = DllMap(
+                        mapOf("test.dll" to DllEntry(functions = listOf("win32_wchar"))),
+                    ),
+                    useInitMethod = win32Mode,
+                ),
+            ) shouldBe KextractTool.SUCCESS
+            return Files.walk(output).use { paths ->
+                paths
+                    .filter { it.fileName.toString().endsWith(".kt") }
+                    .findFirst()
+                    .orElseThrow()
+                    .toFile()
+                    .readText()
+            }
+        } finally {
+            Files.deleteIfExists(header)
+            output.toFile().deleteRecursively()
+        }
+    }
+
     "Win32 scalar generation" - {
-        "maps C long to the host ABI carrier and layout" {
+        "maps C long to the Win32 ABI carrier and layout" {
             val src = generateWin32(
                 "long win32_long(long value);",
                 listOf("win32_long"),
             )
-            val isWindowsHost = System.getProperty("os.name").startsWith("Windows")
-            val longCarrier = if (isWindowsHost) "Int" else "Long"
-            val longLayout = if (isWindowsHost) "JAVA_INT" else "JAVA_LONG"
-
-            src shouldContain "fun win32_long(arg0: $longCarrier): $longCarrier"
-            src shouldContain "FunctionDescriptor.of(ValueLayout.$longLayout, ValueLayout.$longLayout)"
+            src shouldContain "fun win32_long(arg0: Int): Int"
+            src shouldContain "FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT)"
         }
 
         "keeps C long long as Long and JAVA_LONG" {
@@ -71,11 +102,22 @@ class Win32GeneratorIntegrationTest : FreeSpec({
             src shouldContain "FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG)"
         }
 
-        "maps wchar_t to Char and JAVA_CHAR" {
-            val wchar = Type.primitive(Type.Primitive.Kind.WChar)
+        "runs wchar_t generation with the Win32 ABI only" {
+            val win32Source = runGeneration(
+                "wchar_t win32_wchar(wchar_t value);",
+                win32Mode = true,
+            )
+            val defaultSource = runGeneration(
+                "wchar_t win32_wchar(wchar_t value);",
+                win32Mode = false,
+            )
 
-            TypeMapper.map(wchar) shouldBe "Char"
-            LayoutUtils.layoutString(wchar) shouldBe "ValueLayout.JAVA_CHAR"
+            win32Source shouldContain "val C_WCHAR: ValueLayout = ValueLayout.JAVA_CHAR"
+            win32Source shouldContain "fun win32_wchar(arg0: Char): Char"
+            win32Source shouldContain "FunctionDescriptor.of(ValueLayout.JAVA_CHAR, ValueLayout.JAVA_CHAR)"
+            win32Source shouldContain "return '\\u0000'"
+            defaultSource.contains("fun win32_wchar") shouldBe false
+            defaultSource.contains("C_WCHAR") shouldBe false
         }
     }
 

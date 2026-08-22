@@ -189,6 +189,7 @@ class KextractTool(private val logger: Logger) {
         d = UnsupportedFilter(
             logger,
             allowVariableWidthCallbackScalars = options.multiplatform,
+            allowWChar = !options.multiplatform && options.win32Mode,
         ).scan(d)
         d = MissingDepChecker(logger).scan(d)
         if (logger.hasErrors()) return emptyList()
