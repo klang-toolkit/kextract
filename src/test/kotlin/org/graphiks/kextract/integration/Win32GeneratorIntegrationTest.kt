@@ -25,7 +25,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
             val headerName = tmp.fileName.toString()
             val parsed = KextractTool.parse(
                 listOf(tmp.toString()),
-                "-x", "c++",
+                "-x", "c",
                 "-target", "x86_64-pc-windows-msvc",
                 "-fshort-wchar",
             )
