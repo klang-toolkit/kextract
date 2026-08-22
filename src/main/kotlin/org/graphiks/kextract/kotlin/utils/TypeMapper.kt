@@ -12,8 +12,8 @@ object TypeMapper {
     /**
      * Maps a C type to its Kotlin equivalent.
      */
-    fun map(type: Type): String = when {
-        type is Type.Primitive -> mapPrimitive(type.kind())
+    fun map(type: Type, win32Abi: Boolean = false): String = when {
+        type is Type.Primitive -> mapPrimitive(type.kind(), win32Abi)
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> {
             // All pointers map to non-nullable MemorySegment
             // Null pointers are represented as MemorySegment.NULL in Panama
@@ -23,7 +23,7 @@ object TypeMapper {
         type is Type.Delegated && type.kind() == Type.Delegated.Kind.TYPEDEF -> {
             // Unwrap typedef: if inner type resolves (e.g. const_size_t → Long via UNSIGNED(Long)),
             // use the resolved type. Otherwise fall through to the typedef-name logic.
-            val innerMapped = map(type.type())
+            val innerMapped = map(type.type(), win32Abi)
             if (innerMapped != "Any") return innerMapped
             val inner = type.type()
             if (inner is Type.Delegated && inner.kind() == Type.Delegated.Kind.POINTER) {
@@ -41,7 +41,7 @@ object TypeMapper {
         }
 
         // Qualified types (CONST, UNSIGNED, SIGNED, VOLATILE, ATOMIC, COMPLEX) — unwrap to inner type
-        type is Type.Delegated -> map(type.type())
+        type is Type.Delegated -> map(type.type(), win32Abi)
 
         type is Type.Declared -> {
             val tree = type.tree()
@@ -53,27 +53,29 @@ object TypeMapper {
                 else -> "Long"
             }
         }
-        type is Type.Function -> mapFunctionType(type)
+        type is Type.Function -> mapFunctionType(type, win32Abi)
         type is Type.Array -> "MemorySegment"
         else -> "MemorySegment"
     }
 
-    private fun mapPrimitive(kind: Type.Primitive.Kind): String = when (kind) {
+    private fun mapPrimitive(kind: Type.Primitive.Kind, win32Abi: Boolean): String = when (kind) {
         Type.Primitive.Kind.Bool -> "Boolean"
         Type.Primitive.Kind.Char -> "Byte"
         Type.Primitive.Kind.Short -> "Short"
         Type.Primitive.Kind.Int -> "Int"
-        Type.Primitive.Kind.Long, Type.Primitive.Kind.LongLong -> "Long"
+        Type.Primitive.Kind.Long -> if (win32Abi) "Int" else "Long"
+        Type.Primitive.Kind.LongLong -> "Long"
         Type.Primitive.Kind.Float -> "Float"
         Type.Primitive.Kind.Double -> "Double"
+        Type.Primitive.Kind.WChar -> if (win32Abi) "Char" else "MemorySegment"
         Type.Primitive.Kind.Void -> "Unit"
         else -> "MemorySegment"
     }
 
-    private fun mapFunctionType(type: Type.Function): String {
+    private fun mapFunctionType(type: Type.Function, win32Abi: Boolean): String {
         // For function return types, we just map the return type itself
         // The function signature is handled separately in KotlinHeaderBuilder
-        return map(type.returnType())
+        return map(type.returnType(), win32Abi)
     }
 
     private fun sanitizeName(name: String): String =

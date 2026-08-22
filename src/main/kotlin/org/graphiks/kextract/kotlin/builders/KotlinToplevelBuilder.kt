@@ -6,6 +6,8 @@ import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.cli.DllMap
 import org.graphiks.kextract.kotlin.models.KotlinSourceFile
 import org.graphiks.kextract.kotlin.utils.KotlinNameMangler
+import org.graphiks.kextract.kotlin.utils.TypeMapper
+import org.graphiks.kextract.pipeline.LayoutUtils
 import org.graphiks.kextract.pipeline.Options
 import java.util.IdentityHashMap
 
@@ -21,7 +23,7 @@ class KotlinToplevelBuilder(
     private val useSystemLoadLibrary: Boolean = false,
     private val splitOutput: Boolean = false,
     private val variadicArgs: Map<String, Int> = emptyMap(),
-    private val win32Mode: Boolean = false,
+    private val win32Abi: Boolean = false,
     private val dllMap: DllMap? = null,
     private val useInitMethod: Boolean = false,
 ) : Declaration.Visitor<Unit> {
@@ -102,10 +104,17 @@ class KotlinToplevelBuilder(
         private set
 
     /** True when a LOOKUP val was generated (libraries were provided). */
-    val hasLookup: Boolean get() = libraries.isNotEmpty() || win32Mode
+    val hasLookup: Boolean get() = libraries.isNotEmpty() || win32Abi
 
     /** True when generating Win32 bindings with per-DLL lookups. */
-    val isWin32Mode: Boolean get() = win32Mode
+    val isWin32Mode: Boolean get() = win32Abi
+
+    fun mapType(type: org.graphiks.kextract.Type): String = TypeMapper.map(type, win32Abi)
+
+    fun layoutString(type: org.graphiks.kextract.Type): String = LayoutUtils.layoutString(type, win32Abi)
+
+    fun functionDescriptorString(type: org.graphiks.kextract.Type.Function, variadicCount: Int): String =
+        LayoutUtils.functionDescriptorString(type, variadicCount, win32Abi)
 
     /** True when generating an init() method instead of eager static initializers. */
     val isInitMethod: Boolean get() = useInitMethod
@@ -130,8 +139,9 @@ class KotlinToplevelBuilder(
         mainSlot.appendLine("val C_CHAR: ValueLayout = ValueLayout.JAVA_BYTE")
         mainSlot.appendLine("val C_SHORT: ValueLayout = ValueLayout.JAVA_SHORT")
         mainSlot.appendLine("val C_INT: ValueLayout = ValueLayout.JAVA_INT")
-        mainSlot.appendLine("val C_LONG: ValueLayout = ValueLayout.JAVA_LONG")
+        mainSlot.appendLine("val C_LONG: ValueLayout = ValueLayout.${if (win32Abi) "JAVA_INT" else "JAVA_LONG"}")
         mainSlot.appendLine("val C_LONG_LONG: ValueLayout = ValueLayout.JAVA_LONG")
+        if (win32Abi) mainSlot.appendLine("val C_WCHAR: ValueLayout = ValueLayout.JAVA_CHAR")
         mainSlot.appendLine("val C_FLOAT: ValueLayout = ValueLayout.JAVA_FLOAT")
         mainSlot.appendLine("val C_DOUBLE: ValueLayout = ValueLayout.JAVA_DOUBLE")
         mainSlot.appendLine("val C_POINTER: ValueLayout = ValueLayout.ADDRESS")
@@ -167,7 +177,7 @@ class KotlinToplevelBuilder(
         }
 
         // Win32 mode: generate per-DLL lookups with cross-platform try/catch safety
-        if (win32Mode && dllMap != null) {
+        if (win32Abi && dllMap != null) {
             val dllNames = dllMap.dllMap.keys.toSortedSet()
             for (dllName in dllNames) {
                 val varName = dllLookupVarName(dllName)
@@ -197,7 +207,7 @@ class KotlinToplevelBuilder(
             mainSlot.appendLine()
 
             if (useInitMethod) {
-                mainSlot.appendLine("private var _initialized: Boolean = false")
+                mainSlot.appendLine("@Volatile private var _initialized: Boolean = false")
                 mainSlot.appendLine()
             }
 
@@ -336,12 +346,13 @@ class KotlinToplevelBuilder(
                 mainSlot.appendLine(" * Must be called before any binding function on Windows.")
                 mainSlot.appendLine(" * Safe to call on non-Windows (no-op, all symbols stay null).")
                 mainSlot.appendLine(" */")
+                mainSlot.appendLine("@Synchronized")
                 mainSlot.appendLine("fun init() {")
                 mainSlot.indent()
                 mainSlot.appendLine("if (_initialized) return")
-                mainSlot.appendLine("_initialized = true")
-                mainSlot.appendLine()
                 mainSlot.appendBlock(initSlot.toString().trimEnd())
+                mainSlot.appendLine()
+                mainSlot.appendLine("_initialized = true")
                 mainSlot.unindent()
                 mainSlot.appendLine("}")
                 mainSlot.appendLine()

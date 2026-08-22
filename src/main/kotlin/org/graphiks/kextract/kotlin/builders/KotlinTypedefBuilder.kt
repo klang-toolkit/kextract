@@ -3,7 +3,6 @@ package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.Type
-import org.graphiks.kextract.kotlin.utils.TypeMapper
 
 /**
  * Generates Kotlin code for typedefs.
@@ -22,7 +21,7 @@ class KotlinTypedefBuilder(private val builder: SourceBuilder, private val tople
     fun visitTypedef(decl: Declaration.Typedef) {
         // Fallback: plain typealias
         val name = toplevel.javaName(decl.name())
-        val type = TypeMapper.map(decl.type())
+        val type = toplevel.mapType(decl.type())
 
         // Skip self-referencing typealiases (e.g. `typedef unsigned char Byte` → typealias Byte = Byte)
         if (name == type) return

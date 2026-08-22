@@ -514,7 +514,6 @@ class GeneratorIntegrationTest : FreeSpec({
             val src = generate("""
                 void* variadic_fn(int fixed1, long fixed2, ...);
             """.trimIndent(), variadicArgs = mapOf("variadic_fn" to 3))
-
             // FunctionDescriptor should include: return ADDRESS + 2 fixed + 3 variadic ADDRESS
             src shouldContain "ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS"
             // firstVariadicArg(2) because 2 fixed args before variadic
@@ -584,12 +583,11 @@ class GeneratorIntegrationTest : FreeSpec({
                 void f_float(float f);
                 void f_double(double d);
             """.trimIndent())
-
             src shouldContain "arg0: Boolean"  // _Bool
             src shouldContain "arg0: Byte"     // char
             src shouldContain "arg0: Short"
             src shouldContain "arg0: Int"
-            src shouldContain "arg0: Long"
+            src shouldContain "fun f_long(arg0: Long): Unit"
             src shouldContain "arg0: Float"
             src shouldContain "arg0: Double"
         }

@@ -76,34 +76,39 @@ internal fun Cursor.isFlattenable(): Boolean =
 
 // ── Panama carrier utilities ──────────────────────────────────────────────
 
-internal fun Type.Function.methodType(): MethodType =
-    MethodType.methodType(returnType().carrier(), argumentTypes().map { it.carrier() })
+internal fun Type.Function.methodType(win32Abi: Boolean = false): MethodType =
+    MethodType.methodType(
+        returnType().carrier(win32Abi),
+        argumentTypes().map { it.carrier(win32Abi) },
+    )
 
-private fun Type.carrier(): Class<*> {
+private fun Type.carrier(win32Abi: Boolean): Class<*> {
     if (isErroneous()) return MemorySegment::class.java
     return when {
         this is Type.Array                                                         -> MemorySegment::class.java
-        this is Type.Primitive                                                     -> primitiveCarrier()
+        this is Type.Primitive                                                     -> primitiveCarrier(win32Abi)
         this is Type.Declared && tree().kind() == Declaration.Scoped.Kind.ENUM    ->
-            ClangEnumType.get(tree())!!.carrier()
+            ClangEnumType.get(tree())!!.carrier(win32Abi)
         this is Type.Declared                                                      -> MemorySegment::class.java
         this is Type.Delegated && kind() == Type.Delegated.Kind.POINTER            -> MemorySegment::class.java
-        this is Type.Delegated                                                     -> type().carrier()
+        this is Type.Delegated                                                     -> type().carrier(win32Abi)
         this is Type.Function                                                      -> MemorySegment::class.java
         else -> throw UnsupportedOperationException(toString())
     }
 }
 
-private fun Type.Primitive.primitiveCarrier(): Class<*> = when (kind()) {
+private fun Type.Primitive.primitiveCarrier(win32Abi: Boolean): Class<*> = when (kind()) {
     Type.Primitive.Kind.Void       -> Void.TYPE
     Type.Primitive.Kind.Bool       -> java.lang.Boolean.TYPE
     Type.Primitive.Kind.Char       -> java.lang.Byte.TYPE
     Type.Primitive.Kind.Short      -> java.lang.Short.TYPE
     Type.Primitive.Kind.Int        -> Integer.TYPE
-    Type.Primitive.Kind.Long       -> if (TypeImpl.IS_WINDOWS) Integer.TYPE else java.lang.Long.TYPE
+    Type.Primitive.Kind.Long       -> if (win32Abi) Integer.TYPE else java.lang.Long.TYPE
     Type.Primitive.Kind.LongLong   -> java.lang.Long.TYPE
     Type.Primitive.Kind.Float      -> java.lang.Float.TYPE
     Type.Primitive.Kind.Double     -> java.lang.Double.TYPE
+    Type.Primitive.Kind.WChar      -> if (win32Abi) java.lang.Character.TYPE
+                                      else throw UnsupportedOperationException(toString())
     Type.Primitive.Kind.LongDouble ->
         if (TypeImpl.IS_WINDOWS) java.lang.Double.TYPE
         else throw UnsupportedOperationException(toString())
