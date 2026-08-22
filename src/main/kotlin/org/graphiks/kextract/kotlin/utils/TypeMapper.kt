@@ -3,6 +3,7 @@ package org.graphiks.kextract.kotlin.utils
 
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.Type
+import org.graphiks.kextract.TypeImpl
 
 /**
  * Maps C types to Kotlin types.
@@ -63,9 +64,11 @@ object TypeMapper {
         Type.Primitive.Kind.Char -> "Byte"
         Type.Primitive.Kind.Short -> "Short"
         Type.Primitive.Kind.Int -> "Int"
-        Type.Primitive.Kind.Long, Type.Primitive.Kind.LongLong -> "Long"
+        Type.Primitive.Kind.Long -> if (TypeImpl.IS_WINDOWS) "Int" else "Long"
+        Type.Primitive.Kind.LongLong -> "Long"
         Type.Primitive.Kind.Float -> "Float"
         Type.Primitive.Kind.Double -> "Double"
+        Type.Primitive.Kind.WChar -> "Char"
         Type.Primitive.Kind.Void -> "Unit"
         else -> "MemorySegment"
     }

@@ -1,6 +1,7 @@
 package org.graphiks.kextract.pipeline
 
 import org.graphiks.kextract.Type
+import org.graphiks.kextract.TypeImpl
 import org.graphiks.kextract.DeclarationImpl.ClangEnumType
 import org.graphiks.kextract.DeclarationImpl.JavaName
 import org.graphiks.kextract.kotlin.abi.KotlinKmpAbiIndex
@@ -131,11 +132,13 @@ object LayoutUtils {
             Type.Primitive.Kind.Char      -> "ValueLayout.JAVA_BYTE"
             Type.Primitive.Kind.Short     -> "ValueLayout.JAVA_SHORT"
             Type.Primitive.Kind.Int       -> "ValueLayout.JAVA_INT"
-            Type.Primitive.Kind.Long,
+            Type.Primitive.Kind.Long      ->
+                if (TypeImpl.IS_WINDOWS) "ValueLayout.JAVA_INT" else "ValueLayout.JAVA_LONG"
             Type.Primitive.Kind.LongLong  -> "ValueLayout.JAVA_LONG"
             Type.Primitive.Kind.Float     -> "ValueLayout.JAVA_FLOAT"
             Type.Primitive.Kind.Double    -> "ValueLayout.JAVA_DOUBLE"
             Type.Primitive.Kind.Char16    -> "ValueLayout.JAVA_CHAR"
+            Type.Primitive.Kind.WChar     -> "ValueLayout.JAVA_CHAR"
             Type.Primitive.Kind.Int128    -> "ValueLayout.JAVA_LONG"
             Type.Primitive.Kind.Void      -> throw UnsupportedOperationException("Void type cannot be laid out")
             else -> throw UnsupportedOperationException("Unexpected primitive kind: ${type.kind()}")

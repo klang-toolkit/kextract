@@ -197,7 +197,7 @@ class KotlinToplevelBuilder(
             mainSlot.appendLine()
 
             if (useInitMethod) {
-                mainSlot.appendLine("private var _initialized: Boolean = false")
+                mainSlot.appendLine("@Volatile private var _initialized: Boolean = false")
                 mainSlot.appendLine()
             }
 
@@ -336,12 +336,13 @@ class KotlinToplevelBuilder(
                 mainSlot.appendLine(" * Must be called before any binding function on Windows.")
                 mainSlot.appendLine(" * Safe to call on non-Windows (no-op, all symbols stay null).")
                 mainSlot.appendLine(" */")
+                mainSlot.appendLine("@Synchronized")
                 mainSlot.appendLine("fun init() {")
                 mainSlot.indent()
                 mainSlot.appendLine("if (_initialized) return")
-                mainSlot.appendLine("_initialized = true")
-                mainSlot.appendLine()
                 mainSlot.appendBlock(initSlot.toString().trimEnd())
+                mainSlot.appendLine()
+                mainSlot.appendLine("_initialized = true")
                 mainSlot.unindent()
                 mainSlot.appendLine("}")
                 mainSlot.appendLine()
