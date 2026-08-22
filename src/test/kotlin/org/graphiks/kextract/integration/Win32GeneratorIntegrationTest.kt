@@ -55,7 +55,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
                 listOf(header.toString()),
                 Options(
                     clangArgs = listOf(
-                        "-x", "c++",
+                        "-x", "c",
                         "-target", "x86_64-pc-windows-msvc",
                         "-fshort-wchar",
                     ),
@@ -102,13 +102,13 @@ class Win32GeneratorIntegrationTest : FreeSpec({
             src shouldContain "FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG)"
         }
 
-        "runs wchar_t generation with the Win32 ABI only" {
+        "runs WCHAR typedef generation with the Win32 ABI only" {
             val win32Source = runGeneration(
-                "wchar_t win32_wchar(wchar_t value);",
+                "typedef wchar_t WCHAR;\nWCHAR win32_wchar(WCHAR value);",
                 win32Mode = true,
             )
             val defaultSource = runGeneration(
-                "wchar_t win32_wchar(wchar_t value);",
+                "typedef wchar_t WCHAR;\nWCHAR win32_wchar(WCHAR value);",
                 win32Mode = false,
             )
 

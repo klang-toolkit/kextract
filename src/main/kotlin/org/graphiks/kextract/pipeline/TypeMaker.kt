@@ -118,8 +118,12 @@ internal object TypeMaker {
                 }
             }
             TypeKind.Typedef -> {
-                val type = makeType(t.canonicalType(), treeMaker)
-                Type.typedef(t.spelling(), type)
+                if (t.spelling() == "WCHAR") {
+                    Type.typedef("WCHAR", Type.primitive(Primitive.Kind.WChar))
+                } else {
+                    val type = makeType(t.canonicalType(), treeMaker)
+                    Type.typedef(t.spelling(), type)
+                }
             }
             TypeKind.Complex -> {
                 val type = makeType(t.getElementType(), treeMaker)
