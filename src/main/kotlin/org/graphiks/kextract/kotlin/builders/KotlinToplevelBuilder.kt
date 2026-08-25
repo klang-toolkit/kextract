@@ -65,6 +65,8 @@ class KotlinToplevelBuilder(
     private var _topLevelEnumsByName: Map<String, List<Declaration.Scoped>> = emptyMap()
     private val _objcSurfaceEnums = IdentityHashMap<Declaration.Scoped, Boolean>()
     private val _objcSurfaceStructs = IdentityHashMap<Declaration.Scoped, Boolean>()
+    private var _objcSurfacePointerTypedefNames: Set<String> = emptySet()
+    private var _topLevelDeclarationNames: Set<String> = emptySet()
 
     /** Counter for round-robin split across multiple function files (avoids <clinit> > 64KB). */
     private var _functionBatch: Int = 0
@@ -276,6 +278,7 @@ class KotlinToplevelBuilder(
             else -> {
                 // TOPLEVEL: pre-scan before generating code.
                 if (decl.kind() == Declaration.Scoped.Kind.TOPLEVEL) {
+                    _topLevelDeclarationNames = decl.members().map { javaName(it.name()) }.toSet()
                     // Mark constants from named ENUMs inside TOPLEVEL as Skip so they are not
                     // re-visited as standalone items. They will be emitted inside their enum.
                     decl.members()
@@ -544,6 +547,15 @@ class KotlinToplevelBuilder(
     fun isObjCSurfaceStruct(structDecl: Declaration.Scoped): Boolean =
         _objcSurfaceStructs.containsKey(structDecl)
 
+    internal fun hasObjCSurfacePointerTypedef(name: String): Boolean =
+        name in _objcSurfacePointerTypedefNames
+
+    internal fun typedCAdapterName(rawName: String): String {
+        var candidate = "${rawName}Typed"
+        while (candidate in _topLevelDeclarationNames) candidate += "Adapter"
+        return candidate
+    }
+
     internal fun resolveObjCEnum(type: org.graphiks.kextract.Type): Declaration.Scoped? {
         KotlinEnumSupport.resolveEnum(type)?.let { resolved ->
             resolveGeneratedEnum(resolved)?.let { return it }
@@ -607,6 +619,16 @@ class KotlinToplevelBuilder(
                 }
             }
         }
+
+        _objcSurfacePointerTypedefNames = toplevel.members()
+            .filterIsInstance<Declaration.Typedef>()
+            .filterNot(Skip::isPresent)
+            .mapNotNull { typedef ->
+                TypeMapper.pointedStruct(typedef.type())
+                    ?.takeIf { isObjCSurfaceStruct(it.declaration) }
+                    ?.let { javaName(typedef.name()) }
+            }
+            .toSet()
     }
 
     private fun resolveGeneratedEnum(enumDecl: Declaration.Scoped): Declaration.Scoped? {

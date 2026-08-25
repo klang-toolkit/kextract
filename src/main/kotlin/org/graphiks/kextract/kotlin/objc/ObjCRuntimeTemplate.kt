@@ -22,8 +22,39 @@ import java.lang.foreign.MemoryLayout
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.SegmentAllocator
 import java.lang.foreign.SymbolLookup
+import java.lang.foreign.UnionLayout
 import java.lang.foreign.ValueLayout
 import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Classifies C POD aggregate returns for the Objective-C entry-point split.
+ *
+ * Apple x86-64 follows the SysV aggregate rule: values larger than two
+ * eightbytes, or layouts containing an unaligned member, use the memory-return
+ * convention and therefore objc_msgSend_stret. Naturally aligned,
+ * byte-addressable generated scalar, array, union, and nested-record layouts
+ * are within this classifier's supported domain; unsafe packed surface records
+ * are rejected while their layouts are planned.
+ */
+internal fun objcStructReturnUsesStret(returnLayout: GroupLayout, architecture: String): Boolean {
+    if (architecture != "x86_64" && architecture != "amd64") return false
+    return returnLayout.byteSize() > 16L || objcLayoutHasUnalignedMember(returnLayout)
+}
+
+private fun objcLayoutHasUnalignedMember(layout: GroupLayout): Boolean {
+    if (layout is UnionLayout) {
+        return layout.memberLayouts().any { member ->
+            member is GroupLayout && objcLayoutHasUnalignedMember(member)
+        }
+    }
+    var offset = 0L
+    for (member in layout.memberLayouts()) {
+        if (offset % member.byteAlignment() != 0L) return true
+        if (member is GroupLayout && objcLayoutHasUnalignedMember(member)) return true
+        offset += member.byteSize()
+    }
+    return false
+}
 
 /**
  * Low-level Objective-C runtime bridge via Panama FFI.
@@ -70,7 +101,7 @@ object ObjCRuntime {
     private val ARCH: String = System.getProperty("os.arch", "")
 
     /** Address of objc_msgSend_stret — only valid on x86-64; null on ARM64. */
-    val objcMsgSendStretAddr: MemorySegment? = if (ARCH == "x86_64")
+    val objcMsgSendStretAddr: MemorySegment? = if (ARCH == "x86_64" || ARCH == "amd64")
         objcLib.find("objc_msgSend_stret").orElse(null)
     else null
 
@@ -141,21 +172,25 @@ object ObjCRuntime {
     }
 
     /**
-     * Like [msgSend] but for methods returning a struct by value.
+     * Sends a method returning a struct by value through the ABI-selected entry point.
      *
      * Panama requires a [GroupLayout] in the [FunctionDescriptor] for struct-returning calls and
      * inserts a [SegmentAllocator] as the first argument to the downcall handle.  The struct bytes
      * are written into heap-backed storage allocated here and returned as a [MemorySegment].
      *
-     * On x86-64 [objc_msgSend_stret] is used; on ARM64 the regular [objc_msgSend] entry point
-     * handles struct returns in registers (the stret variant does not exist there).
+     * On x86-64 [objcStructReturnUsesStret] selects [objc_msgSend_stret] only for memory-class
+     * aggregates. Register-class structs and all ARM64 structs use regular [objc_msgSend].
      *
      * Important: the allocator must be backed by a [DoubleArray] (8-byte aligned) rather than a
      * [ByteArray] to satisfy Panama's alignment constraints for `double`-containing structs such
      * as [NSRect].
      */
-    fun msgSendStret(returnLayout: GroupLayout, receiver: MemorySegment, selector: MemorySegment, vararg args: Any): MemorySegment {
-        val addr = objcMsgSendStretAddr ?: objcMsgSendAddr
+    fun msgSendStruct(returnLayout: GroupLayout, receiver: MemorySegment, selector: MemorySegment, vararg args: Any): MemorySegment {
+        val addr = if (objcStructReturnUsesStret(returnLayout, ARCH)) {
+            requireNotNull(objcMsgSendStretAddr) { "objc_msgSend_stret is unavailable on ${'$'}ARCH" }
+        } else {
+            objcMsgSendAddr
+        }
         val argLayouts = args.map { layoutFor(it) }.toTypedArray()
         val baseLayouts = arrayOf<MemoryLayout>(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
         val desc = FunctionDescriptor.of(returnLayout, *baseLayouts, *argLayouts)

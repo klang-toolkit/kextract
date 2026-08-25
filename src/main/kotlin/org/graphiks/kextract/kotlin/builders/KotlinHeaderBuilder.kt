@@ -109,6 +109,61 @@ class KotlinHeaderBuilder(
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
+
+        emitTypedStructAdapter(decl, name)
+    }
+
+    /**
+     * Bridges structs shared by raw C and Objective-C surfaces without exposing
+     * the nominal wrapper's internal MemorySegment carrier to consumers.
+     */
+    private fun emitTypedStructAdapter(decl: Declaration.Function, rawName: String) {
+        if (decl.type().varargs()) return
+        val returnRecord = TypeMapper.namedStruct(decl.type().returnType())
+            ?.takeIf { toplevel.isObjCSurfaceStruct(it.declaration) }
+        val argumentRecords = decl.type().argumentTypes().map { type ->
+            TypeMapper.namedStruct(type)?.takeIf { toplevel.isObjCSurfaceStruct(it.declaration) }
+        }
+        if (returnRecord == null && argumentRecords.all { it == null }) return
+
+        val adapterName = if (argumentRecords.any { it != null }) {
+            rawName
+        } else {
+            toplevel.typedCAdapterName(rawName)
+        }
+        val rawReturnsStruct = isStructType(decl.type().returnType())
+        val parameters = buildList {
+            if (rawReturnsStruct) add("allocator: SegmentAllocator")
+            decl.type().argumentTypes().forEachIndexed { index, type ->
+                val record = argumentRecords[index]
+                val kotlinType = record?.let { toplevel.javaName(it.publicName) }
+                    ?: toplevel.mapType(type)
+                add("arg$index: $kotlinType")
+            }
+        }.joinToString(", ")
+        val returnType = returnRecord?.let { toplevel.javaName(it.publicName) }
+            ?: toplevel.mapType(decl.type().returnType())
+        val rawArguments = buildList {
+            if (rawReturnsStruct) add("allocator")
+            argumentRecords.forEachIndexed { index, record ->
+                add(if (record == null) "arg$index" else "arg$index.segment")
+            }
+        }.joinToString(", ")
+        val rawCall = "$rawName($rawArguments)"
+
+        builder.appendLine("fun $adapterName($parameters): $returnType {")
+        builder.indent()
+        when {
+            returnRecord != null -> {
+                val recordName = toplevel.javaName(returnRecord.publicName)
+                builder.appendLine("return $recordName($rawCall)")
+            }
+            returnType == "Unit" -> builder.appendLine(rawCall)
+            else -> builder.appendLine("return $rawCall")
+        }
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
     }
 
     private fun isStructType(type: Type): Boolean = when (type) {

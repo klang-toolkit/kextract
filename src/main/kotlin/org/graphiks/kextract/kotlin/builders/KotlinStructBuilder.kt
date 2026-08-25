@@ -69,7 +69,8 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
     /** Emits nominal value and pointer wrappers only for structs used by Objective-C APIs. */
     private fun visitObjCSurfaceStruct(decl: Declaration.Scoped) {
         val className = toplevel.javaName(decl.name())
-        val fields = decl.members().filterIsInstance<Declaration.Variable>()
+        val recordLayout = KotlinJvmRecordLayoutPlan.createRecord(decl)
+        val fields = recordLayout.members.map(KotlinJvmRecordMemberLayout::field)
         builder.appendLine("/**")
         builder.appendLine(" * {@snippet lang=c : ${decl.kind()} ${decl.name()}")
         builder.appendLine(" */")
@@ -77,7 +78,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.indent()
         builder.appendLine("companion object {")
         builder.indent()
-        emitLayout(decl, "structLayout")
+        emitObjCSurfaceLayout(decl, recordLayout)
         builder.appendLine("fun allocate(allocator: SegmentAllocator): ${className} =")
         builder.appendLine("    ${className}(allocator.allocate(layout))")
         builder.appendLine()
@@ -157,6 +158,53 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         }
         builder.unindent()
         builder.appendLine(").withName(\"${decl.name()}\")")
+        builder.appendLine()
+        builder.appendLine("val byteSize: Long")
+        builder.indent()
+        builder.appendLine("get() = layout.byteSize()")
+        builder.unindent()
+        builder.appendLine()
+    }
+
+    /** Emits the exact byte-addressable Clang layout, including bitfield/padding gaps. */
+    private fun emitObjCSurfaceLayout(
+        decl: Declaration.Scoped,
+        recordLayout: KotlinJvmRecordLayout,
+    ) {
+        val requiredAlignment = recordLayout.members.maxOfOrNull { it.alignmentBytes } ?: 1L
+        require(recordLayout.alignmentBytes >= requiredAlignment) {
+            "Cannot safely emit Objective-C surface struct ${decl.name()}: " +
+                "record alignment ${recordLayout.alignmentBytes} is smaller than member alignment " +
+                "$requiredAlignment"
+        }
+        val elements = mutableListOf<String>()
+        var cursor = 0L
+        for (member in recordLayout.members) {
+            require(member.offsetBytes % member.alignmentBytes == 0L) {
+                "Cannot safely emit Objective-C surface struct ${decl.name()}: " +
+                    "${member.cName} has Clang offset ${member.offsetBytes} but natural alignment " +
+                    "${member.alignmentBytes}"
+            }
+            val gap = member.offsetBytes - cursor
+            if (gap > 0L) elements += "MemoryLayout.paddingLayout(${gap}L)"
+            val fieldLayout = typeLowerer.lower(member.field.type()).layout
+            elements += "$fieldLayout.withByteAlignment(${member.alignmentBytes}L).withName(\"${member.cName}\")"
+            cursor = member.offsetBytes + member.sizeBytes
+        }
+        val trailing = recordLayout.sizeBytes - cursor
+        if (trailing > 0L) elements += "MemoryLayout.paddingLayout(${trailing}L)"
+        require(elements.isNotEmpty()) {
+            "${decl.name()} has no byte-addressable fields or storage"
+        }
+
+        builder.appendLine("val layout: GroupLayout = MemoryLayout.structLayout(")
+        builder.indent()
+        elements.forEachIndexed { index, element ->
+            val comma = if (index < elements.lastIndex) "," else ""
+            builder.appendLine("$element$comma")
+        }
+        builder.unindent()
+        builder.appendLine(").withByteAlignment(${recordLayout.alignmentBytes}L).withName(\"${decl.name()}\")")
         builder.appendLine()
         builder.appendLine("val byteSize: Long")
         builder.indent()

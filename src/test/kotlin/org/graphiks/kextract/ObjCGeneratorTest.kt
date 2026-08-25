@@ -307,6 +307,7 @@ class ObjCGeneratorTest : FreeSpec({
 
         "protocols and categories share the same semantic signatures" {
             src shouldContain "fun modeForRange(range: NSRange): KxMode"
+            src shouldContain "fun pointerForRange(range: NSRange): NSRangePointer"
             src shouldContain "fun KxSemanticHost.offsetRange_pointer(range: NSRange, pointer: NSRangePointer): NSRange"
         }
 
@@ -329,6 +330,8 @@ class ObjCGeneratorTest : FreeSpec({
             src shouldContain "class _NSRangePointer internal constructor(internal val segment: MemorySegment)"
             src shouldContain "typealias NSRange = _NSRange"
             src shouldContain "typealias NSRangePointer = _NSRangePointer"
+            Regex("typealias NSRangePointer = ").findAll(src).count() shouldBe 1
+            src shouldNotContain "typealias NSRangePointer = MemorySegment"
             src shouldContain "constructor(location: Long, length: Long)"
             src shouldContain "ObjCRuntime.ObjCStructArg(range.segment, NSRange.layout)"
             src shouldContain "rangePointer.segment"
@@ -347,6 +350,40 @@ class ObjCGeneratorTest : FreeSpec({
             src shouldContain "var bytes: MemorySegment"
             src shouldNotContain "fun mode(): KxFieldMode = mode_VH.get(segment, 0L) as KxFieldMode"
             src shouldNotContain "fun rangePointer(): MemorySegment"
+        }
+
+        "surface struct layouts preserve Clang padding and omit unsafe bitfield APIs" {
+            val padded = src.substringAfter("class KxPaddedRecord internal constructor")
+                .substringBefore("class KxPaddedRecordPointer")
+            padded shouldContain "MemoryLayout.paddingLayout(7L)"
+            Regex("MemoryLayout\\.paddingLayout\\(7L\\)").findAll(padded).count() shouldBe 2
+            padded shouldContain ").withByteAlignment(8L).withName(\"KxPaddedRecord\")"
+
+            val bitfield = src.substringAfter("class KxBitfieldRecord internal constructor")
+                .substringBefore("class KxBitfieldRecordPointer")
+            bitfield shouldContain "MemoryLayout.paddingLayout(8L)"
+            bitfield shouldContain "MemoryLayout.paddingLayout(7L)"
+            bitfield shouldContain "constructor(payload: Long, tail: Byte)"
+            bitfield shouldNotContain "fun low("
+            bitfield shouldNotContain "fun high("
+        }
+
+        "struct return dispatch is selected from the return layout" {
+            val runtime = files.single { it.className == "ObjCRuntime" }.contents
+            src shouldContain "ObjCRuntime.msgSendStruct(KxTwoDoubles.layout"
+            src shouldContain "ObjCRuntime.msgSendStruct(KxFourDoubles.layout"
+            src shouldNotContain "ObjCRuntime.msgSendStret(KxTwoDoubles.layout"
+            runtime shouldContain "internal fun objcStructReturnUsesStret("
+            runtime shouldContain "returnLayout.byteSize() > 16L"
+        }
+
+        "shared C structs retain raw functions and gain typed adapters" {
+            src shouldContain "fun NSUnionRange(allocator: SegmentAllocator, arg0: MemorySegment, arg1: MemorySegment): MemorySegment"
+            src shouldContain "fun NSUnionRange(allocator: SegmentAllocator, arg0: NSRange, arg1: NSRange): NSRange"
+            src shouldContain "NSRange(NSUnionRange(allocator, arg0.segment, arg1.segment))"
+            src shouldContain "fun NSIntersectionRange(allocator: SegmentAllocator, arg0: NSRange, arg1: NSRange): NSRange"
+            src shouldContain "fun KxCurrentRange(allocator: SegmentAllocator): MemorySegment"
+            src shouldContain "fun KxCurrentRangeTyped(allocator: SegmentAllocator): NSRange"
         }
 
         "include filtering retains semantic types required by an included Objective-C class" {
@@ -406,6 +443,22 @@ class ObjCGeneratorTest : FreeSpec({
         src shouldContain "ObjCRuntime.msgSend(ValueLayout.JAVA_BOOLEAN, ptr, sel, value) as Boolean"
         src shouldNotContain "if (value) 1.toByte() else 0.toByte()"
         src shouldNotContain "as Byte"
+    }
+
+    "packed Objective-C surface structs fail generation instead of guessing an ABI layout" {
+        val failure = runCatching {
+            generate("""
+                typedef struct __attribute__((packed)) KxPackedValue {
+                    long value;
+                } KxPackedValue;
+                @interface KxPackedHost
+                - (KxPackedValue)roundTrip:(KxPackedValue)value;
+                @end
+            """.trimIndent())
+        }.exceptionOrNull() ?: error("packed surface generation unexpectedly succeeded")
+
+        failure.message.orEmpty() shouldContain
+            "Cannot safely emit Objective-C surface struct KxPackedValue"
     }
 
     // NOTE: In libclang, for `@interface KxAnimal (Tricks)`, c.spelling() returns

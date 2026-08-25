@@ -7,6 +7,7 @@ internal data class KotlinJvmRecordMemberLayout(
     val cName: String,
     val offsetBytes: Long,
     val sizeBytes: Long,
+    val alignmentBytes: Long,
 )
 
 internal data class KotlinJvmRecordLayout(

@@ -23,6 +23,8 @@ typedef struct _NSRange {
     NSUInteger length;
 } NSRange;
 
+typedef NSRange *NSRangePointer;
+
 typedef NS_ENUM(NSInteger, KxMode) {
     KxModeOne = 1
 };
@@ -46,10 +48,39 @@ typedef union KxPayload {
 
 typedef struct KxSemanticRecord {
     KxFieldMode mode;
-    NSRange *rangePointer;
+    NSRangePointer rangePointer;
     KxPayload payload;
     unsigned char bytes[8];
 } KxSemanticRecord;
+
+typedef struct KxPaddedRecord {
+    unsigned char tag;
+    NSUInteger payload;
+    unsigned char tail;
+} KxPaddedRecord;
+
+typedef struct KxBitfieldRecord {
+    unsigned int low : 3;
+    unsigned int high : 5;
+    NSUInteger payload;
+    unsigned char tail;
+} KxBitfieldRecord;
+
+typedef struct KxTwoDoubles {
+    double first;
+    double second;
+} KxTwoDoubles;
+
+typedef struct KxFourDoubles {
+    double first;
+    double second;
+    double third;
+    double fourth;
+} KxFourDoubles;
+
+NSRange NSUnionRange(NSRange lhs, NSRange rhs);
+NSRange NSIntersectionRange(NSRange lhs, NSRange rhs);
+NSRange KxCurrentRange(void);
 
 @interface KxSemanticHost
 @property KxMode mode;
@@ -61,17 +92,22 @@ typedef struct KxSemanticRecord {
 - (NSUInteger)unsignedCount;
 - (KxUnsignedCode)roundTripUnsignedCode:(KxUnsignedCode)code;
 - (KxSemanticRecord)roundTripRecord:(KxSemanticRecord)record;
+- (KxPaddedRecord)roundTripPaddedRecord:(KxPaddedRecord)record;
+- (KxBitfieldRecord)roundTripBitfieldRecord:(KxBitfieldRecord)record;
+- (KxTwoDoubles)smallStructReturn;
+- (KxFourDoubles)largeStructReturn;
 - (NSPoint)translatePoint:(NSPoint)point
                      rect:(NSRect)rect
                     range:(NSRange)range
-             rangePointer:(NSRange *)rangePointer;
+             rangePointer:(NSRangePointer)rangePointer;
 @end
 
 @protocol KxSemanticProtocol
 - (KxMode)modeForRange:(NSRange)range;
+- (NSRangePointer)pointerForRange:(NSRange)range;
 @property KxFlags flags;
 @end
 
 @interface KxSemanticHost (Geometry)
-- (NSRange)offsetRange:(NSRange)range pointer:(NSRange *)pointer;
+- (NSRange)offsetRange:(NSRange)range pointer:(NSRangePointer)pointer;
 @end

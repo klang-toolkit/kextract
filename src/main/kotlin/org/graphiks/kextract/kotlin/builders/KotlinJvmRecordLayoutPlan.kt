@@ -31,7 +31,7 @@ internal class KotlinJvmRecordLayoutPlan private constructor(
                     !Skip.isPresent(declaration) &&
                     declaration.kind() in setOf(Declaration.Scoped.Kind.STRUCT, Declaration.Scoped.Kind.UNION)
                 ) {
-                    layouts[declaration] = createLayout(declaration)
+                    layouts[declaration] = createRecord(declaration)
                 }
                 declaration.members().forEach(::collect)
             }
@@ -40,7 +40,7 @@ internal class KotlinJvmRecordLayoutPlan private constructor(
             return KotlinJvmRecordLayoutPlan(layouts)
         }
 
-        private fun createLayout(declaration: Declaration.Scoped): KotlinJvmRecordLayout {
+        internal fun createRecord(declaration: Declaration.Scoped): KotlinJvmRecordLayout {
             val owner = declaration.name()
             val sizeBytes = bitsToBytes(
                 metric = "size",
@@ -98,12 +98,22 @@ internal class KotlinJvmRecordLayoutPlan private constructor(
             require(offsetBytes <= recordSizeBytes && sizeBytes <= recordSizeBytes - offsetBytes) {
                 "$owner exceeds the record size"
             }
-
+            val alignmentBytes = requireAlignment(
+                owner,
+                bitsToBytes(
+                    metric = "alignment",
+                    owner = owner,
+                    bits = requireNotNull(ClangAlignOf.get(field)) {
+                        "$owner has no Clang alignment"
+                    },
+                ),
+            )
             return KotlinJvmRecordMemberLayout(
                 field = field,
                 cName = field.name(),
                 offsetBytes = offsetBytes,
                 sizeBytes = sizeBytes,
+                alignmentBytes = alignmentBytes,
             )
         }
 

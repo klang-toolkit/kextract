@@ -25,7 +25,7 @@ internal data class ObjCTypeLowering(
         val raw = when {
             isVoid -> "ObjCRuntime.msgSend(null, $receiver, $selector$arguments)"
             returnsStructByValue ->
-                "ObjCRuntime.msgSendStret($layout, $receiver, $selector$arguments)"
+                "ObjCRuntime.msgSendStruct($layout, $receiver, $selector$arguments)"
             else -> "ObjCRuntime.msgSend($layout, $receiver, $selector$arguments)"
         }
         return if (isVoid) raw else reconstruct(raw)
@@ -41,8 +41,7 @@ internal class ObjCTypeLowerer(private val toplevel: KotlinToplevelBuilder) {
 
         val pointedStruct = TypeMapper.pointedStruct(type)
         if (pointedStruct != null) {
-            val name = toplevel.javaName(pointedStruct.publicName)
-            val pointerType = "${name}Pointer"
+            val pointerType = toplevel.javaName(pointedStruct.publicName)
             return ObjCTypeLowering(
                 kotlinType = pointerType,
                 layout = "ValueLayout.ADDRESS",

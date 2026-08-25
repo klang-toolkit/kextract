@@ -124,10 +124,10 @@ class Issue22ReproductionTest : FreeSpec({
 
     /**
      * A method returning a struct by value (e.g. `NSRect`) must be dispatched with
-     * ObjCRuntime.msgSendStret and a MemoryLayout.structLayout(…) expression, NOT
-     * ValueLayout.ADDRESS. Using ADDRESS causes NaN / garbage values on ARM64 (Bug 2).
+     * ObjCRuntime.msgSendStruct and a MemoryLayout.structLayout(…) expression, NOT
+     * ValueLayout.ADDRESS. The runtime selects regular msgSend versus stret from the ABI.
      */
-    "Bug 2a — struct-by-value return uses msgSendStret with structLayout" {
+    "Bug 2a — struct-by-value return uses ABI-selected msgSendStruct with structLayout" {
         val src = generate("""
             typedef double CGFloat;
             struct KxPoint { CGFloat x; CGFloat y; };
@@ -137,12 +137,12 @@ class Issue22ReproductionTest : FreeSpec({
             @end
         """.trimIndent())
 
-        src shouldContain "msgSendStret"
+        src shouldContain "msgSendStruct"
         src shouldContain "MemoryLayout.structLayout"
         src shouldNotContain "msgSend(ValueLayout.ADDRESS, ptr, sel)"
     }
 
-    "Bug 2b — typedef'd struct return (NSRect-style) uses msgSendStret" {
+    "Bug 2b — typedef'd struct return (NSRect-style) uses ABI-selected msgSendStruct" {
         val src = generate("""
             typedef double CGFloat;
             struct KxRect { CGFloat x; CGFloat y; CGFloat width; CGFloat height; };
@@ -153,7 +153,7 @@ class Issue22ReproductionTest : FreeSpec({
             @end
         """.trimIndent())
 
-        src shouldContain "msgSendStret"
+        src shouldContain "msgSendStruct"
         src shouldContain "MemoryLayout.structLayout"
     }
 
@@ -193,9 +193,9 @@ class Issue22ReproductionTest : FreeSpec({
         src shouldContain "MemoryLayout.structLayout"
     }
 
-    // ── Bug 2 runtime: ObjCRuntime.kt contains ObjCStructArg and correct msgSendStret ──
+    // ── Bug 2 runtime: ObjCRuntime.kt contains ObjCStructArg and struct dispatch ──
 
-    "Bug 2/3 runtime — ObjCRuntime.kt declares ObjCStructArg and fixed msgSendStret" {
+    "Bug 2/3 runtime — ObjCRuntime.kt declares ObjCStructArg and ABI-selected struct dispatch" {
         val files = run {
             val tmp = java.nio.file.Files.createTempFile("kextract_rt_", ".h")
             try {
@@ -213,6 +213,8 @@ class Issue22ReproductionTest : FreeSpec({
         runtime shouldContain "data class ObjCStructArg"
         runtime shouldContain "GroupLayout"
         runtime shouldContain "SegmentAllocator"
+        runtime shouldContain "fun msgSendStruct"
+        runtime shouldContain "fun objcStructReturnUsesStret"
         // Bug 5 — layout computed before unwrap
         runtime shouldContain "layouts before unwrap"
         // unwrap() is present
