@@ -1049,6 +1049,62 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
                 "readCompositeRecord",
             ) shouldBe 37_071_436L
         }
+
+        "a source shorter than an array field fails with the FFM bounds exception" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.Arena
+
+                    fun shortArraySourceIsRejected(): Long {
+                        val arena = Arena.ofAuto()
+                        val record = KxSemanticRecord.allocate(arena)
+                        val sevenBytes = arena.allocate(7L)
+                        return try {
+                            record.bytes = sevenBytes
+                            0L
+                        } catch (_: IndexOutOfBoundsException) {
+                            1L
+                        }
+                    }
+                """.trimIndent(),
+                "shortArraySourceIsRejected",
+            ) shouldBe 1L
+        }
+
+        "an oversized union source copies only its prefix and preserves the adjacent array" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.Arena
+                    import java.lang.foreign.ValueLayout
+
+                    fun oversizedUnionCopyIsBounded(): Long {
+                        val arena = Arena.ofAuto()
+                        val record = KxSemanticRecord.allocate(arena)
+                        val arraySentinels = arena.allocate(8L)
+                        arraySentinels.set(ValueLayout.JAVA_BYTE, 0L, 41.toByte())
+                        arraySentinels.set(ValueLayout.JAVA_BYTE, 7L, 43.toByte())
+                        record.bytes = arraySentinels
+
+                        val oversizedPayload = arena.allocate(16L)
+                        oversizedPayload.set(ValueLayout.JAVA_LONG, 0L, 101L)
+                        oversizedPayload.set(ValueLayout.JAVA_BYTE, 8L, 91.toByte())
+                        oversizedPayload.set(ValueLayout.JAVA_BYTE, 15L, 97.toByte())
+                        record.payload = oversizedPayload
+
+                        return record.payload.get(ValueLayout.JAVA_LONG, 0L) * 10_000L +
+                            record.bytes.get(ValueLayout.JAVA_BYTE, 0L) * 100L +
+                            record.bytes.get(ValueLayout.JAVA_BYTE, 7L)
+                    }
+                """.trimIndent(),
+                "oversizedUnionCopyIsBounded",
+            ) shouldBe 1_014_143L
+        }
     }
 
     "FlagEnum attribute generates value class without a naming convention" - {
