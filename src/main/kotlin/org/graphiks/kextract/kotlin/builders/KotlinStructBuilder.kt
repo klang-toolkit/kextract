@@ -103,7 +103,9 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         val constructibleFields = fields.mapNotNull { field ->
             fieldKotlinType(field.type())?.let { field to it }
         }
-        if (constructibleFields.isNotEmpty()) {
+        val collidesWithCarrierConstructor =
+            constructibleFields.singleOrNull()?.second == "MemorySegment"
+        if (constructibleFields.isNotEmpty() && !collidesWithCarrierConstructor) {
             val parameters = constructibleFields.joinToString(", ") { (field, type) ->
                 "${toplevel.javaName(field.name())}: $type"
             }

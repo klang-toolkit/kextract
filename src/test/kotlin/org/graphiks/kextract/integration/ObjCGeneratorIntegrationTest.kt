@@ -1004,6 +1004,124 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         )
     }
 
+    "filtered incomplete Objective-C pointer records compile as opaque nominal addresses" {
+        val files = generateWithPipeline("""
+            struct _KxZone;
+            typedef struct _KxZone KxZone;
+            struct _KxZone;
+            typedef struct KxContext *KxContextRef;
+            @interface KxFilteredOpaqueHost
+            - (void)consumeZone:(KxZone *)zone context:(KxContextRef)context;
+            @end
+        """.trimIndent())
+
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun consumeFilteredOpaque(
+                    host: KxFilteredOpaqueHost,
+                    zone: KxZonePointer,
+                    context: KxContextRef,
+                ) = host.consumeZone_context(zone, context)
+            """.trimIndent(),
+        )
+    }
+
+    "repeated incomplete Objective-C record declarations emit one nominal pointer wrapper" {
+        val first = Declaration.struct(Position.NO_POSITION, "KxRepeatedOpaque")
+        val second = Declaration.struct(Position.NO_POSITION, "KxRepeatedOpaque")
+        val third = Declaration.struct(Position.NO_POSITION, "KxRepeatedOpaque")
+        val parameter = Declaration.parameter(
+            Position.NO_POSITION,
+            "value",
+            Type.pointer(Type.declared(first)),
+        )
+        val method = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "consume",
+            "consume:",
+            false,
+            Type.void_(),
+            "void",
+            listOf(parameter),
+            false,
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxRepeatedOpaqueHost",
+            null,
+            emptyList(),
+            listOf(method),
+            emptyList(),
+        )
+        val files = generateManual(first, second, third, host)
+
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun consumeRepeatedOpaque(
+                    host: KxRepeatedOpaqueHost,
+                    value: KxRepeatedOpaquePointer,
+                ) = host.consume(value)
+            """.trimIndent(),
+        )
+    }
+
+    "distinct anonymous Objective-C records keep separate pointer identities" {
+        val files = generateAll("""
+            typedef struct { int marker; } KxFirstAnonymous;
+            typedef struct { double marker; } KxSecondAnonymous;
+            @interface KxAnonymousRecordHost
+            - (void)consumeFirst:(KxFirstAnonymous *)first second:(KxSecondAnonymous *)second;
+            @end
+        """.trimIndent())
+
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun consumeAnonymousRecords(
+                    host: KxAnonymousRecordHost,
+                    first: KxFirstAnonymousPointer,
+                    second: KxSecondAnonymousPointer,
+                ) = host.consumeFirst_second(first, second)
+            """.trimIndent(),
+        )
+    }
+
+    "single-segment Objective-C value records compile without constructor collisions" {
+        val files = generateAll("""
+            typedef struct KxSingleSegmentValue {
+                void *payload;
+            } KxSingleSegmentValue;
+            @interface KxSingleSegmentValueHost
+            - (KxSingleSegmentValue)roundTrip:(KxSingleSegmentValue)value;
+            @end
+        """.trimIndent())
+
+        compileOnly(
+            files,
+            """
+                package test
+
+                import java.lang.foreign.MemorySegment
+                import java.lang.foreign.SegmentAllocator
+
+                fun allocateSingleSegmentValue(
+                    allocator: SegmentAllocator,
+                ): KxSingleSegmentValue =
+                    KxSingleSegmentValue.allocate(allocator).apply {
+                        payload = MemorySegment.NULL
+                    }
+            """.trimIndent(),
+        )
+    }
+
     "C by-value records retain their full API when Objective-C also uses a pointer" {
         val files = generateAll("""
             typedef struct KxMixedValue {

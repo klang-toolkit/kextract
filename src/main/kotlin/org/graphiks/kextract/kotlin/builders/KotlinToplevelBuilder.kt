@@ -66,6 +66,9 @@ class KotlinToplevelBuilder(
     private val _objcSurfaceEnums = IdentityHashMap<Declaration.Scoped, Boolean>()
     private val _objcSurfaceValueStructs = IdentityHashMap<Declaration.Scoped, Boolean>()
     private val _objcSurfacePointerStructs = IdentityHashMap<Declaration.Scoped, Boolean>()
+    private val _objcSurfaceValueRecordKeys = mutableSetOf<String>()
+    private val _objcSurfacePointerRecordKeys = mutableSetOf<String>()
+    private val _objcSurfaceRecordRepresentatives = IdentityHashMap<Declaration.Scoped, Boolean>()
     private var _objcSurfacePointerTypedefNames: Set<String> = emptySet()
     private var _topLevelDeclarationNames: Set<String> = emptySet()
 
@@ -243,6 +246,7 @@ class KotlinToplevelBuilder(
 
     override fun visitScoped(decl: Declaration.Scoped) {
         if (Skip.isPresent(decl)) return
+        if (!shouldEmitObjCSurfaceRecord(decl)) return
         when (decl.kind()) {
             Declaration.Scoped.Kind.STRUCT -> {
                 if (splitOutput) {
@@ -546,10 +550,12 @@ class KotlinToplevelBuilder(
         _objcSurfaceEnums.containsKey(enumDecl)
 
     fun isObjCSurfaceStruct(structDecl: Declaration.Scoped): Boolean =
-        _objcSurfaceValueStructs.containsKey(structDecl)
+        _objcSurfaceValueStructs.containsKey(structDecl) ||
+            recordKey(structDecl)?.let(_objcSurfaceValueRecordKeys::contains) == true
 
     fun isObjCSurfacePointerStruct(structDecl: Declaration.Scoped): Boolean =
-        _objcSurfacePointerStructs.containsKey(structDecl)
+        _objcSurfacePointerStructs.containsKey(structDecl) ||
+            recordKey(structDecl)?.let(_objcSurfacePointerRecordKeys::contains) == true
 
     internal fun hasObjCSurfacePointerTypedef(name: String): Boolean =
         name in _objcSurfacePointerTypedefNames
@@ -583,10 +589,12 @@ class KotlinToplevelBuilder(
     private fun markObjCSurfaceTypes(toplevel: Declaration.Scoped) {
         fun markPointerStruct(struct: Declaration.Scoped) {
             _objcSurfacePointerStructs[struct] = true
+            recordKey(struct)?.let(_objcSurfacePointerRecordKeys::add)
         }
 
         fun markValueStruct(struct: Declaration.Scoped) {
             if (_objcSurfaceValueStructs.put(struct, true) != null) return
+            recordKey(struct)?.let(_objcSurfaceValueRecordKeys::add)
             markPointerStruct(struct)
             for (field in struct.members().filterIsInstance<Declaration.Variable>()) {
                 TypeMapper.namedStruct(field.type())?.declaration?.let(::markValueStruct)
@@ -700,6 +708,8 @@ class KotlinToplevelBuilder(
             pointerCount != _objcSurfacePointerStructs.size
         )
 
+        selectObjCSurfaceRecordRepresentatives(toplevel)
+
         _objcSurfacePointerTypedefNames = toplevel.members()
             .filterIsInstance<Declaration.Typedef>()
             .filterNot(Skip::isPresent)
@@ -710,6 +720,37 @@ class KotlinToplevelBuilder(
             }
             .toSet()
     }
+
+    private fun selectObjCSurfaceRecordRepresentatives(toplevel: Declaration.Scoped) {
+        _objcSurfaceRecordRepresentatives.clear()
+        for (key in _objcSurfacePointerRecordKeys) {
+            val candidates = toplevel.members()
+                .filterIsInstance<Declaration.Scoped>()
+                .filterNot(Skip::isPresent)
+                .filter { recordKey(it) == key }
+            val exactUses = if (key in _objcSurfaceValueRecordKeys) {
+                _objcSurfaceValueStructs
+            } else {
+                _objcSurfacePointerStructs
+            }
+            val representative = candidates.firstOrNull(exactUses::containsKey)
+                ?: candidates.maxByOrNull { candidate ->
+                    (if (candidate.members().isNotEmpty()) 1 else 0)
+                }
+            if (representative != null) {
+                _objcSurfaceRecordRepresentatives[representative] = true
+            }
+        }
+    }
+
+    private fun shouldEmitObjCSurfaceRecord(record: Declaration.Scoped): Boolean {
+        val key = recordKey(record) ?: return true
+        return key !in _objcSurfacePointerRecordKeys ||
+            _objcSurfaceRecordRepresentatives.containsKey(record)
+    }
+
+    private fun recordKey(record: Declaration.Scoped): String? =
+        record.name().takeIf(String::isNotEmpty)?.let { "${record.kind()}:$it" }
 
     private fun resolveGeneratedEnum(enumDecl: Declaration.Scoped): Declaration.Scoped? {
         val candidates = _topLevelEnumsByName[enumDecl.name()].orEmpty()

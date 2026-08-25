@@ -14,6 +14,8 @@ import org.graphiks.kextract.TypeImpl
 import org.graphiks.kextract.DeclarationImpl.AnonymousStruct
 import org.graphiks.kextract.DeclarationImpl.ClangSizeOf
 import org.graphiks.kextract.DeclarationImpl.Skip
+import org.graphiks.kextract.kotlin.utils.TypeMapper
+import java.util.IdentityHashMap
 
 class UnsupportedFilter(
     private val logger: Logger,
@@ -22,8 +24,17 @@ class UnsupportedFilter(
 ) : Declaration.Visitor<Unit> {
 
     private var firstNamedParent: Declaration? = null
+    private val objcPointerRecords = IdentityHashMap<Scoped, Boolean>()
+    private val objcValueRecords = IdentityHashMap<Scoped, Boolean>()
+    private val objcPointerRecordNames = mutableSetOf<String>()
+    private val objcValueRecordNames = mutableSetOf<String>()
 
     fun scan(header: Scoped): Scoped {
+        objcPointerRecords.clear()
+        objcValueRecords.clear()
+        objcPointerRecordNames.clear()
+        objcValueRecordNames.clear()
+        collectObjCSurfaceRecords(header)
         header.members().forEach { it.accept(this) }
         return header
     }
@@ -82,6 +93,7 @@ class UnsupportedFilter(
 
         val unsupportedType = firstUnsupportedType(Type.declared(scoped), false, allowWChar = allowWChar)
         if (unsupportedType != null) {
+            if (isObjCPointerOnlyRecord(scoped)) return
             warnSkip(scoped.pos(), scoped.name(), unsupportedType(unsupportedType))
             Skip.with(scoped)
             return
@@ -113,6 +125,8 @@ class UnsupportedFilter(
 
         val unsupportedType = firstUnsupportedType(typedefTree.type(), false, allowWChar = allowWChar)
         if (unsupportedType != null) {
+            val record = TypeMapper.namedStruct(typedefTree.type())?.declaration
+            if (record != null && isObjCPointerOnlyRecord(record)) return
             warnSkip(typedefTree.pos(), typedefTree.name(), unsupportedType(unsupportedType))
             Skip.with(typedefTree)
             return
@@ -139,6 +153,62 @@ class UnsupportedFilter(
     override fun visitObjCClass(d: Declaration.ObjCClass) = Unit
     override fun visitObjCProtocol(d: Declaration.ObjCProtocol) = Unit
     override fun visitObjCCategory(d: Declaration.ObjCCategory) = Unit
+
+    private fun collectObjCSurfaceRecords(header: Scoped) {
+        for (declaration in header.members()) {
+            if (Skip.isPresent(declaration)) continue
+            when (declaration) {
+                is Declaration.ObjCClass -> {
+                    declaration.methods().forEach(::collectObjCMethodRecords)
+                    declaration.properties().forEach { collectObjCTypeRecords(it.type()) }
+                }
+                is Declaration.ObjCProtocol -> {
+                    declaration.methods().forEach(::collectObjCMethodRecords)
+                    declaration.properties().forEach { collectObjCTypeRecords(it.type()) }
+                }
+                is Declaration.ObjCCategory -> {
+                    declaration.methods().forEach(::collectObjCMethodRecords)
+                    declaration.properties().forEach { collectObjCTypeRecords(it.type()) }
+                }
+            }
+        }
+    }
+
+    private fun collectObjCMethodRecords(method: Declaration.ObjCMethod) {
+        collectObjCTypeRecords(method.returnType())
+        method.parameters().forEach { collectObjCTypeRecords(it.type()) }
+    }
+
+    private fun collectObjCTypeRecords(type: Type) {
+        val pointer = TypeMapper.pointedStruct(type)
+        if (pointer != null) {
+            markObjCPointerRecord(pointer.declaration)
+            return
+        }
+
+        val value = TypeMapper.namedStruct(type) ?: return
+        if (objcValueRecords.put(value.declaration, true) != null) return
+        value.declaration.name().takeIf(String::isNotEmpty)?.let(objcValueRecordNames::add)
+        value.declaration.members()
+            .filterIsInstance<Variable>()
+            .forEach { collectObjCTypeRecords(it.type()) }
+    }
+
+    private fun markObjCPointerRecord(record: Scoped) {
+        objcPointerRecords[record] = true
+        record.name().takeIf(String::isNotEmpty)?.let(objcPointerRecordNames::add)
+    }
+
+    private fun isObjCPointerOnlyRecord(record: Scoped): Boolean {
+        val name = record.name()
+        val usedByPointer =
+            objcPointerRecords.containsKey(record) ||
+                (name.isNotEmpty() && name in objcPointerRecordNames)
+        val usedByValue =
+            objcValueRecords.containsKey(record) ||
+                (name.isNotEmpty() && name in objcValueRecordNames)
+        return usedByPointer && !usedByValue
+    }
 
     private fun checkFunctionTypeSupported(decl: Declaration, func: Type.Function, nameOfSkipped: String): Boolean {
         val unsupportedType = firstUnsupportedType(
