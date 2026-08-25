@@ -5,6 +5,7 @@ import java.io.PrintWriter
 import java.text.MessageFormat
 import java.util.Locale
 import java.util.ResourceBundle
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Logger for kextract warnings and errors with internationalization support.
@@ -14,10 +15,13 @@ class Logger @JvmOverloads constructor(
     val errWriter: PrintWriter = PrintWriter(System.err, true),
     private val locale: Locale = Locale.getDefault()
 ) {
-    var nErrors: Int = 0
-        private set
-    var nClangErrors: Int = 0
-        private set
+    private val errorCount = AtomicInteger()
+    private val clangErrorCount = AtomicInteger()
+
+    val nErrors: Int
+        get() = errorCount.get()
+    val nClangErrors: Int
+        get() = clangErrorCount.get()
 
     private val messagesBundle: ResourceBundle by lazy {
         ResourceBundle.getBundle("org.graphiks.kextract.pipeline.resources.Messages", locale)
@@ -30,7 +34,7 @@ class Logger @JvmOverloads constructor(
         val msg = format(key, *args)
         val fullMsg = formatPos(pos)?.let { "$it: error: $msg" } ?: "error: $msg"
         synchronized(errWriter) { errWriter.println(fullMsg) }
-        nErrors++
+        errorCount.incrementAndGet()
     }
 
     @JvmOverloads
@@ -52,7 +56,7 @@ class Logger @JvmOverloads constructor(
     fun clangErr(pos: Position?, msg: String) {
         val fullMsg = formatPos(pos)?.let { "$it: error: $msg" } ?: "error: $msg"
         synchronized(errWriter) { errWriter.println(fullMsg) }
-        nClangErrors++
+        clangErrorCount.incrementAndGet()
     }
 
     fun clangWarn(pos: Position?, msg: String) {

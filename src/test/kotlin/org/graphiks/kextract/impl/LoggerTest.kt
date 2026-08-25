@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.io.PrintWriter
 import java.nio.file.Path
+import java.util.concurrent.CountDownLatch
 import org.graphiks.kextract.Position
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -109,19 +110,30 @@ class LoggerTest {
     }
 
     @Test
-    fun `test thread safety`() {
-        val threads = (1..10).map { i ->
+    fun `concurrent error reporting preserves every message and counter update`() {
+        val threadCount = 16
+        val reportsPerThread = 250
+        val ready = CountDownLatch(threadCount)
+        val start = CountDownLatch(1)
+        val threads = List(threadCount) { threadIndex ->
             Thread {
-                logger.err("test.error", "msg$i")
+                ready.countDown()
+                start.await()
+                repeat(reportsPerThread) { reportIndex ->
+                    logger.err("test.error", "regular-$threadIndex-$reportIndex")
+                    logger.clangErr(null, "clang-$threadIndex-$reportIndex")
+                }
             }
         }
         threads.forEach { it.start() }
+        ready.await()
+        start.countDown()
         threads.forEach { it.join() }
 
-        val output = errStream.toString()
-        for (i in 1..10) {
-            assertContains(output, "msg$i")
-        }
-        assertEquals(10, logger.nErrors)
+        val expectedPerKind = threadCount * reportsPerThread
+        val emittedLines = errStream.toString().lineSequence().count { it.isNotBlank() }
+        assertEquals(expectedPerKind * 2, emittedLines)
+        assertEquals(expectedPerKind, logger.nErrors)
+        assertEquals(expectedPerKind, logger.nClangErrors)
     }
 }

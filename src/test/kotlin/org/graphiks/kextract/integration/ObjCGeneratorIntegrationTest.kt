@@ -155,6 +155,54 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         }
     }
 
+    fun compileOnly(files: List<KotlinSourceFile>, probeSource: String) {
+        val workspace = Files.createTempDirectory("kextract_objc_compile_")
+        try {
+            val sourcePaths = files.mapIndexed { index, source ->
+                workspace.resolve("${source.className}_$index.kt").also {
+                    Files.writeString(it, source.contents)
+                }
+            }
+            val probe = workspace.resolve("ConsumerProbe.kt")
+            Files.writeString(probe, probeSource)
+            val output = Files.createDirectories(workspace.resolve("classes"))
+            val arguments = buildList {
+                addAll(listOf(
+                    "-no-stdlib",
+                    "-no-reflect",
+                    "-jvm-target", "25",
+                    "-classpath", System.getProperty("java.class.path"),
+                    "-d", output.toString(),
+                ))
+                addAll(sourcePaths.map(Path::toString))
+                add(probe.toString())
+            }
+            K2JVMCompiler().exec(System.err, *arguments.toTypedArray()) shouldBe ExitCode.OK
+        } finally {
+            workspace.toFile().deleteRecursively()
+        }
+    }
+
+    fun compileX86ObjCAssembly(source: String): String {
+        val lookup = ProcessBuilder("xcrun", "--find", "clang")
+            .redirectErrorStream(true)
+            .start()
+        val clang = lookup.inputStream.bufferedReader().readText().trim()
+        lookup.waitFor() shouldBe 0
+
+        val process = ProcessBuilder(
+            clang,
+            "-target", "x86_64-apple-macos13.0",
+            "-x", "objective-c",
+            "-S", "-O0", "-fno-objc-arc",
+            "-o", "-", "-",
+        ).redirectErrorStream(true).start()
+        process.outputStream.bufferedWriter().use { it.write(source) }
+        val assembly = process.inputStream.bufferedReader().readText()
+        process.waitFor() shouldBe 0
+        return assembly
+    }
+
     /** Returns the ObjCRuntime.kt content if present, else "". */
     fun getRuntime(files: List<KotlinSourceFile>): String =
         files.firstOrNull { it.className == "ObjCRuntime" }?.contents ?: ""
@@ -615,7 +663,7 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
 
         "options-style macros use the value-class constructor" {
             val src = generate("""
-                typedef enum : long {
+                typedef enum __attribute__((flag_enum)) : long {
                     KxFeatureA = 1,
                     KxFeatureB = 2
                 } KxFeatureOptions;
@@ -902,7 +950,7 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
 
     "NS_OPTIONS generates @JvmInline value class" - {
         val src = generate("""
-            typedef enum : long {
+            typedef enum __attribute__((flag_enum)) : long {
                 KxNone              = 0,
                 KxCaseInsensitive   = 1,
                 KxLiteral           = 2,
@@ -931,18 +979,337 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         }
     }
 
-    "Enum typedef with Flags suffix generates value class" - {
+    "Objective-C semantic wrappers compile and represent unknown values" - {
+        val files = generateAll("""
+            #define NS_ENUM(_type, _name) \
+                enum _name : _type _name; enum _name : _type
+            #define NS_OPTIONS(_type, _name) \
+                enum __attribute__((flag_enum)) _name : _type _name; \
+                enum __attribute__((flag_enum)) _name : _type
+
+            typedef unsigned long NSUInteger;
+            typedef struct KxPoint {
+                double x;
+                double y;
+            } KxPoint;
+            typedef struct KxRect {
+                KxPoint origin;
+                KxPoint size;
+            } KxRect;
+            typedef struct _KxRange {
+                NSUInteger location;
+                NSUInteger length;
+            } KxRange;
+            typedef KxRange *KxRangePointer;
+            typedef NS_ENUM(long, KxOpenMode) { KxOpenModeKnown = 1 };
+            typedef NS_OPTIONS(unsigned long, KxOpenFlags) { KxOpenFlagsKnown = 1 };
+            typedef NS_ENUM(long, KxFieldMode) { KxFieldModeKnown = 2 };
+            typedef union KxPayload {
+                long integer;
+                double decimal;
+            } KxPayload;
+            typedef struct KxSemanticRecord {
+                KxFieldMode mode;
+                KxRangePointer rangePointer;
+                KxPayload payload;
+                unsigned char bytes[8];
+            } KxSemanticRecord;
+            typedef struct KxPaddedRecord {
+                unsigned char tag;
+                NSUInteger payload;
+                unsigned char tail;
+            } KxPaddedRecord;
+            typedef struct KxBitfieldRecord {
+                unsigned int low : 3;
+                unsigned int high : 5;
+                NSUInteger payload;
+                unsigned char tail;
+            } KxBitfieldRecord;
+            typedef struct KxTwoDoubles {
+                double first;
+                double second;
+            } KxTwoDoubles;
+            typedef struct KxFourDoubles {
+                double first;
+                double second;
+                double third;
+                double fourth;
+            } KxFourDoubles;
+
+            KxRange NSUnionRange(KxRange lhs, KxRange rhs);
+            KxRange NSIntersectionRange(KxRange lhs, KxRange rhs);
+            KxRange KxCurrentRange(void);
+
+            @interface KxSemanticConsumer
+            - (KxRect)transformRange:(KxRange)range point:(KxPoint)point pointer:(KxRangePointer)pointer;
+            - (KxOpenMode)modeForFlags:(KxOpenFlags)flags;
+            - (KxSemanticRecord)transformRecord:(KxSemanticRecord)record;
+            - (KxPaddedRecord)transformPadded:(KxPaddedRecord)record;
+            - (KxBitfieldRecord)transformBitfield:(KxBitfieldRecord)record;
+            - (KxTwoDoubles)smallStructReturn;
+            - (KxFourDoubles)largeStructReturn;
+            @end
+        """.trimIndent())
+
+        "unknown enum raw values are constructible without throwing" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+                    fun readUnknownMode(): Long = KxOpenMode(4_294_967_299L).rawValue
+                """.trimIndent(),
+                "readUnknownMode",
+            ) shouldBe 4_294_967_299L
+        }
+
+        "asymmetric struct values survive named construction and typed access" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    fun readAsymmetricRange(): Long {
+                        val point = KxPoint(x = 13.0, y = -7.0)
+                        val rect = KxRect(
+                            origin = KxPoint(x = 17.0, y = -3.0),
+                            size = KxPoint(x = 5.0, y = 11.0),
+                        )
+                        val range = KxRange(location = 7L, length = 13L)
+                        val pointCode = (point.x * 100.0 - point.y).toLong()
+                        val rectCode = (
+                            rect.origin.x * 100.0 - rect.origin.y +
+                                rect.size.x * 10.0 + rect.size.y
+                            ).toLong()
+                        return pointCode * 1_000_000L + rectCode * 1_000L +
+                            range.location * 100L + range.length
+                    }
+                """.trimIndent(),
+                "readAsymmetricRange",
+            ) shouldBe 1_308_764_713L
+        }
+
+        "enum pointer union and array fields survive named construction and typed access" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.Arena
+                    import java.lang.foreign.ValueLayout
+
+                    fun readCompositeRecord(): Long {
+                        val arena = Arena.ofAuto()
+                        val rangePointer = KxRange.allocateArray(1L, arena)
+                        rangePointer.pointed().apply {
+                            location = 7L
+                            length = 13L
+                        }
+                        val payload = arena.allocate(KxPayload.layout)
+                        payload.set(ValueLayout.JAVA_LONG, 0L, 101L)
+                        val bytes = arena.allocate(8L)
+                        bytes.set(ValueLayout.JAVA_BYTE, 0L, 3.toByte())
+                        bytes.set(ValueLayout.JAVA_BYTE, 7L, 5.toByte())
+
+                        val record = KxSemanticRecord(
+                            mode = KxFieldMode(37L),
+                            rangePointer = rangePointer,
+                            payload = payload,
+                            bytes = bytes,
+                        )
+                        return record.mode.rawValue * 1_000_000L +
+                            record.rangePointer.pointed().location * 10_000L +
+                            record.rangePointer.pointed().length * 100L +
+                            record.payload.get(ValueLayout.JAVA_LONG, 0L) +
+                            record.bytes.get(ValueLayout.JAVA_BYTE, 0L) * 10L +
+                            record.bytes.get(ValueLayout.JAVA_BYTE, 7L)
+                    }
+                """.trimIndent(),
+                "readCompositeRecord",
+            ) shouldBe 37_071_436L
+        }
+
+        "a source shorter than an array field fails with the FFM bounds exception" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.Arena
+
+                    fun shortArraySourceIsRejected(): Long {
+                        val arena = Arena.ofAuto()
+                        val record = KxSemanticRecord.allocate(arena)
+                        val sevenBytes = arena.allocate(7L)
+                        return try {
+                            record.bytes = sevenBytes
+                            0L
+                        } catch (_: IndexOutOfBoundsException) {
+                            1L
+                        }
+                    }
+                """.trimIndent(),
+                "shortArraySourceIsRejected",
+            ) shouldBe 1L
+        }
+
+        "an oversized union source copies only its prefix and preserves the adjacent array" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.Arena
+                    import java.lang.foreign.ValueLayout
+
+                    fun oversizedUnionCopyIsBounded(): Long {
+                        val arena = Arena.ofAuto()
+                        val record = KxSemanticRecord.allocate(arena)
+                        val arraySentinels = arena.allocate(8L)
+                        arraySentinels.set(ValueLayout.JAVA_BYTE, 0L, 41.toByte())
+                        arraySentinels.set(ValueLayout.JAVA_BYTE, 7L, 43.toByte())
+                        record.bytes = arraySentinels
+
+                        val oversizedPayload = arena.allocate(16L)
+                        oversizedPayload.set(ValueLayout.JAVA_LONG, 0L, 101L)
+                        oversizedPayload.set(ValueLayout.JAVA_BYTE, 8L, 91.toByte())
+                        oversizedPayload.set(ValueLayout.JAVA_BYTE, 15L, 97.toByte())
+                        record.payload = oversizedPayload
+
+                        return record.payload.get(ValueLayout.JAVA_LONG, 0L) * 10_000L +
+                            record.bytes.get(ValueLayout.JAVA_BYTE, 0L) * 100L +
+                            record.bytes.get(ValueLayout.JAVA_BYTE, 7L)
+                    }
+                """.trimIndent(),
+                "oversizedUnionCopyIsBounded",
+            ) shouldBe 1_014_143L
+        }
+
+        "Clang offsets drive intermediate and trailing padding while bitfields stay opaque" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.MemoryLayout.PathElement.groupElement
+
+                    fun readPaddedLayouts(): Long {
+                        val padded = KxPaddedRecord(tag = 3.toByte(), payload = 101L, tail = 5.toByte())
+                        val paddedCode = KxPaddedRecord.byteSize * 1_000_000L +
+                            KxPaddedRecord.layout.byteOffset(groupElement("payload")) * 10_000L +
+                            KxPaddedRecord.layout.byteOffset(groupElement("tail")) * 100L +
+                            padded.tag * 100L + padded.payload * 10L + padded.tail
+
+                        val bitfield = KxBitfieldRecord(payload = 211L, tail = 7.toByte())
+                        val bitfieldCode = KxBitfieldRecord.byteSize * 1_000_000L +
+                            KxBitfieldRecord.layout.byteOffset(groupElement("payload")) * 10_000L +
+                            KxBitfieldRecord.layout.byteOffset(groupElement("tail")) * 100L +
+                            bitfield.payload * 10L + bitfield.tail
+                        return paddedCode * 100_000_000L + bitfieldCode
+                    }
+                """.trimIndent(),
+                "readPaddedLayouts",
+            ) shouldBe 2_408_291_524_083_717L
+        }
+
+        "layout classifier selects regular and stret x86_64 struct returns" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.MemoryLayout
+                    import java.lang.foreign.ValueLayout
+
+                    fun classifyStructReturns(): Long {
+                        val smallX86 = objcStructReturnUsesStret(KxTwoDoubles.layout, "x86_64")
+                        val largeX86 = objcStructReturnUsesStret(KxFourDoubles.layout, "x86_64")
+                        val largeAmd64 = objcStructReturnUsesStret(KxFourDoubles.layout, "amd64")
+                        val largeArm = objcStructReturnUsesStret(KxFourDoubles.layout, "aarch64")
+                        val compactUnion = MemoryLayout.unionLayout(
+                            ValueLayout.JAVA_BYTE,
+                            ValueLayout.JAVA_LONG,
+                        )
+                        val unionX86 = objcStructReturnUsesStret(compactUnion, "x86_64")
+                        return (if (smallX86) 1_000L else 0L) +
+                            (if (largeX86) 100L else 0L) +
+                            (if (largeAmd64) 10L else 0L) +
+                            (if (largeArm) 1L else 0L) +
+                            (if (unionX86) 10_000L else 0L)
+                    }
+                """.trimIndent(),
+                "classifyStructReturns",
+            ) shouldBe 110L
+        }
+
+        "typed C adapters compile for consumer calls while raw carriers remain callable" {
+            compileOnly(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.MemorySegment
+                    import java.lang.foreign.SegmentAllocator
+
+                    fun typedSharedCalls(allocator: SegmentAllocator, lhs: KxRange, rhs: KxRange): KxRange {
+                        val union: KxRange = NSUnionRange(allocator, lhs, rhs)
+                        val intersection: KxRange = NSIntersectionRange(allocator, lhs, rhs)
+                        val current: KxRange = KxCurrentRangeTyped(allocator)
+                        return KxRange(
+                            location = union.location + current.location,
+                            length = intersection.length,
+                        )
+                    }
+
+                    fun rawSharedCall(
+                        allocator: SegmentAllocator,
+                        lhs: MemorySegment,
+                        rhs: MemorySegment,
+                    ): MemorySegment = NSUnionRange(allocator, lhs, rhs)
+                """.trimIndent(),
+            )
+        }
+    }
+
+    "Apple Clang x86_64 uses regular msgSend for 16 bytes and stret for 32 bytes" {
+        val assembly = compileX86ObjCAssembly("""
+            typedef struct { double first; double second; } KxTwoDoubles;
+            typedef struct { double first; double second; double third; double fourth; } KxFourDoubles;
+
+            @interface KxReturnHost
+            - (KxTwoDoubles)smallStructReturn;
+            - (KxFourDoubles)largeStructReturn;
+            @end
+
+            KxTwoDoubles kxCallSmall(KxReturnHost *host) {
+                return [host smallStructReturn];
+            }
+
+            KxFourDoubles kxCallLarge(KxReturnHost *host) {
+                return [host largeStructReturn];
+            }
+        """.trimIndent())
+
+        val smallBody = Regex("_kxCallSmall:[^\\n]*\\n([\\s\\S]*?)\\.cfi_endproc")
+            .find(assembly)?.groupValues?.get(1) ?: error("missing kxCallSmall assembly:\n$assembly")
+        val largeBody = Regex("_kxCallLarge:[^\\n]*\\n([\\s\\S]*?)\\.cfi_endproc")
+            .find(assembly)?.groupValues?.get(1) ?: error("missing kxCallLarge assembly:\n$assembly")
+        smallBody shouldContain "_objc_msgSend"
+        smallBody shouldNotContain "_objc_msgSend_stret"
+        largeBody shouldContain "_objc_msgSend_stret"
+    }
+
+    "FlagEnum attribute generates value class without a naming convention" - {
         val src = generate("""
-            typedef enum : long {
+            typedef enum __attribute__((flag_enum)) : long {
                 KxEventNone  = 0,
                 KxEventClick = 1,
                 KxEventHover = 2
-            } KxEventFlags;
+            } KxEventBits;
         """.trimIndent())
 
-        "value class emitted for Flags suffix" {
+        "value class emitted for semantic options" {
             src shouldContain "@JvmInline"
-            src shouldContain "value class KxEventFlags(val rawValue: Long)"
+            src shouldContain "value class KxEventBits(val rawValue: Long)"
         }
     }
 

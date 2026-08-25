@@ -9,6 +9,11 @@ import org.graphiks.kextract.Type
  * Handles primitives, pointers (nullable), structs, typedefs, and functions.
  */
 object TypeMapper {
+    internal data class NamedRecord(
+        val publicName: String,
+        val declaration: Declaration.Scoped,
+    )
+
     /**
      * Maps a C type to its Kotlin equivalent.
      */
@@ -81,4 +86,53 @@ object TypeMapper {
     private fun sanitizeName(name: String): String =
         name.replace(Regex("[^a-zA-Z0-9_]"), "_")
             .replace(Regex("^\\d+"), "_")
+
+    /** Resolves a value record without crossing pointer indirections. */
+    internal fun namedStruct(type: Type): NamedRecord? =
+        namedRecord(type, Declaration.Scoped.Kind.STRUCT)
+
+    /**
+     * Resolves a pointer-to-struct through outer typedefs and qualifiers.
+     *
+     * The returned public name is the complete pointer type identity. A real
+     * pointer typedef therefore keeps its own name (`NSRangePointer`), while an
+     * unnamed `NSRange *` surface uses the generated `NSRangePointer` identity.
+     */
+    internal fun pointedStruct(type: Type): NamedRecord? {
+        var current = type
+        var pointerTypedefName: String? = null
+        while (current is Type.Delegated && current.kind() != Type.Delegated.Kind.POINTER) {
+            if (current.kind() == Type.Delegated.Kind.TYPEDEF && pointerTypedefName == null) {
+                pointerTypedefName = current.name()
+            }
+            current = current.type()
+        }
+        if (current !is Type.Delegated || current.kind() != Type.Delegated.Kind.POINTER) return null
+
+        val pointee = namedStruct(current.type()) ?: return null
+        return NamedRecord(
+            publicName = pointerTypedefName ?: "${pointee.publicName}Pointer",
+            declaration = pointee.declaration,
+        )
+    }
+
+    private fun namedRecord(
+        type: Type,
+        target: Declaration.Scoped.Kind,
+        preferredName: String? = null,
+    ): NamedRecord? = when {
+        type is Type.Declared && type.tree().kind() == target -> {
+            val name = preferredName ?: type.tree().name()
+            name.takeIf(String::isNotEmpty)?.let { NamedRecord(it, type.tree()) }
+        }
+        type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER -> {
+            val name = if (type.kind() == Type.Delegated.Kind.TYPEDEF) {
+                preferredName ?: type.name()
+            } else {
+                preferredName
+            }
+            namedRecord(type.type(), target, name)
+        }
+        else -> null
+    }
 }

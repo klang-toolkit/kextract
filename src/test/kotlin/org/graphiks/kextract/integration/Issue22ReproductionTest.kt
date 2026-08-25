@@ -124,10 +124,10 @@ class Issue22ReproductionTest : FreeSpec({
 
     /**
      * A method returning a struct by value (e.g. `NSRect`) must be dispatched with
-     * ObjCRuntime.msgSendStret and a MemoryLayout.structLayout(…) expression, NOT
-     * ValueLayout.ADDRESS. Using ADDRESS causes NaN / garbage values on ARM64 (Bug 2).
+     * ObjCRuntime.msgSendStruct and a MemoryLayout.structLayout(…) expression, NOT
+     * ValueLayout.ADDRESS. The runtime selects regular msgSend versus stret from the ABI.
      */
-    "Bug 2a — struct-by-value return uses msgSendStret with structLayout" {
+    "Bug 2a — struct-by-value return uses ABI-selected msgSendStruct with structLayout" {
         val src = generate("""
             typedef double CGFloat;
             struct KxPoint { CGFloat x; CGFloat y; };
@@ -137,12 +137,12 @@ class Issue22ReproductionTest : FreeSpec({
             @end
         """.trimIndent())
 
-        src shouldContain "msgSendStret"
+        src shouldContain "msgSendStruct"
         src shouldContain "MemoryLayout.structLayout"
         src shouldNotContain "msgSend(ValueLayout.ADDRESS, ptr, sel)"
     }
 
-    "Bug 2b — typedef'd struct return (NSRect-style) uses msgSendStret" {
+    "Bug 2b — typedef'd struct return (NSRect-style) uses ABI-selected msgSendStruct" {
         val src = generate("""
             typedef double CGFloat;
             struct KxRect { CGFloat x; CGFloat y; CGFloat width; CGFloat height; };
@@ -153,7 +153,7 @@ class Issue22ReproductionTest : FreeSpec({
             @end
         """.trimIndent())
 
-        src shouldContain "msgSendStret"
+        src shouldContain "msgSendStruct"
         src shouldContain "MemoryLayout.structLayout"
     }
 
@@ -193,9 +193,9 @@ class Issue22ReproductionTest : FreeSpec({
         src shouldContain "MemoryLayout.structLayout"
     }
 
-    // ── Bug 2 runtime: ObjCRuntime.kt contains ObjCStructArg and correct msgSendStret ──
+    // ── Bug 2 runtime: ObjCRuntime.kt contains ObjCStructArg and struct dispatch ──
 
-    "Bug 2/3 runtime — ObjCRuntime.kt declares ObjCStructArg and fixed msgSendStret" {
+    "Bug 2/3 runtime — ObjCRuntime.kt declares ObjCStructArg and ABI-selected struct dispatch" {
         val files = run {
             val tmp = java.nio.file.Files.createTempFile("kextract_rt_", ".h")
             try {
@@ -213,6 +213,8 @@ class Issue22ReproductionTest : FreeSpec({
         runtime shouldContain "data class ObjCStructArg"
         runtime shouldContain "GroupLayout"
         runtime shouldContain "SegmentAllocator"
+        runtime shouldContain "fun msgSendStruct"
+        runtime shouldContain "fun objcStructReturnUsesStret"
         // Bug 5 — layout computed before unwrap
         runtime shouldContain "layouts before unwrap"
         // unwrap() is present
@@ -221,7 +223,7 @@ class Issue22ReproductionTest : FreeSpec({
 
     // ── Enum return types (Bug 1 extension) ───────────────────────────────────
 
-    "Bug 1 extended — NS_ENUM return type uses fromValue() not as-cast" {
+    "Bug 1 extended — NS_ENUM return type reconstructs an open raw-value wrapper" {
         val src = generate("""
             typedef enum : long {
                 KxStatusOk    = 0,
@@ -233,7 +235,8 @@ class Issue22ReproductionTest : FreeSpec({
             @end
         """.trimIndent())
 
-        src shouldContain "KxStatus.fromValue("
+        src shouldContain "return KxStatus(ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, ptr, sel) as Long)"
+        src shouldNotContain "KxStatus.fromValue("
         src shouldNotContain "ObjCRuntime.msgSend(ValueLayout.ADDRESS"
     }
 
@@ -282,7 +285,7 @@ class Issue22ReproductionTest : FreeSpec({
         src shouldContain "mask.rawValue"
     }
 
-    "Bug 4 — NS_ENUM (regular enum) argument is unboxed with .value" {
+    "Bug 4 — NS_ENUM raw-value wrapper argument is unboxed with .rawValue" {
         val src = generate("""
             typedef enum : long {
                 KxAlignLeft   = 0,
@@ -295,7 +298,7 @@ class Issue22ReproductionTest : FreeSpec({
             @end
         """.trimIndent())
 
-        src shouldContain "alignment.value"
+        src shouldContain "alignment.rawValue"
     }
 
     // ── Bonus: foundational typealiases survive --include-objc-class filtering ──
