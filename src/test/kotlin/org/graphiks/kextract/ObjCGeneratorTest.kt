@@ -288,6 +288,7 @@ class ObjCGeneratorTest : FreeSpec({
 
         "class methods and properties use semantic enum scalar and struct types" {
             src shouldContain "fun acceptsMode_flags(mode: KxMode, flags: KxFlags): Boolean"
+            src shouldContain "fun negateByteBool(value: Boolean): Boolean"
             src shouldContain "fun signedIndex(): Long"
             src shouldContain "fun unsignedCount(): Long"
             src shouldContain "fun roundTripUnsignedCode(code: KxUnsignedCode): KxUnsignedCode"
@@ -297,6 +298,11 @@ class ObjCGeneratorTest : FreeSpec({
             src shouldContain "fun flags(): KxFlags"
             src shouldContain "fun selection(): NSRange"
             src shouldContain "fun setSelection(value: NSRange)"
+        }
+
+        "signed-char BOOL uses a byte carrier while keeping a Boolean surface" {
+            src shouldContain "ObjCRuntime.msgSend(ValueLayout.JAVA_BYTE, ptr, sel, if (value) 1.toByte() else 0.toByte()) as Byte"
+            src shouldContain ") != 0.toByte()"
         }
 
         "protocols and categories share the same semantic signatures" {
@@ -328,6 +334,19 @@ class ObjCGeneratorTest : FreeSpec({
             src shouldContain "rangePointer.segment"
             src shouldNotContain "range: MemorySegment"
             src shouldNotContain "rangePointer: MemorySegment"
+        }
+
+        "surface structs lower enum pointer union and array fields coherently" {
+            src shouldContain "value class KxFieldMode(val rawValue: Long)"
+            src shouldContain "constructor(mode: KxFieldMode, rangePointer: NSRangePointer, payload: MemorySegment, bytes: MemorySegment)"
+            src shouldContain "fun mode(): KxFieldMode"
+            src shouldContain "fun mode(value: KxFieldMode)"
+            src shouldContain "fun rangePointer(): NSRangePointer"
+            src shouldContain "fun rangePointer(value: NSRangePointer)"
+            src shouldContain "var payload: MemorySegment"
+            src shouldContain "var bytes: MemorySegment"
+            src shouldNotContain "fun mode(): KxFieldMode = mode_VH.get(segment, 0L) as KxFieldMode"
+            src shouldNotContain "fun rangePointer(): MemorySegment"
         }
 
         "include filtering retains semantic types required by an included Objective-C class" {
@@ -373,6 +392,20 @@ class ObjCGeneratorTest : FreeSpec({
             filteredSource shouldNotContain "class KxPlainRecord internal constructor"
             filteredSource shouldNotContain "class KxPlainRecordPointer"
         }
+    }
+
+    "_Bool-backed BOOL uses a Boolean carrier end to end" {
+        val src = generate("""
+            typedef _Bool BOOL;
+            @interface KxBoolHost
+            - (BOOL)negate:(BOOL)value;
+            @end
+        """.trimIndent())
+
+        src shouldContain "fun negate(value: Boolean): Boolean"
+        src shouldContain "ObjCRuntime.msgSend(ValueLayout.JAVA_BOOLEAN, ptr, sel, value) as Boolean"
+        src shouldNotContain "if (value) 1.toByte() else 0.toByte()"
+        src shouldNotContain "as Byte"
     }
 
     // NOTE: In libclang, for `@interface KxAnimal (Tricks)`, c.spelling() returns

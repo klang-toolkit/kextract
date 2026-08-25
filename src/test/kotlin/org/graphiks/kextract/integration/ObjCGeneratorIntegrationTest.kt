@@ -954,10 +954,22 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
             } KxRange;
             typedef NS_ENUM(long, KxOpenMode) { KxOpenModeKnown = 1 };
             typedef NS_OPTIONS(unsigned long, KxOpenFlags) { KxOpenFlagsKnown = 1 };
+            typedef NS_ENUM(long, KxFieldMode) { KxFieldModeKnown = 2 };
+            typedef union KxPayload {
+                long integer;
+                double decimal;
+            } KxPayload;
+            typedef struct KxSemanticRecord {
+                KxFieldMode mode;
+                KxRange *rangePointer;
+                KxPayload payload;
+                unsigned char bytes[8];
+            } KxSemanticRecord;
 
             @interface KxSemanticConsumer
             - (KxRect)transformRange:(KxRange)range point:(KxPoint)point pointer:(KxRange *)pointer;
             - (KxOpenMode)modeForFlags:(KxOpenFlags)flags;
+            - (KxSemanticRecord)transformRecord:(KxSemanticRecord)record;
             @end
         """.trimIndent())
 
@@ -996,6 +1008,46 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
                 """.trimIndent(),
                 "readAsymmetricRange",
             ) shouldBe 1_308_764_713L
+        }
+
+        "enum pointer union and array fields survive named construction and typed access" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.Arena
+                    import java.lang.foreign.ValueLayout
+
+                    fun readCompositeRecord(): Long {
+                        val arena = Arena.ofAuto()
+                        val rangePointer = KxRange.allocateArray(1L, arena)
+                        rangePointer.pointed().apply {
+                            location = 7L
+                            length = 13L
+                        }
+                        val payload = arena.allocate(KxPayload.layout)
+                        payload.set(ValueLayout.JAVA_LONG, 0L, 101L)
+                        val bytes = arena.allocate(8L)
+                        bytes.set(ValueLayout.JAVA_BYTE, 0L, 3.toByte())
+                        bytes.set(ValueLayout.JAVA_BYTE, 7L, 5.toByte())
+
+                        val record = KxSemanticRecord(
+                            mode = KxFieldMode(37L),
+                            rangePointer = rangePointer,
+                            payload = payload,
+                            bytes = bytes,
+                        )
+                        return record.mode.rawValue * 1_000_000L +
+                            record.rangePointer.pointed().location * 10_000L +
+                            record.rangePointer.pointed().length * 100L +
+                            record.payload.get(ValueLayout.JAVA_LONG, 0L) +
+                            record.bytes.get(ValueLayout.JAVA_BYTE, 0L) * 10L +
+                            record.bytes.get(ValueLayout.JAVA_BYTE, 7L)
+                    }
+                """.trimIndent(),
+                "readCompositeRecord",
+            ) shouldBe 37_071_436L
         }
     }
 

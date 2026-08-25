@@ -19,6 +19,7 @@ internal data class ObjCTypeLowering(
     private val returnReconstruction: (String) -> String = { it },
 ) {
     fun lowerArgument(name: String): String = argumentLowering(name)
+    fun reconstruct(rawValue: String): String = returnReconstruction(rawValue)
 
     fun invocation(receiver: String, selector: String, arguments: String): String {
         val raw = when {
@@ -27,7 +28,7 @@ internal data class ObjCTypeLowering(
                 "ObjCRuntime.msgSendStret($layout, $receiver, $selector$arguments)"
             else -> "ObjCRuntime.msgSend($layout, $receiver, $selector$arguments)"
         }
-        return if (isVoid) raw else returnReconstruction(raw)
+        return if (isVoid) raw else reconstruct(raw)
     }
 }
 
@@ -78,11 +79,12 @@ internal class ObjCTypeLowerer(private val toplevel: KotlinToplevelBuilder) {
         }
 
         if (isBoolTypedef(type)) {
+            val carrier = TypeMapper.map(type)
             return ObjCTypeLowering(
                 kotlinType = "Boolean",
                 layout = toplevel.layoutString(type),
-                argumentLowering = { "if ($it) 1.toByte() else 0.toByte()" },
-                returnReconstruction = { "($it as Byte) != 0.toByte()" },
+                argumentLowering = { boolToCarrier(it, carrier) },
+                returnReconstruction = { carrierToBool(it, carrier) },
             )
         }
 
@@ -109,6 +111,24 @@ internal class ObjCTypeLowerer(private val toplevel: KotlinToplevelBuilder) {
         carrier == "Long" -> expression
         carrier == "Int" || carrier == "Short" || carrier == "Byte" -> "($expression).toLong()"
         else -> expression
+    }
+
+    private fun boolToCarrier(expression: String, carrier: String): String = when (carrier) {
+        "Boolean" -> expression
+        "Byte" -> "if ($expression) 1.toByte() else 0.toByte()"
+        "Short" -> "if ($expression) 1.toShort() else 0.toShort()"
+        "Int" -> "if ($expression) 1 else 0"
+        "Long" -> "if ($expression) 1L else 0L"
+        else -> error("Unsupported BOOL carrier: $carrier")
+    }
+
+    private fun carrierToBool(expression: String, carrier: String): String = when (carrier) {
+        "Boolean" -> "$expression as Boolean"
+        "Byte" -> "($expression as Byte) != 0.toByte()"
+        "Short" -> "($expression as Short) != 0.toShort()"
+        "Int" -> "($expression as Int) != 0"
+        "Long" -> "($expression as Long) != 0L"
+        else -> error("Unsupported BOOL carrier: $carrier")
     }
 
     private fun isUnsigned(type: Type): Boolean = when {

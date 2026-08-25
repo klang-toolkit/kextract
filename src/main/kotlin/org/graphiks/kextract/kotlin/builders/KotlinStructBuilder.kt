@@ -7,6 +7,7 @@ import org.graphiks.kextract.kotlin.utils.TypeMapper
 
 /** Generates Kotlin code for structs and unions. */
 class KotlinStructBuilder(private val builder: SourceBuilder, private val toplevel: KotlinToplevelBuilder) {
+    private val typeLowerer = ObjCTypeLowerer(toplevel)
 
     fun visitStruct(decl: Declaration.Scoped) {
         if (toplevel.isObjCSurfaceStruct(decl)) visitObjCSurfaceStruct(decl)
@@ -95,16 +96,17 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.unindent()
         builder.appendLine("} // End companion object")
 
-        if (fields.isNotEmpty() && fields.all { isConstructibleField(it.type()) }) {
-            val parameters = fields.joinToString(", ") { field ->
-                val nested = TypeMapper.namedStruct(field.type())
-                val type = nested?.let { toplevel.javaName(it.publicName) } ?: toplevel.mapType(field.type())
+        val constructibleFields = fields.mapNotNull { field ->
+            fieldKotlinType(field.type())?.let { field to it }
+        }
+        if (constructibleFields.isNotEmpty()) {
+            val parameters = constructibleFields.joinToString(", ") { (field, type) ->
                 "${toplevel.javaName(field.name())}: $type"
             }
             builder.appendLine()
             builder.appendLine("constructor($parameters) : this(Arena.ofAuto().allocate(layout)) {")
             builder.indent()
-            for (field in fields) {
+            for ((field, _) in constructibleFields) {
                 val fieldName = toplevel.javaName(field.name())
                 builder.appendLine("$fieldName($fieldName)")
             }
@@ -117,9 +119,9 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
             val nested = TypeMapper.namedStruct(field.type())
             builder.appendLine()
             when {
-                isArrayType(field.type()) -> emitObjCArrayField(fieldName, field)
                 nested != null -> emitObjCNestedStructField(fieldName, field, nested)
-                else -> emitObjCScalarField(fieldName, field)
+                isSegmentField(field.type()) -> emitObjCSegmentField(fieldName, field)
+                else -> emitObjCValueField(fieldName, field)
             }
         }
 
@@ -146,7 +148,12 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.indent()
         fields.forEachIndexed { index, field ->
             val comma = if (index < fields.lastIndex) "," else ""
-            builder.appendLine("${toplevel.layoutString(field.type())}.withName(\"${field.name()}\")$comma")
+            val fieldLayout = if (toplevel.isObjCSurfaceStruct(decl)) {
+                typeLowerer.lower(field.type()).layout
+            } else {
+                toplevel.layoutString(field.type())
+            }
+            builder.appendLine("${fieldLayout}.withName(\"${field.name()}\")$comma")
         }
         builder.unindent()
         builder.appendLine(").withName(\"${decl.name()}\")")
@@ -158,13 +165,19 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.appendLine()
     }
 
-    private fun emitObjCArrayField(fieldName: String, field: Declaration.Variable) {
+    private fun emitObjCSegmentField(fieldName: String, field: Declaration.Variable) {
+        val offset = "layout.byteOffset(groupElement(\"${field.name()}\"))"
+        val size = "layout.select(groupElement(\"${field.name()}\")).byteSize()"
         builder.appendLine("fun ${fieldName}(): MemorySegment =")
-        builder.appendLine("    segment.asSlice(layout.byteOffset(groupElement(\"${field.name()}\")), layout.select(groupElement(\"${field.name()}\")).byteSize())")
+        builder.appendLine("    segment.asSlice($offset, $size)")
         builder.appendLine()
-        builder.appendLine("val ${fieldName}: MemorySegment")
+        builder.appendLine("fun ${fieldName}(value: MemorySegment) =")
+        builder.appendLine("    MemorySegment.copy(value, 0L, segment, $offset, $size)")
+        builder.appendLine()
+        builder.appendLine("var ${fieldName}: MemorySegment")
         builder.indent()
         builder.appendLine("get() = ${fieldName}()")
+        builder.appendLine("set(value) = ${fieldName}(value)")
         builder.unindent()
     }
 
@@ -188,15 +201,16 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.unindent()
     }
 
-    private fun emitObjCScalarField(fieldName: String, field: Declaration.Variable) {
-        val fieldType = toplevel.mapType(field.type())
+    private fun emitObjCValueField(fieldName: String, field: Declaration.Variable) {
+        val lowering = typeLowerer.lower(field.type())
+        val fieldType = lowering.kotlinType
         val vhName = "${fieldName}_VH"
         builder.appendLine("private val ${vhName}: VarHandle = layout.varHandle(groupElement(\"${field.name()}\"))")
         builder.appendLine()
-        builder.appendLine("@Suppress(\"UNCHECKED_CAST\")")
-        builder.appendLine("fun ${fieldName}(): ${fieldType} = ${vhName}.get(segment, 0L) as ${fieldType}")
+        builder.appendLine("fun ${fieldName}(): ${fieldType} = ${lowering.reconstruct("${vhName}.get(segment, 0L)")}")
         builder.appendLine()
-        builder.appendLine("fun ${fieldName}(value: ${fieldType}) = ${vhName}.set(segment, 0L, value)")
+        builder.appendLine("fun ${fieldName}(value: ${fieldType}) =")
+        builder.appendLine("    ${vhName}.set(segment, 0L, ${lowering.lowerArgument("value")})")
         builder.appendLine()
         builder.appendLine("var ${fieldName}: ${fieldType}")
         builder.indent()
@@ -211,13 +225,28 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         else -> false
     }
 
-    private fun isConstructibleField(type: Type): Boolean =
-        TypeMapper.namedStruct(type) != null || isScalarField(type)
+    private fun fieldKotlinType(type: Type): String? {
+        val nested = TypeMapper.namedStruct(type)
+        return when {
+            nested != null -> toplevel.javaName(nested.publicName)
+            isSegmentField(type) -> "MemorySegment"
+            else -> typeLowerer.lower(type).takeUnless { it.isVoid }?.kotlinType
+        }
+    }
 
-    private fun isScalarField(type: Type): Boolean = when {
-        type is Type.Primitive -> type.kind() != Type.Primitive.Kind.Void
-        type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER -> isScalarField(type.type())
-        else -> false
+    private fun isSegmentField(type: Type): Boolean {
+        if (isArrayType(type)) return true
+        val record = resolveRecord(type) ?: return false
+        return record.kind() == Declaration.Scoped.Kind.UNION || TypeMapper.namedStruct(type) == null
+    }
+
+    private fun resolveRecord(type: Type): Declaration.Scoped? = when {
+        type is Type.Declared &&
+            (type.tree().kind() == Declaration.Scoped.Kind.STRUCT ||
+                type.tree().kind() == Declaration.Scoped.Kind.UNION) -> type.tree()
+        type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER ->
+            resolveRecord(type.type())
+        else -> null
     }
 
     fun visitUnion(decl: Declaration.Scoped) {

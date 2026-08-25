@@ -35,14 +35,32 @@ typedef NS_ENUM(unsigned int, KxUnsignedCode) {
     KxUnsignedCodeOne = 1
 };
 
+typedef NS_ENUM(NSInteger, KxFieldMode) {
+    KxFieldModeKnown = 2
+};
+
+typedef union KxPayload {
+    NSInteger integer;
+    double decimal;
+} KxPayload;
+
+typedef struct KxSemanticRecord {
+    KxFieldMode mode;
+    NSRange *rangePointer;
+    KxPayload payload;
+    unsigned char bytes[8];
+} KxSemanticRecord;
+
 @interface KxSemanticHost
 @property KxMode mode;
 @property KxFlags flags;
 @property NSRange selection;
 - (BOOL)acceptsMode:(KxMode)mode flags:(KxFlags)flags;
+- (BOOL)negateByteBool:(BOOL)value;
 - (NSInteger)signedIndex;
 - (NSUInteger)unsignedCount;
 - (KxUnsignedCode)roundTripUnsignedCode:(KxUnsignedCode)code;
+- (KxSemanticRecord)roundTripRecord:(KxSemanticRecord)record;
 - (NSPoint)translatePoint:(NSPoint)point
                      rect:(NSRect)rect
                     range:(NSRange)range

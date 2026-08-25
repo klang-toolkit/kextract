@@ -570,6 +570,7 @@ class KotlinToplevelBuilder(
             for (field in struct.members().filterIsInstance<Declaration.Variable>()) {
                 TypeMapper.namedStruct(field.type())?.declaration?.let(::markStruct)
                 TypeMapper.pointedStruct(field.type())?.declaration?.let(::markStruct)
+                resolveObjCEnum(field.type())?.let { _objcSurfaceEnums[it] = true }
             }
         }
 
