@@ -30,6 +30,19 @@ class KotlinTypedefBuilder(private val builder: SourceBuilder, private val tople
             return
         }
         val struct = TypeMapper.namedStruct(decl.type())
+        if (struct != null &&
+            toplevel.isObjCSurfacePointerStruct(struct.declaration) &&
+            !toplevel.isObjCSurfaceStruct(struct.declaration)
+        ) {
+            val target = toplevel.javaName(struct.declaration.name())
+            if (name != target) {
+                val pointerName = "${name}Pointer"
+                if (!toplevel.hasObjCSurfacePointerTypedef(pointerName)) {
+                    builder.appendLine("typealias $pointerName = ${target}Pointer")
+                    builder.appendLine()
+                }
+            }
+        }
         if (struct != null && toplevel.isObjCSurfaceStruct(struct.declaration)) {
             val target = toplevel.javaName(struct.declaration.name())
             if (name != target) {

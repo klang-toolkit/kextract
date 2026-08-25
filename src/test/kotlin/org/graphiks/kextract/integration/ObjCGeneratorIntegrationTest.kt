@@ -1073,6 +1073,138 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         )
     }
 
+    "late pointer promotion is independent of C declaration order" - {
+        val prefix = """
+            typedef struct KxLatePointer {
+                long value;
+            } KxLatePointer;
+            typedef struct KxPromotedRoot {
+                KxLatePointer *late;
+            } KxPromotedRoot;
+        """.trimIndent()
+        val legacyContainer = """
+            typedef struct KxEarlierLegacy {
+                KxLatePointer late;
+            } KxEarlierLegacy;
+        """.trimIndent()
+        val cValueUse =
+            "KxPromotedRoot KxRoundTripPromotedRoot(KxPromotedRoot value);"
+        val objcSurface = """
+            @interface KxOrderHost
+            - (void)consume:(const KxPromotedRoot *)value;
+            @end
+        """.trimIndent()
+        val permutations = listOf(
+            "legacy field before C value promotion" to
+                listOf(prefix, legacyContainer, cValueUse, objcSurface).joinToString("\n"),
+            "C value promotion before legacy field" to
+                listOf(prefix, cValueUse, legacyContainer, objcSurface).joinToString("\n"),
+        )
+
+        for ((order, source) in permutations) {
+            "$order compiles" {
+                val files = generateAll(source)
+                val src = files.joinToString("\n") { it.contents }
+                src shouldContain "class KxLatePointer internal constructor"
+                src shouldContain "val layout: GroupLayout"
+                compileOnly(
+                    files,
+                    """
+                        package test
+
+                        import java.lang.foreign.SegmentAllocator
+
+                        fun readLateValue(
+                            allocator: SegmentAllocator,
+                            value: KxLatePointer,
+                        ): Long {
+                            val container = KxEarlierLegacy.allocate(allocator)
+                            return value.value + container.byteSize()
+                        }
+                    """.trimIndent(),
+                )
+            }
+        }
+    }
+
+    "packed pointer-only classification is independent of C declaration order" - {
+        val prefix = """
+            typedef struct __attribute__((packed)) KxOrderPacked {
+                unsigned int tag;
+                void *payload;
+            } KxOrderPacked;
+            typedef struct KxOrderContainer KxOrderContainer;
+            typedef struct KxOrderRoot {
+                KxOrderContainer *container;
+            } KxOrderRoot;
+        """.trimIndent()
+        val container = """
+            struct KxOrderContainer {
+                KxOrderPacked packed;
+            };
+        """.trimIndent()
+        val cValueUse = "KxOrderRoot KxRoundTripOrderRoot(KxOrderRoot value);"
+        val objcSurface = """
+            @interface KxPackedOrderHost
+            - (void)consumePacked:(const KxOrderPacked *)packed;
+            - (void)consumeRoot:(const KxOrderRoot *)root;
+            @end
+        """.trimIndent()
+        val permutations = listOf(
+            "container before C value promotion" to
+                listOf(prefix, container, cValueUse, objcSurface).joinToString("\n"),
+            "C value promotion before container" to
+                listOf(prefix, cValueUse, container, objcSurface).joinToString("\n"),
+        )
+
+        for ((order, source) in permutations) {
+            "$order stays opaque and compiles" {
+                val files = generateAll(source)
+                val src = files.joinToString("\n") { it.contents }
+                src shouldContain
+                    "class KxOrderPackedPointer internal constructor(internal val segment: MemorySegment)"
+                src shouldNotContain "class KxOrderPacked internal constructor"
+                compileOnly(
+                    files,
+                    """
+                        package test
+
+                        fun consumePackedOrder(
+                            host: KxPackedOrderHost,
+                            packed: KxOrderPackedPointer,
+                            root: KxOrderRootPointer,
+                        ) {
+                            host.consumePacked(packed)
+                            host.consumeRoot(root)
+                        }
+                    """.trimIndent(),
+                )
+            }
+        }
+    }
+
+    "distinct record tags compile through the nominal opaque pointer alias" {
+        val files = generateAll("""
+            typedef struct __KxOpaqueTag {
+                unsigned int tag;
+                void *payload;
+            } KxOpaque;
+            @interface KxOpaqueHost
+            - (void)consume:(const KxOpaque *)value;
+            @end
+        """.trimIndent())
+
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun consumeOpaque(host: KxOpaqueHost, value: KxOpaquePointer) =
+                    host.consume(value)
+            """.trimIndent(),
+        )
+    }
+
     "Objective-C semantic wrappers compile and represent unknown values" - {
         val files = generateAll("""
             #define NS_ENUM(_type, _name) \

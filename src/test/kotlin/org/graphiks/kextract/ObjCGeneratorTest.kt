@@ -511,6 +511,34 @@ class ObjCGeneratorTest : FreeSpec({
         pointerWrapper shouldNotContain "fun payload("
     }
 
+    "distinct record tags synthesize one nominal opaque pointer alias" {
+        val src = generate("""
+            typedef struct __KxOpaqueTag {
+                unsigned int tag;
+                void *payload;
+            } KxOpaque;
+            @interface KxOpaqueHost
+            - (void)consume:(const KxOpaque *)value;
+            @end
+        """.trimIndent())
+
+        src shouldContain
+            "class _KxOpaqueTagPointer internal constructor(internal val segment: MemorySegment)"
+        src shouldContain "typealias KxOpaquePointer = _KxOpaqueTagPointer"
+        Regex("typealias KxOpaquePointer = ").findAll(src).count() shouldBe 1
+        src shouldContain "fun consume(value: KxOpaquePointer)"
+        src shouldContain "value.segment"
+        src shouldNotContain "class _KxOpaqueTag internal constructor"
+        src shouldNotContain "class KxOpaque internal constructor"
+
+        val opaqueSurface = src.substringAfter(
+            "class _KxOpaqueTagPointer internal constructor(internal val segment: MemorySegment)",
+        ).substringBefore("open class KxOpaqueHost")
+        opaqueSurface shouldNotContain "layout"
+        opaqueSurface shouldNotContain "allocate"
+        opaqueSurface shouldNotContain "pointed("
+    }
+
     // NOTE: In libclang, for `@interface KxAnimal (Tricks)`, c.spelling() returns
     // the category name ("Tricks"), not the extended class name. The generator
     // therefore produces extension functions with the category name as receiver

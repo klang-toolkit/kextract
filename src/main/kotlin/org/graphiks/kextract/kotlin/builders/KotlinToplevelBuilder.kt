@@ -629,43 +629,76 @@ class KotlinToplevelBuilder(
             }
         }
 
-        fun markCValueUse(type: org.graphiks.kextract.Type) {
+        fun markCValueUse(
+            type: org.graphiks.kextract.Type,
+            pointerStructs: IdentityHashMap<Declaration.Scoped, Boolean>,
+        ) {
             val struct = TypeMapper.namedStruct(type)
             if (struct != null) {
-                if (isObjCSurfacePointerStruct(struct.declaration)) {
+                if (pointerStructs.containsKey(struct.declaration)) {
                     markValueStruct(struct.declaration)
                 }
                 return
             }
             when {
-                type is org.graphiks.kextract.Type.Array -> markCValueUse(type.elementType())
+                type is org.graphiks.kextract.Type.Array ->
+                    markCValueUse(type.elementType(), pointerStructs)
                 type is org.graphiks.kextract.Type.Delegated &&
                     type.kind() != org.graphiks.kextract.Type.Delegated.Kind.POINTER ->
-                    markCValueUse(type.type())
+                    markCValueUse(type.type(), pointerStructs)
             }
         }
 
-        for (declaration in toplevel.members()) {
-            if (Skip.isPresent(declaration)) continue
-            when (declaration) {
-                is Declaration.Function -> {
-                    markCValueUse(declaration.type().returnType())
-                    declaration.type().argumentTypes().forEach(::markCValueUse)
+        // Resolve direct C consumers before legacy record fields so declaration order cannot
+        // decide whether a field's record is already pointer-capable.
+        do {
+            val valueCount = _objcSurfaceValueStructs.size
+            val pointerCount = _objcSurfacePointerStructs.size
+            for (declaration in toplevel.members()) {
+                if (Skip.isPresent(declaration)) continue
+                when (declaration) {
+                    is Declaration.Function -> {
+                        markCValueUse(declaration.type().returnType(), _objcSurfacePointerStructs)
+                        declaration.type().argumentTypes().forEach {
+                            markCValueUse(it, _objcSurfacePointerStructs)
+                        }
+                    }
+                    is Declaration.Variable ->
+                        markCValueUse(declaration.type(), _objcSurfacePointerStructs)
                 }
-                is Declaration.Variable -> markCValueUse(declaration.type())
-                is Declaration.Scoped -> {
+            }
+        } while (
+            valueCount != _objcSurfaceValueStructs.size ||
+            pointerCount != _objcSurfacePointerStructs.size
+        )
+
+        // Keep the direct-consumer provenance stable. Pointer wrappers discovered while
+        // materializing legacy layouts must not retroactively turn their owner non-legacy.
+        val directPointerStructs =
+            IdentityHashMap<Declaration.Scoped, Boolean>(_objcSurfacePointerStructs)
+        do {
+            val valueCount = _objcSurfaceValueStructs.size
+            val pointerCount = _objcSurfacePointerStructs.size
+            for (declaration in toplevel.members()) {
+                if (Skip.isPresent(declaration)) continue
+                if (declaration is Declaration.Scoped) {
                     val isLegacyRecord =
                         (declaration.kind() == Declaration.Scoped.Kind.STRUCT ||
                             declaration.kind() == Declaration.Scoped.Kind.UNION) &&
-                            !isObjCSurfacePointerStruct(declaration)
+                            !directPointerStructs.containsKey(declaration)
                     if (isLegacyRecord) {
                         declaration.members()
                             .filterIsInstance<Declaration.Variable>()
-                            .forEach { markCValueUse(it.type()) }
+                            .forEach {
+                                markCValueUse(it.type(), _objcSurfacePointerStructs)
+                            }
                     }
                 }
             }
-        }
+        } while (
+            valueCount != _objcSurfaceValueStructs.size ||
+            pointerCount != _objcSurfacePointerStructs.size
+        )
 
         _objcSurfacePointerTypedefNames = toplevel.members()
             .filterIsInstance<Declaration.Typedef>()
