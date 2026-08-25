@@ -979,6 +979,31 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         }
     }
 
+    "packed pointer-only Objective-C records compile as opaque nominal addresses" {
+        val files = generateAll("""
+            typedef struct __attribute__((packed)) KxPackedPointerOnly {
+                unsigned int tag;
+                void *payload;
+            } KxPackedPointerOnly;
+            typedef const KxPackedPointerOnly *KxPackedPointerOnlyRef;
+            @interface KxPackedPointerHost
+            - (void)consume:(KxPackedPointerOnlyRef)value;
+            @end
+        """.trimIndent())
+
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun consumePackedPointer(
+                    host: KxPackedPointerHost,
+                    value: KxPackedPointerOnlyRef,
+                ) = host.consume(value)
+            """.trimIndent(),
+        )
+    }
+
     "Objective-C semantic wrappers compile and represent unknown values" - {
         val files = generateAll("""
             #define NS_ENUM(_type, _name) \

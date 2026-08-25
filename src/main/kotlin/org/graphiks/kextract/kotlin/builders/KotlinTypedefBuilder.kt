@@ -24,7 +24,7 @@ class KotlinTypedefBuilder(private val builder: SourceBuilder, private val tople
         val name = toplevel.javaName(decl.name())
         if (toplevel.hasGeneratedEnum(decl.name())) return
         val pointedStruct = TypeMapper.pointedStruct(decl.type())
-        if (pointedStruct != null && toplevel.isObjCSurfaceStruct(pointedStruct.declaration)) {
+        if (pointedStruct != null && toplevel.isObjCSurfacePointerStruct(pointedStruct.declaration)) {
             val target = "${toplevel.javaName(pointedStruct.declaration.name())}Pointer"
             if (name != target) emitTypealias(decl, name, target)
             return

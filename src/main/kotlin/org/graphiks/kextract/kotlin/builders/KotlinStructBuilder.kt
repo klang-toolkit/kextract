@@ -10,8 +10,11 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
     private val typeLowerer = ObjCTypeLowerer(toplevel)
 
     fun visitStruct(decl: Declaration.Scoped) {
-        if (toplevel.isObjCSurfaceStruct(decl)) visitObjCSurfaceStruct(decl)
-        else visitLegacyRecord(decl, "structLayout")
+        when {
+            toplevel.isObjCSurfaceStruct(decl) -> visitObjCSurfaceStruct(decl)
+            toplevel.isObjCSurfacePointerStruct(decl) -> visitObjCPointerOnlyStruct(decl)
+            else -> visitLegacyRecord(decl, "structLayout")
+        }
     }
 
     /** Preserves the existing C API for records outside Objective-C surfaces. */
@@ -140,6 +143,16 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.appendLine("}")
         builder.unindent()
         builder.appendLine("}")
+        builder.appendLine()
+    }
+
+    /** Emits only the nominal address carrier for a struct never used by value. */
+    private fun visitObjCPointerOnlyStruct(decl: Declaration.Scoped) {
+        val className = toplevel.javaName(decl.name())
+        builder.appendLine("/**")
+        builder.appendLine(" * {@snippet lang=c : ${decl.kind()} ${decl.name()}")
+        builder.appendLine(" */")
+        builder.appendLine("class ${className}Pointer internal constructor(internal val segment: MemorySegment)")
         builder.appendLine()
     }
 

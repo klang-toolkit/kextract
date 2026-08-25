@@ -64,7 +64,8 @@ class KotlinToplevelBuilder(
         IdentityHashMap<Declaration.Scoped, MutableList<Declaration.Constant>>()
     private var _topLevelEnumsByName: Map<String, List<Declaration.Scoped>> = emptyMap()
     private val _objcSurfaceEnums = IdentityHashMap<Declaration.Scoped, Boolean>()
-    private val _objcSurfaceStructs = IdentityHashMap<Declaration.Scoped, Boolean>()
+    private val _objcSurfaceValueStructs = IdentityHashMap<Declaration.Scoped, Boolean>()
+    private val _objcSurfacePointerStructs = IdentityHashMap<Declaration.Scoped, Boolean>()
     private var _objcSurfacePointerTypedefNames: Set<String> = emptySet()
     private var _topLevelDeclarationNames: Set<String> = emptySet()
 
@@ -545,7 +546,10 @@ class KotlinToplevelBuilder(
         _objcSurfaceEnums.containsKey(enumDecl)
 
     fun isObjCSurfaceStruct(structDecl: Declaration.Scoped): Boolean =
-        _objcSurfaceStructs.containsKey(structDecl)
+        _objcSurfaceValueStructs.containsKey(structDecl)
+
+    fun isObjCSurfacePointerStruct(structDecl: Declaration.Scoped): Boolean =
+        _objcSurfacePointerStructs.containsKey(structDecl)
 
     internal fun hasObjCSurfacePointerTypedef(name: String): Boolean =
         name in _objcSurfacePointerTypedefNames
@@ -577,18 +581,23 @@ class KotlinToplevelBuilder(
         _topLevelEnumsByName[name].orEmpty().count { !Skip.isPresent(it) } == 1
 
     private fun markObjCSurfaceTypes(toplevel: Declaration.Scoped) {
-        fun markStruct(struct: Declaration.Scoped) {
-            if (_objcSurfaceStructs.put(struct, true) != null) return
+        fun markPointerStruct(struct: Declaration.Scoped) {
+            _objcSurfacePointerStructs[struct] = true
+        }
+
+        fun markValueStruct(struct: Declaration.Scoped) {
+            if (_objcSurfaceValueStructs.put(struct, true) != null) return
+            markPointerStruct(struct)
             for (field in struct.members().filterIsInstance<Declaration.Variable>()) {
-                TypeMapper.namedStruct(field.type())?.declaration?.let(::markStruct)
-                TypeMapper.pointedStruct(field.type())?.declaration?.let(::markStruct)
+                TypeMapper.namedStruct(field.type())?.declaration?.let(::markValueStruct)
+                TypeMapper.pointedStruct(field.type())?.declaration?.let(::markPointerStruct)
                 resolveObjCEnum(field.type())?.let { _objcSurfaceEnums[it] = true }
             }
         }
 
         fun mark(type: org.graphiks.kextract.Type) {
-            TypeMapper.namedStruct(type)?.declaration?.let(::markStruct)
-            TypeMapper.pointedStruct(type)?.declaration?.let(::markStruct)
+            TypeMapper.namedStruct(type)?.declaration?.let(::markValueStruct)
+            TypeMapper.pointedStruct(type)?.declaration?.let(::markPointerStruct)
             val generated = resolveObjCEnum(type) ?: return
             _objcSurfaceEnums[generated] = true
         }
@@ -625,7 +634,7 @@ class KotlinToplevelBuilder(
             .filterNot(Skip::isPresent)
             .mapNotNull { typedef ->
                 TypeMapper.pointedStruct(typedef.type())
-                    ?.takeIf { isObjCSurfaceStruct(it.declaration) }
+                    ?.takeIf { isObjCSurfacePointerStruct(it.declaration) }
                     ?.let { javaName(typedef.name()) }
             }
             .toSet()

@@ -461,6 +461,38 @@ class ObjCGeneratorTest : FreeSpec({
             "Cannot safely emit Objective-C surface struct KxPackedValue"
     }
 
+    "packed records used only through Objective-C pointers stay nominal and opaque" {
+        val src = generate("""
+            typedef struct __attribute__((packed)) KxPackedPointerOnly {
+                unsigned int tag;
+                void *payload;
+            } KxPackedPointerOnly;
+            typedef const KxPackedPointerOnly *KxPackedPointerOnlyRef;
+            @interface KxPackedPointerHost
+            - (void)consume:(KxPackedPointerOnlyRef)value;
+            @end
+        """.trimIndent())
+
+        src shouldContain
+            "class KxPackedPointerOnlyPointer internal constructor(internal val segment: MemorySegment)"
+        src shouldContain "typealias KxPackedPointerOnlyRef = KxPackedPointerOnlyPointer"
+        Regex("typealias KxPackedPointerOnlyRef = ").findAll(src).count() shouldBe 1
+        src shouldContain "fun consume(value: KxPackedPointerOnlyRef)"
+        src shouldContain "value.segment"
+        src shouldNotContain "class KxPackedPointerOnly {"
+        src shouldNotContain "class KxPackedPointerOnly internal constructor"
+
+        val pointerWrapper = src.substringAfter(
+            "class KxPackedPointerOnlyPointer internal constructor(internal val segment: MemorySegment)",
+        ).substringBefore("open class KxPackedPointerHost")
+        pointerWrapper shouldNotContain "layout"
+        pointerWrapper shouldNotContain "allocate"
+        pointerWrapper shouldNotContain "constructor("
+        pointerWrapper shouldNotContain "pointed("
+        pointerWrapper shouldNotContain "fun tag("
+        pointerWrapper shouldNotContain "fun payload("
+    }
+
     // NOTE: In libclang, for `@interface KxAnimal (Tricks)`, c.spelling() returns
     // the category name ("Tricks"), not the extended class name. The generator
     // therefore produces extension functions with the category name as receiver
