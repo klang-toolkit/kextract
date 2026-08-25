@@ -461,6 +461,84 @@ class ObjCGeneratorTest : FreeSpec({
             "Cannot safely emit Objective-C surface struct KxPackedValue"
     }
 
+    "packed records used by C value and Objective-C pointer retain the safety failure" {
+        val failure = runCatching {
+            generate("""
+                typedef struct __attribute__((packed)) KxPackedMixedValue {
+                    unsigned int tag;
+                    void *payload;
+                } KxPackedMixedValue;
+                KxPackedMixedValue KxRoundTripPackedMixedValue(KxPackedMixedValue value);
+                @interface KxPackedMixedValueHost
+                - (void)consume:(const KxPackedMixedValue *)value;
+                @end
+            """.trimIndent())
+        }.exceptionOrNull() ?: error("packed mixed-value generation unexpectedly succeeded")
+
+        failure.message.orEmpty() shouldContain
+            "Cannot safely emit Objective-C surface struct KxPackedMixedValue"
+    }
+
+    "packed records used only through Objective-C pointers stay nominal and opaque" {
+        val src = generate("""
+            typedef struct __attribute__((packed)) KxPackedPointerOnly {
+                unsigned int tag;
+                void *payload;
+            } KxPackedPointerOnly;
+            typedef const KxPackedPointerOnly *KxPackedPointerOnlyRef;
+            @interface KxPackedPointerHost
+            - (void)consume:(KxPackedPointerOnlyRef)value;
+            @end
+        """.trimIndent())
+
+        src shouldContain
+            "class KxPackedPointerOnlyPointer internal constructor(internal val segment: MemorySegment)"
+        src shouldContain "typealias KxPackedPointerOnlyRef = KxPackedPointerOnlyPointer"
+        Regex("typealias KxPackedPointerOnlyRef = ").findAll(src).count() shouldBe 1
+        src shouldContain "fun consume(value: KxPackedPointerOnlyRef)"
+        src shouldContain "value.segment"
+        src shouldNotContain "class KxPackedPointerOnly {"
+        src shouldNotContain "class KxPackedPointerOnly internal constructor"
+
+        val pointerWrapper = src.substringAfter(
+            "class KxPackedPointerOnlyPointer internal constructor(internal val segment: MemorySegment)",
+        ).substringBefore("open class KxPackedPointerHost")
+        pointerWrapper shouldNotContain "layout"
+        pointerWrapper shouldNotContain "allocate"
+        pointerWrapper shouldNotContain "constructor("
+        pointerWrapper shouldNotContain "pointed("
+        pointerWrapper shouldNotContain "fun tag("
+        pointerWrapper shouldNotContain "fun payload("
+    }
+
+    "distinct record tags synthesize one nominal opaque pointer alias" {
+        val src = generate("""
+            typedef struct __KxOpaqueTag {
+                unsigned int tag;
+                void *payload;
+            } KxOpaque;
+            @interface KxOpaqueHost
+            - (void)consume:(const KxOpaque *)value;
+            @end
+        """.trimIndent())
+
+        src shouldContain
+            "class _KxOpaqueTagPointer internal constructor(internal val segment: MemorySegment)"
+        src shouldContain "typealias KxOpaquePointer = _KxOpaqueTagPointer"
+        Regex("typealias KxOpaquePointer = ").findAll(src).count() shouldBe 1
+        src shouldContain "fun consume(value: KxOpaquePointer)"
+        src shouldContain "value.segment"
+        src shouldNotContain "class _KxOpaqueTag internal constructor"
+        src shouldNotContain "class KxOpaque internal constructor"
+
+        val opaqueSurface = src.substringAfter(
+            "class _KxOpaqueTagPointer internal constructor(internal val segment: MemorySegment)",
+        ).substringBefore("open class KxOpaqueHost")
+        opaqueSurface shouldNotContain "layout"
+        opaqueSurface shouldNotContain "allocate"
+        opaqueSurface shouldNotContain "pointed("
+    }
+
     // NOTE: In libclang, for `@interface KxAnimal (Tricks)`, c.spelling() returns
     // the category name ("Tricks"), not the extended class name. The generator
     // therefore produces extension functions with the category name as receiver
