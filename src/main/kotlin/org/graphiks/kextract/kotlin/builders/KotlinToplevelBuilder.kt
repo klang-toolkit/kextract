@@ -629,6 +629,44 @@ class KotlinToplevelBuilder(
             }
         }
 
+        fun markCValueUse(type: org.graphiks.kextract.Type) {
+            val struct = TypeMapper.namedStruct(type)
+            if (struct != null) {
+                if (isObjCSurfacePointerStruct(struct.declaration)) {
+                    markValueStruct(struct.declaration)
+                }
+                return
+            }
+            when {
+                type is org.graphiks.kextract.Type.Array -> markCValueUse(type.elementType())
+                type is org.graphiks.kextract.Type.Delegated &&
+                    type.kind() != org.graphiks.kextract.Type.Delegated.Kind.POINTER ->
+                    markCValueUse(type.type())
+            }
+        }
+
+        for (declaration in toplevel.members()) {
+            if (Skip.isPresent(declaration)) continue
+            when (declaration) {
+                is Declaration.Function -> {
+                    markCValueUse(declaration.type().returnType())
+                    declaration.type().argumentTypes().forEach(::markCValueUse)
+                }
+                is Declaration.Variable -> markCValueUse(declaration.type())
+                is Declaration.Scoped -> {
+                    val isLegacyRecord =
+                        (declaration.kind() == Declaration.Scoped.Kind.STRUCT ||
+                            declaration.kind() == Declaration.Scoped.Kind.UNION) &&
+                            !isObjCSurfacePointerStruct(declaration)
+                    if (isLegacyRecord) {
+                        declaration.members()
+                            .filterIsInstance<Declaration.Variable>()
+                            .forEach { markCValueUse(it.type()) }
+                    }
+                }
+            }
+        }
+
         _objcSurfacePointerTypedefNames = toplevel.members()
             .filterIsInstance<Declaration.Typedef>()
             .filterNot(Skip::isPresent)

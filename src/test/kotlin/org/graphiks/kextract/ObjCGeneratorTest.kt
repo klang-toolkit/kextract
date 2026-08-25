@@ -461,6 +461,24 @@ class ObjCGeneratorTest : FreeSpec({
             "Cannot safely emit Objective-C surface struct KxPackedValue"
     }
 
+    "packed records used by C value and Objective-C pointer retain the safety failure" {
+        val failure = runCatching {
+            generate("""
+                typedef struct __attribute__((packed)) KxPackedMixedValue {
+                    unsigned int tag;
+                    void *payload;
+                } KxPackedMixedValue;
+                KxPackedMixedValue KxRoundTripPackedMixedValue(KxPackedMixedValue value);
+                @interface KxPackedMixedValueHost
+                - (void)consume:(const KxPackedMixedValue *)value;
+                @end
+            """.trimIndent())
+        }.exceptionOrNull() ?: error("packed mixed-value generation unexpectedly succeeded")
+
+        failure.message.orEmpty() shouldContain
+            "Cannot safely emit Objective-C surface struct KxPackedMixedValue"
+    }
+
     "packed records used only through Objective-C pointers stay nominal and opaque" {
         val src = generate("""
             typedef struct __attribute__((packed)) KxPackedPointerOnly {

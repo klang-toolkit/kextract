@@ -1004,6 +1004,75 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         )
     }
 
+    "C by-value records retain their full API when Objective-C also uses a pointer" {
+        val files = generateAll("""
+            typedef struct KxMixedValue {
+                unsigned int tag;
+                void *payload;
+            } KxMixedValue;
+            KxMixedValue KxRoundTripMixedValue(KxMixedValue value);
+            @interface KxMixedValueHost
+            - (void)consume:(const KxMixedValue *)value;
+            @end
+        """.trimIndent())
+
+        compileOnly(
+            files,
+            """
+                package test
+
+                import java.lang.foreign.MemorySegment
+                import java.lang.foreign.SegmentAllocator
+
+                fun roundTripMixedValue(
+                    host: KxMixedValueHost,
+                    allocator: SegmentAllocator,
+                ): KxMixedValue {
+                    val value = KxMixedValue(tag = 7, payload = MemorySegment.NULL)
+                    val pointer = KxMixedValue.allocateArray(1L, allocator)
+                    pointer.pointed().tag = value.tag
+                    host.consume(pointer)
+                    return KxRoundTripMixedValue(allocator, value)
+                }
+            """.trimIndent(),
+        )
+    }
+
+    "legacy C record fields retain layouts for Objective-C pointer records" {
+        val files = generateAll("""
+            typedef struct KxNestedValue {
+                long value;
+            } KxNestedValue;
+            typedef struct KxLegacyContainer {
+                KxNestedValue nested;
+            } KxLegacyContainer;
+            @interface KxNestedValueHost
+            - (void)consume:(const KxNestedValue *)value;
+            @end
+        """.trimIndent())
+
+        compileOnly(
+            files,
+            """
+                package test
+
+                import java.lang.foreign.MemorySegment
+                import java.lang.foreign.SegmentAllocator
+
+                fun readNestedValue(
+                    host: KxNestedValueHost,
+                    allocator: SegmentAllocator,
+                    pointer: KxNestedValuePointer,
+                ): Long {
+                    val container = KxLegacyContainer.allocate(allocator)
+                    val nested: MemorySegment = KxLegacyContainer().nested(container)
+                    host.consume(pointer)
+                    return KxNestedValue(value = 11L).value + nested.byteSize()
+                }
+            """.trimIndent(),
+        )
+    }
+
     "Objective-C semantic wrappers compile and represent unknown values" - {
         val files = generateAll("""
             #define NS_ENUM(_type, _name) \
