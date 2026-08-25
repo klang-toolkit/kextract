@@ -45,6 +45,7 @@ class KotlinObjCClassBuilder(
      */
     private var _className: String = ""
 ) {
+    private val typeLowerer = ObjCTypeLowerer(toplevel)
 
     fun visitClass(decl: Declaration.ObjCClass) {
         if (Skip.isPresent(decl)) return
@@ -151,13 +152,13 @@ class KotlinObjCClassBuilder(
         val selector = method.selector()
         val params = method.parameters()
         val retType = method.returnType()
-        val retKotlin = returnTypeKotlin(retType)
-        val retLayout = returnLayout(retType)
+        val retLowering = typeLowerer.lower(retType)
+        val retKotlin = retLowering.kotlinType
         val retSpelling = method.returnTypeSpelling()
 
         val paramList = params.mapIndexed { i, p ->
             val pName = escapeIdentifier(p.name().ifEmpty { "arg$i" })
-            val pType = TypeMapper.map(p.type())
+            val pType = typeLowerer.lower(p.type()).kotlinType
             "$pName: $pType"
         }.joinToString(", ")
 
@@ -179,37 +180,14 @@ class KotlinObjCClassBuilder(
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$selector\")")
 
-        // Unbox enum/value-class arguments so ObjCRuntime.layoutFor() sees a primitive.
-        // NS_ENUM → `.value`; NS_OPTIONS (ends with Options/Flags/Mask) → `.rawValue`.
         val argsList = params.mapIndexed { i, p ->
             val pName = escapeIdentifier(p.name().ifEmpty { "arg$i" })
-            unboxedArgExpr(p.type(), pName)
+            typeLowerer.lower(p.type()).lowerArgument(pName)
         }.joinToString(", ")
         val argsExpr = if (argsList.isEmpty()) "" else ", $argsList"
 
-        when {
-            retKotlin == "Unit" -> {
-                builder.appendLine("ObjCRuntime.msgSend(null, $receiver, sel$argsExpr)")
-            }
-            isStructByValue(retType) -> {
-                // Struct-by-value return: use msgSendStret with a GroupLayout.
-                // On ARM64 the struct is returned in registers; on x86-64 msgSend_stret is used.
-                builder.appendLine("return ObjCRuntime.msgSendStret($retLayout, $receiver, sel$argsExpr) as $retKotlin")
-            }
-            else -> {
-                val enumDecl = KotlinEnumSupport.resolveEnum(retType)
-                if (enumDecl != null) {
-                    // Enum/value-class return: get the underlying Long and re-box it.
-                    val raw = "ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, $receiver, sel$argsExpr) as Long"
-                    if (KotlinEnumSupport.isOptionsStyle(enumDecl.name()))
-                        builder.appendLine("return $retKotlin($raw)")
-                    else
-                        builder.appendLine("return $retKotlin.fromValue($raw)")
-                } else {
-                    builder.appendLine("return ObjCRuntime.msgSend($retLayout, $receiver, sel$argsExpr) as $retKotlin")
-                }
-            }
-        }
+        val invocation = retLowering.invocation(receiver, "sel", argsExpr)
+        builder.appendLine(if (retLowering.isVoid) invocation else "return $invocation")
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
@@ -251,14 +229,14 @@ class KotlinObjCClassBuilder(
         // Raw param list — MemorySegment for NSString params (same as base method)
         val rawParamList = params.mapIndexed { i, p ->
             val pName = escapeIdentifier(p.name().ifEmpty { "arg$i" })
-            "$pName: ${TypeMapper.map(p.type())}"
+            "$pName: ${typeLowerer.lower(p.type()).kotlinType}"
         }.joinToString(", ")
         val rawArgs = params.mapIndexed { i, p -> escapeIdentifier(p.name().ifEmpty { "arg$i" }) }.joinToString(", ")
 
         // String param list — String for NSString params, MemorySegment for the rest
         val stringParamList = params.mapIndexed { i, p ->
             val pName = escapeIdentifier(p.name().ifEmpty { "arg$i" })
-            val pType = if (nsStringParams[i]) "String" else TypeMapper.map(p.type())
+            val pType = if (nsStringParams[i]) "String" else typeLowerer.lower(p.type()).kotlinType
             "$pName: $pType"
         }.joinToString(", ")
         val wrappedArgs = params.mapIndexed { i, p ->
@@ -266,7 +244,7 @@ class KotlinObjCClassBuilder(
             if (nsStringParams[i]) "ObjCRuntime.newNSString(Arena.global(), $pName)" else pName
         }.joinToString(", ")
 
-        val retKotlin = returnTypeKotlin(retType)
+        val retKotlin = typeLowerer.lower(retType).kotlinType
         val retDecl = if (retKotlin == "Unit") ": Unit" else ": $retKotlin"
 
         // Overload 1: NSString return → AsString suffix, raw (MemorySegment) params
@@ -293,8 +271,8 @@ class KotlinObjCClassBuilder(
 
     private fun emitProperty(prop: Declaration.ObjCProperty) {
         val propName = prop.name()
-        val retKotlin = returnTypeKotlin(prop.type())
-        val retLayout = returnLayout(prop.type())
+        val lowering = typeLowerer.lower(prop.type())
+        val retKotlin = lowering.kotlinType
         val getter = prop.getterSelector()
         val propTypeSpelling = prop.typeSpelling()
 
@@ -310,31 +288,15 @@ class KotlinObjCClassBuilder(
         builder.appendLine("${getterMod}fun $getterName(): $retKotlin {")
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$getter\")")
-        when {
-            retKotlin == "Unit" -> builder.appendLine("ObjCRuntime.msgSend(null, ptr, sel)")
-            isStructByValue(prop.type()) -> {
-                builder.appendLine("return ObjCRuntime.msgSendStret($retLayout, ptr, sel) as $retKotlin")
-            }
-            else -> {
-                val enumDecl = KotlinEnumSupport.resolveEnum(prop.type())
-                if (enumDecl != null) {
-                    val raw = "ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, ptr, sel) as Long"
-                    if (KotlinEnumSupport.isOptionsStyle(enumDecl.name()))
-                        builder.appendLine("return $retKotlin($raw)")
-                    else
-                        builder.appendLine("return $retKotlin.fromValue($raw)")
-                } else {
-                    builder.appendLine("return ObjCRuntime.msgSend($retLayout, ptr, sel) as $retKotlin")
-                }
-            }
-        }
+        val invocation = lowering.invocation("ptr", "sel", "")
+        builder.appendLine(if (lowering.isVoid) invocation else "return $invocation")
         builder.unindent()
         builder.appendLine("}")
 
         if (!prop.isReadOnly()) {
             val setter = prop.setterSelector()
-            val paramType = TypeMapper.map(prop.type())
-            val valueExpr = unboxedArgExpr(prop.type(), "value")
+            val paramType = lowering.kotlinType
+            val valueExpr = lowering.lowerArgument("value")
             val setterFnName = kotlinName(setter.removeSuffix(":"))
             val setterMod = if (isOverride(setterFnName)) "override " else "open "
             builder.appendLine("${setterMod}fun $setterFnName(value: $paramType) {")
@@ -405,81 +367,6 @@ class KotlinObjCClassBuilder(
         /** java.lang.Object methods that cause "Accidental override" at the JVM level. */
         private val JVM_OBJECT_METHODS = setOf("wait", "notify", "notifyAll", "getClass", "hashCode", "equals", "toString", "clone", "finalize")
 
-        /** Maps an ObjC return type to the Kotlin type name. */
-        fun returnTypeKotlin(type: Type): String = when {
-            type is Type.Primitive && type.kind() == Type.Primitive.Kind.Void -> "Unit"
-            else -> TypeMapper.map(type)
-        }
-
-        /** Returns the Panama MemoryLayout expression for the return type (null for void). */
-        fun returnLayout(type: Type): String = when {
-            type is Type.Primitive && type.kind() == Type.Primitive.Kind.Void -> "null"
-            type is Type.Primitive -> primitiveLayout(type.kind())
-            // Pointers stay as ADDRESS; all other delegated types (typedef, signed/unsigned
-            // qualifiers) are unwrapped so that e.g. `CGFloat` → JAVA_DOUBLE, `BOOL` → JAVA_BYTE.
-            type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> "ValueLayout.ADDRESS"
-            type is Type.Delegated -> returnLayout(type.type())
-            // Struct by value → GroupLayout (used with msgSendStret).
-            type is Type.Declared && type.tree().kind() == Declaration.Scoped.Kind.STRUCT ->
-                structGroupLayoutExpr(type.tree())
-            // NS_ENUM / NS_OPTIONS → underlying Long (emitMethod handles the re-boxing).
-            type is Type.Declared && type.tree().kind() == Declaration.Scoped.Kind.ENUM ->
-                "ValueLayout.JAVA_LONG"
-            else -> "ValueLayout.ADDRESS"  // ObjC objects, opaque types
-        }
-
-        // ── Layout helpers ────────────────────────────────────────────────────
-
-        private fun primitiveLayout(kind: Type.Primitive.Kind): String = when (kind) {
-            Type.Primitive.Kind.Bool     -> "ValueLayout.JAVA_BOOLEAN"
-            Type.Primitive.Kind.Char     -> "ValueLayout.JAVA_BYTE"
-            Type.Primitive.Kind.Short    -> "ValueLayout.JAVA_SHORT"
-            Type.Primitive.Kind.Int      -> "ValueLayout.JAVA_INT"
-            Type.Primitive.Kind.Long,
-            Type.Primitive.Kind.LongLong -> "ValueLayout.JAVA_LONG"
-            Type.Primitive.Kind.Float    -> "ValueLayout.JAVA_FLOAT"
-            Type.Primitive.Kind.Double   -> "ValueLayout.JAVA_DOUBLE"
-            else                         -> "ValueLayout.ADDRESS"
-        }
-
-        /**
-         * Builds an inline `MemoryLayout.structLayout(…)` expression for [decl].
-         *
-         * Used as the return-layout argument for [ObjCRuntime.msgSendStret].  Nested struct
-         * fields are expanded recursively.  The struct's own name is appended as `.withName`.
-         */
-        fun structGroupLayoutExpr(decl: Declaration.Scoped): String {
-            val fields = decl.members()
-                .filterIsInstance<Declaration.Variable>()
-                .filter { it.kind() == Declaration.Variable.Kind.FIELD }
-            val fieldExprs = fields.joinToString(", ") { f ->
-                "${structFieldLayoutExpr(f.type())}.withName(\"${f.name()}\")"
-            }
-            val name = decl.name()
-            val suffix = if (name.isNotEmpty()) ".withName(\"$name\")" else ""
-            return "MemoryLayout.structLayout($fieldExprs)$suffix"
-        }
-
-        /** Layout expression for a single struct field (no outer `.withName` — caller adds it). */
-        private fun structFieldLayoutExpr(type: Type): String = when {
-            type is Type.Primitive -> primitiveLayout(type.kind())
-            type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER -> "ValueLayout.ADDRESS"
-            type is Type.Delegated -> structFieldLayoutExpr(type.type())
-            type is Type.Declared && type.tree().kind() == Declaration.Scoped.Kind.STRUCT -> {
-                // Inline nested struct without adding its own .withName (caller adds field name).
-                val fields = type.tree().members()
-                    .filterIsInstance<Declaration.Variable>()
-                    .filter { it.kind() == Declaration.Variable.Kind.FIELD }
-                val fieldExprs = fields.joinToString(", ") { f ->
-                    "${structFieldLayoutExpr(f.type())}.withName(\"${f.name()}\")"
-                }
-                "MemoryLayout.structLayout($fieldExprs)"
-            }
-            type is Type.Declared && type.tree().kind() == Declaration.Scoped.Kind.ENUM ->
-                "ValueLayout.JAVA_INT"   // C enums default to int
-            else -> "ValueLayout.ADDRESS"
-        }
-
         /**
          * Converts an ObjC selector to a valid Kotlin function name.
          * "stringWithUTF8String:" → "stringWithUTF8String"
@@ -488,44 +375,6 @@ class KotlinObjCClassBuilder(
         fun kotlinName(selector: String): String =
             escapeIdentifier(selector.replace(":", "_").trimEnd('_'))
 
-        /**
-         * Returns the expression to pass for [name] when dispatching via ObjCRuntime.msgSend.
-         *
-         * - **NS_OPTIONS** (`@JvmInline value class`, rawValue: Long) → `name.rawValue`
-         * - **NS_ENUM** (enum class, value: Long) → `name.value`
-         * - **Struct by value** → `ObjCRuntime.ObjCStructArg(name, layoutExpr)` so that
-         *   ObjCRuntime can use the correct GroupLayout instead of ValueLayout.ADDRESS.
-         * - Everything else → `name` unchanged.
-         */
-        fun unboxedArgExpr(type: Type, name: String): String {
-            val enumDecl = KotlinEnumSupport.resolveEnum(type)
-            if (enumDecl != null) {
-                return if (KotlinEnumSupport.isOptionsStyle(enumDecl.name())) "$name.rawValue" else "$name.value"
-            }
-            val structDecl = resolveDecl(type, Declaration.Scoped.Kind.STRUCT)
-            if (structDecl != null) {
-                return "ObjCRuntime.ObjCStructArg($name, ${structGroupLayoutExpr(structDecl)})"
-            }
-            return name
-        }
-
-        /**
-         * Returns true when [type] resolves (through typedefs/qualifiers, not pointers) to a
-         * struct declaration — indicating the value is passed / returned by value, not by pointer.
-         */
-        fun isStructByValue(type: Type): Boolean =
-            resolveDecl(type, Declaration.Scoped.Kind.STRUCT) != null
-
-        /**
-         * Traverses typedef / qualifier wrappers (but NOT pointer indirections) and returns the
-         * innermost [Declaration.Scoped] whose kind matches [target], or null if not found.
-         */
-        fun resolveDecl(type: Type, target: Declaration.Scoped.Kind): Declaration.Scoped? = when {
-            type is Type.Declared && type.tree().kind() == target -> type.tree()
-            type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER ->
-                resolveDecl(type.type(), target)
-            else -> null
-        }
     }
 
     /**

@@ -3,9 +3,6 @@ package org.graphiks.kextract.kotlin.builders
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.kotlinName
-import org.graphiks.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.returnLayout
-import org.graphiks.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.returnTypeKotlin
-import org.graphiks.kextract.kotlin.utils.TypeMapper
 
 /**
  * Generates a Kotlin interface wrapper for an Objective-C @protocol declaration.
@@ -31,6 +28,8 @@ class KotlinObjCProtocolBuilder(
      *  parents that are actually classes (e.g. NSAccessibilityElement). */
     private val generatedClassNames: Set<String> = emptySet()
 ) {
+    private val typeLowerer = ObjCTypeLowerer(toplevel)
+
     /** Set of Kotlin signatures already emitted for this protocol — deduplicates methods vs
      *  property accessors, and methods inherited from parent protocols. */
     private val emitted = mutableSetOf<String>()
@@ -79,12 +78,12 @@ class KotlinObjCProtocolBuilder(
     private fun emitMethod(method: Declaration.ObjCMethod) {
         val selector = method.selector()
         val params   = method.parameters()
-        val retKotlin = returnTypeKotlin(method.returnType())
+        val retKotlin = typeLowerer.lower(method.returnType()).kotlinType
         val retSpelling = method.returnTypeSpelling()
 
         val paramList = params.mapIndexed { i, p ->
             val pName = KotlinObjCClassBuilder.escapeIdentifier(p.name().ifEmpty { "arg$i" })
-            val pType = TypeMapper.map(p.type())
+            val pType = typeLowerer.lower(p.type()).kotlinType
             "$pName: $pType"
         }.joinToString(", ")
 
@@ -113,7 +112,7 @@ class KotlinObjCProtocolBuilder(
 
     private fun emitProperty(prop: Declaration.ObjCProperty) {
         val propName  = prop.name()
-        val retKotlin = returnTypeKotlin(prop.type())
+        val retKotlin = typeLowerer.lower(prop.type()).kotlinType
         val getter    = prop.getterSelector()
         val propTypeSpelling = prop.typeSpelling()
 
@@ -127,7 +126,7 @@ class KotlinObjCProtocolBuilder(
 
         if (!prop.isReadOnly()) {
             val setter    = prop.setterSelector()
-            val paramType = TypeMapper.map(prop.type())
+            val paramType = typeLowerer.lower(prop.type()).kotlinType
             builder.appendLine("fun ${kotlinName(setter.removeSuffix(":"))}(value: $paramType)")
         }
         builder.appendLine()

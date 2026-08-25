@@ -3,9 +3,6 @@ package org.graphiks.kextract.kotlin.builders
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.kotlinName
-import org.graphiks.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.returnLayout
-import org.graphiks.kextract.kotlin.builders.KotlinObjCClassBuilder.Companion.returnTypeKotlin
-import org.graphiks.kextract.kotlin.utils.TypeMapper
 
 /**
  * Generates Kotlin extension functions for an Objective-C @category declaration.
@@ -43,6 +40,7 @@ class KotlinObjCCategoryBuilder(
      */
     private val existingSignatures: MutableSet<String> = mutableSetOf()
 ) {
+    private val typeLowerer = ObjCTypeLowerer(toplevel)
 
     fun visitCategory(decl: Declaration.ObjCCategory) {
         if (Skip.isPresent(decl)) return
@@ -81,19 +79,22 @@ class KotlinObjCCategoryBuilder(
     private fun emitInstanceMethod(extClass: String, method: Declaration.ObjCMethod) {
         val selector  = method.selector()
         val params    = method.parameters()
-        val retKotlin = returnTypeKotlin(method.returnType())
-        val retLayout = returnLayout(method.returnType())
+        val returnLowering = typeLowerer.lower(method.returnType())
+        val retKotlin = returnLowering.kotlinType
         val retSpelling = method.returnTypeSpelling()
 
         val paramList = params.mapIndexed { i, p ->
             val pName = KotlinObjCClassBuilder.escapeIdentifier(p.name().ifEmpty { "arg$i" })
-            val pType = TypeMapper.map(p.type())
+            val pType = typeLowerer.lower(p.type()).kotlinType
             "$pName: $pType"
         }.joinToString(", ")
 
         val retDecl  = if (retKotlin == "Unit") ": Unit" else ": $retKotlin"
 
-        val argsList = params.mapIndexed { i, p -> KotlinObjCClassBuilder.escapeIdentifier(p.name().ifEmpty { "arg$i" }) }.joinToString(", ")
+        val argsList = params.mapIndexed { i, p ->
+            val name = KotlinObjCClassBuilder.escapeIdentifier(p.name().ifEmpty { "arg$i" })
+            typeLowerer.lower(p.type()).lowerArgument(name)
+        }.joinToString(", ")
         val argsExpr = if (argsList.isEmpty()) "" else ", $argsList"
 
         // Emit a KDoc comment when the original ObjC return type carries generic information
@@ -104,11 +105,8 @@ class KotlinObjCCategoryBuilder(
         builder.appendLine("fun $extClass.${kotlinName(selector)}($paramList)$retDecl {")
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$selector\")")
-        if (retKotlin == "Unit") {
-            builder.appendLine("ObjCRuntime.msgSend(null, this.ptr, sel$argsExpr)")
-        } else {
-            builder.appendLine("return ObjCRuntime.msgSend($retLayout, this.ptr, sel$argsExpr) as $retKotlin")
-        }
+        val invocation = returnLowering.invocation("this.ptr", "sel", argsExpr)
+        builder.appendLine(if (returnLowering.isVoid) invocation else "return $invocation")
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
@@ -124,17 +122,20 @@ class KotlinObjCCategoryBuilder(
     private fun emitClassMethod(extClass: String, method: Declaration.ObjCMethod) {
         val selector  = method.selector()
         val params    = method.parameters()
-        val retKotlin = returnTypeKotlin(method.returnType())
-        val retLayout = returnLayout(method.returnType())
+        val returnLowering = typeLowerer.lower(method.returnType())
+        val retKotlin = returnLowering.kotlinType
 
         val paramList = params.mapIndexed { i, p ->
             val pName = KotlinObjCClassBuilder.escapeIdentifier(p.name().ifEmpty { "arg$i" })
-            val pType = TypeMapper.map(p.type())
+            val pType = typeLowerer.lower(p.type()).kotlinType
             "$pName: $pType"
         }.joinToString(", ")
 
         val retDecl  = if (retKotlin == "Unit") ": Unit" else ": $retKotlin"
-        val argsList = params.mapIndexed { i, p -> KotlinObjCClassBuilder.escapeIdentifier(p.name().ifEmpty { "arg$i" }) }.joinToString(", ")
+        val argsList = params.mapIndexed { i, p ->
+            val name = KotlinObjCClassBuilder.escapeIdentifier(p.name().ifEmpty { "arg$i" })
+            typeLowerer.lower(p.type()).lowerArgument(name)
+        }.joinToString(", ")
         val argsExpr = if (argsList.isEmpty()) "" else ", $argsList"
 
         // Use the raw selector→name conversion (without backtick-escaping via kotlinName)
@@ -149,11 +150,8 @@ class KotlinObjCCategoryBuilder(
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$selector\")")
         builder.appendLine("val cls = ObjCRuntime.getClass(\"$extClass\")")
-        if (retKotlin == "Unit") {
-            builder.appendLine("ObjCRuntime.msgSend(null, cls, sel$argsExpr)")
-        } else {
-            builder.appendLine("return ObjCRuntime.msgSend($retLayout, cls, sel$argsExpr) as $retKotlin")
-        }
+        val invocation = returnLowering.invocation("cls", "sel", argsExpr)
+        builder.appendLine(if (returnLowering.isVoid) invocation else "return $invocation")
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
@@ -161,8 +159,8 @@ class KotlinObjCCategoryBuilder(
 
     private fun emitProperty(extClass: String, prop: Declaration.ObjCProperty) {
         val propName  = prop.name()
-        val retKotlin = returnTypeKotlin(prop.type())
-        val retLayout = returnLayout(prop.type())
+        val lowering = typeLowerer.lower(prop.type())
+        val retKotlin = lowering.kotlinType
         val getter    = prop.getterSelector()
         val propTypeSpelling = prop.typeSpelling()
 
@@ -175,21 +173,19 @@ class KotlinObjCCategoryBuilder(
         builder.appendLine("fun $extClass.${kotlinName(getter)}(): $retKotlin {")
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$getter\")")
-        if (retKotlin == "Unit") {
-            builder.appendLine("ObjCRuntime.msgSend(null, this.ptr, sel)")
-        } else {
-            builder.appendLine("return ObjCRuntime.msgSend($retLayout, this.ptr, sel) as $retKotlin")
-        }
+        val invocation = lowering.invocation("this.ptr", "sel", "")
+        builder.appendLine(if (lowering.isVoid) invocation else "return $invocation")
         builder.unindent()
         builder.appendLine("}")
 
         if (!prop.isReadOnly()) {
             val setter    = prop.setterSelector()
-            val paramType = TypeMapper.map(prop.type())
+            val paramType = lowering.kotlinType
+            val valueExpr = lowering.lowerArgument("value")
             builder.appendLine("fun $extClass.${kotlinName(setter.removeSuffix(":"))}(value: $paramType) {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$setter\")")
-            builder.appendLine("ObjCRuntime.msgSend(null, this.ptr, sel, value)")
+            builder.appendLine("ObjCRuntime.msgSend(null, this.ptr, sel, $valueExpr)")
             builder.unindent()
             builder.appendLine("}")
         }

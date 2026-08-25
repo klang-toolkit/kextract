@@ -297,7 +297,8 @@ class KotlinHeaderBuilder(
         }
         if (enumDecl != null && enumValue != null) {
             val literal = if (enumValue == Long.MIN_VALUE) "Long.MIN_VALUE" else "${enumValue}L"
-            return if (KotlinEnumSupport.isOptionsStyle(enumDecl.name())) {
+            return if (KotlinEnumSupport.isOptionsStyle(enumDecl) ||
+                toplevel.isObjCSurfaceEnum(enumDecl)) {
                 "$type($literal)"
             } else {
                 "$type.fromValue($literal)"

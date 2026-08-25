@@ -615,7 +615,7 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
 
         "options-style macros use the value-class constructor" {
             val src = generate("""
-                typedef enum : long {
+                typedef enum __attribute__((flag_enum)) : long {
                     KxFeatureA = 1,
                     KxFeatureB = 2
                 } KxFeatureOptions;
@@ -902,7 +902,7 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
 
     "NS_OPTIONS generates @JvmInline value class" - {
         val src = generate("""
-            typedef enum : long {
+            typedef enum __attribute__((flag_enum)) : long {
                 KxNone              = 0,
                 KxCaseInsensitive   = 1,
                 KxLiteral           = 2,
@@ -931,18 +931,86 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         }
     }
 
-    "Enum typedef with Flags suffix generates value class" - {
+    "Objective-C semantic wrappers compile and represent unknown values" - {
+        val files = generateAll("""
+            #define NS_ENUM(_type, _name) \
+                enum _name : _type _name; enum _name : _type
+            #define NS_OPTIONS(_type, _name) \
+                enum __attribute__((flag_enum)) _name : _type _name; \
+                enum __attribute__((flag_enum)) _name : _type
+
+            typedef unsigned long NSUInteger;
+            typedef struct KxPoint {
+                double x;
+                double y;
+            } KxPoint;
+            typedef struct KxRect {
+                KxPoint origin;
+                KxPoint size;
+            } KxRect;
+            typedef struct KxRange {
+                NSUInteger location;
+                NSUInteger length;
+            } KxRange;
+            typedef NS_ENUM(long, KxOpenMode) { KxOpenModeKnown = 1 };
+            typedef NS_OPTIONS(unsigned long, KxOpenFlags) { KxOpenFlagsKnown = 1 };
+
+            @interface KxSemanticConsumer
+            - (KxRect)transformRange:(KxRange)range point:(KxPoint)point pointer:(KxRange *)pointer;
+            - (KxOpenMode)modeForFlags:(KxOpenFlags)flags;
+            @end
+        """.trimIndent())
+
+        "unknown enum raw values are constructible without throwing" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+                    fun readUnknownMode(): Long = KxOpenMode(4_294_967_299L).rawValue
+                """.trimIndent(),
+                "readUnknownMode",
+            ) shouldBe 4_294_967_299L
+        }
+
+        "asymmetric struct values survive named construction and typed access" {
+            compileAndInvokeLong(
+                files,
+                """
+                    package test
+
+                    fun readAsymmetricRange(): Long {
+                        val point = KxPoint(x = 13.0, y = -7.0)
+                        val rect = KxRect(
+                            origin = KxPoint(x = 17.0, y = -3.0),
+                            size = KxPoint(x = 5.0, y = 11.0),
+                        )
+                        val range = KxRange(location = 7L, length = 13L)
+                        val pointCode = (point.x * 100.0 - point.y).toLong()
+                        val rectCode = (
+                            rect.origin.x * 100.0 - rect.origin.y +
+                                rect.size.x * 10.0 + rect.size.y
+                            ).toLong()
+                        return pointCode * 1_000_000L + rectCode * 1_000L +
+                            range.location * 100L + range.length
+                    }
+                """.trimIndent(),
+                "readAsymmetricRange",
+            ) shouldBe 1_308_764_713L
+        }
+    }
+
+    "FlagEnum attribute generates value class without a naming convention" - {
         val src = generate("""
-            typedef enum : long {
+            typedef enum __attribute__((flag_enum)) : long {
                 KxEventNone  = 0,
                 KxEventClick = 1,
                 KxEventHover = 2
-            } KxEventFlags;
+            } KxEventBits;
         """.trimIndent())
 
-        "value class emitted for Flags suffix" {
+        "value class emitted for semantic options" {
             src shouldContain "@JvmInline"
-            src shouldContain "value class KxEventFlags(val rawValue: Long)"
+            src shouldContain "value class KxEventBits(val rawValue: Long)"
         }
     }
 

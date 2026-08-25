@@ -9,6 +9,11 @@ import org.graphiks.kextract.Type
  * Handles primitives, pointers (nullable), structs, typedefs, and functions.
  */
 object TypeMapper {
+    internal data class NamedRecord(
+        val publicName: String,
+        val declaration: Declaration.Scoped,
+    )
+
     /**
      * Maps a C type to its Kotlin equivalent.
      */
@@ -81,4 +86,36 @@ object TypeMapper {
     private fun sanitizeName(name: String): String =
         name.replace(Regex("[^a-zA-Z0-9_]"), "_")
             .replace(Regex("^\\d+"), "_")
+
+    /** Resolves a value record without crossing pointer indirections. */
+    internal fun namedStruct(type: Type): NamedRecord? =
+        namedRecord(type, Declaration.Scoped.Kind.STRUCT)
+
+    /** Resolves the pointee record only when [type] is a pointer to a struct. */
+    internal fun pointedStruct(type: Type): NamedRecord? =
+        if (type is Type.Delegated && type.kind() == Type.Delegated.Kind.POINTER) {
+            namedStruct(type.type())
+        } else {
+            null
+        }
+
+    private fun namedRecord(
+        type: Type,
+        target: Declaration.Scoped.Kind,
+        preferredName: String? = null,
+    ): NamedRecord? = when {
+        type is Type.Declared && type.tree().kind() == target -> {
+            val name = preferredName ?: type.tree().name()
+            name.takeIf(String::isNotEmpty)?.let { NamedRecord(it, type.tree()) }
+        }
+        type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER -> {
+            val name = if (type.kind() == Type.Delegated.Kind.TYPEDEF) {
+                preferredName ?: type.name()
+            } else {
+                preferredName
+            }
+            namedRecord(type.type(), target, name)
+        }
+        else -> null
+    }
 }

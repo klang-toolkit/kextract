@@ -11,7 +11,9 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.graphiks.kextract.kotlin.KotlinGenerator
 import org.graphiks.kextract.kotlin.models.KotlinSourceFile
+import org.graphiks.kextract.pipeline.IncludeFilter
 import org.graphiks.kextract.pipeline.KextractTool
+import org.graphiks.kextract.pipeline.IncludeHelper
 import org.graphiks.kextract.pipeline.NameMangler
 import java.nio.file.Files
 
@@ -268,6 +270,111 @@ class ObjCGeneratorTest : FreeSpec({
 
     // ── Generator: inline — @category ────────────────────────────────────────
 
+    "Objective-C API surfaces preserve semantic types" - {
+        val files = generateFromFixture("SemanticTypes.h")
+        val src = files.joinToString("\n") { it.contents }
+        val declarations = KextractTool.parse(
+            listOf(fixtureHeader("SemanticTypes.h")),
+            "-x", "objective-c",
+        ).members()
+
+        "libclang exposes NS_OPTIONS through FlagEnum" {
+            val flags = declarations
+                .filterIsInstance<Declaration.Scoped>()
+                .single { it.kind() == Declaration.Scoped.Kind.ENUM && it.name() == "KxFlags" }
+            flags.getAttribute<Declaration.ClangAttributes>()!!
+                .attributes shouldContainKey "FlagEnum"
+        }
+
+        "class methods and properties use semantic enum scalar and struct types" {
+            src shouldContain "fun acceptsMode_flags(mode: KxMode, flags: KxFlags): Boolean"
+            src shouldContain "fun signedIndex(): Long"
+            src shouldContain "fun unsignedCount(): Long"
+            src shouldContain "fun roundTripUnsignedCode(code: KxUnsignedCode): KxUnsignedCode"
+            src shouldContain "fun translatePoint_rect_range_rangePointer(point: NSPoint, rect: NSRect, range: NSRange, rangePointer: NSRangePointer): NSPoint"
+            src shouldContain "fun mode(): KxMode"
+            src shouldContain "fun setMode(value: KxMode)"
+            src shouldContain "fun flags(): KxFlags"
+            src shouldContain "fun selection(): NSRange"
+            src shouldContain "fun setSelection(value: NSRange)"
+        }
+
+        "protocols and categories share the same semantic signatures" {
+            src shouldContain "fun modeForRange(range: NSRange): KxMode"
+            src shouldContain "fun KxSemanticHost.offsetRange_pointer(range: NSRange, pointer: NSRangePointer): NSRange"
+        }
+
+        "enum and options wrappers remain open to unknown raw values" {
+            src shouldContain "value class KxMode(val rawValue: Long)"
+            src shouldContain "val KxModeOne = KxMode(1L)"
+            src shouldContain "value class KxFlags(val rawValue: Long)"
+            src shouldContain "val KxFlagsOne = KxFlags(1L)"
+            src shouldNotContain "enum class KxMode"
+            src shouldNotContain "KxMode.fromValue("
+        }
+
+        "unsigned enum lowering preserves the full raw-value range" {
+            src shouldContain "code.rawValue.toInt()"
+            src shouldContain "Integer.toUnsignedLong("
+        }
+
+        "value and pointer structs have distinct nominal wrappers and lowering" {
+            src shouldContain "class _NSRange internal constructor(internal val segment: MemorySegment)"
+            src shouldContain "class _NSRangePointer internal constructor(internal val segment: MemorySegment)"
+            src shouldContain "typealias NSRange = _NSRange"
+            src shouldContain "typealias NSRangePointer = _NSRangePointer"
+            src shouldContain "constructor(location: Long, length: Long)"
+            src shouldContain "ObjCRuntime.ObjCStructArg(range.segment, NSRange.layout)"
+            src shouldContain "rangePointer.segment"
+            src shouldNotContain "range: MemorySegment"
+            src shouldNotContain "rangePointer: MemorySegment"
+        }
+
+        "include filtering retains semantic types required by an included Objective-C class" {
+            val path = fixtureHeader("SemanticTypes.h")
+            val parsed = KextractTool.parse(listOf(path), "-x", "objective-c")
+            val includes = IncludeHelper().apply {
+                addSymbol(IncludeHelper.IncludeKind.OBJC_CLASS, "KxSemanticHost")
+            }
+            val filtered = IncludeFilter(includes).scan(parsed)
+            val mangled = NameMangler("SemanticTypes.h").scan(filtered)
+            val filteredSource = KotlinGenerator().generate(mangled, "SemanticTypes.h", "test")
+                .joinToString("\n") { it.contents }
+
+            filteredSource shouldContain "class _NSRange internal constructor"
+            filteredSource shouldContain "typealias NSRange = _NSRange"
+            filteredSource shouldContain "range: NSRange"
+            filteredSource shouldContain "rangePointer: NSRangePointer"
+        }
+
+        "a C struct included without its filtered Objective-C consumer keeps the legacy API" {
+            val tmp = Files.createTempFile("kextract_objc_filter_scope_", ".h")
+            val filteredSource = try {
+                tmp.toFile().writeText("""
+                    typedef struct KxPlainRecord { long value; } KxPlainRecord;
+                    @interface KxExcludedConsumer
+                    - (KxPlainRecord)transform:(KxPlainRecord)value;
+                    @end
+                """.trimIndent())
+                val parsed = KextractTool.parse(listOf(tmp.toString()), "-x", "objective-c")
+                val includes = IncludeHelper().apply {
+                    addSymbol(IncludeHelper.IncludeKind.STRUCT, "KxPlainRecord")
+                }
+                val filtered = IncludeFilter(includes).scan(parsed)
+                val mangled = NameMangler(tmp.fileName.toString()).scan(filtered)
+                KotlinGenerator().generate(mangled, tmp.fileName.toString(), "test")
+                    .joinToString("\n") { it.contents }
+            } finally {
+                Files.deleteIfExists(tmp)
+            }
+
+            filteredSource shouldContain "class KxPlainRecord {"
+            filteredSource shouldContain "fun allocate(allocator: SegmentAllocator): MemorySegment"
+            filteredSource shouldNotContain "class KxPlainRecord internal constructor"
+            filteredSource shouldNotContain "class KxPlainRecordPointer"
+        }
+    }
+
     // NOTE: In libclang, for `@interface KxAnimal (Tricks)`, c.spelling() returns
     // the category name ("Tricks"), not the extended class name. The generator
     // therefore produces extension functions with the category name as receiver
@@ -447,7 +554,7 @@ class ObjCGeneratorTest : FreeSpec({
         "plain enum appears in Enums file, Options style in Options file" {
             val files = generateSplit("""
                 typedef enum : long { Red = 1, Green = 2 } KxColor;
-                typedef enum : long { Readable = 1, Writable = 2 } KxFileOptions;
+                typedef enum __attribute__((flag_enum)) : long { Readable = 1, Writable = 2 } KxFileOptions;
             """.trimIndent())
             files.keys.any { it.endsWith("Enums") } shouldBe true
             files.keys.any { it.endsWith("Options") } shouldBe true

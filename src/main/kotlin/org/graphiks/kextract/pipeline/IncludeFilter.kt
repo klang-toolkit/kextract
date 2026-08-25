@@ -3,12 +3,20 @@ package org.graphiks.kextract.pipeline
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.Type
+import java.util.IdentityHashMap
 
 class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visitor<Unit> {
 
     private var currentParent: Declaration? = null
+    private val requiredObjCRecords = IdentityHashMap<Declaration.Scoped, Boolean>()
+    private val requiredObjCRecordNames = mutableSetOf<String>()
+    private val requiredObjCTypedefs = mutableSetOf<String>()
 
     fun scan(header: Declaration.Scoped): Declaration.Scoped {
+        requiredObjCRecords.clear()
+        requiredObjCRecordNames.clear()
+        requiredObjCTypedefs.clear()
+        collectRequiredObjCTypes(header)
         header.members().forEach { it.accept(this) }
         return header
     }
@@ -26,7 +34,11 @@ class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visi
             val name = d.name()
             // A named struct from "typedef struct { ... } Foo" has its redundant typedef filtered out,
             // so users specify --include-typedef Foo. Accept if either STRUCT or TYPEDEF set contains the name.
-            if (name.isNotEmpty() && !includeHelper.isIncluded(d) && !includeHelper.isIncludedAsTypedef(name)) {
+            if (name.isNotEmpty() &&
+                !isRequiredObjCRecord(d) &&
+                !includeHelper.isIncluded(d) &&
+                !includeHelper.isIncludedAsTypedef(name)
+            ) {
                 Skip.with(d)
             }
         }
@@ -41,10 +53,70 @@ class IncludeFilter(private val includeHelper: IncludeHelper) : Declaration.Visi
         // These "foundational" typealiases (BOOL, CGFloat, NSInteger, NSUInteger, …) are
         // required by any generated ObjC binding that references them; they must survive
         // --include-objc-class filtering regardless of whether they were explicitly listed.
-        if (!includeHelper.isIncluded(tree) && !isFoundationalTypealias(tree.type())) {
+        if (tree.name() !in requiredObjCTypedefs &&
+            !includeHelper.isIncluded(tree) &&
+            !isFoundationalTypealias(tree.type())
+        ) {
             Skip.with(tree)
         }
     }
+
+    /**
+     * Include filters select public declarations by name, but an included Objective-C
+     * declaration is not usable unless its value-record typedefs and backing records are
+     * emitted too. Discover those dependencies before applying [Skip], including records
+     * nested by value inside another surface record.
+     */
+    private fun collectRequiredObjCTypes(header: Declaration.Scoped) {
+        header.members().forEach { declaration ->
+            when (declaration) {
+                is Declaration.ObjCClass -> if (includeHelper.isIncluded(declaration)) {
+                    declaration.methods().forEach(::collectMethodTypes)
+                    declaration.properties().forEach { collectType(it.type()) }
+                    declaration.ivars().forEach { collectType(it.type()) }
+                }
+                is Declaration.ObjCProtocol -> if (includeHelper.isIncluded(declaration)) {
+                    declaration.methods().forEach(::collectMethodTypes)
+                    declaration.properties().forEach { collectType(it.type()) }
+                }
+                is Declaration.ObjCCategory -> if (includeHelper.isIncluded(declaration)) {
+                    declaration.methods().forEach(::collectMethodTypes)
+                    declaration.properties().forEach { collectType(it.type()) }
+                }
+            }
+        }
+    }
+
+    private fun collectMethodTypes(method: Declaration.ObjCMethod) {
+        collectType(method.returnType())
+        method.parameters().forEach { collectType(it.type()) }
+    }
+
+    private fun collectType(type: Type) {
+        when (type) {
+            is Type.Delegated -> {
+                if (type.kind() == Type.Delegated.Kind.TYPEDEF) {
+                    type.name()?.let(requiredObjCTypedefs::add)
+                }
+                collectType(type.type())
+            }
+            is Type.Declared -> collectRecord(type.tree())
+            is Type.Array -> collectType(type.elementType())
+            is Type.Function -> {
+                collectType(type.returnType())
+                type.argumentTypes().forEach(::collectType)
+            }
+        }
+    }
+
+    private fun collectRecord(record: Declaration.Scoped) {
+        if (!record.isStructOrUnion() || requiredObjCRecords.put(record, true) != null) return
+        record.name().takeIf(String::isNotEmpty)?.let(requiredObjCRecordNames::add)
+        record.members().filterIsInstance<Declaration.Variable>().forEach { collectType(it.type()) }
+    }
+
+    private fun isRequiredObjCRecord(record: Declaration.Scoped): Boolean =
+        requiredObjCRecords.containsKey(record) || record.name() in requiredObjCRecordNames
 
     /**
      * Returns true when [type] resolves (through typedef/qualifier chains, not pointer

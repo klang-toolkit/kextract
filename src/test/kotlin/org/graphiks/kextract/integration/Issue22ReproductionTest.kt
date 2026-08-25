@@ -221,7 +221,7 @@ class Issue22ReproductionTest : FreeSpec({
 
     // ── Enum return types (Bug 1 extension) ───────────────────────────────────
 
-    "Bug 1 extended — NS_ENUM return type uses fromValue() not as-cast" {
+    "Bug 1 extended — NS_ENUM return type reconstructs an open raw-value wrapper" {
         val src = generate("""
             typedef enum : long {
                 KxStatusOk    = 0,
@@ -233,7 +233,8 @@ class Issue22ReproductionTest : FreeSpec({
             @end
         """.trimIndent())
 
-        src shouldContain "KxStatus.fromValue("
+        src shouldContain "return KxStatus(ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, ptr, sel) as Long)"
+        src shouldNotContain "KxStatus.fromValue("
         src shouldNotContain "ObjCRuntime.msgSend(ValueLayout.ADDRESS"
     }
 
@@ -282,7 +283,7 @@ class Issue22ReproductionTest : FreeSpec({
         src shouldContain "mask.rawValue"
     }
 
-    "Bug 4 — NS_ENUM (regular enum) argument is unboxed with .value" {
+    "Bug 4 — NS_ENUM raw-value wrapper argument is unboxed with .rawValue" {
         val src = generate("""
             typedef enum : long {
                 KxAlignLeft   = 0,
@@ -295,7 +296,7 @@ class Issue22ReproductionTest : FreeSpec({
             @end
         """.trimIndent())
 
-        src shouldContain "alignment.value"
+        src shouldContain "alignment.rawValue"
     }
 
     // ── Bonus: foundational typealiases survive --include-objc-class filtering ──

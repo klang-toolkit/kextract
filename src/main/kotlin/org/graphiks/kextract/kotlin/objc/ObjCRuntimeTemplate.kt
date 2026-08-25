@@ -112,7 +112,7 @@ object ObjCRuntime {
      * the [FunctionDescriptor] must use the matching [GroupLayout] (not [ValueLayout.ADDRESS]).
      * Wrap the segment in [ObjCStructArg] so [msgSend] can apply the correct layout.
      */
-    data class ObjCStructArg(val segment: MemorySegment, val layout: GroupLayout)
+    internal data class ObjCStructArg(val segment: MemorySegment, val layout: GroupLayout)
 
     /**
      * Sends an ObjC message to [receiver] with selector [selector] and [args].

@@ -2,6 +2,7 @@ package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.Type
+import org.graphiks.kextract.getAttribute
 
 internal object KotlinEnumSupport {
     fun resolveEnum(type: Type): Declaration.Scoped? = when {
@@ -12,8 +13,13 @@ internal object KotlinEnumSupport {
         else -> null
     }
 
-    fun isOptionsStyle(name: String): Boolean =
-        name.endsWith("Options") || name.endsWith("Flags") || name.endsWith("Mask")
+    /** Clang's semantic marker for `NS_OPTIONS` / `__attribute__((flag_enum))`. */
+    fun isOptionsStyle(decl: Declaration.Scoped): Boolean =
+        decl.getAttribute<Declaration.ClangAttributes>()
+            ?.attributes
+            ?.keys
+            ?.any { it == "FlagEnum" }
+            ?: false
 
     /**
      * Clang preserves extension and Unicode identifiers (for example names containing `$`),
