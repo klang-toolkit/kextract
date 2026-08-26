@@ -34,11 +34,10 @@ class KotlinObjCClassBuilder(
     private val generatedClassNames: Set<String> = emptySet(),
     private val classHierarchy: ClassHierarchy = emptyMap(),
     /**
-     * Map from class name to the set of Kotlin method / property accessor signatures
-     * declared directly (not inherited) on that class.  Used to detect overrides so that
-     * `override` is emitted only when the method exists in a (non-NSObject) superclass.
+     * Non-skipped Objective-C class declarations, indexed during the TOPLEVEL pre-scan.
+     * Their direct instance callables seed child allocators and verify exact-selector overrides.
      */
-    private val classMethodSignatures: Map<String, Set<String>> = emptyMap(),
+    private val classCatalogue: Map<String, Declaration.ObjCClass> = emptyMap(),
     /**
      * The name of the ObjC class currently being generated, set at the start of
      * [visitClass] so that [isOverride] can walk the hierarchy.
@@ -88,13 +87,26 @@ class KotlinObjCClassBuilder(
         }
         builder.appendLine()
 
-        // Class methods (+) — deduplicate by Kotlin name to avoid colliding function signatures
+        val companionCallableNames = KotlinCallableNameAllocator()
+        // Class methods (+) — selectors retain their Objective-C arity so `foo` and `foo:`
+        // can emit valid Kotlin overloads.
         val seenClassMethods = LinkedHashSet<String>()
         val uniqueClassMethods = decl.methods()
             .filter { it.isClassMethod() }
-            .filter { seenClassMethods.add(kotlinName(it.selector())) }
+            .filter { seenClassMethods.add(toplevel.objcMemberSignatureKey(true, it.selector())) }
         for (method in uniqueClassMethods) {
-            emitMethod(method, receiver = "_class")
+            emitMethod(method, receiver = "_class", callableNames = companionCallableNames)
+        }
+
+        // Class properties are class-object accessors. Emit them inside the companion object so
+        // they dispatch through `_class`, while allowing synthetic `+` methods to win when
+        // libclang provides them.
+        val seenClassProperties = LinkedHashSet<String>()
+        val uniqueClassProperties = decl.properties()
+            .filter { it.isClassProperty() }
+            .filter { seenClassProperties.add(it.name()) }
+        for (property in uniqueClassProperties) {
+            emitClassProperty(property, seenClassMethods, companionCallableNames)
         }
 
         builder.unindent()
@@ -105,31 +117,19 @@ class KotlinObjCClassBuilder(
         // we don't emit a plain method AND a property accessor with the same signature.
         // ObjC synthesises a getter (and optional setter) method for every @property, so
         // the same selector appears in both decl.methods() and decl.properties().
-        val propertySelectors: Set<String> = decl.properties()
-            .flatMapTo(mutableSetOf()) { prop ->
-                buildList {
-                    add(prop.getterSelector())
-                    if (!prop.isReadOnly()) add(prop.setterSelector())
-                }
-            }
-
-        // Instance methods (-) — deduplicate by Kotlin name; skip any selector already emitted
-        // as a property accessor to avoid "conflicting overloads" in the generated source.
-        val seenInstanceMethods = LinkedHashSet<String>()
-        val uniqueInstanceMethods = decl.methods()
-            .filter { !it.isClassMethod() }
-            .filter { it.selector() !in propertySelectors }
-            .filter { seenInstanceMethods.add(kotlinName(it.selector())) }
+        // Instance methods (-) retain their Objective-C selector arity, while selectors already
+        // emitted as property accessors are skipped to avoid duplicate declarations.
+        val instanceCallableNames = KotlinCallableNameAllocator()
+        reserveInheritedInstanceCallables(instanceCallableNames)
+        val uniqueInstanceMethods = directInstanceMethods(decl)
         for (method in uniqueInstanceMethods) {
-            emitMethod(method, receiver = "ptr")
+            emitMethod(method, receiver = "ptr", callableNames = instanceCallableNames)
         }
 
         // Properties — deduplicate by property name to avoid redeclaring the same getter/setter
-        val seenProperties = LinkedHashSet<String>()
-        val uniqueProperties = decl.properties()
-            .filter { seenProperties.add(it.name()) }
+        val uniqueProperties = directInstanceProperties(decl)
         for (prop in uniqueProperties) {
-            emitProperty(prop)
+            emitProperty(prop, instanceCallableNames)
         }
 
         // Instance variables — emitted as comments since direct field access is not
@@ -148,7 +148,11 @@ class KotlinObjCClassBuilder(
         builder.appendLine()
     }
 
-    internal fun emitMethod(method: Declaration.ObjCMethod, receiver: String) {
+    internal fun emitMethod(
+        method: Declaration.ObjCMethod,
+        receiver: String,
+        callableNames: KotlinCallableNameAllocator,
+    ) {
         val selector = method.selector()
         val params = method.parameters()
         val retType = method.returnType()
@@ -171,12 +175,20 @@ class KotlinObjCClassBuilder(
         }
         // Instance methods (receiver == "ptr") are open to allow override in subclasses;
         // class methods in the companion object remain non-open.
-        val fnName = kotlinName(selector)
-        val openMod = if (receiver == "ptr") { if (isOverride(fnName)) "override " else "open " } else ""
-        // Rename methods that collide with java.lang.Object methods (e.g. NSCondition.wait()
-        // vs Object.wait()) to avoid "Accidental override" at the JVM level.
-        val jvmSafe = if (fnName in JVM_OBJECT_METHODS && paramList.isEmpty() && retKotlin == "Unit") "${fnName}ObjC" else fnName
-        builder.appendLine("${openMod}fun $jvmSafe($paramList)$retDecl {")
+        val parameterTypes = params.map { typeLowerer.lower(it.type()).kotlinType }
+        val jvmSafe = methodCallableBaseName(method)
+        val fnName = callableNames.allocate(
+            selector,
+            jvmSafe,
+            parameterTypes,
+        )
+        val isMethodOverride = receiver == "ptr" && isOverride(selector, parameterTypes, retKotlin)
+        val openMod = if (receiver == "ptr") {
+            if (isMethodOverride) "override " else "open "
+        } else {
+            ""
+        }
+        builder.appendLine("${openMod}fun $fnName($paramList)$retDecl {")
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$selector\")")
 
@@ -193,7 +205,7 @@ class KotlinObjCClassBuilder(
         builder.appendLine()
 
         // Emit String convenience overloads for NSString parameters / return type
-        emitNSStringMethodOverloads(method, receiver, fnName)
+        emitNSStringMethodOverloads(method, receiver, fnName, isMethodOverride, callableNames)
     }
 
     /**
@@ -213,18 +225,22 @@ class KotlinObjCClassBuilder(
      *
      * All overloads are skipped when neither condition applies.
      */
-    private fun emitNSStringMethodOverloads(method: Declaration.ObjCMethod, receiver: String, fnName: String) {
+    private fun emitNSStringMethodOverloads(
+        method: Declaration.ObjCMethod,
+        receiver: String,
+        fnName: String,
+        isOverride: Boolean,
+        callableNames: KotlinCallableNameAllocator,
+    ) {
         val params = method.parameters()
-        val retType = method.returnType()
-        val nsStringReturnType = isNSString(retType)
-        val nsStringParams = params.map { isNSString(it.type()) }
-        val hasNSStringParam = nsStringParams.any { it }
-
-        if (!nsStringReturnType && !hasNSStringParam) return
-
         // If the base method overrides a parent, the NSString convenience overloads
         // are inherited via polymorphic dispatch — skip regenerating them.
-        if (receiver == "ptr" && isOverride(fnName)) return
+        if (receiver == "ptr" && isOverride) return
+
+        val convenienceNames = allocateNSStringMethodConveniences(method, fnName, callableNames) ?: return
+        val nsStringReturnType = convenienceNames.returnAsString != null
+        val nsStringParams = params.map { isNSString(it.type()) }
+        val hasNSStringParam = convenienceNames.stringParameters != null
 
         // Raw param list — MemorySegment for NSString params (same as base method)
         val rawParamList = params.mapIndexed { i, p ->
@@ -244,32 +260,124 @@ class KotlinObjCClassBuilder(
             if (nsStringParams[i]) "ObjCRuntime.newNSString(Arena.global(), $pName)" else pName
         }.joinToString(", ")
 
-        val retKotlin = typeLowerer.lower(retType).kotlinType
+        val retKotlin = typeLowerer.lower(method.returnType()).kotlinType
         val retDecl = if (retKotlin == "Unit") ": Unit" else ": $retKotlin"
 
         // Overload 1: NSString return → AsString suffix, raw (MemorySegment) params
         if (nsStringReturnType) {
             builder.appendLine("/** Convenience overload — returns Kotlin [String] by converting the NSString via UTF8String. */")
-            builder.appendLine("fun ${fnName}AsString($rawParamList): String = ObjCRuntime.toJavaString($fnName($rawArgs))")
+            builder.appendLine("fun ${convenienceNames.returnAsString}($rawParamList): String = ObjCRuntime.toJavaString($fnName($rawArgs))")
             builder.appendLine()
         }
 
         // Overload 2: NSString param(s) → String params, original return type
         if (hasNSStringParam) {
             builder.appendLine("/** Convenience overload — accepts Kotlin [String] for NSString parameters. */")
-            builder.appendLine("fun $fnName($stringParamList)$retDecl = $fnName($wrappedArgs)")
+            builder.appendLine("fun ${convenienceNames.stringParameters}($stringParamList)$retDecl = $fnName($wrappedArgs)")
             builder.appendLine()
 
             // Overload 3 (combined): String params + String return — only when return is also NSString
             if (nsStringReturnType) {
                 builder.appendLine("/** Convenience overload — [String] parameters and [String] return type. */")
-                builder.appendLine("fun ${fnName}AsString($stringParamList): String = ObjCRuntime.toJavaString($fnName($wrappedArgs))")
+                builder.appendLine("fun ${convenienceNames.combinedAsString}($stringParamList): String = ObjCRuntime.toJavaString($fnName($wrappedArgs))")
                 builder.appendLine()
             }
         }
     }
 
-    private fun emitProperty(prop: Declaration.ObjCProperty) {
+    private data class NSStringMethodConvenienceNames(
+        val returnAsString: String?,
+        val stringParameters: String?,
+        val combinedAsString: String?,
+    )
+
+    /**
+     * Allocates every convenience name in its generated source order. Keeping this allocation
+     * separate from emission lets ancestor reservation replay the exact same callable surface.
+     */
+    private fun allocateNSStringMethodConveniences(
+        method: Declaration.ObjCMethod,
+        rawName: String,
+        callableNames: KotlinCallableNameAllocator,
+        receiver: String? = null,
+    ): NSStringMethodConvenienceNames? {
+        val params = method.parameters()
+        val returnsNSString = isNSString(method.returnType())
+        val stringParameters = params.map { isNSString(it.type()) }
+        val hasStringParameters = stringParameters.any { it }
+        if (!returnsNSString && !hasStringParameters) return null
+
+        val rawParameterTypes = params.map { typeLowerer.lower(it.type()).kotlinType }
+        val kotlinStringParameterTypes = params.mapIndexed { index, parameter ->
+            if (stringParameters[index]) "String" else typeLowerer.lower(parameter.type()).kotlinType
+        }
+        val selector = method.selector()
+        val returnAsString = if (returnsNSString) {
+            callableNames.allocateSynthetic(
+                "NSStringAsString:$selector",
+                "${syntheticConvenienceBaseName(rawName)}AsString",
+                rawParameterTypes,
+                receiver,
+            )
+        } else {
+            null
+        }
+        val stringParameterName = if (hasStringParameters) {
+            callableNames.allocateSynthetic(
+                "NSStringParameters:$selector",
+                rawName,
+                kotlinStringParameterTypes,
+                receiver,
+            )
+        } else {
+            null
+        }
+        val combinedAsString = if (returnsNSString && hasStringParameters) {
+            callableNames.allocateSynthetic(
+                "NSStringAsString:$selector",
+                "${syntheticConvenienceBaseName(rawName)}AsString",
+                kotlinStringParameterTypes,
+                receiver,
+            )
+        } else {
+            null
+        }
+        return NSStringMethodConvenienceNames(returnAsString, stringParameterName, combinedAsString)
+    }
+
+    private data class NSStringPropertyConvenienceNames(
+        val getterAsString: String,
+        val setterString: String?,
+    )
+
+    private fun allocateNSStringPropertyConveniences(
+        property: Declaration.ObjCProperty,
+        getterName: String,
+        setterName: String?,
+        callableNames: KotlinCallableNameAllocator,
+        receiver: String? = null,
+    ): NSStringPropertyConvenienceNames {
+        val getterAsString = callableNames.allocateSynthetic(
+            "NSStringAsString:${property.getterSelector()}",
+            "${syntheticConvenienceBaseName(getterName)}AsString",
+            emptyList(),
+            receiver,
+        )
+        val setterString = setterName?.let {
+            callableNames.allocateSynthetic(
+                "NSStringParameters:${property.setterSelector()}",
+                it,
+                listOf("String"),
+                receiver,
+            )
+        }
+        return NSStringPropertyConvenienceNames(getterAsString, setterString)
+    }
+
+    /** Removes Kotlin escaping before composing a synthetic identifier such as `whenAsString`. */
+    private fun syntheticConvenienceBaseName(name: String): String = name.removeSurrounding("`")
+
+    private fun emitProperty(prop: Declaration.ObjCProperty, callableNames: KotlinCallableNameAllocator) {
         val propName = prop.name()
         val lowering = typeLowerer.lower(prop.type())
         val retKotlin = lowering.kotlinType
@@ -282,8 +390,8 @@ class KotlinObjCClassBuilder(
         if (propTypeSpelling.contains('<')) {
             builder.appendLine("/** @return $propTypeSpelling */")
         }
-        val getterName = kotlinName(getter)
-        val getterMod = if (isOverride(getterName)) "override " else "open "
+        val getterName = callableNames.allocate(getter, kotlinName(getter), emptyList())
+        val getterMod = if (isOverride(getter, emptyList(), retKotlin)) "override " else "open "
         val isOvrd = getterMod.startsWith("override")
         builder.appendLine("${getterMod}fun $getterName(): $retKotlin {")
         builder.indent()
@@ -293,12 +401,17 @@ class KotlinObjCClassBuilder(
         builder.unindent()
         builder.appendLine("}")
 
+        var setterFnName: String? = null
         if (!prop.isReadOnly()) {
             val setter = prop.setterSelector()
             val paramType = lowering.kotlinType
             val valueExpr = lowering.lowerArgument("value")
-            val setterFnName = kotlinName(setter.removeSuffix(":"))
-            val setterMod = if (isOverride(setterFnName)) "override " else "open "
+            setterFnName = callableNames.allocate(
+                setter,
+                kotlinName(setter.removeSuffix(":")),
+                listOf(paramType),
+            )
+            val setterMod = if (isOverride(setter, listOf(paramType), "Unit")) "override " else "open "
             builder.appendLine("${setterMod}fun $setterFnName(value: $paramType) {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$setter\")")
@@ -312,18 +425,260 @@ class KotlinObjCClassBuilder(
         // If the property is an override, the convenience overloads are inherited from
         // the parent via polymorphic dispatch — skip regenerating them.
         if (isNSString(prop.type()) && !isOvrd) {
-            val getterFn = kotlinName(getter)
+            val convenienceNames = allocateNSStringPropertyConveniences(prop, getterName, setterFnName, callableNames)
             // Getter: String overload
             builder.appendLine("/** Convenience overload — returns Kotlin [String] by converting the NSString via UTF8String. */")
-            builder.appendLine("open fun ${getterFn}AsString(): String = ObjCRuntime.toJavaString($getterFn())")
+            builder.appendLine("open fun ${convenienceNames.getterAsString}(): String = ObjCRuntime.toJavaString($getterName())")
             builder.appendLine()
             // Setter: String overload (only for readwrite properties)
-            if (!prop.isReadOnly()) {
-                val setterFn = kotlinName(prop.setterSelector().removeSuffix(":"))
+            if (setterFnName != null && convenienceNames.setterString != null) {
                 builder.appendLine("/** Convenience overload — accepts Kotlin [String] for the NSString property. */")
-                builder.appendLine("open fun $setterFn(value: String) = $setterFn(ObjCRuntime.newNSString(Arena.global(), value))")
+                builder.appendLine("open fun ${convenienceNames.setterString}(value: String) = $setterFnName(ObjCRuntime.newNSString(Arena.global(), value))")
                 builder.appendLine()
             }
+        }
+    }
+
+    private fun emitClassProperty(
+        prop: Declaration.ObjCProperty,
+        emittedClassMethods: MutableSet<String>,
+        callableNames: KotlinCallableNameAllocator,
+    ) {
+        val getter = prop.getterSelector()
+        val emitGetter = emittedClassMethods.add(toplevel.objcMemberSignatureKey(true, getter))
+        val setter = prop.setterSelector()
+        val emitSetter = !prop.isReadOnly() && emittedClassMethods.add(toplevel.objcMemberSignatureKey(true, setter))
+        if (!emitGetter && !emitSetter) return
+
+        val lowering = typeLowerer.lower(prop.type())
+        val returnKotlin = lowering.kotlinType
+        builder.appendLine("// @property (class) ${prop.name()}")
+        if (prop.typeSpelling().contains('<')) {
+            builder.appendLine("/** @return ${prop.typeSpelling()} */")
+        }
+
+        if (emitGetter) {
+            val getterName = callableNames.allocate(getter, kotlinName(getter), emptyList())
+            builder.appendLine("fun $getterName(): $returnKotlin {")
+            builder.indent()
+            builder.appendLine("val sel = ObjCRuntime.sel(\"$getter\")")
+            val invocation = lowering.invocation("_class", "sel", "")
+            builder.appendLine(if (lowering.isVoid) invocation else "return $invocation")
+            builder.unindent()
+            builder.appendLine("}")
+        }
+
+        if (emitSetter) {
+            val setterName = callableNames.allocate(
+                setter,
+                kotlinName(setter.removeSuffix(":")),
+                listOf(returnKotlin),
+            )
+            val value = lowering.lowerArgument("value")
+            builder.appendLine("fun $setterName(value: $returnKotlin) {")
+            builder.indent()
+            builder.appendLine("val sel = ObjCRuntime.sel(\"$setter\")")
+            builder.appendLine("ObjCRuntime.msgSend(null, _class, sel, $value)")
+            builder.unindent()
+            builder.appendLine("}")
+        }
+        builder.appendLine()
+    }
+
+    private data class InstanceCallable(
+        val selector: String,
+        val legacyName: String,
+        val parameterTypes: List<String>,
+        val returnType: String,
+    )
+
+    /** Direct instance methods after removing property accessor duplicates. */
+    private fun directInstanceMethods(decl: Declaration.ObjCClass): List<Declaration.ObjCMethod> {
+        val propertySelectors = decl.properties()
+            .filterNot { it.isClassProperty() }
+            .flatMapTo(mutableSetOf()) { property ->
+                buildList {
+                    add(property.getterSelector())
+                    if (!property.isReadOnly()) add(property.setterSelector())
+                }
+            }
+        val seenSelectors = LinkedHashSet<String>()
+        return decl.methods()
+            .filterNot { it.isClassMethod() }
+            .filter { it.selector() !in propertySelectors }
+            .filter { seenSelectors.add(it.selector()) }
+    }
+
+    /** Direct instance properties after the generator's existing name-level deduplication. */
+    private fun directInstanceProperties(decl: Declaration.ObjCClass): List<Declaration.ObjCProperty> {
+        val seenProperties = LinkedHashSet<String>()
+        return decl.properties()
+            .filterNot { it.isClassProperty() }
+            .filter { seenProperties.add(it.name()) }
+    }
+
+    /**
+     * Replays exactly the direct instance callable order used by [visitClass]. This is the
+     * parent-visible Kotlin member surface that must be reserved before a child emits its own
+     * members.
+     */
+    private fun directInstanceCallables(decl: Declaration.ObjCClass): List<InstanceCallable> = buildList {
+        for (method in directInstanceMethods(decl)) {
+            val parameters = method.parameters().map { typeLowerer.lower(it.type()).kotlinType }
+            add(
+                InstanceCallable(
+                    method.selector(),
+                    methodCallableBaseName(method),
+                    parameters,
+                    typeLowerer.lower(method.returnType()).kotlinType,
+                ),
+            )
+        }
+        for (property in directInstanceProperties(decl)) {
+            val lowering = typeLowerer.lower(property.type())
+            add(
+                InstanceCallable(
+                    property.getterSelector(),
+                    kotlinName(property.getterSelector()),
+                    emptyList(),
+                    lowering.kotlinType,
+                ),
+            )
+            if (!property.isReadOnly()) {
+                add(
+                    InstanceCallable(
+                        property.setterSelector(),
+                        kotlinName(property.setterSelector().removeSuffix(":")),
+                        listOf(lowering.kotlinType),
+                        "Unit",
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Reserves direct members of every generated ancestor before emitting this child. */
+    private fun reserveInheritedInstanceCallables(callableNames: KotlinCallableNameAllocator) {
+        reserveAncestorInstanceCallables(_className, callableNames, receiver = null)
+    }
+
+    /**
+     * Reserves the complete visible direct-wrapper surface on [className] for an extension
+     * receiver. The receiver differs from the wrapper's member scope, but the name allocation
+     * must replay its exact parent-first member and NSString-convenience order.
+     */
+    internal fun reserveVisibleInstanceCallables(
+        className: String,
+        callableNames: KotlinCallableNameAllocator,
+        receiver: String,
+    ) {
+        reserveAncestorInstanceCallables(className, callableNames, receiver)
+        classCatalogue[className]?.let { reserveDirectInstanceCallables(it, callableNames, receiver) }
+    }
+
+    /** Reserves direct instance members from generated ancestors, without this class's own API. */
+    internal fun reserveInheritedDirectInstanceCallables(
+        className: String,
+        callableNames: KotlinCallableNameAllocator,
+        receiver: String,
+    ) = reserveAncestorInstanceCallables(className, callableNames, receiver)
+
+    private fun reserveAncestorInstanceCallables(
+        className: String,
+        callableNames: KotlinCallableNameAllocator,
+        receiver: String?,
+    ) {
+        val parentName = classHierarchy[className] ?: return
+        reserveAncestorInstanceCallables(parentName, callableNames, receiver)
+        val parent = classCatalogue[parentName] ?: return
+        reserveDirectInstanceCallables(parent, callableNames, receiver)
+    }
+
+    /** Replays one class's direct instance emission order, including generated conveniences. */
+    private fun reserveDirectInstanceCallables(
+        decl: Declaration.ObjCClass,
+        callableNames: KotlinCallableNameAllocator,
+        receiver: String? = null,
+    ) {
+        for (method in directInstanceMethods(decl)) {
+            val parameterTypes = method.parameters().map { typeLowerer.lower(it.type()).kotlinType }
+            val returnType = typeLowerer.lower(method.returnType()).kotlinType
+            val rawName = callableNames.allocate(
+                method.selector(),
+                methodCallableBaseName(method),
+                parameterTypes,
+                receiver,
+            )
+            if (!isOverrideFromClass(decl.name(), method.selector(), parameterTypes, returnType)) {
+                allocateNSStringMethodConveniences(method, rawName, callableNames, receiver)
+            }
+        }
+
+        for (property in directInstanceProperties(decl)) {
+            val lowering = typeLowerer.lower(property.type())
+            val getter = property.getterSelector()
+            val getterName = callableNames.allocate(getter, kotlinName(getter), emptyList(), receiver)
+            val getterOverrides = isOverrideFromClass(decl.name(), getter, emptyList(), lowering.kotlinType)
+            val setterName = if (property.isReadOnly()) {
+                null
+            } else {
+                val setter = property.setterSelector()
+                callableNames.allocate(
+                    setter,
+                    kotlinName(setter.removeSuffix(":")),
+                    listOf(lowering.kotlinType),
+                    receiver,
+                )
+            }
+            if (isNSString(property.type()) && !getterOverrides) {
+                allocateNSStringPropertyConveniences(property, getterName, setterName, callableNames, receiver)
+            }
+        }
+    }
+
+    /**
+     * Kotlin override is valid only when an ancestor emits the same raw Objective-C selector
+     * with the same Kotlin parameters and return type. Matching a legacy Kotlin name alone can
+     * bind an unrelated selector to the parent's Objective-C dispatch and is therefore invalid.
+     */
+    private fun isOverride(selector: String, parameterTypes: List<String>, returnType: String): Boolean {
+        return isOverrideFromClass(_className, selector, parameterTypes, returnType)
+    }
+
+    private fun isOverrideFromClass(
+        className: String,
+        selector: String,
+        parameterTypes: List<String>,
+        returnType: String,
+    ): Boolean {
+        var current = classHierarchy[className]
+        while (current != null) {
+            val parent = classCatalogue[current]
+            if (parent != null && directInstanceCallables(parent).any { callable ->
+                    callable.selector == selector &&
+                        callable.parameterTypes == parameterTypes &&
+                        callable.returnType == returnType
+                }
+            ) {
+                return true
+            }
+            current = classHierarchy[current]
+        }
+        return false
+    }
+
+    /**
+     * Returns the legacy class-member base name, retaining the JVM Object-method escape used by
+     * regular method emission so inherited reservations replay the exact same allocation input.
+     */
+    private fun methodCallableBaseName(method: Declaration.ObjCMethod): String {
+        val legacyName = kotlinName(method.selector())
+        val parameterTypes = method.parameters().map { typeLowerer.lower(it.type()).kotlinType }
+        val returnType = typeLowerer.lower(method.returnType()).kotlinType
+        return if (legacyName in JVM_OBJECT_METHODS && parameterTypes.isEmpty() && returnType == "Unit") {
+            "${legacyName}ObjC"
+        } else {
+            legacyName
         }
     }
 
@@ -377,20 +732,4 @@ class KotlinObjCClassBuilder(
 
     }
 
-    /**
-     * Returns true when [kotlinName] exists in a (non-NSObject) superclass of the current
-     * [_className].  Walks up the [classHierarchy] until it finds the signature in
-     * [classMethodSignatures] or reaches a root.
-     */
-    private fun isOverride(kotlinName: String): Boolean {
-        var current: String? = _className
-        while (current != null) {
-            val name = current
-            current = classHierarchy[name]
-            if (current == null) return false
-            val parentMethods = classMethodSignatures[current]
-            if (parentMethods != null && kotlinName in parentMethods) return true
-        }
-        return false
-    }
 }

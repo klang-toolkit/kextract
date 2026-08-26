@@ -120,7 +120,11 @@ interface Declaration {
         fun type(): Type
         /** Raw clang type spelling of the property type, e.g. "NSArray<NSString *> *". Empty if unavailable. */
         fun typeSpelling(): String
+        /** True when the property type itself is an Objective-C object reference (not a pointer to one). */
+        fun isObjectiveCObjectReference(): Boolean
+        fun isOptional(): Boolean                    // true for @optional protocol properties
         fun isReadOnly(): Boolean
+        fun isClassProperty(): Boolean               // true for @property (class, ...)
         fun getterSelector(): String
         fun setterSelector(): String                 // empty if isReadOnly
     }
@@ -209,8 +213,21 @@ interface Declaration {
 
         fun objcProperty(
             pos: Position, name: String, type: Type, typeSpelling: String,
-            isReadOnly: Boolean, getterSelector: String, setterSelector: String
-        ): ObjCProperty = DeclarationImpl.ObjCPropertyImpl(type, typeSpelling, isReadOnly, getterSelector, setterSelector, name, pos)
+            isOptional: Boolean, isReadOnly: Boolean, getterSelector: String, setterSelector: String,
+            isClassProperty: Boolean = false,
+            isObjectiveCObjectReference: Boolean = false,
+        ): ObjCProperty = DeclarationImpl.ObjCPropertyImpl(
+            type,
+            typeSpelling,
+            isOptional,
+            isReadOnly,
+            getterSelector,
+            setterSelector,
+            isClassProperty,
+            isObjectiveCObjectReference,
+            name,
+            pos,
+        )
     }
 
     /**
@@ -441,16 +458,22 @@ internal abstract class DeclarationImpl(
     class ObjCPropertyImpl(
         private val type: Type,
         private val _typeSpelling: String,
+        private val isOptional: Boolean,
         private val isReadOnly: Boolean,
         private val getterSelector: String,
         private val setterSelector: String,
+        private val isClassProperty: Boolean,
+        private val isObjectiveCObjectReference: Boolean,
         name: String, pos: Position
     ) : DeclarationImpl(name, pos), Declaration.ObjCProperty {
         override fun <R> accept(v: Declaration.Visitor<R>): R =
             v.visitDeclaration(this)
         override fun type(): Type = type
         override fun typeSpelling(): String = _typeSpelling
+        override fun isObjectiveCObjectReference(): Boolean = isObjectiveCObjectReference
+        override fun isOptional(): Boolean = isOptional
         override fun isReadOnly(): Boolean = isReadOnly
+        override fun isClassProperty(): Boolean = isClassProperty
         override fun getterSelector(): String = getterSelector
         override fun setterSelector(): String = setterSelector
     }

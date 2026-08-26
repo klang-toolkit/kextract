@@ -598,6 +598,7 @@ internal class TreeMaker {
     private fun createObjCProperty(c: Cursor): Declaration.ObjCProperty? {
         val attrs = c.getObjCPropertyAttributes()
         val isReadOnly = (attrs and 1) != 0   // CXObjCPropertyAttr_readonly = 1
+        val isClassProperty = (attrs and 4096) != 0 // CXObjCPropertyAttr_class = 4096
         val propClangType = c.type()
         val type = toType(propClangType)
         val typeSpelling = propClangType.spelling()
@@ -607,6 +608,26 @@ internal class TreeMaker {
             c.getObjCPropertySetterName().ifEmpty {
                 "set${propName.replaceFirstChar { it.uppercaseChar() }}:"
             }
-        return Declaration.objcProperty(CursorPosition.of(c), propName, type, typeSpelling, isReadOnly, getter, setter)
+        return Declaration.objcProperty(
+            CursorPosition.of(c), propName, type, typeSpelling,
+            c.isObjCOptional(), isReadOnly, getter, setter, isClassProperty,
+            isObjectiveCObjectReference(propClangType),
+        )
+    }
+
+    /**
+     * Classifies the exact property type rather than its lowered pointer carrier or spelling.
+     * Canonicalization unwraps typedefs/attributes while preserving additional pointer depth.
+     */
+    private fun isObjectiveCObjectReference(type: org.graphiks.kextract.clang.Type): Boolean {
+        return when (type.canonicalType().kind()) {
+            TypeKind.ObjCId,
+            TypeKind.ObjCClass,
+            TypeKind.ObjCInterface,
+            TypeKind.ObjCObjectPointer,
+            TypeKind.ObjCObject,
+            TypeKind.ObjCTypeParam -> true
+            else -> false
+        }
     }
 }

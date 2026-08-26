@@ -164,6 +164,25 @@ class ObjCGeneratorTest : FreeSpec({
             counter?.methods()?.any { it.isClassMethod() } shouldBe true
             counter?.methods()?.any { !it.isClassMethod() } shouldBe true
         }
+
+        "class property attributes are preserved" {
+            val source = """
+                @protocol KxParsedClassProperty
+                @property (class, readonly) long classValue;
+                @end
+            """.trimIndent()
+            val tmp = Files.createTempFile("kextract_objc_class_property_", ".h")
+            try {
+                tmp.toFile().writeText(source)
+                val protocol = KextractTool.parse(listOf(tmp.toString()), "-x", "objective-c")
+                    .members()
+                    .filterIsInstance<Declaration.ObjCProtocol>()
+                    .single { it.name() == "KxParsedClassProperty" }
+                protocol.properties().single().isClassProperty() shouldBe true
+            } finally {
+                Files.deleteIfExists(tmp)
+            }
+        }
     }
 
     // ── Generator: Animal.h fixture ──────────────────────────────────────────
@@ -662,6 +681,244 @@ class ObjCGeneratorTest : FreeSpec({
     }
 
     // ── Generator: inline — protocol inheritance ──────────────────────────────
+
+    "Required adopted protocol members become concrete class extensions" - {
+        val src = generate("""
+            @protocol KxBase
+            @required
+            - (long)baseValue;
+            @end
+
+            @protocol KxAppearance <KxBase>
+            @required
+            @property (readonly, strong) id effectiveAppearance;
+            @optional
+            @property (readonly, strong) id optionalAppearance;
+            - (void)optionalHook;
+            @end
+
+            @interface KxView <KxAppearance>
+            - (long)baseValue;
+            @end
+
+            @interface KxView (Existing)
+            - (id)effectiveAppearance;
+            @end
+
+            @interface KxPlainView <KxAppearance>
+            @end
+        """.trimIndent())
+
+        "required object property is emitted once despite a category duplicate" {
+            src.split("fun KxView.effectiveAppearance(): MemorySegment").size - 1 shouldBe 1
+        }
+
+        "direct class methods suppress matching inherited protocol extensions" {
+            src.split("fun KxView.baseValue(): Long").size - 1 shouldBe 0
+            src shouldContain "fun baseValue(): Long"
+        }
+
+        "required inherited protocol methods are emitted for classes without direct members" {
+            src shouldContain "fun KxPlainView.baseValue(): Long"
+            src shouldContain "fun KxPlainView.effectiveAppearance(): MemorySegment"
+        }
+
+        "optional protocol methods are never emitted as concrete class extensions" {
+            src shouldNotContain "fun KxView.optionalHook()"
+            src shouldNotContain "fun KxPlainView.optionalHook()"
+        }
+
+        "optional protocol properties are never emitted as concrete class extensions" {
+            src shouldNotContain "fun KxView.optionalAppearance(): MemorySegment"
+            src shouldNotContain "fun KxPlainView.optionalAppearance(): MemorySegment"
+        }
+    }
+
+    "Required adopted protocol members preserve semantic type lowering" - {
+        val src = generate("""
+            typedef struct _KxProtocolPoint {
+                double x;
+                double y;
+            } KxProtocolPoint;
+
+            @protocol KxGeometryRequirement
+            @required
+            - (KxProtocolPoint)requiredPoint;
+            @end
+
+            @interface KxGeometryHost <KxGeometryRequirement>
+            @end
+        """.trimIndent())
+
+        "a required protocol extension retains its nominal struct return type" {
+            src shouldContain "fun KxGeometryHost.requiredPoint(): KxProtocolPoint"
+            src shouldContain "ObjCRuntime.msgSendStruct(KxProtocolPoint.layout, this.ptr, sel)"
+            src shouldNotContain "fun KxGeometryHost.requiredPoint(): MemorySegment"
+        }
+    }
+
+    "Protocol and category properties deduplicate accessors independently" - {
+        val src = generate("""
+            @protocol KxReadOnlyRequirement
+            @required
+            @property (readonly, strong) id foo;
+            @end
+
+            @interface KxAccessorHost <KxReadOnlyRequirement>
+            @end
+
+            @interface KxAccessorHost (WritableFoo)
+            @property (readwrite, strong) id foo;
+            @end
+        """.trimIndent())
+
+        "the required getter is emitted once" {
+            src.split("fun KxAccessorHost.foo(): MemorySegment").size - 1 shouldBe 1
+        }
+
+        "the category contributes the missing writable setter" {
+            src.split("fun KxAccessorHost.setFoo(foo: MemorySegment)").size - 1 shouldBe 1
+        }
+    }
+
+    "Protocol requirements inherited from generated parents are not duplicated on children" - {
+        val src = generate("""
+            @protocol KxSharedRequirement
+            @required
+            - (long)sharedValue;
+            @end
+
+            @interface KxProtocolParent <KxSharedRequirement>
+            @end
+
+            @interface KxProtocolChild : KxProtocolParent <KxSharedRequirement>
+            @end
+        """.trimIndent())
+
+        "the parent receives the required extension" {
+            src shouldContain "fun KxProtocolParent.sharedValue(): Long"
+        }
+
+        "the child does not receive a redundant extension" {
+            src shouldNotContain "fun KxProtocolChild.sharedValue(): Long"
+        }
+    }
+
+    "Required protocol class properties use class-object dispatch" - {
+        val src = generate("""
+            @protocol KxClassPropertyRequirement
+            @required
+            @property (class, readonly) long classValue;
+            @property (class, readwrite) long mutableClassValue;
+            @end
+
+            @interface KxClassPropertyHost <KxClassPropertyRequirement>
+            @end
+        """.trimIndent())
+
+        "the required class getter is a single top-level function" {
+            src.split("fun KxClassPropertyHost_classValue(): Long").size - 1 shouldBe 1
+            src shouldContain "ObjCRuntime.getClass(\"KxClassPropertyHost\")"
+        }
+
+        "the writable class setter is a single top-level function" {
+            src.split("fun KxClassPropertyHost_setMutableClassValue(value: Long)").size - 1 shouldBe 1
+        }
+
+        "no class property is emitted as an instance extension" {
+            src shouldNotContain "fun KxClassPropertyHost.classValue()"
+            src shouldNotContain "fun KxClassPropertyHost.mutableClassValue()"
+            src shouldNotContain "fun KxClassPropertyHost.setMutableClassValue("
+        }
+    }
+
+    "Required protocol member dispatch kinds are independent" - {
+        "a class method does not suppress an instance protocol extension with the same selector" {
+            val src = generate("""
+                @protocol KxInstanceRequirement
+                @required
+                - (long)foo;
+                @end
+
+                @interface KxClassFoo <KxInstanceRequirement>
+                + (long)foo;
+                @end
+            """.trimIndent())
+
+            src shouldContain "fun KxClassFoo.foo(): Long"
+        }
+
+        "an inherited required class method is emitted as a top-level concrete-class function" {
+            val src = generate("""
+                @protocol KxClassParent
+                @required
+                + (long)classValue;
+                @end
+
+                @protocol KxClassRequirement <KxClassParent>
+                @end
+
+                @interface KxClassRequirementOwner <KxClassRequirement>
+                @end
+            """.trimIndent())
+
+            src shouldContain "fun KxClassRequirementOwner_classValue(): Long"
+            src shouldContain "ObjCRuntime.getClass(\"KxClassRequirementOwner\")"
+        }
+
+        "a direct companion method suppresses a required class protocol function with the same selector" {
+            val src = generate("""
+                @protocol KxClassRequirement
+                @required
+                + (long)classValue;
+                @end
+
+                @interface KxClassRequirementOwner <KxClassRequirement>
+                + (long)classValue;
+                @end
+            """.trimIndent())
+
+            src shouldContain "fun classValue(): Long"
+            src shouldNotContain "fun KxClassRequirementOwner_classValue(): Long"
+        }
+
+        "required class and instance methods with the same selector coexist" {
+            val src = generate("""
+                @protocol KxBothKinds
+                @required
+                + (long)foo;
+                - (long)foo;
+                @end
+
+                @interface KxBothKindsOwner <KxBothKinds>
+                @end
+            """.trimIndent())
+
+            src shouldContain "fun KxBothKindsOwner_foo(): Long"
+            src shouldContain "fun KxBothKindsOwner.foo(): Long"
+        }
+    }
+
+    "Split output keeps required protocol extensions and categories deduplicated" - {
+        val files = generateSplit("""
+            @protocol KxSplitRequirement
+            @required
+            @property (readonly, strong) id appearance;
+            @end
+
+            @interface KxSplitView <KxSplitRequirement>
+            @end
+
+            @interface KxSplitView (Existing)
+            - (id)appearance;
+            @end
+        """.trimIndent())
+        val classSource = files["KxSplitView"] ?: error("KxSplitView split file was not generated")
+
+        "the required extension is emitted once in the class file" {
+            classSource.split("fun KxSplitView.appearance(): MemorySegment").size - 1 shouldBe 1
+        }
+    }
 
     "Protocol with parent protocols" - {
         val src = generate("""

@@ -39,8 +39,12 @@ class KotlinToplevelBuilder(
     private val headerBuilder get() = KotlinHeaderBuilder(mainSlot, this, variadicArgs)
     private val structBuilder get() = KotlinStructBuilder(mainSlot, this)
     private val typedefBuilder get() = KotlinTypedefBuilder(mainSlot, this)
-    private val objcProtocolBuilder get() = KotlinObjCProtocolBuilder(mainSlot, this)
-    private val objcCategoryBuilder get() = KotlinObjCCategoryBuilder(mainSlot, this)
+    private val objcProtocolBuilder get() = KotlinObjCProtocolBuilder(
+        mainSlot,
+        this,
+        _generatedClassNames,
+        _objcProtocolCatalogue,
+    )
     // objcClassBuilder is recreated after the TOPLEVEL pre-scan populates generatedClassNames
     private var objcClassBuilder: KotlinObjCClassBuilder = KotlinObjCClassBuilder(mainSlot, this)
 
@@ -53,12 +57,17 @@ class KotlinToplevelBuilder(
      */
     private var _classHierarchy: ClassHierarchy = emptyMap()
 
-    /**
-     * Maps each generated class name → set of Kotlin method / property accessor signatures
-     * declared directly on that class.  Built during the TOPLEVEL prescan and used for
-     * override detection.
-     */
-    private var _classMethodSignatures: Map<String, Set<String>> = emptyMap()
+    /** All non-skipped Objective-C classes discovered during the TOPLEVEL pre-scan. */
+    private var _objcClassCatalogue: Map<String, Declaration.ObjCClass> = emptyMap()
+
+    /** Direct member signatures keyed by dispatch kind, used to seed extension deduplication. */
+    private var _classExtensionSignatureSeeds: Map<String, Set<String>> = emptyMap()
+
+    /** All non-skipped Objective-C protocols discovered during the TOPLEVEL pre-scan. */
+    private var _objcProtocolCatalogue: Map<String, Declaration.ObjCProtocol> = emptyMap()
+
+    /** Class and category declarations in header order, used to replay inherited extensions. */
+    private var _objcExtensionDeclarations: List<Declaration> = emptyList()
 
     private var _externalEnumConstants =
         IdentityHashMap<Declaration.Scoped, MutableList<Declaration.Constant>>()
@@ -83,7 +92,23 @@ class KotlinToplevelBuilder(
      * instances for the same class so that two categories with overlapping method names
      * do not produce "conflicting overloads".
      */
-    private val _categorySignatures: MutableMap<String, MutableSet<String>> = mutableMapOf()
+    private val _classExtensionSignatures: MutableMap<String, MutableSet<String>> = mutableMapOf()
+
+    /** Callable-name allocators shared by protocol requirements and categories per receiver class. */
+    private val _classExtensionCallableNames: MutableMap<String, KotlinCallableNameAllocator> = mutableMapOf()
+
+    /**
+     * Class methods and class properties emitted for protocol requirements/categories are
+     * receiver-less Kotlin top-level declarations. They therefore share one file-level callable
+     * namespace even though their Objective-C dispatch targets differ by concrete class.
+     */
+    private val _topLevelClassExtensionCallableNames = KotlinCallableNameAllocator()
+
+    /** Required/category instance selectors contributed by generated ancestor wrappers. */
+    private val _inheritedInstanceExtensionSignatures: MutableMap<String, Set<String>> = mutableMapOf()
+
+    /** Inherited selectors that were deliberately re-emitted once on a child receiver. */
+    private val _reEmittedInheritedInstanceExtensionSignatures: MutableMap<String, MutableSet<String>> = mutableMapOf()
 
     /** Set to true once we synthesise the NSObject root class. */
     private var _nsObjectGenerated: Boolean = false
@@ -322,18 +347,30 @@ class KotlinToplevelBuilder(
                     }
                     _generatedClassNames = modifiedClassNames
 
-                    // Build class hierarchy and method-signature maps for override detection.
+                    // Build class hierarchy and direct-member catalogues for override detection.
                     val hierarchy = mutableMapOf<String, String?>()
-                    val methodSigs = mutableMapOf<String, Set<String>>()
-                    for (cls in decl.members().filterIsInstance<Declaration.ObjCClass>().filter { !Skip.isPresent(it) }) {
+                    val extensionSigs = mutableMapOf<String, Set<String>>()
+                    val objcClasses = decl.members()
+                        .filterIsInstance<Declaration.ObjCClass>()
+                        .filterNot(Skip::isPresent)
+                    for (cls in objcClasses) {
                         hierarchy[cls.name()] = cls.superClass()
-                        methodSigs[cls.name()] = extractClassSignatures(cls)
+                        extensionSigs[cls.name()] = extractClassExtensionSignatures(cls)
                     }
                     _classHierarchy = hierarchy
-                    _classMethodSignatures = methodSigs
+                    _objcClassCatalogue = objcClasses.associateBy { it.name() }
+                    _classExtensionSignatureSeeds = extensionSigs
+                    _objcProtocolCatalogue = decl.members()
+                        .filterIsInstance<Declaration.ObjCProtocol>()
+                        .filterNot(Skip::isPresent)
+                        .associateBy { it.name() }
+                    _objcExtensionDeclarations = decl.members().filter { member ->
+                        !Skip.isPresent(member) &&
+                            (member is Declaration.ObjCClass || member is Declaration.ObjCCategory)
+                    }
                     objcClassBuilder = KotlinObjCClassBuilder(
                         mainSlot, this, generatedObjCClassNames,
-                        hierarchy, methodSigs
+                        hierarchy, _objcClassCatalogue
                     )
                 }
                 // Process all members
@@ -422,11 +459,32 @@ class KotlinToplevelBuilder(
     override fun visitObjCClass(decl: Declaration.ObjCClass) {
         if (Skip.isPresent(decl)) return
         needsObjCRuntime = true
+        val sharedSignatures = classExtensionSignatures(decl.name())
+        val sharedCallableNames = classExtensionCallableNames(decl.name())
         if (splitOutput) {
             val sb = getOrCreateSlot("class.${decl.name()}")
-            KotlinObjCClassBuilder(sb, this, _generatedClassNames, _classHierarchy, _classMethodSignatures).visitClass(decl)
+            KotlinObjCClassBuilder(sb, this, _generatedClassNames, _classHierarchy, _objcClassCatalogue)
+                .visitClass(decl)
+            KotlinObjCProtocolRequirementBuilder(
+                sb,
+                this,
+                _objcProtocolCatalogue,
+                sharedSignatures,
+                sharedCallableNames,
+                _topLevelClassExtensionCallableNames,
+            )
+                .visitClassProtocols(decl)
         } else {
             objcClassBuilder.visitClass(decl)
+            KotlinObjCProtocolRequirementBuilder(
+                mainSlot,
+                this,
+                _objcProtocolCatalogue,
+                sharedSignatures,
+                sharedCallableNames,
+                _topLevelClassExtensionCallableNames,
+            )
+                .visitClassProtocols(decl)
         }
     }
 
@@ -460,7 +518,8 @@ class KotlinToplevelBuilder(
         if (decl.name() in _generatedClassNames) return
         if (splitOutput) {
             val sb = getOrCreateSlot("protocol.${decl.name()}")
-            KotlinObjCProtocolBuilder(sb, this, _generatedClassNames).visitProtocol(decl)
+            KotlinObjCProtocolBuilder(sb, this, _generatedClassNames, _objcProtocolCatalogue)
+                .visitProtocol(decl)
         } else {
             objcProtocolBuilder.visitProtocol(decl)
         }
@@ -469,17 +528,190 @@ class KotlinToplevelBuilder(
     override fun visitObjCCategory(decl: Declaration.ObjCCategory) {
         if (Skip.isPresent(decl)) return
         needsObjCRuntime = true
+        val sharedSignatures = classExtensionSignatures(decl.extendedClass())
+        val sharedCallableNames = classExtensionCallableNames(decl.extendedClass())
         if (splitOutput) {
             val sb = getOrCreateSlot("class.${decl.extendedClass()}")
-            val classSigs = _classMethodSignatures[decl.extendedClass()] ?: emptySet()
-            val shared = _categorySignatures.getOrPut(decl.extendedClass()) {
-                classSigs.toMutableSet()
-            }
-            KotlinObjCCategoryBuilder(sb, this, shared).visitCategory(decl)
+            KotlinObjCCategoryBuilder(
+                sb,
+                this,
+                sharedSignatures,
+                sharedCallableNames,
+                _topLevelClassExtensionCallableNames,
+            ).visitCategory(decl)
         } else {
-            objcCategoryBuilder.visitCategory(decl)
+            KotlinObjCCategoryBuilder(
+                mainSlot,
+                this,
+                sharedSignatures,
+                sharedCallableNames,
+                _topLevelClassExtensionCallableNames,
+            ).visitCategory(decl)
         }
     }
+
+    /**
+     * Returns the per-class signature set shared by direct members, protocol requirements,
+     * and category extensions. Direct declarations seed the set before either extension kind.
+     * Parent extension signatures are retained for normal deduplication. The emission builders
+     * selectively replay one when a direct child member hides that inherited extension.
+     */
+    private fun classExtensionSignatures(className: String): MutableSet<String> =
+        _classExtensionSignatures.getOrPut(className) {
+            (
+                visibleDirectInstanceSignatures(className) +
+                    inheritedInstanceExtensionSignatures(className) +
+                    (_classExtensionSignatureSeeds[className] ?: emptySet())
+                ).toMutableSet()
+        }
+
+    private fun classExtensionCallableNames(className: String): KotlinCallableNameAllocator =
+        _classExtensionCallableNames.getOrPut(className) {
+            KotlinCallableNameAllocator().also { names ->
+                // An extension competes in Kotlin lookup with all inherited/direct members on
+                // this receiver, including generated NSString conveniences.
+                objcClassBuilder.reserveVisibleInstanceCallables(className, names, className)
+                reserveInheritedInstanceExtensions(className, names)
+            }
+        }
+
+    /**
+     * Replays every ancestor protocol/category instance extension with [className] as receiver.
+     * The declaration catalogue makes this independent of the order in which the header visits
+     * parent and child classes, while the existing builders retain the real allocation mechanics.
+     */
+    private fun reserveInheritedInstanceExtensions(
+        className: String,
+        names: KotlinCallableNameAllocator,
+        signatures: MutableSet<String> = visibleDirectInstanceSignatures(className),
+    ): MutableSet<String> {
+        val ancestors = mutableListOf<String>()
+        var current = _classHierarchy[className]
+        while (current != null) {
+            ancestors.add(current)
+            current = _classHierarchy[current]
+        }
+        if (ancestors.isEmpty()) return signatures
+
+        // Each ancestor's surface was allocated after its own parent surface. Replaying the
+        // global header sequence would invert colliding ancestor extensions when declarations
+        // are interleaved, so walk root → immediate parent and keep header order only locally.
+        for (ancestor in ancestors.asReversed()) {
+            for (declaration in _objcExtensionDeclarations) {
+                when (declaration) {
+                    is Declaration.ObjCClass -> if (declaration.name() == ancestor) {
+                        KotlinObjCProtocolRequirementBuilder(
+                            mainSlot,
+                            this,
+                            _objcProtocolCatalogue,
+                            signatures,
+                            names,
+                        ).reserveInstanceCallables(declaration, className, signatures, names)
+                    }
+                    is Declaration.ObjCCategory -> if (declaration.extendedClass() == ancestor) {
+                        KotlinObjCCategoryBuilder(mainSlot, this, signatures, names)
+                            .reserveInstanceCallables(declaration, className, signatures, names)
+                    }
+                    else -> Unit
+                }
+            }
+        }
+        return signatures
+    }
+
+    private fun inheritedInstanceExtensionSignatures(className: String): Set<String> =
+        _inheritedInstanceExtensionSignatures.getOrPut(className) {
+            val signatures = visibleDirectInstanceSignatures(className)
+            val directSignatures = signatures.toSet()
+            reserveInheritedInstanceExtensions(className, KotlinCallableNameAllocator(), signatures)
+            signatures - directSignatures
+        }
+
+    /**
+     * An inherited extension remains suppressed unless a direct child callable changes the name
+     * through which that raw selector is reachable on the child receiver.
+     */
+    internal fun claimHiddenInheritedInstanceExtension(
+        className: String,
+        selector: String,
+        parameterTypes: List<String>,
+    ): Boolean {
+        val signature = objcMemberSignatureKey(false, selector)
+        if (signature !in inheritedInstanceExtensionSignatures(className)) return false
+        if (!inheritedInstanceExtensionSurfaceShadows(className, selector, parameterTypes)) return false
+        return _reEmittedInheritedInstanceExtensionSignatures
+            .getOrPut(className) { mutableSetOf() }
+            .add(signature)
+    }
+
+    /**
+     * Compares the callable selected for [selector] before and after the child's direct wrapper
+     * surface is added. Both plans replay inherited protocol/category extensions, because an
+     * extension's own suffix can itself be occupied by a child direct callable.
+     */
+    private fun inheritedInstanceExtensionSurfaceShadows(
+        className: String,
+        selector: String,
+        parameterTypes: List<String>,
+    ): Boolean = instanceExtensionSurfaceName(className, selector, parameterTypes, includeChildDirect = false) !=
+        instanceExtensionSurfaceName(className, selector, parameterTypes, includeChildDirect = true)
+
+    private fun instanceExtensionSurfaceName(
+        className: String,
+        selector: String,
+        parameterTypes: List<String>,
+        includeChildDirect: Boolean,
+    ): String {
+        val names = KotlinCallableNameAllocator()
+        val signatures = if (includeChildDirect) {
+            objcClassBuilder.reserveVisibleInstanceCallables(className, names, className)
+            visibleDirectInstanceSignatures(className)
+        } else {
+            objcClassBuilder.reserveInheritedDirectInstanceCallables(className, names, className)
+            inheritedDirectInstanceSignatures(className)
+        }
+        reserveInheritedInstanceExtensions(className, names, signatures)
+        return names.allocate(
+            selector,
+            KotlinObjCClassBuilder.kotlinName(selector),
+            parameterTypes,
+            className,
+        )
+    }
+
+    /** Direct instance selector reservations visible through [className], parent first. */
+    private fun visibleDirectInstanceSignatures(className: String): MutableSet<String> {
+        val signatures = linkedSetOf<String>()
+        fun addClassAndParents(name: String) {
+            _classHierarchy[name]?.let(::addClassAndParents)
+            _classExtensionSignatureSeeds[name]
+                ?.filterTo(signatures) { it.startsWith("instance:") }
+        }
+        addClassAndParents(className)
+        return signatures
+    }
+
+    /** Direct instance selector reservations inherited by [className], without its own members. */
+    private fun inheritedDirectInstanceSignatures(className: String): MutableSet<String> {
+        val signatures = linkedSetOf<String>()
+        fun addParents(name: String) {
+            val parent = _classHierarchy[name] ?: return
+            addParents(parent)
+            _classExtensionSignatureSeeds[parent]
+                ?.filterTo(signatures) { it.startsWith("instance:") }
+        }
+        addParents(className)
+        return signatures
+    }
+
+    /**
+     * Signature key for shared protocol/category deduplication.
+     *
+     * Objective-C selector arity is significant: `foo` and `foo:` map to Kotlin overloads and
+     * must therefore remain distinct even though both emit with the Kotlin base name `foo`.
+     */
+    fun objcMemberSignatureKey(isClassMethod: Boolean, selector: String): String =
+        "${if (isClassMethod) "class" else "instance"}:$selector"
 
     fun getFiles(): List<KotlinSourceFile> {
         if (splitOutput) {
@@ -769,18 +1001,19 @@ class KotlinToplevelBuilder(
         "_DLL_" + dll.uppercase().replace(Regex("[^A-Z0-9_]"), "_")
 
     /**
-     * Extracts the set of Kotlin method and property-accessor signatures from an ObjC class
-     * declaration.  These are used downstream to detect method overrides.
+     * Extracts direct class members into dispatch-kind-aware keys for protocol/category
+     * extension deduplication. Exact selector checks for Kotlin overrides are rebuilt from the
+     * direct class catalogue by [KotlinObjCClassBuilder].
      */
-    private fun extractClassSignatures(decl: Declaration.ObjCClass): Set<String> {
+    private fun extractClassExtensionSignatures(decl: Declaration.ObjCClass): Set<String> {
         val sigs = mutableSetOf<String>()
         for (method in decl.methods()) {
-            sigs.add(KotlinObjCClassBuilder.kotlinName(method.selector()))
+            sigs.add(objcMemberSignatureKey(method.isClassMethod(), method.selector()))
         }
-        for (prop in decl.properties()) {
-            sigs.add(KotlinObjCClassBuilder.kotlinName(prop.getterSelector()))
-            if (!prop.isReadOnly()) {
-                sigs.add(KotlinObjCClassBuilder.kotlinName(prop.setterSelector().removeSuffix(":")))
+        for (property in decl.properties()) {
+            sigs.add(objcMemberSignatureKey(property.isClassProperty(), property.getterSelector()))
+            if (!property.isReadOnly()) {
+                sigs.add(objcMemberSignatureKey(property.isClassProperty(), property.setterSelector()))
             }
         }
         return sigs
