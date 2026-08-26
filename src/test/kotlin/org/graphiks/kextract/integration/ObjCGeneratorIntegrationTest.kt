@@ -3,6 +3,7 @@ package org.graphiks.kextract.integration
 import io.kotest.core.annotation.EnabledIf
 import io.kotest.core.annotation.MacCondition
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -490,6 +491,49 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         }
     }
 
+    "NSString conveniences allocate names around raw selector collisions" {
+        val files = generateAll(
+            """
+                ${kNSStringStub}
+                @interface KxNSStringCallableCollision
+                - (NSString *)foo;
+                - (id)fooAsString;
+                @property (readonly) NSString *label;
+                - (id)labelAsString;
+                @end
+            """.trimIndent(),
+        )
+        val src = files.joinToString("\n") { it.contents }
+        val rawMethodName = "fooAsString__objc_666f6f4173537472696e67"
+        val propertyConvenienceName = "labelAsString__objc_4e53537472696e674173537472696e673a6c6162656c"
+
+        src shouldContain "fun fooAsString(): String = ObjCRuntime.toJavaString(foo())"
+        src shouldContain "open fun $rawMethodName(): MemorySegment {"
+        src.substringAfter("fun $rawMethodName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"fooAsString\")"
+        src shouldContain "open fun labelAsString(): MemorySegment {"
+        src.substringAfter("fun labelAsString(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"labelAsString\")"
+        src shouldContain
+            "open fun $propertyConvenienceName(): String = ObjCRuntime.toJavaString(label())"
+        compileOnly(
+            files,
+            """
+                package test
+
+                import java.lang.foreign.MemorySegment
+
+                fun callNSStringCollision(host: KxNSStringCallableCollision): String {
+                    val methodString: String = host.fooAsString()
+                    val methodRaw: MemorySegment = host.$rawMethodName()
+                    val propertyRaw: MemorySegment = host.labelAsString()
+                    val propertyString: String = host.$propertyConvenienceName()
+                    return methodString + propertyString + methodRaw.toString() + propertyRaw.toString()
+                }
+            """.trimIndent(),
+        )
+    }
+
     // ── @category ────────────────────────────────────────────────────────────
 
     "ObjC category instance method becomes extension function" - {
@@ -563,6 +607,1765 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
             src shouldContain """ObjCRuntime.getClass("KxMixed")"""
             src shouldContain "ptr"
         }
+    }
+
+    "Manual required protocol property and category property deduplicate accessors independently" {
+        val objectPointer = Type.pointer()
+        val requiredReadOnlyProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "foo",
+            objectPointer,
+            "id",
+            isOptional = false,
+            isReadOnly = true,
+            getterSelector = "foo",
+            setterSelector = "",
+        )
+        val categoryReadWriteProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "foo",
+            objectPointer,
+            "id",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "foo",
+            setterSelector = "setFoo:",
+        )
+        val requiredProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxManualReadOnlyRequirement",
+            emptyList(),
+            emptyList(),
+            listOf(requiredReadOnlyProperty),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxManualAccessorHost",
+            null,
+            listOf(requiredProtocol.name()),
+            emptyList(),
+            emptyList(),
+        )
+        val category = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxManualAccessorHostWritableFoo",
+            host.name(),
+            "WritableFoo",
+            emptyList(),
+            listOf(categoryReadWriteProperty),
+        )
+
+        val src = generateManual(requiredProtocol, host, category)
+            .joinToString("\n") { it.contents }
+
+        src.split("fun KxManualAccessorHost.foo(): MemorySegment").size - 1 shouldBe 1
+        src.split("fun KxManualAccessorHost.setFoo(value: MemorySegment)").size - 1 shouldBe 1
+    }
+
+    "Manual direct property suppresses matching protocol and category accessors" {
+        val objectPointer = Type.pointer()
+        val directReadWriteProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "foo",
+            objectPointer,
+            "id",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "foo",
+            setterSelector = "setFoo:",
+        )
+        val requiredReadOnlyProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "foo",
+            objectPointer,
+            "id",
+            isOptional = false,
+            isReadOnly = true,
+            getterSelector = "foo",
+            setterSelector = "",
+        )
+        val categoryReadWriteProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "foo",
+            objectPointer,
+            "id",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "foo",
+            setterSelector = "setFoo:",
+        )
+        val requiredProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxDirectReadOnlyRequirement",
+            emptyList(),
+            emptyList(),
+            listOf(requiredReadOnlyProperty),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxDirectAccessorHost",
+            null,
+            listOf(requiredProtocol.name()),
+            emptyList(),
+            listOf(directReadWriteProperty),
+        )
+        val category = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxDirectAccessorHostWritableFoo",
+            host.name(),
+            "WritableFoo",
+            emptyList(),
+            listOf(categoryReadWriteProperty),
+        )
+
+        val src = generateManual(requiredProtocol, host, category)
+            .joinToString("\n") { it.contents }
+
+        src.split("open fun foo(): MemorySegment").size - 1 shouldBe 1
+        src.split("open fun setFoo(value: MemorySegment)").size - 1 shouldBe 1
+        src shouldNotContain "fun KxDirectAccessorHost.foo(): MemorySegment"
+        src shouldNotContain "fun KxDirectAccessorHost.setFoo(value: MemorySegment)"
+    }
+
+    "Manual required class properties use top-level class dispatch without synthetic methods" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val requiredReadOnlyProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "classValue",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = true,
+            getterSelector = "classValue",
+            setterSelector = "",
+            isClassProperty = true,
+        )
+        val requiredReadWriteProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "mutableClassValue",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "mutableClassValue",
+            setterSelector = "setMutableClassValue:",
+            isClassProperty = true,
+        )
+        val requiredProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxManualClassPropertyRequirement",
+            emptyList(),
+            emptyList(),
+            listOf(requiredReadOnlyProperty, requiredReadWriteProperty),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxManualClassPropertyHost",
+            null,
+            listOf(requiredProtocol.name()),
+            emptyList(),
+            emptyList(),
+        )
+
+        val src = generateManual(requiredProtocol, host)
+            .joinToString("\n") { it.contents }
+
+        src.split("fun KxManualClassPropertyHost_classValue(): Long").size - 1 shouldBe 1
+        src.split("fun KxManualClassPropertyHost_mutableClassValue(): Long").size - 1 shouldBe 1
+        src.split("fun KxManualClassPropertyHost_setMutableClassValue(value: Long)").size - 1 shouldBe 1
+        src shouldContain "ObjCRuntime.getClass(\"KxManualClassPropertyHost\")"
+        src shouldNotContain "fun KxManualClassPropertyHost.classValue()"
+        src shouldNotContain "fun KxManualClassPropertyHost.mutableClassValue()"
+        src shouldNotContain "fun KxManualClassPropertyHost.setMutableClassValue("
+    }
+
+    "Manual direct and category class properties share class signatures without synthetic methods" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val directReadWriteProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "directValue",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "directValue",
+            setterSelector = "setDirectValue:",
+            isClassProperty = true,
+        )
+        val requiredReadOnlyProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "directValue",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = true,
+            getterSelector = "directValue",
+            setterSelector = "",
+            isClassProperty = true,
+        )
+        val categoryDuplicateProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "directValue",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "directValue",
+            setterSelector = "setDirectValue:",
+            isClassProperty = true,
+        )
+        val categoryReadWriteProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "categoryValue",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "categoryValue",
+            setterSelector = "setCategoryValue:",
+            isClassProperty = true,
+        )
+        val requiredProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxManualDirectClassPropertyRequirement",
+            emptyList(),
+            emptyList(),
+            listOf(requiredReadOnlyProperty),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxManualDirectClassPropertyHost",
+            null,
+            listOf(requiredProtocol.name()),
+            emptyList(),
+            listOf(directReadWriteProperty),
+        )
+        val category = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxManualDirectClassPropertyHostCategory",
+            host.name(),
+            "Category",
+            emptyList(),
+            listOf(categoryDuplicateProperty, categoryReadWriteProperty),
+        )
+
+        val src = generateManual(requiredProtocol, host, category)
+            .joinToString("\n") { it.contents }
+        val hostAndExtensions = src.substringAfter("open class KxManualDirectClassPropertyHost")
+
+        hostAndExtensions.split("fun directValue(): Long").size - 1 shouldBe 1
+        hostAndExtensions.split("fun setDirectValue(value: Long)").size - 1 shouldBe 1
+        hostAndExtensions shouldContain "ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, _class, sel)"
+        src shouldNotContain "fun KxManualDirectClassPropertyHost_directValue()"
+        src shouldNotContain "fun KxManualDirectClassPropertyHost_setDirectValue("
+        src.split("fun KxManualDirectClassPropertyHost_categoryValue(): Long").size - 1 shouldBe 1
+        src.split("fun KxManualDirectClassPropertyHost_setCategoryValue(value: Long)").size - 1 shouldBe 1
+        src shouldContain "val cls = ObjCRuntime.getClass(\"KxManualDirectClassPropertyHost\")"
+        src shouldNotContain "fun KxManualDirectClassPropertyHost.categoryValue()"
+        src shouldNotContain "fun KxManualDirectClassPropertyHost.setCategoryValue("
+    }
+
+    "Required class-property foo and protocol +foo: stay concrete-only without synthetic accessors" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val value = Declaration.parameter(Position.NO_POSITION, "value", longType)
+        val fooWithValue = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo",
+            "foo:",
+            true,
+            longType,
+            "long",
+            listOf(value),
+            false,
+        )
+        val writableClassProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "foo",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "foo",
+            setterSelector = "setFoo:",
+            isClassProperty = true,
+        )
+        val protocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxProtocolSelectorRequirement",
+            emptyList(),
+            listOf(fooWithValue),
+            listOf(writableClassProperty),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxProtocolSelectorHost",
+            null,
+            listOf(protocol.name()),
+            emptyList(),
+            emptyList(),
+        )
+
+        val src = generateManual(protocol, host).joinToString("\n") { it.contents }
+        val protocolInterface = src
+            .substringAfter("interface KxProtocolSelectorRequirement")
+            .substringBefore("open class KxProtocolSelectorHost")
+
+        protocolInterface shouldNotContain "fun foo(): Long"
+        protocolInterface shouldNotContain "fun setFoo(value: Long)"
+        protocolInterface shouldNotContain "fun foo(value: Long): Long"
+        src.split("fun KxProtocolSelectorHost_foo(): Long").size - 1 shouldBe 1
+        src.split("fun KxProtocolSelectorHost_setFoo(value: Long)").size - 1 shouldBe 1
+        src.split("fun KxProtocolSelectorHost_foo(value: Long): Long").size - 1 shouldBe 1
+    }
+
+    "Protocol interface retains required instance contract when matching class selector is optional" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val value = Declaration.parameter(Position.NO_POSITION, "typeIdentifier", longType)
+        val selector = "itemProviderVisibilityForRepresentationWithTypeIdentifier:"
+        val classMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "itemProviderVisibilityForRepresentationWithTypeIdentifier",
+            selector,
+            true,
+            longType,
+            "long",
+            listOf(value),
+            true,
+        )
+        val instanceMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "itemProviderVisibilityForRepresentationWithTypeIdentifier",
+            selector,
+            false,
+            longType,
+            "long",
+            listOf(value),
+            false,
+        )
+        val protocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxMatchingSelectorProtocol",
+            emptyList(),
+            listOf(classMethod, instanceMethod),
+            emptyList(),
+        )
+
+        val files = generateManual(protocol)
+        val src = files.joinToString("\n") { it.contents }
+        val protocolInterface = src.substringAfter("interface KxMatchingSelectorProtocol")
+
+        protocolInterface shouldContain
+            "fun itemProviderVisibilityForRepresentationWithTypeIdentifier(typeIdentifier: Long): Long\n"
+        protocolInterface shouldNotContain "// @optional"
+        protocolInterface shouldNotContain "Optional ObjC method 'itemProviderVisibilityForRepresentationWithTypeIdentifier:'"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun readVisibility(contract: KxMatchingSelectorProtocol): Long =
+                    contract.itemProviderVisibilityForRepresentationWithTypeIdentifier(0L)
+            """.trimIndent(),
+        )
+    }
+
+    "Required protocol selector collisions retain distinct callable names and selectors" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val legacySelector = "foo_bar:baz:"
+        val collidingSelector = "foo:bar_baz:"
+        val legacyMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            legacySelector,
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val collidingMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            collidingSelector,
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val protocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxSelectorCollisionRequirement",
+            emptyList(),
+            listOf(legacyMethod, collidingMethod),
+            emptyList(),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxSelectorCollisionHost",
+            null,
+            listOf(protocol.name()),
+            emptyList(),
+            emptyList(),
+        )
+
+        val files = generateManual(protocol, host)
+        val src = files.joinToString("\n") { it.contents }
+        val legacyName = "foo_bar_baz"
+        val suffixedName = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+        val protocolInterface = src
+            .substringAfter("interface KxSelectorCollisionRequirement")
+            .substringBefore("open class KxSelectorCollisionHost")
+
+        protocolInterface shouldContain "fun $legacyName(first: Long, second: Long): Long"
+        protocolInterface shouldContain "fun $suffixedName(first: Long, second: Long): Long"
+        src shouldContain "fun KxSelectorCollisionHost.$legacyName(first: Long, second: Long): Long {"
+        src shouldContain "fun KxSelectorCollisionHost.$suffixedName(first: Long, second: Long): Long {"
+        src.substringAfter("fun KxSelectorCollisionHost.$legacyName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"$legacySelector\")"
+        src.substringAfter("fun KxSelectorCollisionHost.$suffixedName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"$collidingSelector\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callBothSelectorCollisions(host: KxSelectorCollisionHost): Long =
+                    host.$legacyName(1L, 2L) + host.$suffixedName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "Each protocol retains a required selector shared with another protocol" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val requiredMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "sharedValue",
+            "sharedValue:",
+            false,
+            longType,
+            "long",
+            listOf(Declaration.parameter(Position.NO_POSITION, "value", longType)),
+            false,
+        )
+        val first = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxFirstSharedSelectorProtocol",
+            emptyList(),
+            listOf(requiredMethod),
+            emptyList(),
+        )
+        val second = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxSecondSharedSelectorProtocol",
+            emptyList(),
+            listOf(requiredMethod),
+            emptyList(),
+        )
+
+        val files = generateManual(first, second)
+        val src = files.joinToString("\n") { it.contents }
+        val firstInterface = src
+            .substringAfter("interface KxFirstSharedSelectorProtocol")
+            .substringBefore("interface KxSecondSharedSelectorProtocol")
+        val secondInterface = src.substringAfter("interface KxSecondSharedSelectorProtocol")
+
+        firstInterface shouldContain "fun sharedValue(value: Long): Long"
+        secondInterface shouldContain "fun sharedValue(value: Long): Long"
+        compileOnly(
+            files,
+            """
+                package test
+
+                class SharedSelectorConsumer : KxFirstSharedSelectorProtocol, KxSecondSharedSelectorProtocol {
+                    override fun sharedValue(value: Long): Long = value
+                }
+            """.trimIndent(),
+        )
+    }
+
+    "Child protocols reserve inherited callable names for distinct selector collisions" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val parentMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo:bar_baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val parent = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxParentSelectorProtocol",
+            emptyList(),
+            listOf(parentMethod),
+            emptyList(),
+        )
+        val child = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxChildSelectorProtocol",
+            listOf(parent.name()),
+            listOf(childMethod),
+            emptyList(),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxProtocolSelectorHierarchyHost",
+            null,
+            listOf(child.name()),
+            emptyList(),
+            emptyList(),
+        )
+
+        // Visit the child before its parent to prove reservations come from the pre-scanned
+        // protocol hierarchy rather than declaration/emission order.
+        val files = generateManual(child, parent, host)
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+        fun protocolBody(name: String): String {
+            val declaration = src.indexOf("interface $name")
+            val bodyStart = src.indexOf('{', declaration)
+            val bodyEnd = src.indexOf("\n}", bodyStart)
+            return src.substring(bodyStart + 1, bodyEnd)
+        }
+        val parentInterface = protocolBody("KxParentSelectorProtocol")
+        val childInterface = protocolBody("KxChildSelectorProtocol")
+
+        parentInterface shouldContain "fun foo_bar_baz(first: Long, second: Long): Long"
+        childInterface shouldContain "fun $suffixedName(first: Long, second: Long): Long"
+        childInterface shouldNotContain "fun foo_bar_baz(first: Long, second: Long): Long"
+        src.substringAfter("fun KxProtocolSelectorHierarchyHost.foo_bar_baz(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo_bar:baz:\")"
+        src.substringAfter("fun KxProtocolSelectorHierarchyHost.$suffixedName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo:bar_baz:\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                class ProtocolHierarchyConsumer : KxChildSelectorProtocol {
+                    override fun foo_bar_baz(first: Long, second: Long): Long = first + second
+                    override fun $suffixedName(first: Long, second: Long): Long = first - second
+                }
+
+                fun callProtocolHierarchy(contract: KxChildSelectorProtocol): Long =
+                    contract.foo_bar_baz(3L, 2L) + contract.$suffixedName(3L, 2L)
+            """.trimIndent(),
+        )
+    }
+
+    "Child protocols override an inherited callable with the same raw selector" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val parentMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val parent = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxParentExactSelectorProtocol",
+            emptyList(),
+            listOf(parentMethod),
+            emptyList(),
+        )
+        val child = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxChildExactSelectorProtocol",
+            listOf(parent.name()),
+            listOf(childMethod),
+            emptyList(),
+        )
+
+        val files = generateManual(child, parent)
+        val src = files.joinToString("\n") { it.contents }
+        val childDeclaration = src.indexOf("interface KxChildExactSelectorProtocol")
+        val childBodyStart = src.indexOf('{', childDeclaration)
+        val childBodyEnd = src.indexOf("\n}", childBodyStart)
+        val childBody = src.substring(childBodyStart + 1, childBodyEnd)
+
+        childBody shouldContain "override fun foo_bar_baz(first: Long, second: Long): Long"
+        compileOnly(
+            files,
+            """
+                package test
+
+                class ExactSelectorProtocolConsumer : KxChildExactSelectorProtocol {
+                    override fun foo_bar_baz(first: Long, second: Long): Long = first + second
+                }
+
+                fun callExactSelectorProtocol(contract: KxChildExactSelectorProtocol): Long =
+                    contract.foo_bar_baz(3L, 2L)
+            """.trimIndent(),
+        )
+    }
+
+    "Filtered protocol parents do not reserve child interface overrides" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val parentMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "baseValue",
+            "baseValue",
+            false,
+            longType,
+            "long",
+            emptyList(),
+            false,
+        )
+        val parentProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "effectiveAppearance",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = true,
+            getterSelector = "effectiveAppearance",
+            setterSelector = "setEffectiveAppearance:",
+            isClassProperty = false,
+        )
+        val parent = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxFilteredProtocolParent",
+            emptyList(),
+            listOf(parentMethod),
+            listOf(parentProperty),
+        )
+        val classHomonym = Declaration.objcClass(
+            Position.NO_POSITION,
+            parent.name(),
+            null,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val child = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxFilteredProtocolChild",
+            listOf(parent.name()),
+            listOf(parentMethod),
+            listOf(parentProperty),
+        )
+
+        val files = generateManual(child, parent, classHomonym)
+        val src = files.joinToString("\n") { it.contents }
+        val childDeclaration = src.indexOf("interface KxFilteredProtocolChild")
+        val childBodyStart = src.indexOf('{', childDeclaration)
+        val childBodyEnd = src.indexOf("\n}", childBodyStart)
+        val childBody = src.substring(childBodyStart + 1, childBodyEnd)
+
+        childBody shouldContain "fun baseValue(): Long"
+        childBody shouldContain "fun effectiveAppearance(): Long"
+        childBody shouldNotContain "override fun baseValue(): Long"
+        childBody shouldNotContain "override fun effectiveAppearance(): Long"
+        compileOnly(
+            files,
+            """
+                package test
+
+                class FilteredParentConsumer : KxFilteredProtocolChild {
+                    override fun baseValue(): Long = 1L
+                    override fun effectiveAppearance(): Long = 2L
+                }
+            """.trimIndent(),
+        )
+    }
+
+    "Child classes reserve inherited callable names for distinct selector collisions" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val parentMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo:bar_baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val parent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxParentSelectorClass",
+            null,
+            emptyList(),
+            listOf(parentMethod),
+            emptyList(),
+        )
+        val child = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxChildSelectorClass",
+            parent.name(),
+            emptyList(),
+            listOf(childMethod),
+            emptyList(),
+        )
+
+        // The hierarchy reservation must not rely on the parent having been emitted first.
+        val files = generateManual(child, parent)
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+        val childClass = src.substringAfter("open class KxChildSelectorClass")
+
+        src.substringAfter("open class KxParentSelectorClass").substringBefore("open class KxChildSelectorClass") shouldContain
+            "open fun foo_bar_baz(first: Long, second: Long): Long {"
+        childClass shouldContain "open fun $suffixedName(first: Long, second: Long): Long {"
+        childClass shouldNotContain "override fun foo_bar_baz(first: Long, second: Long): Long {"
+        childClass.substringAfter("fun $suffixedName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo:bar_baz:\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callClassHierarchy(host: KxChildSelectorClass): Long =
+                    host.foo_bar_baz(3L, 2L) + host.$suffixedName(3L, 2L)
+            """.trimIndent(),
+        )
+    }
+
+    "Child class protocol requirements do not inherit parent class selector suppression" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val version = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "version",
+            "version",
+            true,
+            longType,
+            "long",
+            emptyList(),
+            false,
+        )
+        val parent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxParentClassRequirement",
+            null,
+            emptyList(),
+            listOf(version),
+            emptyList(),
+        )
+        val requirement = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxChildClassVersionRequirement",
+            emptyList(),
+            listOf(version),
+            emptyList(),
+        )
+        val child = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxChildClassRequirement",
+            parent.name(),
+            listOf(requirement.name()),
+            emptyList(),
+            emptyList(),
+        )
+
+        val files = generateManual(parent, requirement, child)
+        val src = files.joinToString("\n") { it.contents }
+        val childFunction = "KxChildClassRequirement_version"
+
+        src shouldContain "fun $childFunction(): Long {"
+        src.substringAfter("fun $childFunction(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.getClass(\"KxChildClassRequirement\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callChildClassRequirement(): Long = $childFunction()
+            """.trimIndent(),
+        )
+    }
+
+    "Direct class selector collisions retain distinct callable names" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val legacyMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val collidingMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo:bar_baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxDirectSelectorCollisionHost",
+            null,
+            emptyList(),
+            listOf(legacyMethod, collidingMethod),
+            emptyList(),
+        )
+
+        val files = generateManual(host)
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+
+        src shouldContain "open fun foo_bar_baz(first: Long, second: Long): Long {"
+        src shouldContain "open fun $suffixedName(first: Long, second: Long): Long {"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callDirectSelectorCollisions(host: KxDirectSelectorCollisionHost): Long =
+                    host.foo_bar_baz(1L, 2L) + host.$suffixedName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "Protocol requirements and categories share selector-collision names" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val requiredMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val categoryMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo:bar_baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val protocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxCategorySelectorCollisionRequirement",
+            emptyList(),
+            listOf(requiredMethod),
+            emptyList(),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxCategorySelectorCollisionHost",
+            null,
+            listOf(protocol.name()),
+            emptyList(),
+            emptyList(),
+        )
+        val category = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxCategorySelectorCollisionHostCategory",
+            host.name(),
+            "Collision",
+            listOf(categoryMethod),
+            emptyList(),
+        )
+
+        val files = generateManual(protocol, host, category)
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+
+        src shouldContain "fun KxCategorySelectorCollisionHost.foo_bar_baz(first: Long, second: Long): Long {"
+        src shouldContain "fun KxCategorySelectorCollisionHost.$suffixedName(first: Long, second: Long): Long {"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callCategorySelectorCollisions(host: KxCategorySelectorCollisionHost): Long =
+                    host.foo_bar_baz(1L, 2L) + host.$suffixedName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "Required protocol extension avoids shadowing by a direct wrapper callable" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val directMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val requiredMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo:bar_baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val protocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxDirectExtensionRequirement",
+            emptyList(),
+            listOf(requiredMethod),
+            emptyList(),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxDirectExtensionHost",
+            null,
+            listOf(protocol.name()),
+            listOf(directMethod),
+            emptyList(),
+        )
+
+        val files = generateManual(protocol, host)
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+
+        src shouldContain "open fun foo_bar_baz(first: Long, second: Long): Long {"
+        src shouldContain "fun KxDirectExtensionHost.$suffixedName(first: Long, second: Long): Long {"
+        src.substringAfter("open fun foo_bar_baz(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo_bar:baz:\")"
+        src.substringAfter("fun KxDirectExtensionHost.$suffixedName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo:bar_baz:\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callDirectAndRequiredExtensions(host: KxDirectExtensionHost): Long =
+                    host.foo_bar_baz(1L, 2L) + host.$suffixedName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "Child extensions reserve distinct parent extension callables" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val parentExtensionMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childRequiredMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo:bar_baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxChildExtensionRequirement",
+            emptyList(),
+            listOf(childRequiredMethod),
+            emptyList(),
+        )
+        val parent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxInheritedExtensionParent",
+            null,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val child = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxInheritedExtensionChild",
+            parent.name(),
+            listOf(childProtocol.name()),
+            emptyList(),
+            emptyList(),
+        )
+        val parentCategory = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxInheritedExtensionParentCategory",
+            parent.name(),
+            "Collision",
+            listOf(parentExtensionMethod),
+            emptyList(),
+        )
+
+        // Visit the child before its parent/category to make hierarchy reservations order-independent.
+        val files = generateManual(child, childProtocol, parent, parentCategory)
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+
+        src shouldContain "fun KxInheritedExtensionParent.foo_bar_baz(first: Long, second: Long): Long {"
+        src shouldContain "fun KxInheritedExtensionChild.$suffixedName(first: Long, second: Long): Long {"
+        src.substringAfter("fun KxInheritedExtensionParent.foo_bar_baz(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo_bar:baz:\")"
+        src.substringAfter("fun KxInheritedExtensionChild.$suffixedName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo:bar_baz:\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callInheritedExtensions(host: KxInheritedExtensionChild): Long =
+                    host.foo_bar_baz(1L, 2L) + host.$suffixedName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "Required child extension survives an inherited selector hidden by a direct member" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val parentExtensionMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childDirectMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo:bar_baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childRequiredMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxHiddenParentExtensionRequirement",
+            emptyList(),
+            listOf(childRequiredMethod),
+            emptyList(),
+        )
+        val parent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxHiddenParentExtensionParent",
+            null,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val parentCategory = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxHiddenParentExtensionCategory",
+            parent.name(),
+            "Collision",
+            listOf(parentExtensionMethod),
+            emptyList(),
+        )
+        val child = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxHiddenParentExtensionChild",
+            parent.name(),
+            listOf(childProtocol.name()),
+            listOf(childDirectMethod),
+            emptyList(),
+        )
+
+        // The category precedes the child, reproducing the order-sensitive inherited signature.
+        val files = generateManual(parent, parentCategory, childProtocol, child)
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "foo_bar_baz__objc_666f6f5f6261723a62617a3a"
+
+        src shouldContain "open fun foo_bar_baz(first: Long, second: Long): Long {"
+        src shouldContain "fun KxHiddenParentExtensionChild.$suffixedName(first: Long, second: Long): Long {"
+        src.substringAfter("open fun foo_bar_baz(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo:bar_baz:\")"
+        src.substringAfter("fun KxHiddenParentExtensionChild.$suffixedName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo_bar:baz:\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callHiddenParentExtension(host: KxHiddenParentExtensionChild): Long =
+                    host.foo_bar_baz(1L, 2L) + host.$suffixedName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "A hidden inherited selector is re-emitted only once for child requirements" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val parentExtensionMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childDirectMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo:bar_baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        fun requiredMethod() = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            "foo_bar:baz:",
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val firstProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxFirstHiddenParentRequirement",
+            emptyList(),
+            listOf(requiredMethod()),
+            emptyList(),
+        )
+        val secondProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxSecondHiddenParentRequirement",
+            emptyList(),
+            listOf(requiredMethod()),
+            emptyList(),
+        )
+        val parent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxDuplicateHiddenParent",
+            null,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val parentCategory = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxDuplicateHiddenParentCategory",
+            parent.name(),
+            "Collision",
+            listOf(parentExtensionMethod),
+            emptyList(),
+        )
+        val child = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxDuplicateHiddenChild",
+            parent.name(),
+            listOf(firstProtocol.name(), secondProtocol.name()),
+            listOf(childDirectMethod),
+            emptyList(),
+        )
+
+        val files = generateManual(parent, parentCategory, firstProtocol, secondProtocol, child)
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "foo_bar_baz__objc_666f6f5f6261723a62617a3a"
+
+        src.split("fun KxDuplicateHiddenChild.$suffixedName(first: Long, second: Long): Long").size - 1 shouldBe 1
+        src.substringAfter("fun KxDuplicateHiddenChild.$suffixedName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"foo_bar:baz:\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callDeduplicatedHiddenParentExtension(host: KxDuplicateHiddenChild): Long =
+                    host.foo_bar_baz(1L, 2L) + host.$suffixedName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "Composed inherited extensions reserve a suffix occupied by a child direct member" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val firstSelector = "foo_bar:baz:"
+        val requiredSelector = "foo:bar_baz:"
+        val requiredSuffix = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+        val childSelector = "$requiredSuffix::"
+        val firstExtension = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            firstSelector,
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val parentExtension = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo_bar_baz",
+            requiredSelector,
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val childDirect = Declaration.objcMethod(
+            Position.NO_POSITION,
+            requiredSuffix,
+            childSelector,
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val requiredProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxComposedExtensionRequirement",
+            emptyList(),
+            listOf(parentExtension),
+            emptyList(),
+        )
+        val grandparent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxComposedExtensionGrandparent",
+            null,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val firstCategory = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxComposedExtensionGrandparentCategory",
+            grandparent.name(),
+            "First",
+            listOf(firstExtension),
+            emptyList(),
+        )
+        val parent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxComposedExtensionParent",
+            grandparent.name(),
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val secondCategory = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxComposedExtensionParentCategory",
+            parent.name(),
+            "Second",
+            listOf(parentExtension),
+            emptyList(),
+        )
+        val child = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxComposedExtensionChild",
+            parent.name(),
+            listOf(requiredProtocol.name()),
+            listOf(childDirect),
+            emptyList(),
+        )
+
+        val files = generateManual(
+            grandparent,
+            firstCategory,
+            parent,
+            secondCategory,
+            requiredProtocol,
+            child,
+        )
+        val src = files.joinToString("\n") { it.contents }
+        val childRequirementName = "${requiredSuffix}_2"
+
+        src shouldContain "fun KxComposedExtensionParent.$requiredSuffix(first: Long, second: Long): Long {"
+        src shouldContain "open fun $requiredSuffix(first: Long, second: Long): Long {"
+        src shouldContain "fun KxComposedExtensionChild.$childRequirementName(first: Long, second: Long): Long {"
+        src.substringAfter("open fun $requiredSuffix(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"$childSelector\")"
+        src.substringAfter("fun KxComposedExtensionChild.$childRequirementName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"$requiredSelector\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callComposedExtensionSurface(host: KxComposedExtensionChild): Long =
+                    host.$requiredSuffix(1L, 2L) + host.$childRequirementName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "Inherited extension replay follows inheritance order instead of inverse header order" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val first = Declaration.parameter(Position.NO_POSITION, "first", longType)
+        val second = Declaration.parameter(Position.NO_POSITION, "second", longType)
+        val grandparentSelector = "foo_bar:baz:"
+        val parentSelector = "foo:bar_baz:"
+        val parentSuffix = "foo_bar_baz__objc_666f6f3a6261725f62617a3a"
+        val childSelector = "$parentSuffix::"
+        fun method(selector: String, name: String = "foo_bar_baz") = Declaration.objcMethod(
+            Position.NO_POSITION,
+            name,
+            selector,
+            false,
+            longType,
+            "long",
+            listOf(first, second),
+            false,
+        )
+        val grandparent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxInverseReplayGrandparent",
+            null,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val parent = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxInverseReplayParent",
+            grandparent.name(),
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val parentCategory = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxInverseReplayParentCategory",
+            parent.name(),
+            "Parent",
+            listOf(method(parentSelector)),
+            emptyList(),
+        )
+        val grandparentCategory = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxInverseReplayGrandparentCategory",
+            grandparent.name(),
+            "Grandparent",
+            listOf(method(grandparentSelector)),
+            emptyList(),
+        )
+        val requiredProtocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxInverseReplayRequirement",
+            emptyList(),
+            listOf(method(parentSelector)),
+            emptyList(),
+        )
+        val child = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxInverseReplayChild",
+            parent.name(),
+            listOf(requiredProtocol.name()),
+            listOf(method(childSelector, parentSuffix)),
+            emptyList(),
+        )
+
+        // Parent's category deliberately precedes the grandparent's category in header order.
+        val files = generateManual(
+            grandparent,
+            parent,
+            parentCategory,
+            grandparentCategory,
+            requiredProtocol,
+            child,
+        )
+        val src = files.joinToString("\n") { it.contents }
+        val requiredName = "${parentSuffix}_2"
+
+        src shouldContain "fun KxInverseReplayParent.$parentSuffix(first: Long, second: Long): Long {"
+        src shouldContain "open fun $parentSuffix(first: Long, second: Long): Long {"
+        src shouldContain "fun KxInverseReplayChild.$requiredName(first: Long, second: Long): Long {"
+        src.substringAfter("open fun $parentSuffix(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"$childSelector\")"
+        src.substringAfter("fun KxInverseReplayChild.$requiredName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"$parentSelector\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callInverseReplaySurface(host: KxInverseReplayChild): Long =
+                    host.$parentSuffix(1L, 2L) + host.$requiredName(3L, 4L)
+            """.trimIndent(),
+        )
+    }
+
+    "Class protocol requirements allocate class members in one top-level Kotlin scope" {
+        val files = generateAll(
+            """
+                @protocol KxLeftClassRequirement
+                + (long)c:(long)value;
+                @property (class, readonly) long p;
+                @end
+                @interface KxA_B <KxLeftClassRequirement>
+                @end
+
+                @interface KxA
+                @end
+                @interface KxA (KxTopLevelCollision)
+                + (long)B_c:(long)value;
+                @property (class, readonly) long B_p;
+                @end
+            """.trimIndent(),
+        )
+        val src = files.joinToString("\n") { it.contents }
+        val rightName = "KxA_B_c__objc_425f633a"
+        val rightPropertyName = "KxA_B_p__objc_425f70"
+
+        src shouldContain "fun KxA_B_c(value: Long): Long {"
+        src.substringAfter("fun KxA_B_c(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.getClass(\"KxA_B\")"
+        src.substringAfter("fun KxA_B_c(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"c:\")"
+        src shouldContain "fun $rightName(value: Long): Long {"
+        src.substringAfter("fun $rightName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.getClass(\"KxA\")"
+        src.substringAfter("fun $rightName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"B_c:\")"
+        src shouldContain "fun KxA_B_p(): Long {"
+        src.substringAfter("fun KxA_B_p(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.getClass(\"KxA_B\")"
+        src shouldContain "fun $rightPropertyName(): Long {"
+        src.substringAfter("fun $rightPropertyName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.getClass(\"KxA\")"
+        src.substringAfter("fun $rightPropertyName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"B_p\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                fun callClassRequirementCollision(): Long =
+                    KxA_B_c(1L) + $rightName(2L) + KxA_B_p() + $rightPropertyName()
+            """.trimIndent(),
+        )
+    }
+
+    "NSString keyword conveniences use a valid unescaped synthetic base name" {
+        val files = generateAll(
+            """
+                ${kNSStringStub}
+                @interface KxKeywordNSStringMethod
+                - (NSString *)when;
+                @end
+                @interface KxKeywordNSStringProperty
+                @property (readonly) NSString *when;
+                @end
+            """.trimIndent(),
+        )
+        val src = files.joinToString("\n") { it.contents }
+
+        src shouldContain "fun whenAsString(): String = ObjCRuntime.toJavaString(`when`())"
+        src shouldNotContain "`when`AsString"
+        src.split("ObjCRuntime.sel(\"when\")").size - 1 shouldBe 2
+        compileOnly(
+            files,
+            """
+                package test
+
+                import java.lang.foreign.MemorySegment
+
+                fun callKeywordConveniences(
+                    methodHost: KxKeywordNSStringMethod,
+                    propertyHost: KxKeywordNSStringProperty,
+                ): String {
+                    val methodRaw: MemorySegment = methodHost.`when`()
+                    val propertyRaw: MemorySegment = propertyHost.`when`()
+                    return methodHost.whenAsString() + propertyHost.whenAsString() +
+                        methodRaw.toString() + propertyRaw.toString()
+                }
+            """.trimIndent(),
+        )
+    }
+
+    "Protocol property ownership KDoc is limited to direct Objective-C object references" {
+        val files = generateAll(
+            """
+                ${kNSStringStub}
+                @protocol KxObjectProtocol
+                @end
+                typedef void *KxOpaquePointer;
+                typedef void (*KxFunctionPointer)(void);
+                typedef void (^KxBlockPointer)(void);
+                @protocol KxOwnershipRequirement
+                @property (readonly) id<KxObjectProtocol> object;
+                @property (readonly) id<KxObjectProtocol> *objectPointer;
+                @property (readonly) void *opaque;
+                @property (readonly) KxOpaquePointer opaqueAlias;
+                @property (readonly) KxFunctionPointer functionPointer;
+                @property (readonly) KxBlockPointer blockPointer;
+                @end
+                @interface KxOwnershipHost <KxOwnershipRequirement>
+                @end
+            """.trimIndent(),
+        )
+        val src = files.joinToString("\n") { it.contents }
+        val borrowedKDoc = "This getter returns a borrowed (+0) Objective-C reference"
+        val objectGetter = "fun KxOwnershipHost.`object`(): MemorySegment"
+        val nonObjectGetters = listOf(
+            "fun KxOwnershipHost.objectPointer(): MemorySegment",
+            "fun KxOwnershipHost.opaque(): MemorySegment",
+            "fun KxOwnershipHost.opaqueAlias(): MemorySegment",
+            "fun KxOwnershipHost.functionPointer(): MemorySegment",
+            "fun KxOwnershipHost.blockPointer(): MemorySegment",
+        )
+
+        src.split(borrowedKDoc).size - 1 shouldBe 1
+        src shouldContain objectGetter
+        src.substringBefore(objectGetter).substringAfterLast("/**") shouldContain borrowedKDoc
+        nonObjectGetters.forEach { getter ->
+            src shouldContain getter
+            src.substringBefore(getter).substringAfterLast("/**") shouldNotContain borrowedKDoc
+        }
+        compileOnly(
+            files,
+            """
+                package test
+
+                import java.lang.foreign.MemorySegment
+
+                fun consumeOwnershipReferences(host: KxOwnershipHost): List<MemorySegment> = listOf(
+                    host.`object`(),
+                    host.objectPointer(),
+                    host.opaque(),
+                    host.opaqueAlias(),
+                    host.functionPointer(),
+                    host.blockPointer(),
+                )
+            """.trimIndent(),
+        )
+    }
+
+    "Unsupported protocol lowering identifies its source protocol and selector" {
+        val unsupportedType = Type.primitive(Type.Primitive.Kind.WChar)
+        val unsupportedMethod = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "unsupported",
+            "unsupported:",
+            true,
+            unsupportedType,
+            "wchar_t",
+            listOf(Declaration.parameter(Position.NO_POSITION, "value", unsupportedType)),
+            false,
+        )
+        val protocol = Declaration.objcProtocol(
+            Position.NO_POSITION,
+            "KxUnsupportedProtocolRequirement",
+            emptyList(),
+            listOf(unsupportedMethod),
+            emptyList(),
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxUnsupportedProtocolHost",
+            null,
+            listOf(protocol.name()),
+            emptyList(),
+            emptyList(),
+        )
+
+        val failure = shouldThrow<IllegalStateException> { generateManual(protocol, host) }
+        failure.message.orEmpty() shouldContain protocol.name()
+        failure.message.orEmpty() shouldContain unsupportedMethod.selector()
+        failure.stackTrace.any {
+            it.className == "org.graphiks.kextract.kotlin.builders.KotlinObjCProtocolRequirementBuilder"
+        } shouldBe true
+    }
+
+    "Required protocol extension avoids shadowing by an NSString convenience" {
+        val files = generateAll(
+            """
+                ${kNSStringStub}
+                @protocol KxNSStringExtensionRequirement
+                - (id)fooAsString;
+                @end
+                @interface KxNSStringExtensionHost <KxNSStringExtensionRequirement>
+                - (NSString *)foo;
+                @end
+            """.trimIndent(),
+        )
+        val src = files.joinToString("\n") { it.contents }
+        val suffixedName = "fooAsString__objc_666f6f4173537472696e67"
+
+        src shouldContain "fun fooAsString(): String = ObjCRuntime.toJavaString(foo())"
+        src shouldContain "fun KxNSStringExtensionHost.$suffixedName(): MemorySegment {"
+        src.substringAfter("fun KxNSStringExtensionHost.$suffixedName(").substringBefore("\n}") shouldContain
+            "ObjCRuntime.sel(\"fooAsString\")"
+        compileOnly(
+            files,
+            """
+                package test
+
+                import java.lang.foreign.MemorySegment
+
+                fun callNSStringAndRequiredExtensions(host: KxNSStringExtensionHost): String {
+                    val directString: String = host.fooAsString()
+                    val rawExtension: MemorySegment = host.$suffixedName()
+                    return directString + rawExtension.toString()
+                }
+            """.trimIndent(),
+        )
+    }
+
+    "Direct class-property getter foo and +foo: remain distinct overloads without synthetic accessors" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val value = Declaration.parameter(Position.NO_POSITION, "value", longType)
+        val fooWithValue = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo",
+            "foo:",
+            true,
+            longType,
+            "long",
+            listOf(value),
+            false,
+        )
+        val writableClassProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "foo",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "foo",
+            setterSelector = "setFoo:",
+            isClassProperty = true,
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxDirectSelectorHost",
+            null,
+            emptyList(),
+            listOf(fooWithValue),
+            listOf(writableClassProperty),
+        )
+
+        val src = generateManual(host).joinToString("\n") { it.contents }
+
+        src.split("fun foo(): Long").size - 1 shouldBe 1
+        src.split("fun setFoo(value: Long)").size - 1 shouldBe 1
+        src.split("fun foo(value: Long): Long").size - 1 shouldBe 1
+    }
+
+    "Category class-property getter foo and +foo: remain distinct overloads without synthetic accessors" {
+        val longType = Type.primitive(Type.Primitive.Kind.Long)
+        val value = Declaration.parameter(Position.NO_POSITION, "value", longType)
+        val fooWithValue = Declaration.objcMethod(
+            Position.NO_POSITION,
+            "foo",
+            "foo:",
+            true,
+            longType,
+            "long",
+            listOf(value),
+            false,
+        )
+        val writableClassProperty = Declaration.objcProperty(
+            Position.NO_POSITION,
+            "foo",
+            longType,
+            "long",
+            isOptional = false,
+            isReadOnly = false,
+            getterSelector = "foo",
+            setterSelector = "setFoo:",
+            isClassProperty = true,
+        )
+        val host = Declaration.objcClass(
+            Position.NO_POSITION,
+            "KxCategorySelectorHost",
+            null,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+        )
+        val category = Declaration.objcCategory(
+            Position.NO_POSITION,
+            "KxCategorySelectorHostCategory",
+            host.name(),
+            "Category",
+            listOf(fooWithValue),
+            listOf(writableClassProperty),
+        )
+
+        val src = generateManual(host, category).joinToString("\n") { it.contents }
+
+        src.split("fun KxCategorySelectorHost_foo(): Long").size - 1 shouldBe 1
+        src.split("fun KxCategorySelectorHost_setFoo(value: Long)").size - 1 shouldBe 1
+        src.split("fun KxCategorySelectorHost_foo(value: Long): Long").size - 1 shouldBe 1
     }
 
     // ── NS_ENUM / NS_OPTIONS ─────────────────────────────────────────────────
