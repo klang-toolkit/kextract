@@ -73,6 +73,28 @@ class GeneratorIntegrationTest : FreeSpec({
         }
     }
 
+    "C enum function lowering" - {
+        "uses scalar ABI carriers while preserving typed enum signatures" {
+            val src = generate(
+                """
+                typedef enum CGEventField : int {
+                    CGEventField_Source = 0,
+                    CGEventField_Target = 1
+                } CGEventField;
+
+                CGEventField createEventField(CGEventField field);
+                void setEventField(CGEventField field);
+                """.trimIndent(),
+            )
+
+            src shouldContain "fun createEventField(arg0: CGEventField): CGEventField"
+            src shouldContain "fun setEventField(arg0: CGEventField): Unit"
+            src shouldContain "FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT)"
+            src shouldContain "return CGEventField.fromValue((createEventField_HANDLE.invokeExact(arg0.value.toInt()) as Int).toLong())"
+            src shouldContain "setEventField_HANDLE.invokeExact(arg0.value.toInt())"
+        }
+    }
+
     "KMP header names" - {
         "strip Windows directory components before naming generated files" {
             val tmp = Files.createTempFile("kextract_test_", ".h")
