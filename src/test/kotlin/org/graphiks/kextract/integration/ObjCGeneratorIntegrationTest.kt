@@ -116,11 +116,11 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         declaration.addAttribute(skip)
     }
 
-    fun compileAndInvokeLong(
+    fun compileAndInvoke(
         files: List<KotlinSourceFile>,
         probeSource: String,
         methodName: String,
-    ): Long {
+    ): Any? {
         val workspace = Files.createTempDirectory("kextract_objc_enum_compile_")
         return try {
             val sourcePaths = files.mapIndexed { index, source ->
@@ -149,12 +149,24 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
             ).use { loader ->
                 loader.loadClass("test.EnumMacroProbeKt")
                     .getMethod(methodName)
-                    .invoke(null) as Long
+                    .invoke(null)
             }
         } finally {
             workspace.toFile().deleteRecursively()
         }
     }
+
+    fun compileAndInvokeLong(
+        files: List<KotlinSourceFile>,
+        probeSource: String,
+        methodName: String,
+    ): Long = compileAndInvoke(files, probeSource, methodName) as Long
+
+    fun compileAndInvokeBoolean(
+        files: List<KotlinSourceFile>,
+        probeSource: String,
+        methodName: String,
+    ): Boolean = compileAndInvoke(files, probeSource, methodName) as Boolean
 
     fun compileOnly(files: List<KotlinSourceFile>, probeSource: String) {
         val workspace = Files.createTempDirectory("kextract_objc_compile_")
@@ -320,6 +332,51 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         "ObjCRuntime carries the correct package" {
             val runtime = getRuntime(files)
             runtime shouldContain "package test"
+        }
+    }
+
+    "Generated ObjC subclassing helper" - {
+        "installs a BOOL(id, SEL) callback that Objective-C dispatch invokes" {
+            val files = generateAll(
+                """
+                    @interface KxBooleanCallbackHost
+                    @end
+                """.trimIndent(),
+            )
+
+            compileAndInvokeBoolean(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.MemorySegment
+                    import java.lang.foreign.ValueLayout
+                    import java.util.UUID
+
+                    fun invokesGeneratedBooleanCallback(): Boolean {
+                        val className = "KxGeneratedBooleanCallback_" + UUID.randomUUID().toString().replace('-', '_')
+                        val callback = ObjCSubclassing.booleanNoArgumentCallback { _, _ -> true }
+                        val cls = ObjCSubclassing.allocateClass("NSObject", className)
+                        check(ObjCSubclassing.addBooleanNoArgumentMethod(cls, "acceptsFirstResponder", callback))
+                        ObjCSubclassing.registerClass(cls)
+                        val receiver = ObjCRuntime.msgSend(
+                            ValueLayout.ADDRESS,
+                            ObjCRuntime.getClass(className),
+                            ObjCRuntime.sel("new"),
+                        ) as MemorySegment
+                        return try {
+                            ObjCRuntime.msgSend(
+                                ValueLayout.JAVA_BOOLEAN,
+                                receiver,
+                                ObjCRuntime.sel("acceptsFirstResponder"),
+                            ) as Boolean
+                        } finally {
+                            ObjCRuntime.msgSend(null, receiver, ObjCRuntime.sel("release"))
+                        }
+                    }
+                """.trimIndent(),
+                "invokesGeneratedBooleanCallback",
+            ) shouldBe true
         }
     }
 

@@ -20,6 +20,25 @@ import java.lang.foreign.Linker
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
+import java.lang.invoke.MethodHandle
+import java.lang.invoke.MethodHandles
+import java.util.concurrent.ConcurrentHashMap
+
+/** A managed implementation of an Objective-C method returning `BOOL` with no explicit argument. */
+fun interface ObjCBooleanNoArgumentHandler {
+    fun invoke(receiver: MemorySegment, selector: MemorySegment): Boolean
+}
+
+/**
+ * A generated `BOOL(id, SEL)` implementation pointer.
+ *
+ * The callback is retained by [ObjCSubclassing] after successful installation because Objective-C
+ * classes may invoke their methods for the rest of the process lifetime.
+ */
+class ObjCBooleanNoArgumentCallback internal constructor(
+    @Suppress("unused") private val handler: ObjCBooleanNoArgumentHandler,
+    internal val imp: MemorySegment,
+)
 
 /**
  * Primitives for dynamically creating Objective-C subclasses
@@ -38,6 +57,19 @@ object ObjCSubclassing {
         else SymbolLookup.libraryLookup("/usr/lib/libobjc.dylib", arena)
     }
     private val linker: Linker = Linker.nativeLinker()
+    private val booleanNoArgumentDescriptor = FunctionDescriptor.of(
+        ValueLayout.JAVA_BOOLEAN,
+        ValueLayout.ADDRESS,
+        ValueLayout.ADDRESS,
+    )
+    private val booleanNoArgumentHandle: MethodHandle by lazy {
+        MethodHandles.lookup().findVirtual(
+            ObjCBooleanNoArgumentHandler::class.java,
+            "invoke",
+            booleanNoArgumentDescriptor.toMethodType(),
+        )
+    }
+    private val retainedBooleanNoArgumentCallbacks = ConcurrentHashMap<MethodKey, ObjCBooleanNoArgumentCallback>()
 
     // Class objc_allocateClassPair(Class superclass, const char *name, size_t extraBytes)
     private val allocateClassPair = linker.downcallHandle(
@@ -122,6 +154,36 @@ object ObjCSubclassing {
     }
 
     /**
+     * Creates a generated `BOOL(id, SEL)` callback implementation.
+     *
+     * The returned callback is retained automatically by [addBooleanNoArgumentMethod] after the
+     * Objective-C runtime accepts the method installation.
+     */
+    fun booleanNoArgumentCallback(handler: ObjCBooleanNoArgumentHandler): ObjCBooleanNoArgumentCallback =
+        ObjCBooleanNoArgumentCallback(
+            handler = handler,
+            imp = linker.upcallStub(
+                booleanNoArgumentHandle.bindTo(handler),
+                booleanNoArgumentDescriptor,
+                arena,
+            ),
+        )
+
+    /** Installs a generated `BOOL(id, SEL)` [callback] on an unregistered Objective-C class. */
+    fun addBooleanNoArgumentMethod(
+        cls: MemorySegment,
+        selName: String,
+        callback: ObjCBooleanNoArgumentCallback,
+    ): Boolean {
+        val sel = ObjCRuntime.sel(selName)
+        val installed = addMethod(cls, selName, callback.imp, booleanNoArgumentEncoding())
+        if (installed) {
+            retainedBooleanNoArgumentCallbacks.putIfAbsent(MethodKey(cls.address(), sel.address()), callback)
+        }
+        return installed
+    }
+
+    /**
      * Registers the class pair with the ObjC runtime.
      * No further calls to [addMethod]/[addProtocol] are valid after this.
      */
@@ -139,6 +201,14 @@ object ObjCSubclassing {
         if (proto == MemorySegment.NULL) return false as Boolean
         return classAddProtocol.invokeExact(cls, proto) as Boolean
     }
+
+    private fun booleanNoArgumentEncoding(): String = when (System.getProperty("os.arch")) {
+        "aarch64", "arm64" -> "B@:"
+        "amd64", "x86_64" -> "c@:"
+        else -> error("Unsupported Objective-C host architecture: ${'$'}{System.getProperty("os.arch")}")
+    }
+
+    private data class MethodKey(val cls: Long, val selector: Long)
 }
 """.trimIndent()
         return KotlinSourceFile(packageName, "ObjCSubclassing", contents)
