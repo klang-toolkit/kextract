@@ -93,6 +93,29 @@ class GeneratorIntegrationTest : FreeSpec({
             src shouldContain "return CGEventField.fromValue((createEventField_HANDLE.invokeExact(arg0.value.toInt()) as Int).toLong())"
             src shouldContain "setEventField_HANDLE.invokeExact(arg0.value.toInt())"
         }
+
+        "resolves a forward enum declaration to its definition before lowering functions" {
+            val src = generate(
+                """
+                #define CF_ENUM(_type, _name) enum _name : _type _name; enum _name : _type
+
+                typedef CF_ENUM(int, ForwardEventField) {
+                    ForwardEventField_Source = 0,
+                    ForwardEventField_Target = 1
+                };
+
+                ForwardEventField createForwardEventField(ForwardEventField field);
+                void setForwardEventField(ForwardEventField field);
+                """.trimIndent(),
+            )
+
+            src shouldContain "enum class ForwardEventField"
+            src shouldContain "fun createForwardEventField(arg0: ForwardEventField): ForwardEventField"
+            src shouldContain "fun setForwardEventField(arg0: ForwardEventField): Unit"
+            src shouldContain
+                "return ForwardEventField.fromValue((createForwardEventField_HANDLE.invokeExact(arg0.value.toInt()) as Int).toLong())"
+            src shouldContain "setForwardEventField_HANDLE.invokeExact(arg0.value.toInt())"
+        }
     }
 
     "KMP header names" - {
