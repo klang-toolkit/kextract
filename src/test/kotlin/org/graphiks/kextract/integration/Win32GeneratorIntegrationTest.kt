@@ -1,6 +1,7 @@
 package org.graphiks.kextract.integration
 
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.graphiks.kextract.cli.DllEntry
@@ -10,7 +11,11 @@ import org.graphiks.kextract.pipeline.KextractTool
 import org.graphiks.kextract.pipeline.Logger
 import org.graphiks.kextract.pipeline.NameMangler
 import org.graphiks.kextract.pipeline.Options
+import org.jetbrains.kotlin.cli.common.ExitCode
+import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+import java.net.URLClassLoader
 import java.nio.file.Files
+import java.nio.file.Path
 
 class Win32GeneratorIntegrationTest : FreeSpec({
 
@@ -18,6 +23,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
         csource: String,
         functionNames: List<String>,
         useInitMethod: Boolean = false,
+        dataSymbolNames: List<String> = emptyList(),
     ): String {
         val tmp = Files.createTempFile("kextract_win32_test_", ".h")
         try {
@@ -31,7 +37,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
             )
             val mangled = NameMangler(headerName).scan(parsed)
             val dllMap = DllMap(
-                mapOf("test.dll" to DllEntry(functions = functionNames)),
+                mapOf("test.dll" to DllEntry(functions = functionNames, constants = dataSymbolNames)),
             )
             return KotlinGenerator().generate(
                 scoped = mangled,
@@ -43,6 +49,44 @@ class Win32GeneratorIntegrationTest : FreeSpec({
             ).single().contents
         } finally {
             Files.deleteIfExists(tmp)
+        }
+    }
+
+    fun compileAndInvokeGeneratedLong(
+        generatedSource: String,
+        probeSource: String,
+        methodName: String,
+    ): Long {
+        val workspace = Files.createTempDirectory("kextract_win32_generated_")
+        return try {
+            val generated = workspace.resolve("Generated.kt")
+            val probe = workspace.resolve("Win32Probe.kt")
+            val output = Files.createDirectories(workspace.resolve("classes"))
+            Files.writeString(generated, generatedSource)
+            Files.writeString(probe, probeSource)
+            val arguments = buildList {
+                addAll(
+                    listOf(
+                        "-no-stdlib",
+                        "-no-reflect",
+                        "-jvm-target", "25",
+                        "-classpath", System.getProperty("java.class.path"),
+                        "-d", output.toString(),
+                    ),
+                )
+                addAll(listOf(generated, probe).map(Path::toString))
+            }
+            K2JVMCompiler().exec(System.err, *arguments.toTypedArray()) shouldBe ExitCode.OK
+            URLClassLoader(
+                arrayOf(output.toUri().toURL()),
+                Win32GeneratorIntegrationTest::class.java.classLoader,
+            ).use { loader ->
+                loader.loadClass("test.Win32ProbeKt")
+                    .getMethod(methodName)
+                    .invoke(null) as Long
+            }
+        } finally {
+            workspace.toFile().deleteRecursively()
         }
     }
 
@@ -122,6 +166,145 @@ class Win32GeneratorIntegrationTest : FreeSpec({
     }
 
     "Win32 init method generation" - {
+        "keeps open enum options neutral and reports unavailable closed enums when the declared DLL is missing" {
+            val src = generateWin32(
+                """
+                typedef enum KxMissingClosedEnum : long long {
+                    KxMissingClosedEnumFirst = 1
+                } KxMissingClosedEnum;
+                typedef enum __attribute__((flag_enum)) KxShortOptions : short {
+                    KxShortOptionFirst = 1
+                } KxShortOptions;
+                typedef enum __attribute__((flag_enum)) KxByteOptions : signed char {
+                    KxByteOptionFirst = 1
+                } KxByteOptions;
+                typedef enum __attribute__((flag_enum)) KxLongOptions : unsigned long long {
+                    KxLongOptionFirst = 1
+                } KxLongOptions;
+
+                extern KxMissingClosedEnum KxMissingClosedValue;
+                extern KxShortOptions KxMissingShortOptions;
+                extern KxByteOptions KxMissingByteOptions;
+                extern KxLongOptions KxMissingLongOptions;
+                """.trimIndent(),
+                emptyList(),
+                useInitMethod = true,
+                dataSymbolNames = listOf(
+                    "KxMissingClosedValue",
+                    "KxMissingShortOptions",
+                    "KxMissingByteOptions",
+                    "KxMissingLongOptions",
+                ),
+            )
+
+            compileAndInvokeGeneratedLong(
+                src,
+                """
+                package test
+
+                fun readMissingDllOptionsDefaults(): Long {
+                    init()
+                    return if (
+                        KxMissingShortOptions.rawValue == 0L &&
+                        KxMissingByteOptions.rawValue == 0L &&
+                        KxMissingLongOptions.rawValue == 0L
+                    ) 1L else 0L
+                }
+                """.trimIndent(),
+                "readMissingDllOptionsDefaults",
+            ) shouldBe 1L
+
+            val failure = shouldThrow<java.lang.reflect.InvocationTargetException> {
+                compileAndInvokeGeneratedLong(
+                    src,
+                    """
+                    package test
+
+                    fun readMissingClosedEnum(): Long {
+                        init()
+                        KxMissingClosedValue
+                        return 1L
+                    }
+                    """.trimIndent(),
+                    "readMissingClosedEnum",
+                )
+            }
+            failure.cause?.message shouldBe
+                "Unavailable global binding 'KxMissingClosedValue': optional DLL or symbol is unavailable; make it available and call init() again"
+
+            val setterFailure = shouldThrow<java.lang.reflect.InvocationTargetException> {
+                compileAndInvokeGeneratedLong(
+                    src,
+                    """
+                    package test
+
+                    fun writeMissingClosedEnum(): Long {
+                        init()
+                        KxMissingClosedValue = KxMissingClosedEnum.KxMissingClosedEnumFirst
+                        return 1L
+                    }
+                    """.trimIndent(),
+                    "writeMissingClosedEnum",
+                )
+            }
+            setterFailure.cause?.message shouldBe
+                "Unavailable global binding 'KxMissingClosedValue': optional DLL or symbol is unavailable; make it available and call init() again"
+        }
+
+        "routes scalar globals listed in constants through their declared DLL lookup" {
+            val src = generateWin32(
+                "extern int KxDllMappedGlobal;",
+                emptyList(),
+                useInitMethod = true,
+                dataSymbolNames = listOf("KxDllMappedGlobal"),
+            )
+
+            src shouldContain
+                "\"KxDllMappedGlobal\" -> _DLL_TEST_DLL ?: SymbolLookup.loaderLookup()"
+            src shouldContain
+                "KxDllMappedGlobal_SEGMENT = _lookup(\"KxDllMappedGlobal\").find(\"KxDllMappedGlobal\")"
+        }
+
+        "returns typed primitive defaults after initializing an unavailable DLL" {
+            val src = generateWin32(
+                """
+                extern signed char KxMissingByte;
+                extern short KxMissingShort;
+                """.trimIndent(),
+                emptyList(),
+                useInitMethod = true,
+                dataSymbolNames = listOf("KxMissingByte", "KxMissingShort"),
+            )
+
+            compileAndInvokeGeneratedLong(
+                src,
+                """
+                package test
+
+                fun readMissingDllPrimitiveDefaults(): Long {
+                    init()
+                    return if (
+                        KxMissingByte == 0.toByte() &&
+                        KxMissingShort == 0.toShort()
+                    ) 1L else 0L
+                }
+                """.trimIndent(),
+                "readMissingDllPrimitiveDefaults",
+            ) shouldBe 1L
+        }
+
+        "sizes scalar global symbols and supplies the VarHandle offset" {
+            val src = generateWin32(
+                "extern int KxWin32Global;",
+                emptyList(),
+                useInitMethod = true,
+            )
+
+            src shouldContain "?.reinterpret(KxWin32Global_LAYOUT.byteSize())"
+            src shouldContain "KxWin32Global_VH!!.get(_seg, 0L) as Int"
+            src shouldContain "KxWin32Global_VH!!.set(_seg, 0L, value)"
+        }
+
         "publishes initialized state after generated handle setup under a lock" {
             val src = generateWin32(
                 "int initialize_me(int value);",

@@ -191,7 +191,8 @@ class KotlinHeaderBuilder(
 
     fun visitVariable(decl: Declaration.Variable) {
         val name = toplevel.javaName(decl.name())
-        val type = toplevel.mapType(decl.type())
+        val typeLowering = typeLowerer.lower(decl.type())
+        val type = typeLowering.kotlinType
         val lookupName = toplevel.lookupName(decl)
 
         // KDoc
@@ -236,14 +237,14 @@ class KotlinHeaderBuilder(
             builder.appendLine("private var ${name}_VH: VarHandle? = null")
             builder.appendLine()
             toplevel.initSlot.appendLine(
-                "${name}_SEGMENT = $varLookupExpr.find(\"$lookupName\").orElse(null)"
+                "${name}_SEGMENT = $varLookupExpr.find(\"$lookupName\").orElse(null)?.reinterpret(${name}_LAYOUT.byteSize())"
             )
             toplevel.initSlot.appendLine(
                 "${name}_VH = ${name}_SEGMENT?.let { ${name}_LAYOUT.varHandle() }"
             )
         } else {
             builder.appendLine(
-                "private val ${name}_SEGMENT: MemorySegment by lazy { $varLookupExpr.find(\"$lookupName\").orElseThrow() }"
+                "private val ${name}_SEGMENT: MemorySegment by lazy { $varLookupExpr.find(\"$lookupName\").orElseThrow().reinterpret(${name}_LAYOUT.byteSize()) }"
             )
             builder.appendLine("private val ${name}_VH: VarHandle by lazy { ${name}_LAYOUT.varHandle() }")
             builder.appendLine()
@@ -256,20 +257,20 @@ class KotlinHeaderBuilder(
             builder.appendLine("get() {")
             builder.indent()
             builder.appendLine("check(_initialized) { \"Win32 $name accessed before init()\" }")
-            builder.appendLine("val _seg = ${name}_SEGMENT ?: return ${returnDefault(type)}")
-            builder.appendLine("return ${name}_VH!!.get(_seg) as ${type}")
+            builder.appendLine("val _seg = ${name}_SEGMENT ?: return ${typeLowering.fallbackValue(name)}")
+            builder.appendLine("return ${typeLowering.reconstruct("${name}_VH!!.get(_seg, 0L)")}")
             builder.unindent()
             builder.appendLine("}")
             builder.appendLine("set(value) {")
             builder.indent()
             builder.appendLine("check(_initialized) { \"Win32 $name accessed before init()\" }")
-            builder.appendLine("val _seg = ${name}_SEGMENT ?: return")
-            builder.appendLine("${name}_VH!!.set(_seg, value)")
+            builder.appendLine("val _seg = ${name}_SEGMENT ?: ${typeLowering.missingBindingSetterAction(name)}")
+            builder.appendLine("${name}_VH!!.set(_seg, 0L, ${typeLowering.lowerArgument("value")})")
             builder.unindent()
             builder.appendLine("}")
         } else {
-            builder.appendLine("get() = ${name}_VH.get(${name}_SEGMENT) as ${type}")
-            builder.appendLine("set(value) = ${name}_VH.set(${name}_SEGMENT, value)")
+            builder.appendLine("get() = ${typeLowering.reconstruct("${name}_VH.get(${name}_SEGMENT, 0L)")}")
+            builder.appendLine("set(value) = ${name}_VH.set(${name}_SEGMENT, 0L, ${typeLowering.lowerArgument("value")})")
         }
         builder.unindent()
         builder.appendLine()

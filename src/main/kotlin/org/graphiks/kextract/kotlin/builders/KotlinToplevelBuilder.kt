@@ -247,7 +247,7 @@ class KotlinToplevelBuilder(
                 mainSlot.appendLine()
             }
 
-            // Build symbol→DLL mapping for the _lookup helper
+            // Build symbol→DLL mapping for functions and non-function data symbols.
             val dllSymbols = linkedMapOf<String, MutableList<String>>()
             for ((dll, entry) in dllMap.dllMap) {
                 val syms = dllSymbols.getOrPut(dll) { mutableListOf() }
@@ -260,6 +260,7 @@ class KotlinToplevelBuilder(
             mainSlot.appendLine("return when (symbol) {")
             mainSlot.indent()
             for ((dll, syms) in dllSymbols) {
+                if (syms.isEmpty()) continue
                 val varName = dllLookupVarName(dll)
                 mainSlot.appendLine("${syms.joinToString(", ") { "\"$it\"" }} -> $varName ?: SymbolLookup.loaderLookup()")
             }

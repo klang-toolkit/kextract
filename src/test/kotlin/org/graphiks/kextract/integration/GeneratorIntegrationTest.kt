@@ -28,14 +28,25 @@ class GeneratorIntegrationTest : FreeSpec({
 
     // Helper: parse an inline C source and run the Kotlin generator.
     // Mirrors the full pipeline: parse → NameMangler → KotlinGenerator.
-    fun generate(csource: String, pkg: String = "test", variadicArgs: Map<String, Int> = emptyMap()): String {
+    fun generate(
+        csource: String,
+        pkg: String = "test",
+        variadicArgs: Map<String, Int> = emptyMap(),
+        libraries: List<Options.Library> = emptyList(),
+    ): String {
         val tmp = Files.createTempFile("kextract_test_", ".h")
         try {
             tmp.toFile().writeText(csource)
             val headerName = tmp.fileName.toString()
             val parsed = KextractTool.parse(listOf(tmp.toString()))
             val mangled = NameMangler(headerName).scan(parsed)
-            val files = KotlinGenerator().generate(mangled, headerName, pkg, variadicArgs = variadicArgs)
+            val files = KotlinGenerator().generate(
+                mangled,
+                headerName,
+                pkg,
+                libraries = libraries,
+                variadicArgs = variadicArgs,
+            )
             return files.firstOrNull()?.contents ?: ""
         } finally {
             Files.deleteIfExists(tmp)
@@ -728,6 +739,170 @@ class GeneratorIntegrationTest : FreeSpec({
     }
 
     "Constant generation" - {
+        "pointer globals read and write their symbol storage through a zero-offset VarHandle" {
+            if (!System.getProperty("os.name").startsWith("Windows")) {
+                val workspace = Files.createTempDirectory("kextract_pointer_global_")
+                try {
+                    val source = workspace.resolve("pointer_global.c")
+                    val library = workspace.resolve(
+                        if (System.getProperty("os.name").startsWith("Mac")) {
+                            "libkextract_pointer_global.dylib"
+                        } else {
+                            "libkextract_pointer_global.so"
+                        },
+                    )
+                    Files.writeString(
+                        source,
+                        """
+                        static int kxPointerGlobalMarker = 0;
+                        static int kxAlternatePointerGlobalMarker = 0;
+                        void *KxDefaultRunLoopMode = &kxPointerGlobalMarker;
+                        long kxExpectedPointerGlobalAddress(void) {
+                            return (long) KxDefaultRunLoopMode;
+                        }
+                        long kxAlternatePointerGlobalAddress(void) {
+                            return (long) &kxAlternatePointerGlobalMarker;
+                        }
+                        """.trimIndent(),
+                    )
+                    val compiler = if (System.getProperty("os.name").startsWith("Mac")) {
+                        listOf("cc", "-dynamiclib", "-fPIC", source.toString(), "-o", library.toString())
+                    } else {
+                        listOf("cc", "-shared", "-fPIC", source.toString(), "-o", library.toString())
+                    }
+                    val compilerProcess = ProcessBuilder(compiler)
+                        .directory(workspace.toFile())
+                        .redirectErrorStream(true)
+                        .start()
+                    val compilerOutput = compilerProcess.inputStream.bufferedReader().readText()
+                    check(compilerProcess.waitFor() == 0) {
+                        "native pointer-global fixture failed: " + compiler.joinToString(" ") + "\n" + compilerOutput
+                    }
+
+                    val generated = generate(
+                        """
+                        extern void *KxDefaultRunLoopMode;
+                        long kxExpectedPointerGlobalAddress(void);
+                        long kxAlternatePointerGlobalAddress(void);
+                        """.trimIndent(),
+                        libraries = listOf(Options.Library.parse(":$library")),
+                    )
+                    compileAndInvokeGeneratedLong(
+                        generated,
+                        """
+                        package test
+
+                        import java.lang.foreign.MemorySegment
+
+                        fun readPointerGlobal(): Long {
+                            val replacement = kxAlternatePointerGlobalAddress()
+                            KxDefaultRunLoopMode = MemorySegment.ofAddress(replacement)
+                            return if (
+                                KxDefaultRunLoopMode.address() == replacement &&
+                                kxExpectedPointerGlobalAddress() == replacement
+                            ) 1L else 0L
+                        }
+                        """.trimIndent(),
+                        "readPointerGlobal",
+                    ) shouldBe 1L
+                } finally {
+                    workspace.toFile().deleteRecursively()
+                }
+            }
+        }
+
+        "enum and options globals use their scalar ABI carriers" {
+            if (!System.getProperty("os.name").startsWith("Windows")) {
+                val workspace = Files.createTempDirectory("kextract_enum_global_")
+                try {
+                    val source = workspace.resolve("enum_global.c")
+                    val library = workspace.resolve(
+                        if (System.getProperty("os.name").startsWith("Mac")) {
+                            "libkextract_enum_global.dylib"
+                        } else {
+                            "libkextract_enum_global.so"
+                        },
+                    )
+                    Files.writeString(
+                        source,
+                        """
+                        typedef enum KxGlobalState {
+                            KxGlobalStateInitial = 0,
+                            KxGlobalStateUpdated = 3
+                        } KxGlobalState;
+                        typedef enum __attribute__((flag_enum)) KxGlobalOptions {
+                            KxGlobalOptionReadable = 1,
+                            KxGlobalOptionWritable = 2
+                        } KxGlobalOptions;
+
+                        KxGlobalState KxCurrentState = KxGlobalStateInitial;
+                        KxGlobalOptions KxCurrentOptions = KxGlobalOptionReadable;
+
+                        long kxCurrentStateRaw(void) {
+                            return (long) KxCurrentState;
+                        }
+                        long kxCurrentOptionsRaw(void) {
+                            return (long) KxCurrentOptions;
+                        }
+                        """.trimIndent(),
+                    )
+                    val compiler = if (System.getProperty("os.name").startsWith("Mac")) {
+                        listOf("cc", "-dynamiclib", "-fPIC", source.toString(), "-o", library.toString())
+                    } else {
+                        listOf("cc", "-shared", "-fPIC", source.toString(), "-o", library.toString())
+                    }
+                    val compilerProcess = ProcessBuilder(compiler)
+                        .directory(workspace.toFile())
+                        .redirectErrorStream(true)
+                        .start()
+                    val compilerOutput = compilerProcess.inputStream.bufferedReader().readText()
+                    check(compilerProcess.waitFor() == 0) {
+                        "native enum-global fixture failed: " + compiler.joinToString(" ") + "\n" + compilerOutput
+                    }
+
+                    val generated = generate(
+                        """
+                        typedef enum KxGlobalState {
+                            KxGlobalStateInitial = 0,
+                            KxGlobalStateUpdated = 3
+                        } KxGlobalState;
+                        typedef enum __attribute__((flag_enum)) KxGlobalOptions {
+                            KxGlobalOptionReadable = 1,
+                            KxGlobalOptionWritable = 2
+                        } KxGlobalOptions;
+
+                        extern KxGlobalState KxCurrentState;
+                        extern KxGlobalOptions KxCurrentOptions;
+                        long kxCurrentStateRaw(void);
+                        long kxCurrentOptionsRaw(void);
+                        """.trimIndent(),
+                        libraries = listOf(Options.Library.parse(":$library")),
+                    )
+                    compileAndInvokeGeneratedLong(
+                        generated,
+                        """
+                        package test
+
+                        fun readAndWriteEnumGlobals(): Long {
+                            KxCurrentState = KxGlobalState.KxGlobalStateUpdated
+                            KxCurrentOptions = KxGlobalOptions.KxGlobalOptionReadable +
+                                KxGlobalOptions.KxGlobalOptionWritable
+                            return if (
+                                KxCurrentState == KxGlobalState.KxGlobalStateUpdated &&
+                                KxCurrentOptions.rawValue == 3L &&
+                                kxCurrentStateRaw() == 3L &&
+                                kxCurrentOptionsRaw() == 3L
+                            ) 1L else 0L
+                        }
+                        """.trimIndent(),
+                        "readAndWriteEnumGlobals",
+                    ) shouldBe 1L
+                } finally {
+                    workspace.toFile().deleteRecursively()
+                }
+            }
+        }
+
         "initialized mutable globals remain variables" {
             val tmp = Files.createTempFile("kextract_mutable_global_", ".h")
             try {

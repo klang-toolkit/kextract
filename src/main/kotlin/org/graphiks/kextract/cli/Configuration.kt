@@ -15,6 +15,9 @@ class Configuration {
 /**
  * Describes the set of symbols to extract from a single DLL.
  * Loaded from the YAML file passed via --dll-map.
+ *
+ * [constants] names non-function data symbols, including exported mutable globals
+ * that must be resolved through this DLL's [java.lang.foreign.SymbolLookup].
  */
 data class DllEntry(
     val functions: List<String> = emptyList(),
