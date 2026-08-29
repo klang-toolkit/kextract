@@ -273,6 +273,7 @@ internal abstract class DeclarationImpl(
 ) : Declaration {
 
     private val attributes: MutableMap<Class<*>, Declaration.Attribute> = mutableMapOf()
+    private var platformAvailability: Declaration.PlatformAvailability? = null
 
     override fun toString(): String = PrettyPrinter().print(this)
     override fun name(): String = _name
@@ -285,13 +286,26 @@ internal abstract class DeclarationImpl(
 
     override fun hashCode(): Int = Objects.hash(_name)
 
-    override fun attributes(): Collection<Declaration.Attribute> = attributes.values
+    override fun attributes(): Collection<Declaration.Attribute> =
+        platformAvailability?.let { attributes.values + it } ?: attributes.values
 
     @Suppress("UNCHECKED_CAST")
     override fun <R : Declaration.Attribute> getAttribute(attributeClass: Class<R>): R? =
-        attributes[attributeClass] as R?
+        if (attributeClass == Declaration.PlatformAvailability::class.java) {
+            platformAvailability as R?
+        } else {
+            attributes[attributeClass] as R?
+        }
 
     override fun <R : Declaration.Attribute> addAttribute(attribute: R) {
+        if (attribute is Declaration.PlatformAvailability) {
+            val existing = platformAvailability
+            if (existing != null && existing != attribute) {
+                throw IllegalStateException("Attribute already exists: ${attribute.javaClass.simpleName}")
+            }
+            platformAvailability = attribute
+            return
+        }
         val existing = attributes[attribute.javaClass]
         if (existing != null && existing != attribute) {
             throw IllegalStateException("Attribute already exists: ${attribute.javaClass.simpleName}")
