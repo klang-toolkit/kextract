@@ -253,6 +253,7 @@ class KotlinToplevelBuilder(
                 val syms = dllSymbols.getOrPut(dll) { mutableListOf() }
                 syms.addAll(entry.functions)
                 syms.addAll(entry.constants)
+                syms.addAll(entry.variables)
             }
 
             mainSlot.appendLine("private fun _lookup(symbol: String): SymbolLookup {")
@@ -260,6 +261,7 @@ class KotlinToplevelBuilder(
             mainSlot.appendLine("return when (symbol) {")
             mainSlot.indent()
             for ((dll, syms) in dllSymbols) {
+                if (syms.isEmpty()) continue
                 val varName = dllLookupVarName(dll)
                 mainSlot.appendLine("${syms.joinToString(", ") { "\"$it\"" }} -> $varName ?: SymbolLookup.loaderLookup()")
             }

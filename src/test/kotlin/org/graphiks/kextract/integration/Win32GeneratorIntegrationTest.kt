@@ -18,6 +18,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
         csource: String,
         functionNames: List<String>,
         useInitMethod: Boolean = false,
+        variableNames: List<String> = emptyList(),
     ): String {
         val tmp = Files.createTempFile("kextract_win32_test_", ".h")
         try {
@@ -31,7 +32,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
             )
             val mangled = NameMangler(headerName).scan(parsed)
             val dllMap = DllMap(
-                mapOf("test.dll" to DllEntry(functions = functionNames)),
+                mapOf("test.dll" to DllEntry(functions = functionNames, variables = variableNames)),
             )
             return KotlinGenerator().generate(
                 scoped = mangled,
@@ -122,6 +123,20 @@ class Win32GeneratorIntegrationTest : FreeSpec({
     }
 
     "Win32 init method generation" - {
+        "routes scalar globals through their declared DLL lookup" {
+            val src = generateWin32(
+                "extern int KxDllMappedGlobal;",
+                emptyList(),
+                useInitMethod = true,
+                variableNames = listOf("KxDllMappedGlobal"),
+            )
+
+            src shouldContain
+                "\"KxDllMappedGlobal\" -> _DLL_TEST_DLL ?: SymbolLookup.loaderLookup()"
+            src shouldContain
+                "KxDllMappedGlobal_SEGMENT = _lookup(\"KxDllMappedGlobal\").find(\"KxDllMappedGlobal\")"
+        }
+
         "sizes scalar global symbols and supplies the VarHandle offset" {
             val src = generateWin32(
                 "extern int KxWin32Global;",

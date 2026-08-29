@@ -191,7 +191,8 @@ class KotlinHeaderBuilder(
 
     fun visitVariable(decl: Declaration.Variable) {
         val name = toplevel.javaName(decl.name())
-        val type = toplevel.mapType(decl.type())
+        val typeLowering = typeLowerer.lower(decl.type())
+        val type = typeLowering.kotlinType
         val lookupName = toplevel.lookupName(decl)
 
         // KDoc
@@ -256,20 +257,20 @@ class KotlinHeaderBuilder(
             builder.appendLine("get() {")
             builder.indent()
             builder.appendLine("check(_initialized) { \"Win32 $name accessed before init()\" }")
-            builder.appendLine("val _seg = ${name}_SEGMENT ?: return ${returnDefault(type)}")
-            builder.appendLine("return ${name}_VH!!.get(_seg, 0L) as ${type}")
+            builder.appendLine("val _seg = ${name}_SEGMENT ?: return ${typeLowering.reconstruct(returnDefault(type))}")
+            builder.appendLine("return ${typeLowering.reconstruct("${name}_VH!!.get(_seg, 0L)")}")
             builder.unindent()
             builder.appendLine("}")
             builder.appendLine("set(value) {")
             builder.indent()
             builder.appendLine("check(_initialized) { \"Win32 $name accessed before init()\" }")
             builder.appendLine("val _seg = ${name}_SEGMENT ?: return")
-            builder.appendLine("${name}_VH!!.set(_seg, 0L, value)")
+            builder.appendLine("${name}_VH!!.set(_seg, 0L, ${typeLowering.lowerArgument("value")})")
             builder.unindent()
             builder.appendLine("}")
         } else {
-            builder.appendLine("get() = ${name}_VH.get(${name}_SEGMENT, 0L) as ${type}")
-            builder.appendLine("set(value) = ${name}_VH.set(${name}_SEGMENT, 0L, value)")
+            builder.appendLine("get() = ${typeLowering.reconstruct("${name}_VH.get(${name}_SEGMENT, 0L)")}")
+            builder.appendLine("set(value) = ${name}_VH.set(${name}_SEGMENT, 0L, ${typeLowering.lowerArgument("value")})")
         }
         builder.unindent()
         builder.appendLine()

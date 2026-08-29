@@ -19,7 +19,9 @@ class Configuration {
 data class DllEntry(
     val functions: List<String> = emptyList(),
     val structs: List<String> = emptyList(),
-    val constants: List<String> = emptyList()
+    val constants: List<String> = emptyList(),
+    /** Exported scalar globals resolved through this DLL's [java.lang.foreign.SymbolLookup]. */
+    val variables: List<String> = emptyList(),
 )
 
 /**
