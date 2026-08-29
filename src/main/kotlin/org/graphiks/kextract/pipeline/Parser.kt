@@ -25,13 +25,13 @@ class Parser(private val logger: Logger) {
             if (c.isDeclaration()) {
                 if (c.kind() == CursorKind.UnexposedDecl || c.kind() == CursorKind.Namespace) {
                     c.forEach { t ->
-                        val declaration = treeMaker.createTopLevelTree(t)
+                        val declaration = treeMaker.createTree(t)
                         if (declaration != null) {
                             decls.add(declaration)
                         }
                     }
                 } else {
-                    val decl = treeMaker.createTopLevelTree(c)
+                    val decl = treeMaker.createTree(c)
                     if (decl != null) {
                         decls.add(decl)
                     }

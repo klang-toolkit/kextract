@@ -67,9 +67,6 @@ class Cursor internal constructor(segment: MemorySegment, owner: ClangDisposable
     fun getDefinition(): Cursor    = Cursor(clang_getCursorDefinition(owner, segment), owner)
     fun getVarDeclInitializer(): Cursor = Cursor(clang_Cursor_getVarDeclInitializer(owner, segment), owner)
     fun isFunctionInlined(): Boolean = clang_Cursor_isFunctionInlined(segment) != 0
-    fun isUnavailableForTarget(): Boolean =
-        clang_getCursorAvailability(segment) == CXAvailability_NotAvailable()
-
     fun getSourceLocation(): SourceLocation? {
         val loc = clang_getCursorLocation(owner, segment)
         Arena.ofConfined().use { arena ->

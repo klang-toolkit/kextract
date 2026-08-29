@@ -78,19 +78,6 @@ internal class TreeMaker {
         return match
     }
 
-    /**
-     * Creates a declaration reached directly from the translation unit.
-     *
-     * Availability applies to exported declarations. Child cursors still
-     * describe the ABI of an available parent and must remain intact.
-     */
-    fun createTopLevelTree(c: Cursor): Declaration? {
-        if (c.isUnavailableForTarget()) {
-            return null
-        }
-        return createTree(c)
-    }
-
     fun createTree(c: Cursor): Declaration? {
         val lang: CursorLanguage = c.language()
         val linkage: LinkageKind = c.linkage()
@@ -588,8 +575,6 @@ internal class TreeMaker {
 
     /** Build Declaration.ObjCMethod from an ObjCInstanceMethodDecl or ObjCClassMethodDecl cursor. */
     private fun createObjCMethod(c: Cursor, isClassMethod: Boolean): Declaration.ObjCMethod? {
-        if (c.isUnavailableForTarget()) return null
-
         val selector = c.spelling()   // libclang returns the full selector here
         val numArgs = c.numberOfArgs()
         val params = mutableListOf<Declaration.Variable>()
@@ -611,8 +596,6 @@ internal class TreeMaker {
 
     /** Build Declaration.ObjCProperty from an ObjCPropertyDecl cursor. */
     private fun createObjCProperty(c: Cursor): Declaration.ObjCProperty? {
-        if (c.isUnavailableForTarget()) return null
-
         val attrs = c.getObjCPropertyAttributes()
         val isReadOnly = (attrs and 1) != 0   // CXObjCPropertyAttr_readonly = 1
         val isClassProperty = (attrs and 4096) != 0 // CXObjCPropertyAttr_class = 4096

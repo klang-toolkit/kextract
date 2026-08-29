@@ -322,9 +322,9 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
             src shouldContain "availableProperty"
         }
 
-        "does not generate members unavailable for macOS" {
-            src shouldNotContain "unavailableMethod"
-            src shouldNotContain "unavailableProperty"
+        "keeps members unavailable for macOS" {
+            src shouldContain "unavailableMethod"
+            src shouldContain "unavailableProperty"
         }
     }
 

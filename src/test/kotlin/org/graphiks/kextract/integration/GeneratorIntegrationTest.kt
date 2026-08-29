@@ -163,7 +163,7 @@ class GeneratorIntegrationTest : FreeSpec({
     }
 
     "Target availability" - {
-        "does not generate top-level declarations unavailable for macOS" {
+        "keeps top-level declarations unavailable for macOS" {
             val src = generateWithPipeline(
                 """
                 int kxAvailable(void);
@@ -175,7 +175,7 @@ class GeneratorIntegrationTest : FreeSpec({
             )
 
             src shouldContain "fun kxAvailable()"
-            src shouldNotContain "kxUnavailable"
+            src shouldContain "fun kxUnavailable()"
             src shouldContain "fun kxDeprecated()"
             src shouldContain "fun kxIntroduced()"
         }
