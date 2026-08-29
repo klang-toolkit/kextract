@@ -71,6 +71,17 @@ class Cursor internal constructor(segment: MemorySegment, owner: ClangDisposable
     fun getVarDeclInitializer(): Cursor = Cursor(clang_Cursor_getVarDeclInitializer(owner, segment), owner)
     fun isFunctionInlined(): Boolean = clang_Cursor_isFunctionInlined(segment) != 0
 
+    /**
+     * Keeps this value-type cursor usable after the native visitor callback has
+     * returned. The copied cursor still refers to the same live translation
+     * unit through [owner].
+     */
+    fun copyForDeferredUse(allocator: SegmentAllocator): Cursor {
+        val copy = allocator.allocate(segment.byteSize(), 8)
+        copy.copyFrom(segment)
+        return Cursor(copy, owner)
+    }
+
     fun platformAvailability(): List<org.graphiks.kextract.Declaration.PlatformAvailability.Entry> =
         Arena.ofConfined().use { arena ->
             val count = clang_getCursorPlatformAvailability(

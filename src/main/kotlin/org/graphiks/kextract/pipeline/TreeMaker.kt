@@ -28,7 +28,9 @@ import org.graphiks.kextract.DeclarationImpl.DeclarationString
 import org.graphiks.kextract.DeclarationImpl.SourceComment
 import org.graphiks.kextract.DeclarationImpl.TypedefEnumScoped
 
+import java.lang.foreign.Arena
 import java.nio.file.Path
+import java.util.IdentityHashMap
 
 /**
  * Kotlin port of TreeMaker.
@@ -37,6 +39,8 @@ import java.nio.file.Path
 internal class TreeMaker {
 
     private val declarationCacheNew: MutableMap<Cursor.Key, Declaration> = mutableMapOf()
+    private val availabilityCursors = IdentityHashMap<Declaration, Cursor>()
+    private val availabilityCursorArena = Arena.ofConfined()
 
     fun addAttributes(d: Declaration?, c: Cursor): Declaration? {
         if (d == null) return null
@@ -55,11 +59,27 @@ internal class TreeMaker {
         if (attributes.isNotEmpty()) {
             d.addAttribute(Declaration.ClangAttributes(attributes.toMap()))
         }
-        val availability = c.platformAvailability()
-        if (availability.isNotEmpty()) {
-            d.addAttribute(Declaration.PlatformAvailability(availability))
-        }
+        availabilityCursors.putIfAbsent(d, c.copyForDeferredUse(availabilityCursorArena))
         return d
+    }
+
+    /**
+     * Availability queries must run after the complete translation unit has
+     * been materialised. On recent libclang, querying them while declarations
+     * are still being visited can perturb later Objective-C type cursors.
+     */
+    fun attachPlatformAvailability() {
+        try {
+            availabilityCursors.forEach { declaration, cursor ->
+                val availability = cursor.platformAvailability()
+                if (availability.isNotEmpty()) {
+                    declaration.addAttribute(Declaration.PlatformAvailability(availability))
+                }
+            }
+        } finally {
+            availabilityCursors.clear()
+            availabilityCursorArena.close()
+        }
     }
 
     fun lookup(key: Cursor.Key): Declaration? {

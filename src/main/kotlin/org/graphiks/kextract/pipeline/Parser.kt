@@ -47,6 +47,7 @@ class Parser(private val logger: Logger) {
         }
 
         decls.addAll(macroParser.macroTable.reparseConstants())
+        treeMaker.attachPlatformAvailability()
         return treeMaker.createHeader(tuCursor, decls)
     }
 
