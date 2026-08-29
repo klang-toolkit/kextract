@@ -10,7 +10,11 @@ import org.graphiks.kextract.pipeline.KextractTool
 import org.graphiks.kextract.pipeline.Logger
 import org.graphiks.kextract.pipeline.NameMangler
 import org.graphiks.kextract.pipeline.Options
+import org.jetbrains.kotlin.cli.common.ExitCode
+import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+import java.net.URLClassLoader
 import java.nio.file.Files
+import java.nio.file.Path
 
 class Win32GeneratorIntegrationTest : FreeSpec({
 
@@ -44,6 +48,44 @@ class Win32GeneratorIntegrationTest : FreeSpec({
             ).single().contents
         } finally {
             Files.deleteIfExists(tmp)
+        }
+    }
+
+    fun compileAndInvokeGeneratedLong(
+        generatedSource: String,
+        probeSource: String,
+        methodName: String,
+    ): Long {
+        val workspace = Files.createTempDirectory("kextract_win32_generated_")
+        return try {
+            val generated = workspace.resolve("Generated.kt")
+            val probe = workspace.resolve("Win32Probe.kt")
+            val output = Files.createDirectories(workspace.resolve("classes"))
+            Files.writeString(generated, generatedSource)
+            Files.writeString(probe, probeSource)
+            val arguments = buildList {
+                addAll(
+                    listOf(
+                        "-no-stdlib",
+                        "-no-reflect",
+                        "-jvm-target", "25",
+                        "-classpath", System.getProperty("java.class.path"),
+                        "-d", output.toString(),
+                    ),
+                )
+                addAll(listOf(generated, probe).map(Path::toString))
+            }
+            K2JVMCompiler().exec(System.err, *arguments.toTypedArray()) shouldBe ExitCode.OK
+            URLClassLoader(
+                arrayOf(output.toUri().toURL()),
+                Win32GeneratorIntegrationTest::class.java.classLoader,
+            ).use { loader ->
+                loader.loadClass("test.Win32ProbeKt")
+                    .getMethod(methodName)
+                    .invoke(null) as Long
+            }
+        } finally {
+            workspace.toFile().deleteRecursively()
         }
     }
 
@@ -123,6 +165,56 @@ class Win32GeneratorIntegrationTest : FreeSpec({
     }
 
     "Win32 init method generation" - {
+        "reconstructs carrier-typed enum defaults when the declared DLL is missing" {
+            val src = generateWin32(
+                """
+                typedef enum KxLongEnum : long long {
+                    KxLongEnumZero = 0
+                } KxLongEnum;
+                typedef enum KxShortEnum : short {
+                    KxShortEnumZero = 0
+                } KxShortEnum;
+                typedef enum KxByteEnum : signed char {
+                    KxByteEnumZero = 0
+                } KxByteEnum;
+                typedef enum __attribute__((flag_enum)) KxLongOptions : unsigned long long {
+                    KxLongOptionFirst = 1
+                } KxLongOptions;
+
+                extern KxLongEnum KxMissingLongEnum;
+                extern KxShortEnum KxMissingShortEnum;
+                extern KxByteEnum KxMissingByteEnum;
+                extern KxLongOptions KxMissingLongOptions;
+                """.trimIndent(),
+                emptyList(),
+                useInitMethod = true,
+                variableNames = listOf(
+                    "KxMissingLongEnum",
+                    "KxMissingShortEnum",
+                    "KxMissingByteEnum",
+                    "KxMissingLongOptions",
+                ),
+            )
+
+            compileAndInvokeGeneratedLong(
+                src,
+                """
+                package test
+
+                fun readMissingDllEnumDefaults(): Long {
+                    init()
+                    return if (
+                        KxMissingLongEnum == KxLongEnum.KxLongEnumZero &&
+                        KxMissingShortEnum == KxShortEnum.KxShortEnumZero &&
+                        KxMissingByteEnum == KxByteEnum.KxByteEnumZero &&
+                        KxMissingLongOptions.rawValue == 0L
+                    ) 1L else 0L
+                }
+                """.trimIndent(),
+                "readMissingDllEnumDefaults",
+            ) shouldBe 1L
+        }
+
         "routes scalar globals through their declared DLL lookup" {
             val src = generateWin32(
                 "extern int KxDllMappedGlobal;",

@@ -257,7 +257,7 @@ class KotlinHeaderBuilder(
             builder.appendLine("get() {")
             builder.indent()
             builder.appendLine("check(_initialized) { \"Win32 $name accessed before init()\" }")
-            builder.appendLine("val _seg = ${name}_SEGMENT ?: return ${typeLowering.reconstruct(returnDefault(type))}")
+            builder.appendLine("val _seg = ${name}_SEGMENT ?: return ${typeLowering.fallbackValue()}")
             builder.appendLine("return ${typeLowering.reconstruct("${name}_VH!!.get(_seg, 0L)")}")
             builder.unindent()
             builder.appendLine("}")

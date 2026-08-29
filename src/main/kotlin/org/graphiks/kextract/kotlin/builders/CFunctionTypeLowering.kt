@@ -15,12 +15,15 @@ import org.graphiks.kextract.kotlin.utils.TypeMapper
  */
 internal data class CFunctionTypeLowering(
     val kotlinType: String,
+    private val fallbackCarrierValue: String = carrierDefault(kotlinType),
     private val argumentLowering: (String) -> String = { it },
     private val returnReconstruction: (String) -> String = { "$it as $kotlinType" },
 ) {
     fun lowerArgument(name: String): String = argumentLowering(name)
 
     fun reconstruct(rawValue: String): String = returnReconstruction(rawValue)
+
+    fun fallbackValue(): String = reconstruct(fallbackCarrierValue)
 }
 
 /** Builds direct-C lowering descriptors without changing non-enum function types. */
@@ -43,6 +46,7 @@ internal class CFunctionTypeLowerer(private val toplevel: KotlinToplevelBuilder)
 
         return CFunctionTypeLowering(
             kotlinType = name,
+            fallbackCarrierValue = carrierDefault(carrier),
             argumentLowering = { rawValueToCarrier("$it.$rawProperty", carrier) },
             returnReconstruction = { raw ->
                 val value = carrierToLong("$raw as $carrier", carrier, isUnsigned(underlying))
@@ -73,4 +77,16 @@ internal class CFunctionTypeLowerer(private val toplevel: KotlinToplevelBuilder)
         type is Type.Delegated && type.kind() != Type.Delegated.Kind.POINTER -> isUnsigned(type.type())
         else -> false
     }
+}
+
+private fun carrierDefault(carrier: String): String = when (carrier) {
+    "Long" -> "0L"
+    "Short" -> "0.toShort()"
+    "Byte" -> "0.toByte()"
+    "Float" -> "0f"
+    "Double" -> "0.0"
+    "Boolean" -> "false"
+    "Char" -> "'\\u0000'"
+    "MemorySegment" -> "MemorySegment.NULL"
+    else -> "0"
 }

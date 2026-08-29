@@ -1,6 +1,10 @@
 package org.graphiks.kextract.pipeline
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import org.graphiks.kextract.callbacks.CallbackBindingsConfig
+import org.graphiks.kextract.cli.DllEntry
+import org.graphiks.kextract.cli.DllMap
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayOutputStream
@@ -86,6 +90,34 @@ class KextractToolTest {
     fun `Options Library toQuotedName escapes backslashes`() {
         val lib = Options.Library("C:\\lib\\foo.dll", Options.Library.SpecKind.PATH)
         assertEquals("C:\\\\lib\\\\foo.dll", Options.Library.toQuotedName(lib))
+    }
+
+    @Test
+    fun `DllEntry preserves the historical JVM constructor and YAML variable default`() {
+        val legacyConstructor = DllEntry::class.java.getConstructor(
+            List::class.java,
+            List::class.java,
+            List::class.java,
+        )
+        val constructed = legacyConstructor.newInstance(
+            listOf("legacyFunction"),
+            listOf("LegacyStruct"),
+            listOf("LEGACY_CONSTANT"),
+        )
+        assertEquals(emptyList(), constructed.variables)
+
+        val yaml =
+            """
+            dllMap:
+              legacy.dll:
+                functions: [legacyFunction]
+                structs: [LegacyStruct]
+                constants: [LEGACY_CONSTANT]
+            """.trimIndent()
+        val parsed = ObjectMapper(YAMLFactory()).readValue(yaml, DllMap::class.java)
+        val yamlEntry = parsed.dllMap.getValue("legacy.dll")
+        assertEquals(listOf("legacyFunction"), yamlEntry.functions)
+        assertEquals(emptyList(), yamlEntry.variables)
     }
 
     @Test
