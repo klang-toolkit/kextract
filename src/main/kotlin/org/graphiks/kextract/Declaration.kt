@@ -280,12 +280,10 @@ internal abstract class DeclarationImpl(
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        return other is Declaration &&
-            _name == other.name() &&
-            attributes == other.attributes()
+        return other is Declaration && _name == other.name()
     }
 
-    override fun hashCode(): Int = Objects.hash(_name, attributes)
+    override fun hashCode(): Int = Objects.hash(_name)
 
     override fun attributes(): Collection<Declaration.Attribute> = attributes.values
 
