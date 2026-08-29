@@ -122,6 +122,18 @@ class Win32GeneratorIntegrationTest : FreeSpec({
     }
 
     "Win32 init method generation" - {
+        "sizes scalar global symbols and supplies the VarHandle offset" {
+            val src = generateWin32(
+                "extern int KxWin32Global;",
+                emptyList(),
+                useInitMethod = true,
+            )
+
+            src shouldContain "?.reinterpret(KxWin32Global_LAYOUT.byteSize())"
+            src shouldContain "KxWin32Global_VH!!.get(_seg, 0L) as Int"
+            src shouldContain "KxWin32Global_VH!!.set(_seg, 0L, value)"
+        }
+
         "publishes initialized state after generated handle setup under a lock" {
             val src = generateWin32(
                 "int initialize_me(int value);",

@@ -236,14 +236,14 @@ class KotlinHeaderBuilder(
             builder.appendLine("private var ${name}_VH: VarHandle? = null")
             builder.appendLine()
             toplevel.initSlot.appendLine(
-                "${name}_SEGMENT = $varLookupExpr.find(\"$lookupName\").orElse(null)"
+                "${name}_SEGMENT = $varLookupExpr.find(\"$lookupName\").orElse(null)?.reinterpret(${name}_LAYOUT.byteSize())"
             )
             toplevel.initSlot.appendLine(
                 "${name}_VH = ${name}_SEGMENT?.let { ${name}_LAYOUT.varHandle() }"
             )
         } else {
             builder.appendLine(
-                "private val ${name}_SEGMENT: MemorySegment by lazy { $varLookupExpr.find(\"$lookupName\").orElseThrow() }"
+                "private val ${name}_SEGMENT: MemorySegment by lazy { $varLookupExpr.find(\"$lookupName\").orElseThrow().reinterpret(${name}_LAYOUT.byteSize()) }"
             )
             builder.appendLine("private val ${name}_VH: VarHandle by lazy { ${name}_LAYOUT.varHandle() }")
             builder.appendLine()
@@ -257,19 +257,19 @@ class KotlinHeaderBuilder(
             builder.indent()
             builder.appendLine("check(_initialized) { \"Win32 $name accessed before init()\" }")
             builder.appendLine("val _seg = ${name}_SEGMENT ?: return ${returnDefault(type)}")
-            builder.appendLine("return ${name}_VH!!.get(_seg) as ${type}")
+            builder.appendLine("return ${name}_VH!!.get(_seg, 0L) as ${type}")
             builder.unindent()
             builder.appendLine("}")
             builder.appendLine("set(value) {")
             builder.indent()
             builder.appendLine("check(_initialized) { \"Win32 $name accessed before init()\" }")
             builder.appendLine("val _seg = ${name}_SEGMENT ?: return")
-            builder.appendLine("${name}_VH!!.set(_seg, value)")
+            builder.appendLine("${name}_VH!!.set(_seg, 0L, value)")
             builder.unindent()
             builder.appendLine("}")
         } else {
-            builder.appendLine("get() = ${name}_VH.get(${name}_SEGMENT) as ${type}")
-            builder.appendLine("set(value) = ${name}_VH.set(${name}_SEGMENT, value)")
+            builder.appendLine("get() = ${name}_VH.get(${name}_SEGMENT, 0L) as ${type}")
+            builder.appendLine("set(value) = ${name}_VH.set(${name}_SEGMENT, 0L, value)")
         }
         builder.unindent()
         builder.appendLine()
