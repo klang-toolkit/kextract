@@ -146,6 +146,9 @@ class KotlinToplevelBuilder(
 
     fun layoutString(type: org.graphiks.kextract.Type): String = LayoutUtils.layoutString(type, win32Abi)
 
+    fun layoutString(type: org.graphiks.kextract.Type, byteAlignment: Long): String =
+        LayoutUtils.layoutString(type, byteAlignment, win32Abi)
+
     fun functionDescriptorString(type: org.graphiks.kextract.Type.Function, variadicCount: Int): String =
         LayoutUtils.functionDescriptorString(type, variadicCount, win32Abi)
 

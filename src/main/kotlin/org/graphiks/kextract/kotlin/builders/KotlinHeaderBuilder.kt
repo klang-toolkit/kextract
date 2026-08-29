@@ -15,15 +15,24 @@ class KotlinHeaderBuilder(
     private val variadicArgs: Map<String, Int> = emptyMap(),
 ) {
 
+    private val typeLowerer = CFunctionTypeLowerer(toplevel)
+
     fun visitFunction(decl: Declaration.Function) {
         val name = toplevel.javaName(decl.name())
-        val returnType = toplevel.mapType(decl.type().returnType())
+        val returnLowering = typeLowerer.lower(decl.type().returnType())
+        val returnType = returnLowering.kotlinType
         val returnsStruct = isStructType(decl.type().returnType())
         val params = paramString(decl, returnsStruct)
         val allocatorPrefix = if (returnsStruct) "allocator, " else ""
         val fixedCount = decl.type().argumentTypes().size
         val variadicCount = if (decl.type().varargs()) variadicArgs[decl.name()] ?: 0 else 0
-        val paramNames = allocatorPrefix + (0 until fixedCount + variadicCount).joinToString(", ") { "arg$it" }
+        val paramNames = allocatorPrefix + (0 until fixedCount + variadicCount).joinToString(", ") { index ->
+            if (index < fixedCount) {
+                typeLowerer.lower(decl.type().argumentTypes()[index]).lowerArgument("arg$index")
+            } else {
+                "arg$index"
+            }
+        }
 
         // KDoc
         builder.appendLine("/**")
@@ -77,13 +86,13 @@ class KotlinHeaderBuilder(
             if (isVoid) {
                 builder.appendLine("_handle.invokeExact(${paramNames})")
             } else {
-                builder.appendLine("return _handle.invokeExact(${paramNames}) as ${returnType}")
+                builder.appendLine("return ${returnLowering.reconstruct("_handle.invokeExact(${paramNames})")}")
             }
         } else {
             if (isVoid) {
                 builder.appendLine("${name}_HANDLE.invokeExact(${paramNames})")
             } else {
-                builder.appendLine("return ${name}_HANDLE.invokeExact(${paramNames}) as ${returnType}")
+                builder.appendLine("return ${returnLowering.reconstruct("${name}_HANDLE.invokeExact(${paramNames})")}")
             }
         }
         builder.unindent()

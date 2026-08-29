@@ -8,10 +8,9 @@ import org.graphiks.kextract.DeclarationImpl.Skip
 import java.util.IdentityHashMap
 
 /**
- * Per-record Clang byte sizes and field offsets for the JVM source set. The
- * memory-backed struct emission (M5.1) consumes only [KotlinJvmRecordLayout]
- * sizes and member offsets; the FFM layout-expression rendering that this plan
- * used to produce was removed with the CStructure struct emission.
+ * Per-record Clang byte sizes, alignment, and field offsets for JVM emission.
+ * Legacy FFM record layouts and memory-backed KMP structs both consume the
+ * resulting [KotlinJvmRecordLayout].
  */
 internal class KotlinJvmRecordLayoutPlan private constructor(
     private val layouts: IdentityHashMap<Declaration.Scoped, KotlinJvmRecordLayout>,

@@ -79,7 +79,9 @@ internal object TypeMaker {
                 Type.function(t.isVariadic(), lowerFunctionType(t.resultType(), treeMaker), *args.toTypedArray())
             }
             TypeKind.Enum -> {
-                val d = treeMaker.createTree(t.getDeclarationCursor())
+                val declaration = t.getDeclarationCursor()
+                val definition = declaration.getDefinition()
+                val d = treeMaker.createTree(if (definition.isInvalid()) declaration else definition)
                 if (d != null) Type.declared(d as Declaration.Scoped) else Type.error(t.spelling())
             }
             TypeKind.Record -> {

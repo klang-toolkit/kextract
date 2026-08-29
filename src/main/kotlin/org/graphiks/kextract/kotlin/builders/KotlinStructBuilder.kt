@@ -13,12 +13,14 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         when {
             toplevel.isObjCSurfaceStruct(decl) -> visitObjCSurfaceStruct(decl)
             toplevel.isObjCSurfacePointerStruct(decl) -> visitObjCPointerOnlyStruct(decl)
-            else -> visitLegacyRecord(decl, "structLayout")
+            else -> visitLegacyRecord(decl)
         }
     }
 
     /** Preserves the existing C API for records outside Objective-C surfaces. */
-    private fun visitLegacyRecord(decl: Declaration.Scoped, layoutFactory: String) {
+    private fun visitLegacyRecord(decl: Declaration.Scoped) {
+        val recordLayout = KotlinJvmRecordLayoutPlan.createRecord(decl)
+        val fields = recordLayout.members.map(KotlinJvmRecordMemberLayout::field)
         val className = toplevel.javaName(decl.name())
         builder.appendLine("/**")
         builder.appendLine(" * {@snippet lang=c : ${decl.kind()} ${decl.name()}")
@@ -27,7 +29,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.indent()
         builder.appendLine("companion object {")
         builder.indent()
-        emitLayout(decl, layoutFactory)
+        emitLegacyRecordLayout(decl, recordLayout)
         builder.appendLine("fun allocate(allocator: SegmentAllocator): MemorySegment =")
         builder.appendLine("    allocator.allocate(layout)")
         builder.appendLine()
@@ -45,7 +47,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.appendLine()
         builder.unindent()
         builder.appendLine("} // End companion object")
-        for (field in decl.members().filterIsInstance<Declaration.Variable>()) {
+        for (field in fields) {
             val fieldName = toplevel.javaName(field.name())
             val fieldType = toplevel.mapType(field.type())
             builder.appendLine()
@@ -158,27 +160,99 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.appendLine()
     }
 
-    private fun emitLayout(decl: Declaration.Scoped, layoutFactory: String) {
-        val fields = decl.members().filterIsInstance<Declaration.Variable>()
+    /** Emits a C record with Clang's byte gaps, tail padding, and alignment. */
+    private fun emitLegacyRecordLayout(
+        decl: Declaration.Scoped,
+        recordLayout: KotlinJvmRecordLayout,
+    ) {
+        val elements = when (decl.kind()) {
+            Declaration.Scoped.Kind.STRUCT -> legacyStructLayoutElements(decl, recordLayout)
+            Declaration.Scoped.Kind.UNION -> legacyUnionLayoutElements(recordLayout)
+            else -> error("Expected struct or union, found ${decl.kind()}")
+        }
+        val layoutFactory = when (decl.kind()) {
+            Declaration.Scoped.Kind.STRUCT -> "structLayout"
+            Declaration.Scoped.Kind.UNION -> "unionLayout"
+            else -> error("Expected struct or union, found ${decl.kind()}")
+        }
         builder.appendLine("val layout: GroupLayout = MemoryLayout.$layoutFactory(")
         builder.indent()
-        fields.forEachIndexed { index, field ->
-            val comma = if (index < fields.lastIndex) "," else ""
-            val fieldLayout = if (toplevel.isObjCSurfaceStruct(decl)) {
-                typeLowerer.lower(field.type()).layout
-            } else {
-                toplevel.layoutString(field.type())
-            }
-            builder.appendLine("${fieldLayout}.withName(\"${field.name()}\")$comma")
+        elements.forEachIndexed { index, element ->
+            val comma = if (index < elements.lastIndex) "," else ""
+            builder.appendLine("$element$comma")
         }
         builder.unindent()
-        builder.appendLine(").withName(\"${decl.name()}\")")
+        builder.appendLine(").withByteAlignment(${recordLayout.alignmentBytes}L).withName(\"${decl.name()}\")")
         builder.appendLine()
         builder.appendLine("val byteSize: Long")
         builder.indent()
         builder.appendLine("get() = layout.byteSize()")
         builder.unindent()
         builder.appendLine()
+    }
+
+    private fun legacyStructLayoutElements(
+        decl: Declaration.Scoped,
+        recordLayout: KotlinJvmRecordLayout,
+    ): List<String> {
+        val elements = mutableListOf<String>()
+        var cursor = 0L
+        for (member in recordLayout.members) {
+            val gap = member.offsetBytes - cursor
+            require(gap >= 0L) {
+                "${decl.name()}.${member.cName} overlaps the preceding field"
+            }
+            if (gap > 0L) elements += "MemoryLayout.paddingLayout(${gap}L)"
+            elements += legacyFieldLayout(member, recordLayout.alignmentBytes)
+            cursor = member.offsetBytes + member.sizeBytes
+        }
+        val trailing = recordLayout.sizeBytes - cursor
+        require(trailing >= 0L) {
+            "${decl.name()} fields exceed the Clang record size"
+        }
+        if (trailing > 0L) elements += "MemoryLayout.paddingLayout(${trailing}L)"
+        require(elements.isNotEmpty()) { "${decl.name()} has no byte-addressable fields or storage" }
+        return elements
+    }
+
+    private fun legacyUnionLayoutElements(recordLayout: KotlinJvmRecordLayout): List<String> {
+        val elements = recordLayout.members
+            .map { legacyFieldLayout(it, recordLayout.alignmentBytes) }
+            .toMutableList()
+        // A C union's size is rounded up to its alignment. FFM unionLayout uses
+        // the largest member size, so an unnamed padding member preserves Clang's
+        // trailing bytes without changing field overlap semantics.
+        if (recordLayout.sizeBytes > 0L) {
+            elements += "MemoryLayout.paddingLayout(${recordLayout.sizeBytes}L)"
+        }
+        require(elements.isNotEmpty()) {
+            "${recordLayout.declaration.name()} has no byte-addressable fields or storage"
+        }
+        return elements
+    }
+
+    private fun legacyFieldLayout(
+        member: KotlinJvmRecordMemberLayout,
+        recordAlignmentBytes: Long,
+    ): String =
+        toplevel.layoutString(member.field.type(), legacyFieldAlignment(member, recordAlignmentBytes))
+            .let { "$it.withName(\"${member.cName}\")" }
+
+    /**
+     * Clang reports a field's natural type alignment even if a packed record
+     * lowers its effective placement alignment. A FFM member must divide both
+     * the record alignment and its byte offset, so lower it to that safe ABI
+     * alignment before emitting the field layout.
+     */
+    private fun legacyFieldAlignment(
+        member: KotlinJvmRecordMemberLayout,
+        recordAlignmentBytes: Long,
+    ): Long {
+        var alignment = minOf(member.alignmentBytes, recordAlignmentBytes)
+        while (member.offsetBytes % alignment != 0L) {
+            alignment /= 2L
+        }
+        return alignment
     }
 
     /** Emits the exact byte-addressable Clang layout, including bitfield/padding gaps. */
@@ -317,6 +391,6 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.appendLine(" * WARNING: This was originally a C union. Fields overlap in memory!")
         builder.appendLine(" * {@snippet lang=c : ${decl.kind()} ${decl.name()}")
         builder.appendLine(" */")
-        visitLegacyRecord(decl, "unionLayout")
+        visitLegacyRecord(decl)
     }
 }

@@ -14,7 +14,11 @@ import org.graphiks.kextract.kotlin.KotlinGenerator
 import org.graphiks.kextract.pipeline.KextractTool
 import org.graphiks.kextract.pipeline.Logger
 import org.graphiks.kextract.pipeline.Options
+import org.jetbrains.kotlin.cli.common.ExitCode
+import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+import java.net.URLClassLoader
 import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * Integration tests for the full kextract pipeline:
@@ -61,6 +65,49 @@ class GeneratorIntegrationTest : FreeSpec({
     fun generateCommon(csource: String, pkg: String = "test"): String =
         generateKmpFile(csource, "commonMain", "Common", pkg)
 
+    /**
+     * Compiles a regular (non-KMP) generated binding and invokes a probe from a
+     * fresh class loader. This makes FFM layout initialisation part of the
+     * assertion instead of merely checking the rendered source text.
+     */
+    fun compileAndInvokeGeneratedLong(
+        generatedSource: String,
+        probeSource: String,
+        methodName: String,
+    ): Long {
+        val workspace = Files.createTempDirectory("kextract_generated_layout_")
+        return try {
+            val generated = workspace.resolve("Generated.kt")
+            val probe = workspace.resolve("LayoutProbe.kt")
+            val output = Files.createDirectories(workspace.resolve("classes"))
+            Files.writeString(generated, generatedSource)
+            Files.writeString(probe, probeSource)
+            val arguments = buildList {
+                addAll(
+                    listOf(
+                        "-no-stdlib",
+                        "-no-reflect",
+                        "-jvm-target", "25",
+                        "-classpath", System.getProperty("java.class.path"),
+                        "-d", output.toString(),
+                    ),
+                )
+                addAll(listOf(generated, probe).map(Path::toString))
+            }
+            K2JVMCompiler().exec(System.err, *arguments.toTypedArray()) shouldBe ExitCode.OK
+            URLClassLoader(
+                arrayOf(output.toUri().toURL()),
+                GeneratorIntegrationTest::class.java.classLoader,
+            ).use { loader ->
+                loader.loadClass("test.LayoutProbeKt")
+                    .getMethod(methodName)
+                    .invoke(null) as Long
+            }
+        } finally {
+            workspace.toFile().deleteRecursively()
+        }
+    }
+
     "Package declaration" - {
         "should emit package when target package is set" {
             val src = generate("int add(int a, int b);", pkg = "com.example")
@@ -70,6 +117,146 @@ class GeneratorIntegrationTest : FreeSpec({
         "should omit package line when target package is empty" {
             val src = generate("int add(int a, int b);", pkg = "")
             src shouldNotContain "package "
+        }
+    }
+
+    "C enum function lowering" - {
+        "uses scalar ABI carriers while preserving typed enum signatures" {
+            val src = generate(
+                """
+                typedef enum CGEventField : int {
+                    CGEventField_Source = 0,
+                    CGEventField_Target = 1
+                } CGEventField;
+
+                CGEventField createEventField(CGEventField field);
+                void setEventField(CGEventField field);
+                """.trimIndent(),
+            )
+
+            src shouldContain "fun createEventField(arg0: CGEventField): CGEventField"
+            src shouldContain "fun setEventField(arg0: CGEventField): Unit"
+            src shouldContain "FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT)"
+            src shouldContain "return CGEventField.fromValue((createEventField_HANDLE.invokeExact(arg0.value.toInt()) as Int).toLong())"
+            src shouldContain "setEventField_HANDLE.invokeExact(arg0.value.toInt())"
+        }
+
+        "resolves a forward enum declaration to its definition before lowering functions" {
+            val src = generate(
+                """
+                #define CF_ENUM(_type, _name) enum _name : _type _name; enum _name : _type
+
+                typedef CF_ENUM(int, ForwardEventField) {
+                    ForwardEventField_Source = 0,
+                    ForwardEventField_Target = 1
+                };
+
+                ForwardEventField createForwardEventField(ForwardEventField field);
+                void setForwardEventField(ForwardEventField field);
+                """.trimIndent(),
+            )
+
+            src shouldContain "enum class ForwardEventField"
+            src shouldContain "fun createForwardEventField(arg0: ForwardEventField): ForwardEventField"
+            src shouldContain "fun setForwardEventField(arg0: ForwardEventField): Unit"
+            src shouldContain
+                "return ForwardEventField.fromValue((createForwardEventField_HANDLE.invokeExact(arg0.value.toInt()) as Int).toLong())"
+            src shouldContain "setForwardEventField_HANDLE.invokeExact(arg0.value.toInt())"
+        }
+    }
+
+    "Legacy C record layouts" - {
+        "preserve Clang padding before a late double when FFM initializes the layout" {
+            val generated = generate(
+                """
+                typedef struct KxGregorianUnits {
+                    int years;
+                    int months;
+                    int days;
+                    int hours;
+                    int minutes;
+                    double seconds;
+                } KxGregorianUnits;
+                """.trimIndent(),
+            )
+
+            compileAndInvokeGeneratedLong(
+                generated,
+                """
+                package test
+
+                import java.lang.foreign.MemoryLayout.PathElement.groupElement
+
+                fun inspectKxGregorianUnitsLayout(): Long {
+                    val layout = KxGregorianUnits.layout
+                    return layout.byteSize() * 1_000_000_000L +
+                        layout.byteAlignment() * 100_000_000L +
+                        layout.byteOffset(groupElement("seconds")) * 1_000_000L +
+                        layout.byteOffset(groupElement("minutes")) * 10_000L +
+                        layout.byteOffset(groupElement("hours")) * 100L +
+                        layout.byteOffset(groupElement("days")) * 10L +
+                        layout.byteOffset(groupElement("months")) +
+                        layout.byteOffset(groupElement("years"))
+                }
+                """.trimIndent(),
+                "inspectKxGregorianUnitsLayout",
+            ) shouldBe 32_824_161_284L
+        }
+
+        "preserve packed member placement when FFM initializes the layout" {
+            val generated = generate(
+                """
+                typedef struct __attribute__((packed)) KxPackedUnits {
+                    char tag;
+                    double seconds;
+                } KxPackedUnits;
+                """.trimIndent(),
+            )
+
+            compileAndInvokeGeneratedLong(
+                generated,
+                """
+                package test
+
+                import java.lang.foreign.MemoryLayout.PathElement.groupElement
+
+                fun inspectKxPackedUnitsLayout(): Long {
+                    val layout = KxPackedUnits.layout
+                    return layout.byteSize() * 1_000_000L +
+                        layout.byteAlignment() * 10_000L +
+                        layout.byteOffset(groupElement("seconds"))
+                }
+                """.trimIndent(),
+                "inspectKxPackedUnitsLayout",
+            ) shouldBe 9_010_001L
+        }
+
+        "preserve the Clang size of a union with trailing padding" {
+            val generated = generate(
+                """
+                typedef union KxThreeByteUnion {
+                    char bytes[3];
+                    short shortValue;
+                } KxThreeByteUnion;
+                """.trimIndent(),
+            )
+
+            compileAndInvokeGeneratedLong(
+                generated,
+                """
+                package test
+
+                import java.lang.foreign.MemoryLayout.PathElement.groupElement
+
+                fun inspectKxThreeByteUnionLayout(): Long {
+                    val layout = KxThreeByteUnion.layout
+                    return layout.byteSize() * 10_000L +
+                        layout.byteAlignment() * 100L +
+                        layout.byteOffset(groupElement("shortValue"))
+                }
+                """.trimIndent(),
+                "inspectKxThreeByteUnionLayout",
+            ) shouldBe 40_200L
         }
     }
 
