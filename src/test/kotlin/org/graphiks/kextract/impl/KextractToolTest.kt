@@ -5,15 +5,20 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import org.graphiks.kextract.callbacks.CallbackBindingsConfig
 import org.graphiks.kextract.cli.DllEntry
 import org.graphiks.kextract.cli.DllMap
+import org.jetbrains.kotlin.cli.common.ExitCode
+import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.net.URLClassLoader
 import java.io.PrintWriter
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class KextractToolTest {
@@ -118,6 +123,92 @@ class KextractToolTest {
         val yamlEntry = parsed.dllMap.getValue("legacy.dll")
         assertEquals(listOf("legacyFunction"), yamlEntry.functions)
         assertEquals(emptyList(), yamlEntry.variables)
+
+        val modernYaml =
+            """
+            dllMap:
+              modern.dll:
+                functions: [modernFunction]
+                variables: [modernGlobal]
+            """.trimIndent()
+        val modernEntry = ObjectMapper(YAMLFactory())
+            .readValue(modernYaml, DllMap::class.java)
+            .dllMap
+            .getValue("modern.dll")
+        assertEquals(listOf("modernGlobal"), modernEntry.variables)
+        assertNotEquals(
+            DllEntry(functions = listOf("modernFunction")),
+            DllEntry(functions = listOf("modernFunction"), variables = listOf("modernGlobal")),
+        )
+    }
+
+    @Test
+    fun `precompiled Kotlin DllEntry default arguments remain binary compatible`() {
+        val workspace = java.nio.file.Files.createTempDirectory("kextract_legacy_dll_entry_")
+        try {
+            val oldApi = workspace.resolve("OldDllEntry.kt")
+            val legacyConsumer = workspace.resolve("LegacyConsumer.kt")
+            val oldApiClasses = java.nio.file.Files.createDirectories(workspace.resolve("old-api"))
+            val consumerClasses = java.nio.file.Files.createDirectories(workspace.resolve("consumer"))
+            java.nio.file.Files.writeString(
+                oldApi,
+                """
+                package org.graphiks.kextract.cli
+
+                data class DllEntry(
+                    val functions: List<String> = emptyList(),
+                    val structs: List<String> = emptyList(),
+                    val constants: List<String> = emptyList(),
+                )
+                """.trimIndent(),
+            )
+            java.nio.file.Files.writeString(
+                legacyConsumer,
+                """
+                package legacy
+
+                import org.graphiks.kextract.cli.DllEntry
+
+                fun callLegacyDefaultConstructor(): Int =
+                    DllEntry(functions = listOf("legacy")).functions.size
+                """.trimIndent(),
+            )
+
+            val kotlinStdlib = kotlin.Unit::class.java.protectionDomain.codeSource.location.toURI().path
+
+            val oldApiExit = K2JVMCompiler().exec(
+                System.err,
+                "-no-stdlib",
+                "-no-reflect",
+                "-jvm-target", "25",
+                "-classpath", kotlinStdlib,
+                "-d", oldApiClasses.toString(),
+                oldApi.toString(),
+            )
+            assertEquals(ExitCode.OK, oldApiExit)
+            val legacyConsumerExit = K2JVMCompiler().exec(
+                System.err,
+                "-no-stdlib",
+                "-no-reflect",
+                "-jvm-target", "25",
+                "-classpath", oldApiClasses.toString() + File.pathSeparator + kotlinStdlib,
+                "-d", consumerClasses.toString(),
+                legacyConsumer.toString(),
+            )
+            assertEquals(ExitCode.OK, legacyConsumerExit)
+
+            URLClassLoader(
+                arrayOf(consumerClasses.toUri().toURL()),
+                KextractToolTest::class.java.classLoader,
+            ).use { loader ->
+                val result = loader.loadClass("legacy.LegacyConsumerKt")
+                    .getMethod("callLegacyDefaultConstructor")
+                    .invoke(null)
+                assertEquals(1, result)
+            }
+        } finally {
+            workspace.toFile().deleteRecursively()
+        }
     }
 
     @Test

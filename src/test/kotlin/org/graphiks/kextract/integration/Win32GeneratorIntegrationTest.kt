@@ -1,6 +1,7 @@
 package org.graphiks.kextract.integration
 
 import io.kotest.core.spec.style.FreeSpec
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.graphiks.kextract.cli.DllEntry
@@ -165,33 +166,33 @@ class Win32GeneratorIntegrationTest : FreeSpec({
     }
 
     "Win32 init method generation" - {
-        "reconstructs carrier-typed enum defaults when the declared DLL is missing" {
+        "keeps open enum options neutral and reports unavailable closed enums when the declared DLL is missing" {
             val src = generateWin32(
                 """
-                typedef enum KxLongEnum : long long {
-                    KxLongEnumZero = 0
-                } KxLongEnum;
-                typedef enum KxShortEnum : short {
-                    KxShortEnumZero = 0
-                } KxShortEnum;
-                typedef enum KxByteEnum : signed char {
-                    KxByteEnumZero = 0
-                } KxByteEnum;
+                typedef enum KxMissingClosedEnum : long long {
+                    KxMissingClosedEnumFirst = 1
+                } KxMissingClosedEnum;
+                typedef enum __attribute__((flag_enum)) KxShortOptions : short {
+                    KxShortOptionFirst = 1
+                } KxShortOptions;
+                typedef enum __attribute__((flag_enum)) KxByteOptions : signed char {
+                    KxByteOptionFirst = 1
+                } KxByteOptions;
                 typedef enum __attribute__((flag_enum)) KxLongOptions : unsigned long long {
                     KxLongOptionFirst = 1
                 } KxLongOptions;
 
-                extern KxLongEnum KxMissingLongEnum;
-                extern KxShortEnum KxMissingShortEnum;
-                extern KxByteEnum KxMissingByteEnum;
+                extern KxMissingClosedEnum KxMissingClosedValue;
+                extern KxShortOptions KxMissingShortOptions;
+                extern KxByteOptions KxMissingByteOptions;
                 extern KxLongOptions KxMissingLongOptions;
                 """.trimIndent(),
                 emptyList(),
                 useInitMethod = true,
                 variableNames = listOf(
-                    "KxMissingLongEnum",
-                    "KxMissingShortEnum",
-                    "KxMissingByteEnum",
+                    "KxMissingClosedValue",
+                    "KxMissingShortOptions",
+                    "KxMissingByteOptions",
                     "KxMissingLongOptions",
                 ),
             )
@@ -201,18 +202,53 @@ class Win32GeneratorIntegrationTest : FreeSpec({
                 """
                 package test
 
-                fun readMissingDllEnumDefaults(): Long {
+                fun readMissingDllOptionsDefaults(): Long {
                     init()
                     return if (
-                        KxMissingLongEnum == KxLongEnum.KxLongEnumZero &&
-                        KxMissingShortEnum == KxShortEnum.KxShortEnumZero &&
-                        KxMissingByteEnum == KxByteEnum.KxByteEnumZero &&
+                        KxMissingShortOptions.rawValue == 0L &&
+                        KxMissingByteOptions.rawValue == 0L &&
                         KxMissingLongOptions.rawValue == 0L
                     ) 1L else 0L
                 }
                 """.trimIndent(),
-                "readMissingDllEnumDefaults",
+                "readMissingDllOptionsDefaults",
             ) shouldBe 1L
+
+            val failure = shouldThrow<java.lang.reflect.InvocationTargetException> {
+                compileAndInvokeGeneratedLong(
+                    src,
+                    """
+                    package test
+
+                    fun readMissingClosedEnum(): Long {
+                        init()
+                        KxMissingClosedValue
+                        return 1L
+                    }
+                    """.trimIndent(),
+                    "readMissingClosedEnum",
+                )
+            }
+            failure.cause?.message shouldBe
+                "Unavailable global binding 'KxMissingClosedValue': optional DLL or symbol is unavailable; make it available and call init() again"
+
+            val setterFailure = shouldThrow<java.lang.reflect.InvocationTargetException> {
+                compileAndInvokeGeneratedLong(
+                    src,
+                    """
+                    package test
+
+                    fun writeMissingClosedEnum(): Long {
+                        init()
+                        KxMissingClosedValue = KxMissingClosedEnum.KxMissingClosedEnumFirst
+                        return 1L
+                    }
+                    """.trimIndent(),
+                    "writeMissingClosedEnum",
+                )
+            }
+            setterFailure.cause?.message shouldBe
+                "Unavailable global binding 'KxMissingClosedValue': optional DLL or symbol is unavailable; make it available and call init() again"
         }
 
         "routes scalar globals through their declared DLL lookup" {
