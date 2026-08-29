@@ -23,7 +23,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
         csource: String,
         functionNames: List<String>,
         useInitMethod: Boolean = false,
-        variableNames: List<String> = emptyList(),
+        dataSymbolNames: List<String> = emptyList(),
     ): String {
         val tmp = Files.createTempFile("kextract_win32_test_", ".h")
         try {
@@ -37,7 +37,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
             )
             val mangled = NameMangler(headerName).scan(parsed)
             val dllMap = DllMap(
-                mapOf("test.dll" to DllEntry(functions = functionNames, variables = variableNames)),
+                mapOf("test.dll" to DllEntry(functions = functionNames, constants = dataSymbolNames)),
             )
             return KotlinGenerator().generate(
                 scoped = mangled,
@@ -189,7 +189,7 @@ class Win32GeneratorIntegrationTest : FreeSpec({
                 """.trimIndent(),
                 emptyList(),
                 useInitMethod = true,
-                variableNames = listOf(
+                dataSymbolNames = listOf(
                     "KxMissingClosedValue",
                     "KxMissingShortOptions",
                     "KxMissingByteOptions",
@@ -251,18 +251,46 @@ class Win32GeneratorIntegrationTest : FreeSpec({
                 "Unavailable global binding 'KxMissingClosedValue': optional DLL or symbol is unavailable; make it available and call init() again"
         }
 
-        "routes scalar globals through their declared DLL lookup" {
+        "routes scalar globals listed in constants through their declared DLL lookup" {
             val src = generateWin32(
                 "extern int KxDllMappedGlobal;",
                 emptyList(),
                 useInitMethod = true,
-                variableNames = listOf("KxDllMappedGlobal"),
+                dataSymbolNames = listOf("KxDllMappedGlobal"),
             )
 
             src shouldContain
                 "\"KxDllMappedGlobal\" -> _DLL_TEST_DLL ?: SymbolLookup.loaderLookup()"
             src shouldContain
                 "KxDllMappedGlobal_SEGMENT = _lookup(\"KxDllMappedGlobal\").find(\"KxDllMappedGlobal\")"
+        }
+
+        "returns typed primitive defaults after initializing an unavailable DLL" {
+            val src = generateWin32(
+                """
+                extern signed char KxMissingByte;
+                extern short KxMissingShort;
+                """.trimIndent(),
+                emptyList(),
+                useInitMethod = true,
+                dataSymbolNames = listOf("KxMissingByte", "KxMissingShort"),
+            )
+
+            compileAndInvokeGeneratedLong(
+                src,
+                """
+                package test
+
+                fun readMissingDllPrimitiveDefaults(): Long {
+                    init()
+                    return if (
+                        KxMissingByte == 0.toByte() &&
+                        KxMissingShort == 0.toShort()
+                    ) 1L else 0L
+                }
+                """.trimIndent(),
+                "readMissingDllPrimitiveDefaults",
+            ) shouldBe 1L
         }
 
         "sizes scalar global symbols and supplies the VarHandle offset" {

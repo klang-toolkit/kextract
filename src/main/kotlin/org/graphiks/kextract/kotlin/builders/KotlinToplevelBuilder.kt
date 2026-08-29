@@ -247,13 +247,12 @@ class KotlinToplevelBuilder(
                 mainSlot.appendLine()
             }
 
-            // Build symbol→DLL mapping for the _lookup helper
+            // Build symbol→DLL mapping for functions and non-function data symbols.
             val dllSymbols = linkedMapOf<String, MutableList<String>>()
             for ((dll, entry) in dllMap.dllMap) {
                 val syms = dllSymbols.getOrPut(dll) { mutableListOf() }
                 syms.addAll(entry.functions)
                 syms.addAll(entry.constants)
-                syms.addAll(entry.variables)
             }
 
             mainSlot.appendLine("private fun _lookup(symbol: String): SymbolLookup {")
