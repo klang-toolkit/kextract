@@ -120,7 +120,7 @@ class GeneratorIntegrationTest : FreeSpec({
                     .sorted()
                     .map { path ->
                         val relative = output.relativize(path)
-                        val sourceRoot = relative.parent.parent.toString()
+                        val sourceRoot = relative.parent.parent.toString().replace('\\', '/')
                         org.graphiks.kextract.kotlin.models.KotlinSourceFile(
                             packageName = pkg,
                             className = path.fileName.toString().removeSuffix(".kt"),
