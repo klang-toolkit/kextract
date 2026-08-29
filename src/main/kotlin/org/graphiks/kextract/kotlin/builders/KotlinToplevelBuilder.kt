@@ -3,6 +3,7 @@ package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.DeclarationImpl.Skip
+import org.graphiks.kextract.getAttribute
 import org.graphiks.kextract.cli.DllMap
 import org.graphiks.kextract.kotlin.models.KotlinSourceFile
 import org.graphiks.kextract.kotlin.utils.KotlinNameMangler
@@ -136,6 +137,10 @@ class KotlinToplevelBuilder(
     var needsObjCRuntime: Boolean = false
         private set
 
+    /** True when generated declarations require the platform-availability opt-in marker. */
+    var needsPlatformAvailability: Boolean = false
+        private set
+
     /** True when a LOOKUP val was generated (libraries were provided). */
     val hasLookup: Boolean get() = libraries.isNotEmpty() || win32Abi
 
@@ -151,6 +156,47 @@ class KotlinToplevelBuilder(
 
     fun functionDescriptorString(type: org.graphiks.kextract.Type.Function, variadicCount: Int): String =
         LayoutUtils.functionDescriptorString(type, variadicCount, win32Abi)
+
+    fun emitPlatformAvailability(builder: SourceBuilder, declaration: Declaration) {
+        val availability = declaration.getAttribute<Declaration.PlatformAvailability>() ?: return
+        for (entry in availability.entries) {
+            needsPlatformAvailability = true
+            builder.appendLine("@PlatformAvailability(")
+            builder.indent()
+            builder.appendLine("platform = ${entry.platform.asKotlinString()},")
+            builder.appendLine("introducedMajor = ${entry.introduced?.major ?: -1},")
+            builder.appendLine("introducedMinor = ${entry.introduced?.minor ?: -1},")
+            builder.appendLine("introducedSubminor = ${entry.introduced?.subminor ?: -1},")
+            builder.appendLine("deprecated = ${entry.deprecated != null || entry.deprecatedWithoutVersion},")
+            builder.appendLine("deprecatedMajor = ${entry.deprecated?.major ?: -1},")
+            builder.appendLine("deprecatedMinor = ${entry.deprecated?.minor ?: -1},")
+            builder.appendLine("deprecatedSubminor = ${entry.deprecated?.subminor ?: -1},")
+            builder.appendLine("obsoletedMajor = ${entry.obsoleted?.major ?: -1},")
+            builder.appendLine("obsoletedMinor = ${entry.obsoleted?.minor ?: -1},")
+            builder.appendLine("obsoletedSubminor = ${entry.obsoleted?.subminor ?: -1},")
+            builder.appendLine("unavailable = ${entry.unavailable},")
+            builder.appendLine("message = ${entry.message.asKotlinString()},")
+            builder.unindent()
+            builder.appendLine(")")
+        }
+    }
+
+    private fun String.asKotlinString(): String = buildString {
+        append('"')
+        for (character in this@asKotlinString) {
+            append(
+                when (character) {
+                    '\\' -> "\\\\"
+                    '"' -> "\\\""
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    else -> character
+                },
+            )
+        }
+        append('"')
+    }
 
     /** True when generating an init() method instead of eager static initializers. */
     val isInitMethod: Boolean get() = useInitMethod

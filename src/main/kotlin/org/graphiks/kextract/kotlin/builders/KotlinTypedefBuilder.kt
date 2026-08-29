@@ -38,6 +38,7 @@ class KotlinTypedefBuilder(private val builder: SourceBuilder, private val tople
             if (name != target) {
                 val pointerName = "${name}Pointer"
                 if (!toplevel.hasObjCSurfacePointerTypedef(pointerName)) {
+                    toplevel.emitPlatformAvailability(builder, decl)
                     builder.appendLine("typealias $pointerName = ${target}Pointer")
                     builder.appendLine()
                 }
@@ -49,6 +50,7 @@ class KotlinTypedefBuilder(private val builder: SourceBuilder, private val tople
                 emitTypealias(decl, name, target)
                 val pointerName = "${name}Pointer"
                 if (!toplevel.hasObjCSurfacePointerTypedef(pointerName)) {
+                    toplevel.emitPlatformAvailability(builder, decl)
                     builder.appendLine("typealias $pointerName = ${target}Pointer")
                     builder.appendLine()
                 }
@@ -67,6 +69,7 @@ class KotlinTypedefBuilder(private val builder: SourceBuilder, private val tople
         builder.appendLine("/**")
         builder.appendLine(" * {@snippet lang=c : typedef ${decl.type()} ${decl.name()};}")
         builder.appendLine(" */")
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("typealias ${name} = ${type}")
         builder.appendLine()
     }

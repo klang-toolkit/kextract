@@ -25,6 +25,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.appendLine("/**")
         builder.appendLine(" * {@snippet lang=c : ${decl.kind()} ${decl.name()}")
         builder.appendLine(" */")
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("class ${className} {")
         builder.indent()
         builder.appendLine("companion object {")
@@ -51,17 +52,21 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
             val fieldName = toplevel.javaName(field.name())
             val fieldType = toplevel.mapType(field.type())
             builder.appendLine()
-            if (isArrayType(field.type())) {
+            if (usesSliceAccessor(field.type())) {
+                toplevel.emitPlatformAvailability(builder, field)
                 builder.appendLine("fun ${fieldName}(segment: MemorySegment): MemorySegment =")
                 builder.appendLine("    segment.asSlice(layout.byteOffset(groupElement(\"${field.name()}\")), layout.select(groupElement(\"${field.name()}\")).byteSize())")
             } else {
                 val vhName = "${fieldName}_VH"
+                toplevel.emitPlatformAvailability(builder, field)
                 builder.appendLine("val ${vhName}: VarHandle = layout.varHandle(groupElement(\"${field.name()}\"))")
                 builder.appendLine()
                 builder.appendLine("@Suppress(\"UNCHECKED_CAST\")")
+                toplevel.emitPlatformAvailability(builder, field)
                 builder.appendLine("fun ${fieldName}(segment: MemorySegment): ${fieldType} =")
                 builder.appendLine("    ${vhName}.get(segment, 0L) as ${fieldType}")
                 builder.appendLine()
+                toplevel.emitPlatformAvailability(builder, field)
                 builder.appendLine("fun ${fieldName}(segment: MemorySegment, value: ${fieldType}) =")
                 builder.appendLine("    ${vhName}.set(segment, 0L, value)")
             }
@@ -79,6 +84,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.appendLine("/**")
         builder.appendLine(" * {@snippet lang=c : ${decl.kind()} ${decl.name()}")
         builder.appendLine(" */")
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("class ${className} internal constructor(internal val segment: MemorySegment) {")
         builder.indent()
         builder.appendLine("companion object {")
@@ -136,6 +142,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.unindent()
         builder.appendLine("} // End class")
         builder.appendLine()
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("class ${className}Pointer internal constructor(internal val segment: MemorySegment) {")
         builder.indent()
         builder.appendLine("fun pointed(index: Long = 0L): ${className} {")
@@ -156,6 +163,7 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.appendLine("/**")
         builder.appendLine(" * {@snippet lang=c : ${decl.kind()} ${decl.name()}")
         builder.appendLine(" */")
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("class ${className}Pointer internal constructor(internal val segment: MemorySegment)")
         builder.appendLine()
     }
@@ -305,12 +313,15 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
     private fun emitObjCSegmentField(fieldName: String, field: Declaration.Variable) {
         val offset = "layout.byteOffset(groupElement(\"${field.name()}\"))"
         val size = "layout.select(groupElement(\"${field.name()}\")).byteSize()"
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("fun ${fieldName}(): MemorySegment =")
         builder.appendLine("    segment.asSlice($offset, $size)")
         builder.appendLine()
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("fun ${fieldName}(value: MemorySegment) =")
         builder.appendLine("    MemorySegment.copy(value, 0L, segment, $offset, $size)")
         builder.appendLine()
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("var ${fieldName}: MemorySegment")
         builder.indent()
         builder.appendLine("get() = ${fieldName}()")
@@ -325,12 +336,15 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
     ) {
         val nestedName = toplevel.javaName(nested.publicName)
         val offset = "layout.byteOffset(groupElement(\"${field.name()}\"))"
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("fun ${fieldName}(): ${nestedName} =")
         builder.appendLine("    ${nestedName}(segment.asSlice($offset, ${nestedName}.byteSize))")
         builder.appendLine()
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("fun ${fieldName}(value: ${nestedName}) =")
         builder.appendLine("    MemorySegment.copy(value.segment, 0L, segment, $offset, ${nestedName}.byteSize)")
         builder.appendLine()
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("var ${fieldName}: ${nestedName}")
         builder.indent()
         builder.appendLine("get() = ${fieldName}()")
@@ -344,11 +358,14 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         val vhName = "${fieldName}_VH"
         builder.appendLine("private val ${vhName}: VarHandle = layout.varHandle(groupElement(\"${field.name()}\"))")
         builder.appendLine()
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("fun ${fieldName}(): ${fieldType} = ${lowering.reconstruct("${vhName}.get(segment, 0L)")}")
         builder.appendLine()
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("fun ${fieldName}(value: ${fieldType}) =")
         builder.appendLine("    ${vhName}.set(segment, 0L, ${lowering.lowerArgument("value")})")
         builder.appendLine()
+        toplevel.emitPlatformAvailability(builder, field)
         builder.appendLine("var ${fieldName}: ${fieldType}")
         builder.indent()
         builder.appendLine("get() = ${fieldName}()")
@@ -361,6 +378,13 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         type is Type.Delegated -> isArrayType(type.type())
         else -> false
     }
+
+    /**
+     * FFM can only create a VarHandle for a scalar value layout. Embedded C
+     * records use a group layout, so expose their bytes as a slice instead.
+     */
+    private fun usesSliceAccessor(type: Type): Boolean =
+        isArrayType(type) || resolveRecord(type) != null
 
     private fun fieldKotlinType(type: Type): String? {
         val nested = TypeMapper.namedStruct(type)

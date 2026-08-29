@@ -326,6 +326,12 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
             src shouldContain "unavailableMethod"
             src shouldContain "unavailableProperty"
         }
+
+        "requires an explicit platform-availability opt-in for unavailable members" {
+            src shouldContain "annotation class PlatformAvailability"
+            src shouldContain "unavailable = true"
+            src shouldContain "@PlatformAvailability("
+        }
     }
 
     // ── @protocol ────────────────────────────────────────────────────────────

@@ -22,11 +22,15 @@ class KotlinEnumBuilder(
     private val toplevel: KotlinToplevelBuilder,
     private val externalConstants: List<Declaration.Constant> = emptyList(),
 ) {
-    private data class EnumEntry(val name: String, val value: Long)
+    private data class EnumEntry(
+        val name: String,
+        val value: Long,
+        val declaration: Declaration.Constant,
+    )
 
     private fun regularEntries(constants: List<Declaration.Constant>): List<EnumEntry> {
         val entries = constants.map {
-            EnumEntry(toplevel.javaName(it.name()), it.value().toLongValue())
+            EnumEntry(toplevel.javaName(it.name()), it.value().toLongValue(), it)
         }.toMutableList()
         val seenValues = entries.mapTo(mutableSetOf()) { it.value }
         val seenNames = entries.mapTo(mutableSetOf()) { it.name }
@@ -40,7 +44,7 @@ class KotlinEnumBuilder(
             while (!seenNames.add(entryName)) {
                 entryName = "${baseName}_kextract${suffix++}"
             }
-            entries += EnumEntry(entryName, value)
+            entries += EnumEntry(entryName, value, constant)
         }
         return entries
     }
@@ -69,19 +73,20 @@ class KotlinEnumBuilder(
         builder.appendLine(" */")
 
         val entries = regularEntries(constants)
+        toplevel.emitPlatformAvailability(builder, decl)
         if (entries.isEmpty()) {
             builder.appendLine("enum class ${name}(val value: Long)")
             builder.appendLine()
             return
         }
 
-        val renderedEntries = entries.joinToString(", ") { entry ->
-            "${entry.name}(${entry.value.toKotlinLongLiteral()})"
-        }
-
         builder.appendLine("enum class ${name}(val value: Long) {")
         builder.indent()
-        builder.appendLine("${renderedEntries};")
+        entries.forEachIndexed { index, entry ->
+            toplevel.emitPlatformAvailability(builder, entry.declaration)
+            val terminator = if (index == entries.lastIndex) ";" else ","
+            builder.appendLine("${entry.name}(${entry.value.toKotlinLongLiteral()})$terminator")
+        }
         builder.appendLine()
         builder.appendLine("companion object {")
         builder.indent()
@@ -110,6 +115,7 @@ class KotlinEnumBuilder(
         builder.appendLine(" * $objcKind: {@snippet lang=c : enum ${decl.name()}}")
         builder.appendLine(" */")
 
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("@JvmInline")
         builder.appendLine("value class ${name}(val rawValue: Long) {")
         builder.indent()
@@ -119,6 +125,7 @@ class KotlinEnumBuilder(
             builder.appendLine("companion object {")
             builder.indent()
             for (entry in entries) {
+                toplevel.emitPlatformAvailability(builder, entry.declaration)
                 builder.appendLine("val ${entry.name} = ${name}(${entry.value.toKotlinLongLiteral()})")
             }
             builder.unindent()

@@ -74,6 +74,7 @@ class KotlinHeaderBuilder(
 
         // Function
         val isVoid = returnType == "Unit"
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("fun ${name}(${params}): ${returnType} {")
         builder.indent()
         if (toplevel.isInitMethod) {
@@ -160,6 +161,7 @@ class KotlinHeaderBuilder(
         }.joinToString(", ")
         val rawCall = "$rawName($rawArguments)"
 
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("fun $adapterName($parameters): $returnType {")
         builder.indent()
         when {
@@ -216,6 +218,7 @@ class KotlinHeaderBuilder(
                     "${name} = $varLookupExpr.find(\"$lookupName\").orElse(null)"
                 )
             } else {
+                toplevel.emitPlatformAvailability(builder, decl)
                 builder.appendLine(
                     "val ${name}: MemorySegment = $varLookupExpr.find(\"$lookupName\").orElseThrow()"
                 )
@@ -251,6 +254,7 @@ class KotlinHeaderBuilder(
         }
 
         // Property (getter/setter)
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("var ${name}: ${type}")
         builder.indent()
         if (toplevel.isInitMethod) {
@@ -345,6 +349,7 @@ class KotlinHeaderBuilder(
         )
 
         // Constant
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("fun ${name}(): ${type} = $kotlinValue")
         builder.appendLine()
     }

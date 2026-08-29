@@ -234,6 +234,7 @@ class KotlinObjCCategoryBuilder(
         if (retSpelling.contains('<')) {
             builder.appendLine("/** @return $retSpelling */")
         }
+        toplevel.emitPlatformAvailability(builder, method)
         builder.appendLine("fun $extClass.$functionName($paramList)$retDecl {")
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$selector\")")
@@ -271,6 +272,7 @@ class KotlinObjCCategoryBuilder(
         val argsExpr = if (argsList.isEmpty()) "" else ", $argsList"
 
         builder.appendLine("// Class method: +[$extClass $selector]")
+        toplevel.emitPlatformAvailability(builder, method)
         builder.appendLine("fun $functionName($paramList)$retDecl {")
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$selector\")")
@@ -301,6 +303,7 @@ class KotlinObjCCategoryBuilder(
             if (propTypeSpelling.contains('<')) {
                 builder.appendLine("/** @return $propTypeSpelling */")
             }
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("fun $extClass.$getterName(): $retKotlin {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$getter\")")
@@ -314,6 +317,7 @@ class KotlinObjCCategoryBuilder(
             val setter    = prop.setterSelector()
             val paramType = lowering.kotlinType
             val valueExpr = lowering.lowerArgument("value")
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("fun $extClass.$setterName(value: $paramType) {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$setter\")")
@@ -336,6 +340,7 @@ class KotlinObjCCategoryBuilder(
 
         if (getterName != null) {
             builder.appendLine("// @property (class) ${prop.name()}")
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("fun $getterName(): $returnKotlin {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$getter\")")
@@ -349,6 +354,7 @@ class KotlinObjCCategoryBuilder(
         if (setterName != null) {
             val setter = prop.setterSelector()
             val value = lowering.lowerArgument("value")
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("fun $setterName(value: $returnKotlin) {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$setter\")")

@@ -55,6 +55,10 @@ internal class TreeMaker {
         if (attributes.isNotEmpty()) {
             d.addAttribute(Declaration.ClangAttributes(attributes.toMap()))
         }
+        val availability = c.platformAvailability()
+        if (availability.isNotEmpty()) {
+            d.addAttribute(Declaration.PlatformAvailability(availability))
+        }
         return d
     }
 
@@ -588,10 +592,10 @@ internal class TreeMaker {
         val resultClangType = c.resultType()
         val returnType = toType(resultClangType)
         val returnTypeSpelling = resultClangType.spelling()
-        return Declaration.objcMethod(
+        return addAttributes(Declaration.objcMethod(
             CursorPosition.of(c), selector, selector, isClassMethod,
             returnType, returnTypeSpelling, params, c.isObjCOptional()
-        )
+        ), c) as Declaration.ObjCMethod
     }
 
     /** Build Declaration.ObjCProperty from an ObjCPropertyDecl cursor. */
@@ -608,11 +612,11 @@ internal class TreeMaker {
             c.getObjCPropertySetterName().ifEmpty {
                 "set${propName.replaceFirstChar { it.uppercaseChar() }}:"
             }
-        return Declaration.objcProperty(
+        return addAttributes(Declaration.objcProperty(
             CursorPosition.of(c), propName, type, typeSpelling,
             c.isObjCOptional(), isReadOnly, getter, setter, isClassProperty,
             isObjectiveCObjectReference(propClangType),
-        )
+        ), c) as Declaration.ObjCProperty
     }
 
     /**

@@ -235,6 +235,26 @@ interface Declaration {
      * @param attributes a map from attribute name to attribute values.
      */
     data class ClangAttributes(val attributes: Map<String, List<String>>) : Attribute
+
+    /**
+     * Platform availability reported by libclang for a declaration.
+     *
+     * A missing version means that the corresponding availability transition
+     * was not specified by the source declaration.
+     */
+    data class PlatformAvailability(val entries: List<Entry>) : Attribute {
+        data class Entry(
+            val platform: String,
+            val introduced: Version?,
+            val deprecated: Version?,
+            val deprecatedWithoutVersion: Boolean,
+            val obsoleted: Version?,
+            val unavailable: Boolean,
+            val message: String,
+        )
+
+        data class Version(val major: Int, val minor: Int, val subminor: Int)
+    }
 }
 
 /** Retrieves an attribute of type [R], or null if absent. */

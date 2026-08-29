@@ -162,6 +162,9 @@ class KotlinGenerator {
         )
         scoped.accept(toplevel)
         return toplevel.getFiles().toMutableList().apply {
+            if (toplevel.needsPlatformAvailability) {
+                add(PlatformAvailabilityTemplate.generate(targetPackage))
+            }
             if (toplevel.needsObjCRuntime) {
                 add(ObjCRuntimeTemplate.generate(targetPackage))
                 add(ObjCSubclassingTemplate.generate(targetPackage))
@@ -186,7 +189,7 @@ class KotlinGenerator {
         jvmNativeBundleIndex: KotlinJvmNativeBundleIndex,
         privateNames: KotlinIdentifierAllocator,
     ): List<KotlinSourceFile> = buildList {
-        KotlinKmpCommonBuilder(
+        val commonBuilder = KotlinKmpCommonBuilder(
             targetPackage,
             className,
             callbackModels,
@@ -195,7 +198,11 @@ class KotlinGenerator {
             callbackBindings,
             namePlan,
             abiIndex,
-        ).also { scoped.accept(it); addAll(it.getFiles()) }
+        ).also { scoped.accept(it) }
+        addAll(commonBuilder.getFiles())
+        if (commonBuilder.needsPlatformAvailability) {
+            add(PlatformAvailabilityTemplate.generate(targetPackage, sourceRoot = "commonMain/kotlin"))
+        }
         KotlinKmpJvmBuilder(
             targetPackage,
             className,

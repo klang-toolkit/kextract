@@ -72,6 +72,7 @@ class KotlinObjCClassBuilder(
         val hasSuper = superClass != null && superClass in generatedClassNames
         val superExpr = if (hasSuper) " : $superClass(ptr)" else ""
         val ptrMod = if (hasSuper) "override val" else "open val"
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("open class $className($ptrMod ptr: MemorySegment)$superExpr {")
         builder.indent()
 
@@ -188,6 +189,7 @@ class KotlinObjCClassBuilder(
         } else {
             ""
         }
+        toplevel.emitPlatformAvailability(builder, method)
         builder.appendLine("${openMod}fun $fnName($paramList)$retDecl {")
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$selector\")")
@@ -266,6 +268,7 @@ class KotlinObjCClassBuilder(
         // Overload 1: NSString return → AsString suffix, raw (MemorySegment) params
         if (nsStringReturnType) {
             builder.appendLine("/** Convenience overload — returns Kotlin [String] by converting the NSString via UTF8String. */")
+            toplevel.emitPlatformAvailability(builder, method)
             builder.appendLine("fun ${convenienceNames.returnAsString}($rawParamList): String = ObjCRuntime.toJavaString($fnName($rawArgs))")
             builder.appendLine()
         }
@@ -273,12 +276,14 @@ class KotlinObjCClassBuilder(
         // Overload 2: NSString param(s) → String params, original return type
         if (hasNSStringParam) {
             builder.appendLine("/** Convenience overload — accepts Kotlin [String] for NSString parameters. */")
+            toplevel.emitPlatformAvailability(builder, method)
             builder.appendLine("fun ${convenienceNames.stringParameters}($stringParamList)$retDecl = $fnName($wrappedArgs)")
             builder.appendLine()
 
             // Overload 3 (combined): String params + String return — only when return is also NSString
             if (nsStringReturnType) {
                 builder.appendLine("/** Convenience overload — [String] parameters and [String] return type. */")
+                toplevel.emitPlatformAvailability(builder, method)
                 builder.appendLine("fun ${convenienceNames.combinedAsString}($stringParamList): String = ObjCRuntime.toJavaString($fnName($wrappedArgs))")
                 builder.appendLine()
             }
@@ -393,6 +398,7 @@ class KotlinObjCClassBuilder(
         val getterName = callableNames.allocate(getter, kotlinName(getter), emptyList())
         val getterMod = if (isOverride(getter, emptyList(), retKotlin)) "override " else "open "
         val isOvrd = getterMod.startsWith("override")
+        toplevel.emitPlatformAvailability(builder, prop)
         builder.appendLine("${getterMod}fun $getterName(): $retKotlin {")
         builder.indent()
         builder.appendLine("val sel = ObjCRuntime.sel(\"$getter\")")
@@ -412,6 +418,7 @@ class KotlinObjCClassBuilder(
                 listOf(paramType),
             )
             val setterMod = if (isOverride(setter, listOf(paramType), "Unit")) "override " else "open "
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("${setterMod}fun $setterFnName(value: $paramType) {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$setter\")")
@@ -428,11 +435,13 @@ class KotlinObjCClassBuilder(
             val convenienceNames = allocateNSStringPropertyConveniences(prop, getterName, setterFnName, callableNames)
             // Getter: String overload
             builder.appendLine("/** Convenience overload — returns Kotlin [String] by converting the NSString via UTF8String. */")
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("open fun ${convenienceNames.getterAsString}(): String = ObjCRuntime.toJavaString($getterName())")
             builder.appendLine()
             // Setter: String overload (only for readwrite properties)
             if (setterFnName != null && convenienceNames.setterString != null) {
                 builder.appendLine("/** Convenience overload — accepts Kotlin [String] for the NSString property. */")
+                toplevel.emitPlatformAvailability(builder, prop)
                 builder.appendLine("open fun ${convenienceNames.setterString}(value: String) = $setterFnName(ObjCRuntime.newNSString(Arena.global(), value))")
                 builder.appendLine()
             }
@@ -459,6 +468,7 @@ class KotlinObjCClassBuilder(
 
         if (emitGetter) {
             val getterName = callableNames.allocate(getter, kotlinName(getter), emptyList())
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("fun $getterName(): $returnKotlin {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$getter\")")
@@ -475,6 +485,7 @@ class KotlinObjCClassBuilder(
                 listOf(returnKotlin),
             )
             val value = lowering.lowerArgument("value")
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("fun $setterName(value: $returnKotlin) {")
             builder.indent()
             builder.appendLine("val sel = ObjCRuntime.sel(\"$setter\")")

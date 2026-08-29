@@ -6,6 +6,7 @@ import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.DeclarationImpl
 import org.graphiks.kextract.DeclarationImpl.Skip
 import org.graphiks.kextract.Type
+import org.graphiks.kextract.getAttribute
 import org.graphiks.kextract.callbacks.ValidatedCallbackBindings
 import org.graphiks.kextract.kotlin.KotlinKmpNamePlan
 import org.graphiks.kextract.kotlin.KotlinKmpRuntimeSymbol
@@ -37,6 +38,8 @@ internal class KotlinKmpCommonBuilder(
     private val builder = SourceBuilder()
     private val files = mutableListOf<KotlinSourceFile>()
     private val generatedNames = mutableSetOf<String>()
+    var needsPlatformAvailability: Boolean = false
+        private set
     private val typeMapper = KmpTypeMapper(
         namePlan,
         abiIndex = abiIndex,
@@ -74,6 +77,7 @@ internal class KotlinKmpCommonBuilder(
                 }
 
                 emitKDoc(decl)
+                emitPlatformAvailability(decl)
                 builder.appendLine("expect interface $structName {")
                 builder.indent()
 
@@ -82,6 +86,7 @@ internal class KotlinKmpCommonBuilder(
                     val fieldName = namePlan.member(field)
                     val fieldType = typeMapper.mapType(field.type())
                     emitKDoc(field)
+                    emitPlatformAvailability(field)
                     if (fieldType == cString) {
                         builder.appendLine("var $fieldName: $cString?")
                     } else if (fieldType.startsWith(arrayHolder)) {
@@ -115,7 +120,7 @@ internal class KotlinKmpCommonBuilder(
                     val constants = decl.members().filterIsInstance<Declaration.Constant>().filterNot(Skip::isPresent)
                     emitKDoc(decl)
                     if (isOptionsStyleName(name)) {
-                        emitValueClass(name, constants, abiIndex.enum(decl))
+                        emitValueClass(decl, name, constants, abiIndex.enum(decl))
                     } else {
                         emitEnumClass(decl, constants)
                     }
@@ -153,9 +158,11 @@ internal class KotlinKmpCommonBuilder(
         val name = namePlan.declaration(decl)
         val scalar = abiIndex.enum(decl)
         val applicationType = scalar.kotlinType
+        emitPlatformAvailability(decl)
         builder.appendLine("typealias ${name} = $applicationType")
         for (c in constants) {
             emitKDoc(c)
+            emitPlatformAvailability(c)
             builder.appendLine(
                 "const val ${namePlan.declaration(c)} : ${name} = " +
                     scalar.enumConstantLiteral(c.value().toLongValue()),
@@ -165,10 +172,12 @@ internal class KotlinKmpCommonBuilder(
     }
 
     private fun emitValueClass(
+        decl: Declaration.Scoped,
         name: String,
         constants: List<Declaration.Constant>,
         scalar: KotlinKmpCAbiType.Scalar,
     ) {
+        emitPlatformAvailability(decl)
         builder.appendLine("@kotlin.jvm.JvmInline")
         builder.appendLine("value class ${name}(val rawValue: Long) {")
         builder.indent()
@@ -178,6 +187,7 @@ internal class KotlinKmpCommonBuilder(
             builder.indent()
             for (c in constants) {
                 emitKDoc(c)
+                emitPlatformAvailability(c)
                 builder.appendLine(
                     "val ${namePlan.declaration(c)} = ${name}(" +
                         "${scalar.enumConstantOptionsRawLiteral(c.value().toLongValue())})",
@@ -213,11 +223,13 @@ internal class KotlinKmpCommonBuilder(
             if (!generatedNames.add(flagName)) return@forEach
 
             emitKDoc(typedef)
+            emitPlatformAvailability(typedef)
             builder.appendLine("typealias $flagName = ULong")
             constants
                 .filter { it.name().startsWith("${cFlagName}_") }
                 .forEach { constant ->
                     emitKDoc(constant)
+                    emitPlatformAvailability(constant)
                     builder.appendLine("const val ${namePlan.declaration(constant)} : $flagName = ${constant.value().toLongValue().toKotlinULongLiteral()}")
                 }
             builder.appendLine()
@@ -232,18 +244,22 @@ internal class KotlinKmpCommonBuilder(
         val unionFields = nativeDisplayUnionFields(decl)
 
         emitKDoc(decl)
+        emitPlatformAvailability(decl)
         builder.appendLine("expect interface WGPUNativeDisplayHandle {")
         builder.indent()
 
         fields.forEach { field ->
             emitKDoc(field)
+            emitPlatformAvailability(field)
             builder.appendLine("var ${namePlan.member(field)}: ${typeMapper.mapType(field.type())}")
         }
         unionFields.forEach { field ->
             val type = typeMapper.mapType(field.type())
             val setter = field.name().replaceFirstChar { it.titlecase() }
             emitKDoc(field)
+            emitPlatformAvailability(field)
             builder.appendLine("val ${namePlan.member(field)}: $type?")
+            emitPlatformAvailability(field)
             builder.appendLine("fun set$setter(value: $type)")
         }
 
@@ -297,6 +313,7 @@ internal class KotlinKmpCommonBuilder(
                 }
         ).joinToString(", ")
         emitKDoc(decl)
+        emitPlatformAvailability(decl)
         builder.appendLine("expect fun ${namePlan.declaration(decl)}($params): $returnType")
         builder.appendLine()
     }
@@ -314,6 +331,7 @@ internal class KotlinKmpCommonBuilder(
                 if (pointeeName.isNotEmpty() && pointeeName.endsWith("Impl")) {
                     if (!generatedNames.add(name)) return
                     emitKDoc(decl)
+                    emitPlatformAvailability(decl)
                     builder.appendLine("expect value class $name(val handler: $nativeAddress)")
                     builder.appendLine()
                 }
@@ -324,6 +342,47 @@ internal class KotlinKmpCommonBuilder(
     override fun visitObjCClass(decl: Declaration.ObjCClass) {}
     override fun visitObjCProtocol(decl: Declaration.ObjCProtocol) {}
     override fun visitObjCCategory(decl: Declaration.ObjCCategory) {}
+
+    private fun emitPlatformAvailability(declaration: Declaration) {
+        val availability = declaration.getAttribute<Declaration.PlatformAvailability>() ?: return
+        needsPlatformAvailability = true
+        for (entry in availability.entries) {
+            builder.appendLine("@PlatformAvailability(")
+            builder.indent()
+            builder.appendLine("platform = ${entry.platform.asKotlinString()},")
+            builder.appendLine("introducedMajor = ${entry.introduced?.major ?: -1},")
+            builder.appendLine("introducedMinor = ${entry.introduced?.minor ?: -1},")
+            builder.appendLine("introducedSubminor = ${entry.introduced?.subminor ?: -1},")
+            builder.appendLine("deprecated = ${entry.deprecated != null || entry.deprecatedWithoutVersion},")
+            builder.appendLine("deprecatedMajor = ${entry.deprecated?.major ?: -1},")
+            builder.appendLine("deprecatedMinor = ${entry.deprecated?.minor ?: -1},")
+            builder.appendLine("deprecatedSubminor = ${entry.deprecated?.subminor ?: -1},")
+            builder.appendLine("obsoletedMajor = ${entry.obsoleted?.major ?: -1},")
+            builder.appendLine("obsoletedMinor = ${entry.obsoleted?.minor ?: -1},")
+            builder.appendLine("obsoletedSubminor = ${entry.obsoleted?.subminor ?: -1},")
+            builder.appendLine("unavailable = ${entry.unavailable},")
+            builder.appendLine("message = ${entry.message.asKotlinString()},")
+            builder.unindent()
+            builder.appendLine(")")
+        }
+    }
+
+    private fun String.asKotlinString(): String = buildString {
+        append('\"')
+        for (character in this@asKotlinString) {
+            append(
+                when (character) {
+                    '\\' -> "\\\\"
+                    '\"' -> "\\\""
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    else -> character
+                },
+            )
+        }
+        append('\"')
+    }
 
     fun getFiles(): List<KotlinSourceFile> = files
 
