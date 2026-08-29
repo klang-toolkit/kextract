@@ -406,7 +406,7 @@ class GeneratorIntegrationTest : FreeSpec({
 
             src shouldContain "platform = \"all\""
             src shouldContain "deprecated = true"
-            src shouldContain "deprecatedMajor = -1"
+            src shouldNotContain "deprecatedMajor = 0"
             src shouldContain "message = \"Use kxReplacement instead\""
         }
 

@@ -2,6 +2,7 @@
 package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
+import org.graphiks.kextract.getAttribute
 
 /**
  * Generates Kotlin code for named C/ObjC enumerations.
@@ -73,19 +74,30 @@ class KotlinEnumBuilder(
         builder.appendLine(" */")
 
         val entries = regularEntries(constants)
-        toplevel.emitPlatformAvailability(builder, decl)
         if (entries.isEmpty()) {
+            toplevel.emitPlatformAvailability(builder, decl)
             builder.appendLine("enum class ${name}(val value: Long)")
             builder.appendLine()
             return
         }
 
+        val needsAvailabilityAnnotations =
+            decl.getAttribute<Declaration.PlatformAvailability>() != null ||
+                entries.any { it.declaration.getAttribute<Declaration.PlatformAvailability>() != null }
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("enum class ${name}(val value: Long) {")
         builder.indent()
-        entries.forEachIndexed { index, entry ->
-            toplevel.emitPlatformAvailability(builder, entry.declaration)
-            val terminator = if (index == entries.lastIndex) ";" else ","
-            builder.appendLine("${entry.name}(${entry.value.toKotlinLongLiteral()})$terminator")
+        if (needsAvailabilityAnnotations) {
+            entries.forEachIndexed { index, entry ->
+                toplevel.emitPlatformAvailability(builder, entry.declaration)
+                val terminator = if (index == entries.lastIndex) ";" else ","
+                builder.appendLine("${entry.name}(${entry.value.toKotlinLongLiteral()})$terminator")
+            }
+        } else {
+            val renderedEntries = entries.joinToString(", ") { entry ->
+                "${entry.name}(${entry.value.toKotlinLongLiteral()})"
+            }
+            builder.appendLine("${renderedEntries};")
         }
         builder.appendLine()
         builder.appendLine("companion object {")

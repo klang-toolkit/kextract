@@ -161,24 +161,26 @@ class KotlinToplevelBuilder(
         val availability = declaration.getAttribute<Declaration.PlatformAvailability>() ?: return
         for (entry in availability.entries) {
             needsPlatformAvailability = true
-            builder.appendLine("@PlatformAvailability(")
-            builder.indent()
-            builder.appendLine("platform = ${entry.platform.asKotlinString()},")
-            builder.appendLine("introducedMajor = ${entry.introduced?.major ?: -1},")
-            builder.appendLine("introducedMinor = ${entry.introduced?.minor ?: -1},")
-            builder.appendLine("introducedSubminor = ${entry.introduced?.subminor ?: -1},")
-            builder.appendLine("deprecated = ${entry.deprecated != null || entry.deprecatedWithoutVersion},")
-            builder.appendLine("deprecatedMajor = ${entry.deprecated?.major ?: -1},")
-            builder.appendLine("deprecatedMinor = ${entry.deprecated?.minor ?: -1},")
-            builder.appendLine("deprecatedSubminor = ${entry.deprecated?.subminor ?: -1},")
-            builder.appendLine("obsoletedMajor = ${entry.obsoleted?.major ?: -1},")
-            builder.appendLine("obsoletedMinor = ${entry.obsoleted?.minor ?: -1},")
-            builder.appendLine("obsoletedSubminor = ${entry.obsoleted?.subminor ?: -1},")
-            builder.appendLine("unavailable = ${entry.unavailable},")
-            builder.appendLine("message = ${entry.message.asKotlinString()},")
-            builder.unindent()
-            builder.appendLine(")")
+            val arguments = buildList {
+                add("platform = ${entry.platform.asKotlinString()}")
+                entry.introduced?.let { version -> addVersionArguments("introduced", version) }
+                if (entry.deprecated != null || entry.deprecatedWithoutVersion) add("deprecated = true")
+                entry.deprecated?.let { version -> addVersionArguments("deprecated", version) }
+                entry.obsoleted?.let { version -> addVersionArguments("obsoleted", version) }
+                if (entry.unavailable) add("unavailable = true")
+                if (entry.message.isNotEmpty()) add("message = ${entry.message.asKotlinString()}")
+            }
+            builder.appendLine("@PlatformAvailability(${arguments.joinToString(", ")})")
         }
+    }
+
+    private fun MutableList<String>.addVersionArguments(
+        prefix: String,
+        version: Declaration.PlatformAvailability.Version,
+    ) {
+        add("${prefix}Major = ${version.major}")
+        add("${prefix}Minor = ${version.minor}")
+        add("${prefix}Subminor = ${version.subminor}")
     }
 
     private fun String.asKotlinString(): String = buildString {
