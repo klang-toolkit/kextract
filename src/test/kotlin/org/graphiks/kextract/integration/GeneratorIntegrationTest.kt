@@ -296,8 +296,10 @@ class GeneratorIntegrationTest : FreeSpec({
                 clangArgs = listOf("-target", "arm64-apple-macos15.0"),
             )
             val src = files.joinToString("\n") { it.contents }
+            val binding = files.first { it.className != "PlatformAvailability" }
 
             src shouldContain "annotation class PlatformAvailability"
+            binding.contents shouldStartWith "@file:OptIn(test.PlatformAvailability::class)\n\npackage test"
             src shouldContain "@PlatformAvailability("
             src shouldContain "platform = \"macos\""
             src shouldContain "introducedMajor = 13"
@@ -422,6 +424,7 @@ class GeneratorIntegrationTest : FreeSpec({
             val common = files.single { it.className.endsWith("Common") }
             val marker = files.single { it.className == "PlatformAvailability" }
             common.sourceRoot shouldBe "commonMain/kotlin"
+            common.contents shouldStartWith "@file:OptIn(test.PlatformAvailability::class)\n\npackage test"
             common.contents shouldContain "@PlatformAvailability("
             common.contents shouldContain "expect fun kxCommonPlatformChecked()"
             marker.sourceRoot shouldBe "commonMain/kotlin"
