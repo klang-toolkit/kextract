@@ -53,6 +53,37 @@ class GeneratorIntegrationTest : FreeSpec({
         }
     }
 
+    fun generateWithPipeline(
+        csource: String,
+        pkg: String = "test",
+        clangArgs: List<String> = emptyList(),
+    ): String {
+        val input = Files.createTempFile("kextract_test_", ".h")
+        val output = Files.createTempDirectory("kextract_test_out_")
+        try {
+            Files.writeString(input, csource)
+            KextractTool(Logger()).runGeneration(
+                listOf(input.toString()),
+                Options(
+                    clangArgs = clangArgs,
+                    targetPackage = pkg,
+                    outputDir = output.toString(),
+                ),
+            ) shouldBe KextractTool.SUCCESS
+            return Files.walk(output).use { paths ->
+                paths
+                    .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".kt") }
+                    .sorted()
+                    .map(Files::readString)
+                    .toList()
+                    .joinToString("\n")
+            }
+        } finally {
+            Files.deleteIfExists(input)
+            output.toFile().deleteRecursively()
+        }
+    }
+
     fun generateKmpFile(csource: String, sourceSet: String, suffix: String, pkg: String = "test"): String {
         val tmp = Files.createTempFile("kextract_test_", ".h")
         val output = Files.createTempDirectory("kextract_test_out_")
@@ -128,6 +159,48 @@ class GeneratorIntegrationTest : FreeSpec({
         "should omit package line when target package is empty" {
             val src = generate("int add(int a, int b);", pkg = "")
             src shouldNotContain "package "
+        }
+    }
+
+    "Target availability" - {
+        "does not generate top-level declarations unavailable for macOS" {
+            val src = generateWithPipeline(
+                """
+                int kxAvailable(void);
+                int kxUnavailable(void) __attribute__((availability(macos, unavailable)));
+                int kxDeprecated(void) __attribute__((availability(macos, deprecated = 10.0)));
+                int kxIntroduced(void) __attribute__((availability(macos, introduced = 10.0)));
+                """.trimIndent(),
+                clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+            )
+
+            src shouldContain "fun kxAvailable()"
+            src shouldNotContain "kxUnavailable"
+            src shouldContain "fun kxDeprecated()"
+            src shouldContain "fun kxIntroduced()"
+        }
+
+        "preserves unavailable children of available declarations" {
+            val src = generateWithPipeline(
+                """
+                typedef struct KxRecord {
+                    int unavailableField __attribute__((unavailable));
+                } KxRecord;
+
+                enum KxEnum {
+                    KxEnumAvailable,
+                    KxEnumUnavailable __attribute__((unavailable)),
+                };
+
+                int kxUsesUnavailableParameter(
+                    int unavailableParameter __attribute__((unavailable))
+                );
+                """.trimIndent(),
+            )
+
+            src shouldContain "unavailableField"
+            src shouldContain "KxEnumUnavailable"
+            src shouldContain "fun kxUsesUnavailableParameter"
         }
     }
 

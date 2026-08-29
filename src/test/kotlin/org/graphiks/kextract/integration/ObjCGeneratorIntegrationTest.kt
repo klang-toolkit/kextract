@@ -62,7 +62,11 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         generateAll(objcSource, pkg).joinToString("\n") { it.contents }
 
     /** Runs every production filter and reads back all Kotlin files written by the tool. */
-    fun generateWithPipeline(objcSource: String, pkg: String = "test"): List<KotlinSourceFile> {
+    fun generateWithPipeline(
+        objcSource: String,
+        pkg: String = "test",
+        clangArgs: List<String> = emptyList(),
+    ): List<KotlinSourceFile> {
         val workspace = Files.createTempDirectory("kextract_objc_pipeline_test_")
         val input = workspace.resolve("fixture.h")
         val output = workspace.resolve("output")
@@ -71,7 +75,7 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
             KextractTool(Logger.DEFAULT).runGeneration(
                 listOf(input.toString()),
                 Options(
-                    clangArgs = listOf("-x", "objective-c"),
+                    clangArgs = listOf("-x", "objective-c") + clangArgs,
                     targetPackage = pkg,
                     outputDir = output.toString(),
                 ),
@@ -269,6 +273,30 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         "derived class extends base with ptr forwarding" {
             src shouldContain "open class KxDerived"
             src shouldContain ": KxBase(ptr)"
+        }
+    }
+
+    "ObjC member availability" - {
+        val src = generateWithPipeline(
+            """
+            @interface KxAvailabilityHost
+            - (void)availableMethod;
+            - (void)unavailableMethod __attribute__((availability(macos, unavailable)));
+            @property (readonly) long availableProperty;
+            @property (readonly) long unavailableProperty __attribute__((availability(macos, unavailable)));
+            @end
+            """.trimIndent(),
+            clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+        ).joinToString("\n") { it.contents }
+
+        "keeps available members" {
+            src shouldContain "availableMethod"
+            src shouldContain "availableProperty"
+        }
+
+        "does not generate members unavailable for macOS" {
+            src shouldNotContain "unavailableMethod"
+            src shouldNotContain "unavailableProperty"
         }
     }
 
