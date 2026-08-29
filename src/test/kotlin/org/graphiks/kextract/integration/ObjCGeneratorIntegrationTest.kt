@@ -61,6 +61,15 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
     fun generate(objcSource: String, pkg: String = "test"): String =
         generateAll(objcSource, pkg).joinToString("\n") { it.contents }
 
+    fun macosSdkPath(): String {
+        val process = ProcessBuilder("xcrun", "--sdk", "macosx", "--show-sdk-path")
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().use { it.readText().trim() }
+        check(process.waitFor() == 0) { "xcrun failed to locate the macOS SDK: $output" }
+        return output
+    }
+
     /** Runs every production filter and reads back all Kotlin files written by the tool. */
     fun generateWithPipeline(
         objcSource: String,
@@ -273,6 +282,25 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         "derived class extends base with ptr forwarding" {
             src shouldContain "open class KxDerived"
             src shouldContain ": KxBase(ptr)"
+        }
+    }
+
+    "Foundation SDK predefined sugar" - {
+        "generates declarations that use NSUInteger" {
+            val sdk = macosSdkPath()
+            val src = generateWithPipeline(
+                """
+                #import <Foundation/NSObjCRuntime.h>
+                NSUInteger kxUsePredefinedSugar(NSUInteger value);
+                """.trimIndent(),
+                clangArgs = listOf(
+                    "-F${sdk}/System/Library/Frameworks",
+                    "-isysroot",
+                    sdk,
+                ),
+            ).joinToString("\n") { it.contents }
+
+            src shouldContain "fun kxUsePredefinedSugar"
         }
     }
 

@@ -54,7 +54,8 @@ internal object TypeMaker {
             TypeKind.Double -> Type.primitive(Primitive.Kind.Double)
             TypeKind.Float -> Type.primitive(Primitive.Kind.Float)
             TypeKind.Unexposed,
-            TypeKind.Elaborated -> {
+            TypeKind.Elaborated,
+            TypeKind.PredefinedSugar -> {
                 val canonical = t.canonicalType()
                 if (canonical.equalType(t)) {
                     Type.error(t.spelling())
