@@ -3,6 +3,7 @@ package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.DeclarationImpl.Skip
+import org.graphiks.kextract.getAttribute
 import org.graphiks.kextract.cli.DllMap
 import org.graphiks.kextract.kotlin.models.KotlinSourceFile
 import org.graphiks.kextract.kotlin.utils.KotlinNameMangler
@@ -136,6 +137,10 @@ class KotlinToplevelBuilder(
     var needsObjCRuntime: Boolean = false
         private set
 
+    /** True when generated declarations require the platform-availability opt-in marker. */
+    var needsPlatformAvailability: Boolean = false
+        private set
+
     /** True when a LOOKUP val was generated (libraries were provided). */
     val hasLookup: Boolean get() = libraries.isNotEmpty() || win32Abi
 
@@ -151,6 +156,49 @@ class KotlinToplevelBuilder(
 
     fun functionDescriptorString(type: org.graphiks.kextract.Type.Function, variadicCount: Int): String =
         LayoutUtils.functionDescriptorString(type, variadicCount, win32Abi)
+
+    fun emitPlatformAvailability(builder: SourceBuilder, declaration: Declaration) {
+        val availability = declaration.getAttribute<Declaration.PlatformAvailability>() ?: return
+        for (entry in availability.entries) {
+            needsPlatformAvailability = true
+            val arguments = buildList {
+                add("platform = ${entry.platform.asKotlinString()}")
+                entry.introduced?.let { version -> addVersionArguments("introduced", version) }
+                if (entry.deprecated != null || entry.deprecatedWithoutVersion) add("deprecated = true")
+                entry.deprecated?.let { version -> addVersionArguments("deprecated", version) }
+                entry.obsoleted?.let { version -> addVersionArguments("obsoleted", version) }
+                if (entry.unavailable) add("unavailable = true")
+                if (entry.message.isNotEmpty()) add("message = ${entry.message.asKotlinString()}")
+            }
+            builder.appendLine("@PlatformAvailability(${arguments.joinToString(", ")})")
+        }
+    }
+
+    private fun MutableList<String>.addVersionArguments(
+        prefix: String,
+        version: Declaration.PlatformAvailability.Version,
+    ) {
+        add("${prefix}Major = ${version.major}")
+        add("${prefix}Minor = ${version.minor}")
+        add("${prefix}Subminor = ${version.subminor}")
+    }
+
+    private fun String.asKotlinString(): String = buildString {
+        append('"')
+        for (character in this@asKotlinString) {
+            append(
+                when (character) {
+                    '\\' -> "\\\\"
+                    '"' -> "\\\""
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    else -> character
+                },
+            )
+        }
+        append('"')
+    }
 
     /** True when generating an init() method instead of eager static initializers. */
     val isInitMethod: Boolean get() = useInitMethod

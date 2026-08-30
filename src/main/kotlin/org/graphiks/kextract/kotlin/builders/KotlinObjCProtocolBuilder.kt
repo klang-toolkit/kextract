@@ -59,7 +59,8 @@ class KotlinObjCProtocolBuilder(
         //   - NSObjectProtocol (implicit for all ObjC objects)
         //   - Any name that is also a generated class (e.g. NSAccessibilityElement)
         val superProtos = kotlinSuperProtocols(decl)
-        val superExpr = if (superProtos.isEmpty()) "" else " : ${superProtos.joinToString(", ")}"
+        val superExpr = if (superProtos.isEmpty()) "" else " : ${superProtos.joinToString(", ")}" 
+        toplevel.emitPlatformAvailability(builder, decl)
         builder.appendLine("interface $protoName$superExpr {")
         builder.indent()
         // A builder instance emits several protocol interfaces in non-split output. Exact
@@ -225,6 +226,7 @@ class KotlinObjCProtocolBuilder(
         if (retSpelling.contains('<')) {
             builder.appendLine("/** @return $retSpelling */")
         }
+        toplevel.emitPlatformAvailability(builder, method)
         if (method.isOptional()) {
             // Default implementation: throw UnsupportedOperationException
             builder.appendLine("// @optional")
@@ -267,6 +269,7 @@ class KotlinObjCProtocolBuilder(
             } else {
                 ""
             }
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("${getterModifier}fun $getterName(): $retKotlin")
         }
 
@@ -283,6 +286,7 @@ class KotlinObjCProtocolBuilder(
             } else {
                 ""
             }
+            toplevel.emitPlatformAvailability(builder, prop)
             builder.appendLine("${setterModifier}fun $setterName(value: $paramType)")
         }
         builder.appendLine()

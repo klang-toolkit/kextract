@@ -1,9 +1,12 @@
 package org.graphiks.kextract.clang
 
 import java.lang.foreign.Arena
+import java.lang.foreign.GroupLayout
+import java.lang.foreign.MemoryLayout
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.SegmentAllocator
 import java.lang.foreign.ValueLayout
+import java.lang.foreign.MemoryLayout.PathElement.groupElement
 import java.util.Objects
 import java.util.function.Consumer
 import java.util.function.Predicate
@@ -67,6 +70,131 @@ class Cursor internal constructor(segment: MemorySegment, owner: ClangDisposable
     fun getDefinition(): Cursor    = Cursor(clang_getCursorDefinition(owner, segment), owner)
     fun getVarDeclInitializer(): Cursor = Cursor(clang_Cursor_getVarDeclInitializer(owner, segment), owner)
     fun isFunctionInlined(): Boolean = clang_Cursor_isFunctionInlined(segment) != 0
+
+    /**
+     * Keeps this value-type cursor usable after the native visitor callback has
+     * returned. The copied cursor still refers to the same live translation
+     * unit through [owner].
+     */
+    fun copyForDeferredUse(allocator: SegmentAllocator): Cursor {
+        val copy = allocator.allocate(segment.byteSize(), 8)
+        copy.copyFrom(segment)
+        return Cursor(copy, owner)
+    }
+
+    fun platformAvailability(): List<org.graphiks.kextract.Declaration.PlatformAvailability.Entry> =
+        Arena.ofConfined().use { arena ->
+            val count = clang_getCursorPlatformAvailability(
+                segment,
+                MemorySegment.NULL,
+                MemorySegment.NULL,
+                MemorySegment.NULL,
+                MemorySegment.NULL,
+                MemorySegment.NULL,
+                0,
+            )
+            val alwaysDeprecated = arena.allocate(ValueLayout.JAVA_INT)
+            val deprecatedMessage = CXString.allocate(arena)
+            val alwaysUnavailable = arena.allocate(ValueLayout.JAVA_INT)
+            val unavailableMessage = CXString.allocate(arena)
+            val entries = if (count > 0) {
+                arena.allocate(MemoryLayout.sequenceLayout(count.toLong(), PlatformAvailabilityLayout.layout))
+            } else {
+                MemorySegment.NULL
+            }
+            clang_getCursorPlatformAvailability(
+                segment,
+                alwaysDeprecated,
+                deprecatedMessage,
+                alwaysUnavailable,
+                unavailableMessage,
+                entries,
+                count,
+            )
+
+            buildList {
+                for (index in 0 until count) {
+                    val entry = entries.asSlice(index * PlatformAvailabilityLayout.byteSize, PlatformAvailabilityLayout.byteSize)
+                    try {
+                        add(
+                            org.graphiks.kextract.Declaration.PlatformAvailability.Entry(
+                                platform = borrowedCXString(PlatformAvailabilityLayout.platform(entry)),
+                                introduced = PlatformAvailabilityLayout.introduced(entry).toVersion(),
+                                deprecated = PlatformAvailabilityLayout.deprecated(entry).toVersion(),
+                                deprecatedWithoutVersion = false,
+                                obsoleted = PlatformAvailabilityLayout.obsoleted(entry).toVersion(),
+                                unavailable = PlatformAvailabilityLayout.unavailable(entry) != 0,
+                                message = borrowedCXString(PlatformAvailabilityLayout.message(entry)),
+                            ),
+                        )
+                    } finally {
+                        clang_disposeCXPlatformAvailability(entry)
+                    }
+                }
+                val deprecated = alwaysDeprecated.get(ValueLayout.JAVA_INT, 0) != 0
+                val unavailable = alwaysUnavailable.get(ValueLayout.JAVA_INT, 0) != 0
+                if (deprecated || unavailable) {
+                    add(
+                        org.graphiks.kextract.Declaration.PlatformAvailability.Entry(
+                            platform = "all",
+                            introduced = null,
+                            deprecated = null,
+                            deprecatedWithoutVersion = deprecated,
+                            obsoleted = null,
+                            unavailable = unavailable,
+                            message = if (unavailable) LibClang.CXStrToString(unavailableMessage) else LibClang.CXStrToString(deprecatedMessage),
+                        ),
+                    )
+                } else {
+                    LibClang.CXStrToString(deprecatedMessage)
+                    LibClang.CXStrToString(unavailableMessage)
+                }
+            }
+        }
+
+    /**
+     * `CXPlatformAvailability` is a libclang-owned output structure.  Keep the
+     * layout beside its consumer so this wrapper stays usable while Kextract
+     * bootstraps its own generated libclang bindings.
+     */
+    private object PlatformAvailabilityLayout {
+        val layout: GroupLayout = MemoryLayout.structLayout(
+            CXString.layout.withName("Platform"),
+            CXVersion.layout.withName("Introduced"),
+            CXVersion.layout.withName("Deprecated"),
+            CXVersion.layout.withName("Obsoleted"),
+            ValueLayout.JAVA_INT.withName("Unavailable"),
+            CXString.layout.withName("Message"),
+        ).withName("CXPlatformAvailability")
+
+        val byteSize: Long = layout.byteSize()
+
+        fun platform(entry: MemorySegment): MemorySegment = field(entry, "Platform")
+        fun introduced(entry: MemorySegment): MemorySegment = field(entry, "Introduced")
+        fun deprecated(entry: MemorySegment): MemorySegment = field(entry, "Deprecated")
+        fun obsoleted(entry: MemorySegment): MemorySegment = field(entry, "Obsoleted")
+        fun message(entry: MemorySegment): MemorySegment = field(entry, "Message")
+
+        fun unavailable(entry: MemorySegment): Int =
+            entry.get(ValueLayout.JAVA_INT, layout.byteOffset(groupElement("Unavailable")))
+
+        private fun field(entry: MemorySegment, name: String): MemorySegment =
+            entry.asSlice(layout.byteOffset(groupElement(name)), layout.select(groupElement(name)).byteSize())
+    }
+
+    private fun borrowedCXString(value: MemorySegment): String {
+        val chars = clang_getCString(value)
+        return if (chars == MemorySegment.NULL) "" else chars.reinterpret(Long.MAX_VALUE).getString(0)
+    }
+
+    private fun MemorySegment.toVersion(): org.graphiks.kextract.Declaration.PlatformAvailability.Version? {
+        val major = CXVersion.Major(this)
+        return if (major < 0) null else org.graphiks.kextract.Declaration.PlatformAvailability.Version(
+            major,
+            CXVersion.Minor(this),
+            CXVersion.Subminor(this),
+        )
+    }
 
     fun getSourceLocation(): SourceLocation? {
         val loc = clang_getCursorLocation(owner, segment)

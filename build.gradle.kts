@@ -1,4 +1,5 @@
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.api.tasks.PathSensitivity
 import java.net.URI
 
 plugins {
@@ -249,6 +250,25 @@ tasks.register("prepareInputs") {
     dependsOn("downloadLLVM")
     outputs.dir(kextract_inputs)
 
+    // The image embeds the selected libclang and its builtin headers.  Both
+    // their location and contents are task inputs: otherwise switching
+    // `-Pllvm_home` can leave an image with a previous LLVM version while
+    // Gradle considers this task up-to-date.
+    val sourceLibDir = file(libclang_dir)
+    val clangLibPattern = when {
+        Os.isName("AIX") || Os.isName("aix") -> "libclang.a"
+        Os.isFamily(Os.FAMILY_UNIX) && !Os.isFamily(Os.FAMILY_MAC) -> "libclang.so*"
+        Os.isFamily(Os.FAMILY_WINDOWS) -> "libclang.dll"
+        else -> "libclang.dylib"
+    }
+    val sourceBuiltinHeaders = file("$llvm_home/lib/clang/$clang_version/include")
+    inputs.property("llvmHome", llvm_home)
+    inputs.files(fileTree(sourceLibDir) {
+        include(clangLibPattern, "libLLVM.*", "LLVM-C*")
+        exclude("clang.exe")
+    }).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(sourceBuiltinHeaders).withPathSensitivity(PathSensitivity.RELATIVE)
+
     doLast {
         val libsDir = file("$kextract_inputs/libs").apply { deleteRecursively(); mkdirs() }
         val confDir = file("$kextract_inputs/conf/kextract").apply { deleteRecursively(); mkdirs() }
@@ -257,15 +277,7 @@ tasks.register("prepareInputs") {
         // release actually ships (e.g. libclang.so.22 vs libclang.so.22.1.6 vs the
         // unversioned symlink). The rename pattern normalises any versioned filename
         // to the unversioned form so System.loadLibrary("clang") can find it.
-        val isAix = Os.isName("AIX") || Os.isName("aix")
-        val isUnixNotMac = Os.isFamily(Os.FAMILY_UNIX) && !Os.isFamily(Os.FAMILY_MAC)
-        val clangLibPattern = when {
-            isAix                          -> "libclang.a"
-            isUnixNotMac                   -> "libclang.so*"
-            Os.isFamily(Os.FAMILY_WINDOWS) -> "libclang.dll"
-            else                           -> "libclang.dylib"
-        }
-        val srcLibDir = file(libclang_dir).also {
+        val srcLibDir = sourceLibDir.also {
             if (!it.isDirectory) throw GradleException("libclang directory not found: $it")
         }
         project.copy {
@@ -296,7 +308,7 @@ tasks.register("prepareInputs") {
         }
 
         // Clang builtin headers
-        val includeDir = file("$llvm_home/lib/clang/$clang_version/include").also {
+        val includeDir = sourceBuiltinHeaders.also {
             if (!it.isDirectory) throw GradleException("Clang builtin headers not found: $it")
         }
         project.copy {

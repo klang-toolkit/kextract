@@ -120,7 +120,9 @@ enum class TypeKind(val value: Int) {
     OCLIntelSubgroupAVCImeSingleRefStreamin(CXType_OCLIntelSubgroupAVCImeSingleRefStreamin()),
     OCLIntelSubgroupAVCImeDualRefStreamin(CXType_OCLIntelSubgroupAVCImeDualRefStreamin()),
     ExtVector(CXType_ExtVector()),
-    Atomic(177); // missing from auto-generated code
+    Atomic(177), // missing from auto-generated code
+    // Added by LLVM 23. It is a sugar type and must be lowered through its canonical type.
+    PredefinedSugar(182); // missing from auto-generated code
 
     companion object {
         private val lookup = entries.associateBy { it.value }

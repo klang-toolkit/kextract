@@ -61,8 +61,21 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
     fun generate(objcSource: String, pkg: String = "test"): String =
         generateAll(objcSource, pkg).joinToString("\n") { it.contents }
 
+    fun macosSdkPath(): String {
+        val process = ProcessBuilder("xcrun", "--sdk", "macosx", "--show-sdk-path")
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().use { it.readText().trim() }
+        check(process.waitFor() == 0) { "xcrun failed to locate the macOS SDK: $output" }
+        return output
+    }
+
     /** Runs every production filter and reads back all Kotlin files written by the tool. */
-    fun generateWithPipeline(objcSource: String, pkg: String = "test"): List<KotlinSourceFile> {
+    fun generateWithPipeline(
+        objcSource: String,
+        pkg: String = "test",
+        clangArgs: List<String> = emptyList(),
+    ): List<KotlinSourceFile> {
         val workspace = Files.createTempDirectory("kextract_objc_pipeline_test_")
         val input = workspace.resolve("fixture.h")
         val output = workspace.resolve("output")
@@ -71,7 +84,7 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
             KextractTool(Logger.DEFAULT).runGeneration(
                 listOf(input.toString()),
                 Options(
-                    clangArgs = listOf("-x", "objective-c"),
+                    clangArgs = listOf("-x", "objective-c") + clangArgs,
                     targetPackage = pkg,
                     outputDir = output.toString(),
                 ),
@@ -269,6 +282,55 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
         "derived class extends base with ptr forwarding" {
             src shouldContain "open class KxDerived"
             src shouldContain ": KxBase(ptr)"
+        }
+    }
+
+    "Foundation SDK predefined sugar" - {
+        "generates declarations that use NSUInteger" {
+            val sdk = macosSdkPath()
+            val src = generateWithPipeline(
+                """
+                #import <Foundation/NSObjCRuntime.h>
+                NSUInteger kxUsePredefinedSugar(NSUInteger value);
+                """.trimIndent(),
+                clangArgs = listOf(
+                    "-F${sdk}/System/Library/Frameworks",
+                    "-isysroot",
+                    sdk,
+                ),
+            ).joinToString("\n") { it.contents }
+
+            src shouldContain "fun kxUsePredefinedSugar"
+        }
+    }
+
+    "ObjC member availability" - {
+        val src = generateWithPipeline(
+            """
+            @interface KxAvailabilityHost
+            - (void)availableMethod;
+            - (void)unavailableMethod __attribute__((availability(macos, unavailable)));
+            @property (readonly) long availableProperty;
+            @property (readonly) long unavailableProperty __attribute__((availability(macos, unavailable)));
+            @end
+            """.trimIndent(),
+            clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+        ).joinToString("\n") { it.contents }
+
+        "keeps available members" {
+            src shouldContain "availableMethod"
+            src shouldContain "availableProperty"
+        }
+
+        "keeps members unavailable for macOS" {
+            src shouldContain "unavailableMethod"
+            src shouldContain "unavailableProperty"
+        }
+
+        "requires an explicit platform-availability opt-in for unavailable members" {
+            src shouldContain "annotation class PlatformAvailability"
+            src shouldContain "unavailable = true"
+            src shouldContain "@PlatformAvailability("
         }
     }
 

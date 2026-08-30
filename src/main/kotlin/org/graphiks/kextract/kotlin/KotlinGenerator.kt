@@ -161,11 +161,17 @@ class KotlinGenerator {
             win32Mode, dllMap, useInitMethod,
         )
         scoped.accept(toplevel)
-        return toplevel.getFiles().toMutableList().apply {
+        val files = toplevel.getFiles().toMutableList().apply {
+            if (toplevel.needsPlatformAvailability) add(PlatformAvailabilityTemplate.generate(targetPackage))
             if (toplevel.needsObjCRuntime) {
                 add(ObjCRuntimeTemplate.generate(targetPackage))
                 add(ObjCSubclassingTemplate.generate(targetPackage))
             }
+        }
+        return if (toplevel.needsPlatformAvailability) {
+            files.map { it.withPlatformAvailabilityOptIn(targetPackage) }
+        } else {
+            files
         }
     }
 
@@ -185,8 +191,8 @@ class KotlinGenerator {
         jvmNativeLibraries: List<Options.Library>,
         jvmNativeBundleIndex: KotlinJvmNativeBundleIndex,
         privateNames: KotlinIdentifierAllocator,
-    ): List<KotlinSourceFile> = buildList {
-        KotlinKmpCommonBuilder(
+    ): List<KotlinSourceFile> {
+        val commonBuilder = KotlinKmpCommonBuilder(
             targetPackage,
             className,
             callbackModels,
@@ -195,37 +201,64 @@ class KotlinGenerator {
             callbackBindings,
             namePlan,
             abiIndex,
-        ).also { scoped.accept(it); addAll(it.getFiles()) }
-        KotlinKmpJvmBuilder(
-            targetPackage,
-            className,
-            callbackModels,
-            directBindingModels,
-            namePlan,
-            jvmRecordLayouts,
-            abiIndex,
-            jvmNativeLibraries,
-            jvmNativeBundleIndex,
-            privateNames,
-        ).also { scoped.accept(it); addAll(it.getFiles()) }
-        KotlinKmpAndroidBuilder(
-            targetPackage,
-            className,
-            androidLibraryName,
-            callbackModels,
-            directBindingModels,
-            namePlan,
-            androidRecordLayouts,
-            abiIndex,
-        ).also { scoped.accept(it); addAll(it.getFiles()) }
-        KotlinKmpNativeBuilder(
-            targetPackage,
-            className,
-            callbackModels,
-            directBindingModels,
-            namePlan,
-            abiIndex,
-        ).also { scoped.accept(it); addAll(it.getFiles()) }
+        ).also { scoped.accept(it) }
+        val files = buildList {
+            addAll(commonBuilder.getFiles())
+            if (commonBuilder.needsPlatformAvailability) {
+                add(PlatformAvailabilityTemplate.generate(targetPackage, sourceRoot = "commonMain/kotlin"))
+            }
+            KotlinKmpJvmBuilder(
+                targetPackage,
+                className,
+                callbackModels,
+                directBindingModels,
+                namePlan,
+                jvmRecordLayouts,
+                abiIndex,
+                jvmNativeLibraries,
+                jvmNativeBundleIndex,
+                privateNames,
+            ).also { scoped.accept(it); addAll(it.getFiles()) }
+            KotlinKmpAndroidBuilder(
+                targetPackage,
+                className,
+                androidLibraryName,
+                callbackModels,
+                directBindingModels,
+                namePlan,
+                androidRecordLayouts,
+                abiIndex,
+            ).also { scoped.accept(it); addAll(it.getFiles()) }
+            KotlinKmpNativeBuilder(
+                targetPackage,
+                className,
+                callbackModels,
+                directBindingModels,
+                namePlan,
+                abiIndex,
+            ).also { scoped.accept(it); addAll(it.getFiles()) }
+        }
+        return if (commonBuilder.needsPlatformAvailability) {
+            files.map { it.withPlatformAvailabilityOptIn(targetPackage) }
+        } else {
+            files
+        }
+    }
+
+    /**
+     * Generated declarations call one another (for example NSString convenience
+     * overloads call their raw counterparts).  They must therefore opt in within
+     * the generated implementation while retaining the marker on their public
+     * declarations for consumers.
+     */
+    private fun KotlinSourceFile.withPlatformAvailabilityOptIn(targetPackage: String): KotlinSourceFile {
+        if (className == "PlatformAvailability") return this
+        val marker = if (targetPackage.isEmpty()) {
+            "PlatformAvailability"
+        } else {
+            "$targetPackage.PlatformAvailability"
+        }
+        return copy(contents = "@file:OptIn($marker::class)\n\n$contents")
     }
 
     private fun sanitizeClassName(name: String): String =

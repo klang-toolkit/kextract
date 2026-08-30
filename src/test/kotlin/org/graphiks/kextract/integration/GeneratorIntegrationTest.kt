@@ -53,6 +53,121 @@ class GeneratorIntegrationTest : FreeSpec({
         }
     }
 
+    fun generateFilesWithPipeline(
+        csource: String,
+        pkg: String = "test",
+        clangArgs: List<String> = emptyList(),
+    ): List<org.graphiks.kextract.kotlin.models.KotlinSourceFile> {
+        val input = Files.createTempFile("kextract_test_", ".h")
+        val output = Files.createTempDirectory("kextract_test_out_")
+        try {
+            Files.writeString(input, csource)
+            KextractTool(Logger()).runGeneration(
+                listOf(input.toString()),
+                Options(
+                    clangArgs = clangArgs,
+                    targetPackage = pkg,
+                    outputDir = output.toString(),
+                ),
+            ) shouldBe KextractTool.SUCCESS
+            return Files.walk(output).use { paths ->
+                paths
+                    .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".kt") }
+                    .sorted()
+                    .map { path ->
+                        org.graphiks.kextract.kotlin.models.KotlinSourceFile(
+                            packageName = pkg,
+                            className = path.fileName.toString().removeSuffix(".kt"),
+                            contents = Files.readString(path),
+                        )
+                    }
+                    .toList()
+            }
+        } finally {
+            Files.deleteIfExists(input)
+            output.toFile().deleteRecursively()
+        }
+    }
+
+    fun generateWithPipeline(
+        csource: String,
+        pkg: String = "test",
+        clangArgs: List<String> = emptyList(),
+    ): String = generateFilesWithPipeline(csource, pkg, clangArgs)
+        .joinToString("\n") { it.contents }
+
+    fun generateKmpFilesWithPipeline(
+        csource: String,
+        pkg: String = "test",
+        clangArgs: List<String> = emptyList(),
+    ): List<org.graphiks.kextract.kotlin.models.KotlinSourceFile> {
+        val input = Files.createTempFile("kextract_test_", ".h")
+        val output = Files.createTempDirectory("kextract_test_out_")
+        try {
+            Files.writeString(input, csource)
+            KextractTool(Logger()).runGeneration(
+                listOf(input.toString()),
+                Options(
+                    clangArgs = clangArgs,
+                    targetPackage = pkg,
+                    outputDir = output.toString(),
+                    multiplatform = true,
+                ),
+            ) shouldBe KextractTool.SUCCESS
+            return Files.walk(output).use { paths ->
+                paths
+                    .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".kt") }
+                    .sorted()
+                    .map { path ->
+                        val relative = output.relativize(path)
+                        val sourceRoot = relative.parent.parent.toString().replace('\\', '/')
+                        org.graphiks.kextract.kotlin.models.KotlinSourceFile(
+                            packageName = pkg,
+                            className = path.fileName.toString().removeSuffix(".kt"),
+                            contents = Files.readString(path),
+                            sourceRoot = sourceRoot,
+                        )
+                    }
+                    .toList()
+            }
+        } finally {
+            Files.deleteIfExists(input)
+            output.toFile().deleteRecursively()
+        }
+    }
+
+    fun compileGenerated(
+        files: List<org.graphiks.kextract.kotlin.models.KotlinSourceFile>,
+        probeSource: String,
+    ): ExitCode {
+        val workspace = Files.createTempDirectory("kextract_generated_compile_")
+        return try {
+            val sourcePaths = files.mapIndexed { index, source ->
+                workspace.resolve("${source.className}_$index.kt").also {
+                    Files.writeString(it, source.contents)
+                }
+            }
+            val probe = workspace.resolve("PlatformAvailabilityProbe.kt")
+            Files.writeString(probe, probeSource)
+            val output = Files.createDirectories(workspace.resolve("classes"))
+            val arguments = buildList {
+                addAll(
+                    listOf(
+                        "-no-stdlib",
+                        "-no-reflect",
+                        "-jvm-target", "25",
+                        "-classpath", System.getProperty("java.class.path"),
+                        "-d", output.toString(),
+                    ),
+                )
+                addAll((sourcePaths + listOf(probe)).map(Path::toString))
+            }
+            K2JVMCompiler().exec(System.err, *arguments.toTypedArray())
+        } finally {
+            workspace.toFile().deleteRecursively()
+        }
+    }
+
     fun generateKmpFile(csource: String, sourceSet: String, suffix: String, pkg: String = "test"): String {
         val tmp = Files.createTempFile("kextract_test_", ".h")
         val output = Files.createTempDirectory("kextract_test_out_")
@@ -128,6 +243,192 @@ class GeneratorIntegrationTest : FreeSpec({
         "should omit package line when target package is empty" {
             val src = generate("int add(int a, int b);", pkg = "")
             src shouldNotContain "package "
+        }
+    }
+
+    "Target availability" - {
+        "keeps top-level declarations unavailable for macOS" {
+            val src = generateWithPipeline(
+                """
+                int kxAvailable(void);
+                int kxUnavailable(void) __attribute__((availability(macos, unavailable)));
+                int kxDeprecated(void) __attribute__((availability(macos, deprecated = 10.0)));
+                int kxIntroduced(void) __attribute__((availability(macos, introduced = 10.0)));
+                """.trimIndent(),
+                clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+            )
+
+            src shouldContain "fun kxAvailable()"
+            src shouldContain "fun kxUnavailable()"
+            src shouldContain "fun kxDeprecated()"
+            src shouldContain "fun kxIntroduced()"
+        }
+
+        "preserves unavailable children of available declarations" {
+            val src = generateWithPipeline(
+                """
+                typedef struct KxRecord {
+                    int unavailableField __attribute__((unavailable));
+                } KxRecord;
+
+                enum KxEnum {
+                    KxEnumAvailable,
+                    KxEnumUnavailable __attribute__((unavailable)),
+                };
+
+                int kxUsesUnavailableParameter(
+                    int unavailableParameter __attribute__((unavailable))
+                );
+                """.trimIndent(),
+            )
+
+            src shouldContain "unavailableField"
+            src shouldContain "KxEnumUnavailable"
+            src shouldContain "fun kxUsesUnavailableParameter"
+        }
+
+        "emits opt-in metadata for platform-versioned declarations" {
+            val files = generateFilesWithPipeline(
+                """
+                int kxPlatformChecked(void)
+                    __attribute__((availability(macos, introduced = 13.1, deprecated = 14.2, obsoleted = 15.3, message = "Use the replacement API")));
+                """.trimIndent(),
+                clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+            )
+            val src = files.joinToString("\n") { it.contents }
+            val binding = files.first { it.className != "PlatformAvailability" }
+
+            src shouldContain "annotation class PlatformAvailability"
+            binding.contents shouldStartWith "@file:OptIn(test.PlatformAvailability::class)\n\npackage test"
+            src shouldContain "@PlatformAvailability("
+            src shouldContain "platform = \"macos\""
+            src shouldContain "introducedMajor = 13"
+            src shouldContain "introducedMinor = 1"
+            src shouldContain "deprecatedMajor = 14"
+            src shouldContain "deprecatedMinor = 2"
+            src shouldContain "obsoletedMajor = 15"
+            src shouldContain "obsoletedMinor = 3"
+            src shouldContain "message = \"Use the replacement API\""
+            src shouldContain "fun kxPlatformChecked()"
+
+            compileGenerated(
+                files,
+                """
+                package test
+
+                fun uncheckedAvailabilityUse(): Int = kxPlatformChecked()
+                """.trimIndent(),
+            ) shouldBe ExitCode.COMPILATION_ERROR
+
+            compileGenerated(
+                files,
+                """
+                package test
+
+                @OptIn(PlatformAvailability::class)
+                fun checkedAvailabilityUse(): Int = kxPlatformChecked()
+                """.trimIndent(),
+            ) shouldBe ExitCode.OK
+        }
+
+        "requires opt-in for an unavailable enum entry" {
+            val files = generateFilesWithPipeline(
+                """
+                enum KxAvailability {
+                    KxAvailabilityAvailable,
+                    KxAvailabilityUnavailable __attribute__((availability(macos, unavailable))),
+                };
+                """.trimIndent(),
+                clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+            )
+
+            compileGenerated(
+                files,
+                """
+                package test
+
+                fun uncheckedEnumAvailabilityUse() = KxAvailability.KxAvailabilityUnavailable
+                """.trimIndent(),
+            ) shouldBe ExitCode.COMPILATION_ERROR
+
+            compileGenerated(
+                files,
+                """
+                package test
+
+                @OptIn(PlatformAvailability::class)
+                fun checkedEnumAvailabilityUse() = KxAvailability.KxAvailabilityUnavailable
+                """.trimIndent(),
+            ) shouldBe ExitCode.OK
+        }
+
+        "requires opt-in for an unavailable struct field accessor" {
+            val files = generateFilesWithPipeline(
+                """
+                struct KxAvailabilityRecord {
+                    int unavailableField __attribute__((availability(macos, unavailable)));
+                };
+                """.trimIndent(),
+                clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+            )
+
+            compileGenerated(
+                files,
+                """
+                package test
+
+                import java.lang.foreign.MemorySegment
+
+                fun uncheckedFieldAvailabilityUse(value: MemorySegment): Int =
+                    KxAvailabilityRecord().unavailableField(value)
+                """.trimIndent(),
+            ) shouldBe ExitCode.COMPILATION_ERROR
+
+            compileGenerated(
+                files,
+                """
+                package test
+
+                import java.lang.foreign.MemorySegment
+
+                @OptIn(PlatformAvailability::class)
+                fun checkedFieldAvailabilityUse(value: MemorySegment): Int =
+                    KxAvailabilityRecord().unavailableField(value)
+                """.trimIndent(),
+            ) shouldBe ExitCode.OK
+        }
+
+        "keeps an unversioned deprecation distinct from a version zero" {
+            val src = generateWithPipeline(
+                """
+                int kxAlwaysDeprecated(void) __attribute__((deprecated("Use kxReplacement instead")));
+                """.trimIndent(),
+                clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+            )
+
+            src shouldContain "platform = \"all\""
+            src shouldContain "deprecated = true"
+            src shouldNotContain "deprecatedMajor = 0"
+            src shouldContain "message = \"Use kxReplacement instead\""
+        }
+
+        "emits the same opt-in contract in the common multiplatform source set" {
+            val files = generateKmpFilesWithPipeline(
+                """
+                int kxCommonPlatformChecked(void)
+                    __attribute__((availability(macos, introduced = 13.1)));
+                """.trimIndent(),
+                clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+            )
+
+            val common = files.single { it.className.endsWith("Common") }
+            val marker = files.single { it.className == "PlatformAvailability" }
+            common.sourceRoot shouldBe "commonMain/kotlin"
+            common.contents shouldStartWith "@file:OptIn(test.PlatformAvailability::class)\n\npackage test"
+            common.contents shouldContain "@PlatformAvailability("
+            common.contents shouldContain "expect fun kxCommonPlatformChecked()"
+            marker.sourceRoot shouldBe "commonMain/kotlin"
+            marker.contents shouldContain "annotation class PlatformAvailability"
         }
     }
 
@@ -613,6 +914,16 @@ class GeneratorIntegrationTest : FreeSpec({
 
             src shouldContain "asSlice"
             src shouldNotContain "data_VH"
+        }
+
+        "nested record field generates an asSlice accessor instead of an invalid VarHandle" {
+            val src = generate("""
+                struct Version { int major; int minor; };
+                struct Availability { struct Version introduced; };
+            """.trimIndent())
+
+            src shouldContain "fun introduced(segment: MemorySegment): MemorySegment"
+            src shouldNotContain "introduced_VH"
         }
 
         "struct with nested struct pointer field compiles" {

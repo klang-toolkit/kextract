@@ -128,6 +128,30 @@ class DuplicateFilterTest {
         assertTrue(isSkipped(duplicate))
     }
 
+    @Test
+    fun `availability metadata does not change a declaration hash identity`() {
+        val declaration = constant("KxAvailable", 1)
+        val declarations = hashSetOf<Declaration>(declaration)
+
+        declaration.addAttribute(
+            Declaration.PlatformAvailability(
+                listOf(
+                    Declaration.PlatformAvailability.Entry(
+                        platform = "macos",
+                        introduced = Declaration.PlatformAvailability.Version(13, 0, 0),
+                        deprecated = null,
+                        deprecatedWithoutVersion = false,
+                        obsoleted = null,
+                        unavailable = false,
+                        message = "",
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(declarations.contains(declaration))
+    }
+
     private fun constant(
         name: String,
         value: Any,
