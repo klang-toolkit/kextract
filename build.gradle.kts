@@ -24,9 +24,8 @@ if (explicitLlvmHome != null) require(File("$llvm_home/lib/clang").exists()) {
     "llvm_home/lib/clang not found: $llvm_home/lib/clang"
 }
 
-val clang_version: String by lazy {
-    val dir = File("$llvm_home/lib/clang")
-    when {
+fun resolveClangVersion(dir: File): String {
+    return when {
         !dir.exists() -> throw GradleException(
             "LLVM not found at $llvm_home. Run './gradlew downloadLLVM' first, " +
             "or pass -Pllvm_home=<path> (e.g. \$(brew --prefix llvm))."
@@ -261,15 +260,20 @@ tasks.register("prepareInputs") {
         Os.isFamily(Os.FAMILY_WINDOWS) -> "libclang.dll"
         else -> "libclang.dylib"
     }
-    val sourceBuiltinHeaders = file("$llvm_home/lib/clang/$clang_version/include")
+    // Do not inspect the versioned subdirectory during configuration: on a cold
+    // checkout `downloadLLVM` has not yet extracted it. The task resolves it
+    // after its dependency has completed.
+    val sourceClangDirectory = file("$llvm_home/lib/clang")
     inputs.property("llvmHome", llvm_home)
     inputs.files(fileTree(sourceLibDir) {
         include(clangLibPattern, "libLLVM.*", "LLVM-C*")
         exclude("clang.exe")
     }).withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.dir(sourceBuiltinHeaders).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(sourceClangDirectory).withPathSensitivity(PathSensitivity.RELATIVE)
 
     doLast {
+        val clangVersion = resolveClangVersion(sourceClangDirectory)
+        val sourceBuiltinHeaders = sourceClangDirectory.resolve(clangVersion).resolve("include")
         val libsDir = file("$kextract_inputs/libs").apply { deleteRecursively(); mkdirs() }
         val confDir = file("$kextract_inputs/conf/kextract").apply { deleteRecursively(); mkdirs() }
 
@@ -317,7 +321,7 @@ tasks.register("prepareInputs") {
         }
 
         // libclang major version (consumed by KextractTool.detectBuiltinDir)
-        file("$confDir/libclang.version").writeText(clang_version.split(".")[0] + "\n")
+        file("$confDir/libclang.version").writeText(clangVersion.split(".")[0] + "\n")
     }
 }
 
