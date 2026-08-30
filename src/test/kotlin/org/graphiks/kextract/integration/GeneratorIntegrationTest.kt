@@ -264,6 +264,23 @@ class GeneratorIntegrationTest : FreeSpec({
             src shouldContain "fun kxIntroduced()"
         }
 
+        "defers symbol resolution so an unavailable function cannot break its generated file" {
+            val src = generateWithPipeline(
+                """
+                int kxAvailable(void);
+                int kxUnavailable(void) __attribute__((availability(macos, unavailable)));
+                """.trimIndent(),
+                clangArgs = listOf("-target", "arm64-apple-macos15.0"),
+            )
+
+            src shouldContain
+                "private val kxAvailable_ADDR: MemorySegment by lazy { SymbolLookup.loaderLookup().find(\"kxAvailable\").orElseThrow() }"
+            src shouldContain
+                "private val kxUnavailable_ADDR: MemorySegment by lazy { SymbolLookup.loaderLookup().find(\"kxUnavailable\").orElseThrow() }"
+            src shouldContain
+                "private val kxUnavailable_HANDLE: MethodHandle by lazy { Linker.nativeLinker().downcallHandle(kxUnavailable_ADDR, kxUnavailable_DESC) }"
+        }
+
         "preserves unavailable children of available declarations" {
             val src = generateWithPipeline(
                 """
@@ -1027,6 +1044,7 @@ class GeneratorIntegrationTest : FreeSpec({
             src shouldContain "ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS"
             // firstVariadicArg(2) because 2 fixed args before variadic
             src shouldContain "Linker.Option.firstVariadicArg(2)"
+            src shouldContain "private val variadic_fn_HANDLE: MethodHandle by lazy {"
             // Function signature should have 5 params: 2 typed + 3 MemorySegment
             src shouldContain "arg0: Int"
             src shouldContain "arg1: Long"

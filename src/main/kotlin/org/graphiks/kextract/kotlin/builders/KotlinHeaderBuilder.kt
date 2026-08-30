@@ -56,18 +56,29 @@ class KotlinHeaderBuilder(
                 ".map { Linker.nativeLinker().downcallHandle(it, ${name}_DESC) }.orElse(null)"
             )
         } else {
+            // Resolve each symbol on first use. A header can contain platform-versioned declarations
+            // whose symbols are absent on the current OS; resolving them during file initialization
+            // would make unrelated available functions impossible to call.
             // Use find(name).orElseThrow() rather than findOrThrow(name) for compatibility with
             // older Kotlin/JDK toolchains that haven't seen SymbolLookup.findOrThrow (added JDK 22).
             builder.appendLine(
-                "private val ${name}_ADDR: MemorySegment = $lookupExpr.find(\"$lookupName\").orElseThrow()"
+                "private val ${name}_ADDR: MemorySegment by lazy { $lookupExpr.find(\"$lookupName\").orElseThrow() }"
             )
             if (variadicCount > 0) {
-                builder.appendLine("private val ${name}_HANDLE: MethodHandle = Linker.nativeLinker().downcallHandle(")
-                builder.appendLine("    ${name}_ADDR, ${name}_DESC,")
-                builder.appendLine("    Linker.Option.firstVariadicArg(${fixedCount}),")
+                builder.appendLine("private val ${name}_HANDLE: MethodHandle by lazy {")
+                builder.indent()
+                builder.appendLine("Linker.nativeLinker().downcallHandle(")
+                builder.indent()
+                builder.appendLine("${name}_ADDR, ${name}_DESC,")
+                builder.appendLine("Linker.Option.firstVariadicArg(${fixedCount}),")
+                builder.unindent()
                 builder.appendLine(")")
+                builder.unindent()
+                builder.appendLine("}")
             } else {
-                builder.appendLine("private val ${name}_HANDLE: MethodHandle = Linker.nativeLinker().downcallHandle(${name}_ADDR, ${name}_DESC)")
+                builder.appendLine(
+                    "private val ${name}_HANDLE: MethodHandle by lazy { Linker.nativeLinker().downcallHandle(${name}_ADDR, ${name}_DESC) }",
+                )
             }
             builder.appendLine()
         }
