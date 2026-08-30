@@ -15,6 +15,7 @@ import org.graphiks.kextract.pipeline.IncludeFilter
 import org.graphiks.kextract.pipeline.KextractTool
 import org.graphiks.kextract.pipeline.IncludeHelper
 import org.graphiks.kextract.pipeline.NameMangler
+import org.graphiks.kextract.pipeline.Options
 import java.nio.file.Files
 
 /**
@@ -110,6 +111,32 @@ class ObjCGeneratorTest : FreeSpec({
             val mangled = NameMangler(headerName).scan(parsed)
             KotlinGenerator().generate(mangled, headerName, pkg, splitOutput = splitOutput)
                 .associate { it.className to it.contents }
+        } finally {
+            Files.deleteIfExists(tmp)
+        }
+    }
+
+    /**
+     * Generate split output with runtime libraries, returning class name to
+     * contents. This exercises declarations shared by multiple generated files.
+     */
+    fun generateSplitWithLibraries(
+        objcSource: String,
+        pkg: String = "test",
+    ): Map<String, String> {
+        val tmp = Files.createTempFile("kextract_split_library_test_", ".h")
+        return try {
+            tmp.toFile().writeText(objcSource)
+            val headerName = tmp.fileName.toString()
+            val parsed = KextractTool.parse(listOf(tmp.toString()), "-x", "objective-c")
+            val mangled = NameMangler(headerName).scan(parsed)
+            KotlinGenerator().generate(
+                mangled,
+                headerName,
+                pkg,
+                libraries = listOf(Options.Library.parse(":/tmp/libkextract-test.dylib")),
+                splitOutput = true,
+            ).associate { it.className to it.contents }
         } finally {
             Files.deleteIfExists(tmp)
         }
@@ -971,6 +998,16 @@ class ObjCGeneratorTest : FreeSpec({
     // ── Generator: split-output mode ───────────────────────────────────────────
 
     "Split-output mode produces per-class files" - {
+
+        "library lookup is visible to split function files" {
+            val files = generateSplitWithLibraries("""
+                long KxLookupFunction(void);
+            """.trimIndent())
+            val generated = files.values.joinToString("\n")
+
+            generated shouldContain "internal val LOOKUP: SymbolLookup"
+            generated shouldContain "LOOKUP.find(\"KxLookupFunction\")"
+        }
 
         "plain enum appears in Enums file, Options style in Options file" {
             val files = generateSplit("""

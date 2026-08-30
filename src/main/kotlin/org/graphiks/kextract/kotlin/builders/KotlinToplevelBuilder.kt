@@ -235,7 +235,8 @@ class KotlinToplevelBuilder(
 
         // Symbol lookup — loads native libraries and exposes a single LOOKUP
         if (libraries.isNotEmpty()) {
-            mainSlot.appendLine("private val LOOKUP: SymbolLookup = run {")
+            val visibility = if (splitOutput) "internal" else "private"
+            mainSlot.appendLine("$visibility val LOOKUP: SymbolLookup = run {")
             mainSlot.indent()
             if (useSystemLoadLibrary) {
                 for (lib in libraries) {
