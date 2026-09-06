@@ -27,6 +27,7 @@ class KotlinToplevelBuilder(
     private val win32Abi: Boolean = false,
     private val dllMap: DllMap? = null,
     private val useInitMethod: Boolean = false,
+    private val objcProtocolReceivers: Set<String> = emptySet(),
 ) : Declaration.Visitor<Unit> {
     private val slots = LinkedHashMap<String, SourceBuilder>()
     private val files = mutableListOf<KotlinSourceFile>()
@@ -45,6 +46,7 @@ class KotlinToplevelBuilder(
         this,
         _generatedClassNames,
         _objcProtocolCatalogue,
+        objcProtocolReceivers,
     )
     // objcClassBuilder is recreated after the TOPLEVEL pre-scan populates generatedClassNames
     private var objcClassBuilder: KotlinObjCClassBuilder = KotlinObjCClassBuilder(mainSlot, this)
@@ -571,7 +573,13 @@ class KotlinToplevelBuilder(
         if (decl.name() in _generatedClassNames) return
         if (splitOutput) {
             val sb = getOrCreateSlot("protocol.${decl.name()}")
-            KotlinObjCProtocolBuilder(sb, this, _generatedClassNames, _objcProtocolCatalogue)
+            KotlinObjCProtocolBuilder(
+                sb,
+                this,
+                _generatedClassNames,
+                _objcProtocolCatalogue,
+                objcProtocolReceivers,
+            )
                 .visitProtocol(decl)
         } else {
             objcProtocolBuilder.visitProtocol(decl)

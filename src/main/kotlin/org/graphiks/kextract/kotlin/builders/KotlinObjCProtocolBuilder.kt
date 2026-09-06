@@ -32,6 +32,8 @@ class KotlinObjCProtocolBuilder(
     private val generatedClassNames: Set<String> = emptySet(),
     /** All non-skipped protocols discovered during the TOPLEVEL pre-scan. */
     private val protocolCatalogue: Map<String, Declaration.ObjCProtocol> = emptyMap(),
+    /** Protocols selected for a generated pointer-backed receiver adapter. */
+    private val receiverProtocols: Set<String> = emptySet(),
 ) {
     private val typeLowerer = ObjCTypeLowerer(toplevel)
 
@@ -94,6 +96,138 @@ class KotlinObjCProtocolBuilder(
         builder.unindent()
         builder.appendLine("}")
         builder.appendLine()
+
+        if (protoName in receiverProtocols) emitPointerReceiver(decl)
+    }
+
+    /**
+     * Emits the narrow adapter needed when an Objective-C callback hands a generated router an
+     * untyped `NSObject`, while the public binding exposes a protocol interface.  The adapter is
+     * selected explicitly because emitting one for every framework protocol would enlarge the
+     * generated API substantially without a callback use case.
+     *
+     * Protocol inheritance other than NSObject requires a coordinated receiver surface for the
+     * inherited protocol too.  Reject it here rather than producing a receiver whose inherited
+     * required members silently use an interface default or fail at Kotlin compilation.
+     */
+    private fun emitPointerReceiver(decl: Declaration.ObjCProtocol) {
+        val protocolName = decl.name()
+        check(kotlinSuperProtocols(decl).isEmpty()) {
+            "Objective-C protocol receiver '$protocolName' has Kotlin protocol parents; " +
+                "generate a receiver for the complete inherited protocol surface first"
+        }
+
+        val receiverClassName = "${protocolName}PointerReceiver"
+        builder.appendLine("/**")
+        builder.appendLine(" * Generated adapter for a borrowed Objective-C receiver conforming to [$protocolName].")
+        builder.appendLine(" * The caller owns the native pointer lifetime and must not retain this adapter past it.")
+        builder.appendLine(" */")
+        builder.appendLine("private class $receiverClassName(private val ptr: MemorySegment) : $protocolName {")
+        builder.indent()
+
+        val emitted = mutableSetOf<String>()
+        val callableNames = KotlinCallableNameAllocator()
+        for (method in decl.methods()) {
+            if (method.isClassMethod()) continue
+            val signature = toplevel.objcMemberSignatureKey(false, method.selector())
+            if (!emitted.add(signature)) continue
+            emitPointerReceiverMethod(protocolName, method, callableNames)
+        }
+        for (property in decl.properties()) {
+            if (property.isClassProperty()) continue
+            val getterSignature = toplevel.objcMemberSignatureKey(false, property.getterSelector())
+            val setterSignature = property.takeUnless(Declaration.ObjCProperty::isReadOnly)
+                ?.let { toplevel.objcMemberSignatureKey(false, it.setterSelector()) }
+            val emitGetter = emitted.add(getterSignature)
+            val emitSetter = setterSignature != null && emitted.add(setterSignature)
+            if (emitGetter || emitSetter) {
+                emitPointerReceiverProperty(
+                    protocolName,
+                    property,
+                    emitGetter,
+                    emitSetter,
+                    callableNames,
+                )
+            }
+        }
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
+        builder.appendLine("/** Wraps this borrowed native receiver as [$protocolName] without retaining it. */")
+        builder.appendLine("fun MemorySegment.as$protocolName(): $protocolName = $receiverClassName(this)")
+        builder.appendLine()
+    }
+
+    private fun emitPointerReceiverMethod(
+        protocolName: String,
+        method: Declaration.ObjCMethod,
+        callableNames: KotlinCallableNameAllocator,
+    ) {
+        val selector = method.selector()
+        val parameters = method.parameters()
+        val returnLowering = lower(protocolName, selector, method.returnType())
+        val parameterTypes = parameters.map { lower(protocolName, selector, it.type()).kotlinType }
+        val functionName = callableNames.allocate(selector, kotlinName(selector), parameterTypes)
+        val parameterList = parameters.mapIndexed { index, parameter ->
+            val name = KotlinObjCClassBuilder.escapeIdentifier(parameter.name().ifEmpty { "arg$index" })
+            "$name: ${lower(protocolName, selector, parameter.type()).kotlinType}"
+        }.joinToString(", ")
+        val arguments = parameters.mapIndexed { index, parameter ->
+            val name = KotlinObjCClassBuilder.escapeIdentifier(parameter.name().ifEmpty { "arg$index" })
+            lower(protocolName, selector, parameter.type()).lowerArgument(name)
+        }.joinToString(", ")
+        val argumentsExpression = if (arguments.isEmpty()) "" else ", $arguments"
+        val returnDeclaration = ": ${returnLowering.kotlinType}"
+
+        toplevel.emitPlatformAvailability(builder, method)
+        builder.appendLine("override fun $functionName($parameterList)$returnDeclaration {")
+        builder.indent()
+        builder.appendLine("val sel = ObjCRuntime.sel(\"$selector\")")
+        val invocation = returnLowering.invocation("ptr", "sel", argumentsExpression)
+        builder.appendLine(if (returnLowering.isVoid) invocation else "return $invocation")
+        builder.unindent()
+        builder.appendLine("}")
+        builder.appendLine()
+    }
+
+    private fun emitPointerReceiverProperty(
+        protocolName: String,
+        property: Declaration.ObjCProperty,
+        emitGetter: Boolean,
+        emitSetter: Boolean,
+        callableNames: KotlinCallableNameAllocator,
+    ) {
+        val getterSelector = property.getterSelector()
+        val propertyLowering = lower(protocolName, getterSelector, property.type())
+        if (emitGetter) {
+            val getterName = callableNames.allocate(getterSelector, kotlinName(getterSelector), emptyList())
+            toplevel.emitPlatformAvailability(builder, property)
+            builder.appendLine("override fun $getterName(): ${propertyLowering.kotlinType} {")
+            builder.indent()
+            builder.appendLine("val sel = ObjCRuntime.sel(\"$getterSelector\")")
+            val invocation = propertyLowering.invocation("ptr", "sel", "")
+            builder.appendLine(if (propertyLowering.isVoid) invocation else "return $invocation")
+            builder.unindent()
+            builder.appendLine("}")
+            builder.appendLine()
+        }
+        if (emitSetter) {
+            val setterSelector = property.setterSelector()
+            val setterName = callableNames.allocate(
+                setterSelector,
+                kotlinName(setterSelector.removeSuffix(":")),
+                listOf(propertyLowering.kotlinType),
+            )
+            toplevel.emitPlatformAvailability(builder, property)
+            builder.appendLine("override fun $setterName(value: ${propertyLowering.kotlinType}): Unit {")
+            builder.indent()
+            builder.appendLine("val sel = ObjCRuntime.sel(\"$setterSelector\")")
+            val argument = propertyLowering.lowerArgument("value")
+            builder.appendLine("ObjCRuntime.msgSend(null, ptr, sel, $argument)")
+            builder.unindent()
+            builder.appendLine("}")
+            builder.appendLine()
+        }
     }
 
     /**

@@ -92,6 +92,11 @@ class KextractCommand(private val logger: Logger) : CliktCommand(name = "kextrac
     ).multiple()
     val inclObjcProto by option("--include-objc-protocol", metavar = "NAME", help = "Include ObjC protocol").multiple()
     val inclObjcCat   by option("--include-objc-category", metavar = "NAME", help = "Include ObjC category").multiple()
+    val objcProtocolReceivers by option(
+        "--objc-protocol-receiver",
+        metavar = "NAME",
+        help = "Generate a pointer-backed receiver adapter for an included ObjC protocol",
+    ).multiple()
 
     // ── Misc ─────────────────────────────────────────────────────────────────
 
@@ -238,6 +243,7 @@ class KextractCommand(private val logger: Logger) : CliktCommand(name = "kextrac
             useInitMethod      = initMethod,
             multiplatform      = multiplatform,
             callbackBindings   = callbackBindings,
+            objcProtocolReceivers = objcProtocolReceivers.toSet(),
         )
 
         val exitCode = KextractTool(logger).runGeneration(headers, options)

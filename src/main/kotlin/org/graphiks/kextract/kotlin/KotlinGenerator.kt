@@ -84,6 +84,7 @@ class KotlinGenerator {
         useInitMethod: Boolean = false,
         multiplatform: Boolean = false,
         callbackBindings: ValidatedCallbackBindings = ValidatedCallbackBindings.EMPTY,
+        objcProtocolReceivers: Set<String> = emptySet(),
     ): List<KotlinSourceFile> = generateWithJvmNativeBundle(
         scoped,
         headerName,
@@ -97,6 +98,7 @@ class KotlinGenerator {
         useInitMethod,
         multiplatform,
         callbackBindings,
+        objcProtocolReceivers,
         libraries,
         KotlinJvmNativeBundleIndex(emptyList()),
     )
@@ -114,6 +116,7 @@ class KotlinGenerator {
         useInitMethod: Boolean = false,
         multiplatform: Boolean = false,
         callbackBindings: ValidatedCallbackBindings = ValidatedCallbackBindings.EMPTY,
+        objcProtocolReceivers: Set<String> = emptySet(),
         jvmNativeLibraries: List<Options.Library>,
         jvmNativeBundleIndex: KotlinJvmNativeBundleIndex,
     ): List<KotlinSourceFile> {
@@ -158,7 +161,7 @@ class KotlinGenerator {
 
         val toplevel = KotlinToplevelBuilder(
             targetPackage, className, headerName, libraries, useSystemLoadLibrary, splitOutput, variadicArgs,
-            win32Mode, dllMap, useInitMethod,
+            win32Mode, dllMap, useInitMethod, objcProtocolReceivers,
         )
         scoped.accept(toplevel)
         val files = toplevel.getFiles().toMutableList().apply {
