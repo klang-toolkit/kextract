@@ -220,6 +220,7 @@ class KextractTool(private val logger: Logger) {
             options.win32Mode, options.dllMap,
             options.useInitMethod, options.multiplatform,
             callbackBindings,
+            options.objcProtocolReceivers,
             jvmNativeLibraries,
             jvmNativeBundleIndex,
         )

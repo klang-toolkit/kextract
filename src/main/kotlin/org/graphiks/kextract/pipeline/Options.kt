@@ -24,6 +24,8 @@ data class Options(
     val useInitMethod: Boolean = false,
     val multiplatform: Boolean = false,
     val callbackBindings: CallbackBindingsConfig? = null,
+    /** Objective-C protocols for which a pointer-backed receiver adapter is generated. */
+    val objcProtocolReceivers: Set<String> = emptySet(),
 ) {
     /** A shared library descriptor. */
     data class Library(val libSpec: String, val specKind: SpecKind) {

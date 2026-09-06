@@ -67,6 +67,25 @@ class ObjCGeneratorTest : FreeSpec({
     fun generate(objcSource: String, pkg: String = "test"): String =
         generateAll(objcSource, pkg).joinToString("\n") { it.contents }
 
+    /** Generates one explicit pointer-backed adapter for a callback-borrowed protocol receiver. */
+    fun generateProtocolReceiver(objcSource: String, protocolName: String, pkg: String = "test"): String {
+        val tmp = Files.createTempFile("kextract_protocol_receiver_", ".h")
+        return try {
+            tmp.toFile().writeText(objcSource)
+            val headerName = tmp.fileName.toString()
+            val parsed = KextractTool.parse(listOf(tmp.toString()), "-x", "objective-c")
+            val mangled = NameMangler(headerName).scan(parsed)
+            KotlinGenerator().generate(
+                mangled,
+                headerName,
+                pkg,
+                objcProtocolReceivers = setOf(protocolName),
+            ).joinToString("\n") { it.contents }
+        } finally {
+            Files.deleteIfExists(tmp)
+        }
+    }
+
     /**
      * Parse and generate from a fixture header file.
      * Returns all generated [KotlinSourceFile] objects.
@@ -266,6 +285,24 @@ class ObjCGeneratorTest : FreeSpec({
             val src = generateSourceFromFixture("Animal.h")
             src shouldContain "// @optional"
             src shouldContain "greetWithName"
+        }
+
+        "selected protocol has a pointer-backed callback receiver" {
+            val src = generateProtocolReceiver(
+                """
+                @protocol KxBorrowedInfo
+                - (long)location;
+                - (void)setEnabled:(int)enabled;
+                @end
+                """.trimIndent(),
+                "KxBorrowedInfo",
+            )
+
+            src shouldContain "private class KxBorrowedInfoPointerReceiver(private val ptr: MemorySegment) : KxBorrowedInfo"
+            src shouldContain "override fun location(): Long"
+            src shouldContain "override fun setEnabled(enabled: Int): Unit"
+            src shouldContain "fun MemorySegment.asKxBorrowedInfo(): KxBorrowedInfo"
+            src shouldContain "ObjCRuntime.msgSend(ValueLayout.JAVA_LONG, ptr, sel)"
         }
 
         "ObjCRuntime.kt is included in Animal.h output" {
