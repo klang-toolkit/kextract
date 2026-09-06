@@ -91,6 +91,9 @@ object ObjCRuntime {
     private val selRegisterNameAddr: MemorySegment =
         objcLib.find("sel_registerName").orElseThrow { UnsatisfiedLinkError("sel_registerName not found in libobjc") }
 
+    private val selGetNameAddr: MemorySegment =
+        objcLib.find("sel_getName").orElseThrow { UnsatisfiedLinkError("sel_getName not found in libobjc") }
+
     private val objcGetClassAddr: MemorySegment =
         objcLib.find("objc_getClass").orElseThrow { UnsatisfiedLinkError("objc_getClass not found in libobjc") }
 
@@ -110,6 +113,11 @@ object ObjCRuntime {
         FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
     )
 
+    private val selGetNameHandle = linker.downcallHandle(
+        selGetNameAddr,
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
+    )
+
     private val objcGetClassHandle = linker.downcallHandle(
         objcGetClassAddr,
         FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS)
@@ -124,6 +132,19 @@ object ObjCRuntime {
     fun sel(name: String): MemorySegment = selectorCache.getOrPut(name) {
         val cStr = arena.allocateFrom(name)
         selRegisterNameHandle.invokeExact(cStr) as MemorySegment
+    }
+
+    /**
+     * Returns the UTF-8 selector spelling for [selector].
+     *
+     * This is primarily useful to managed callbacks that receive a selector as an argument and
+     * must freeze it into a Kotlin value before leaving the native callback boundary.
+     */
+    fun selectorName(selector: MemorySegment): String {
+        if (selector == MemorySegment.NULL) return ""
+        val name = selGetNameHandle.invokeExact(selector) as MemorySegment
+        if (name == MemorySegment.NULL) return ""
+        return name.reinterpret(Long.MAX_VALUE).getString(0)
     }
 
     /**

@@ -40,6 +40,28 @@ class ObjCBooleanNoArgumentCallback internal constructor(
     internal val imp: MemorySegment,
 )
 
+/** A managed implementation of an Objective-C `void(id, SEL, SEL)` method. */
+fun interface ObjCVoidSelectorHandler {
+    fun invoke(receiver: MemorySegment, selector: MemorySegment, argument: MemorySegment)
+}
+
+/** A generated `void(id, SEL, SEL)` implementation pointer. */
+class ObjCVoidSelectorCallback internal constructor(
+    @Suppress("unused") private val handler: ObjCVoidSelectorHandler,
+    internal val imp: MemorySegment,
+)
+
+/** A managed implementation of an Objective-C method returning an object with no explicit argument. */
+fun interface ObjCObjectNoArgumentHandler {
+    fun invoke(receiver: MemorySegment, selector: MemorySegment): MemorySegment
+}
+
+/** A generated `id(id, SEL)` implementation pointer. */
+class ObjCObjectNoArgumentCallback internal constructor(
+    @Suppress("unused") private val handler: ObjCObjectNoArgumentHandler,
+    internal val imp: MemorySegment,
+)
+
 /**
  * Primitives for dynamically creating Objective-C subclasses
  * from Kotlin/JVM via Panama FFM.
@@ -62,6 +84,16 @@ object ObjCSubclassing {
         ValueLayout.ADDRESS,
         ValueLayout.ADDRESS,
     )
+    private val voidSelectorDescriptor = FunctionDescriptor.ofVoid(
+        ValueLayout.ADDRESS,
+        ValueLayout.ADDRESS,
+        ValueLayout.ADDRESS,
+    )
+    private val objectNoArgumentDescriptor = FunctionDescriptor.of(
+        ValueLayout.ADDRESS,
+        ValueLayout.ADDRESS,
+        ValueLayout.ADDRESS,
+    )
     private val booleanNoArgumentHandle: MethodHandle by lazy {
         MethodHandles.lookup().findVirtual(
             ObjCBooleanNoArgumentHandler::class.java,
@@ -69,7 +101,23 @@ object ObjCSubclassing {
             booleanNoArgumentDescriptor.toMethodType(),
         )
     }
+    private val voidSelectorHandle: MethodHandle by lazy {
+        MethodHandles.lookup().findVirtual(
+            ObjCVoidSelectorHandler::class.java,
+            "invoke",
+            voidSelectorDescriptor.toMethodType(),
+        )
+    }
+    private val objectNoArgumentHandle: MethodHandle by lazy {
+        MethodHandles.lookup().findVirtual(
+            ObjCObjectNoArgumentHandler::class.java,
+            "invoke",
+            objectNoArgumentDescriptor.toMethodType(),
+        )
+    }
     private val retainedBooleanNoArgumentCallbacks = ConcurrentHashMap<MethodKey, ObjCBooleanNoArgumentCallback>()
+    private val retainedVoidSelectorCallbacks = ConcurrentHashMap<MethodKey, ObjCVoidSelectorCallback>()
+    private val retainedObjectNoArgumentCallbacks = ConcurrentHashMap<MethodKey, ObjCObjectNoArgumentCallback>()
 
     // Class objc_allocateClassPair(Class superclass, const char *name, size_t extraBytes)
     private val allocateClassPair = linker.downcallHandle(
@@ -179,6 +227,56 @@ object ObjCSubclassing {
         val installed = addMethod(cls, selName, callback.imp, booleanNoArgumentEncoding())
         if (installed) {
             retainedBooleanNoArgumentCallbacks.putIfAbsent(MethodKey(cls.address(), sel.address()), callback)
+        }
+        return installed
+    }
+
+    /** Creates a generated `void(id, SEL, SEL)` callback implementation. */
+    fun voidSelectorCallback(handler: ObjCVoidSelectorHandler): ObjCVoidSelectorCallback =
+        ObjCVoidSelectorCallback(
+            handler = handler,
+            imp = linker.upcallStub(
+                voidSelectorHandle.bindTo(handler),
+                voidSelectorDescriptor,
+                arena,
+            ),
+        )
+
+    /** Installs a generated `void(id, SEL, SEL)` [callback] on an unregistered Objective-C class. */
+    fun addVoidSelectorMethod(
+        cls: MemorySegment,
+        selName: String,
+        callback: ObjCVoidSelectorCallback,
+    ): Boolean {
+        val sel = ObjCRuntime.sel(selName)
+        val installed = addMethod(cls, selName, callback.imp, "v@::")
+        if (installed) {
+            retainedVoidSelectorCallbacks.putIfAbsent(MethodKey(cls.address(), sel.address()), callback)
+        }
+        return installed
+    }
+
+    /** Creates a generated `id(id, SEL)` callback implementation. */
+    fun objectNoArgumentCallback(handler: ObjCObjectNoArgumentHandler): ObjCObjectNoArgumentCallback =
+        ObjCObjectNoArgumentCallback(
+            handler = handler,
+            imp = linker.upcallStub(
+                objectNoArgumentHandle.bindTo(handler),
+                objectNoArgumentDescriptor,
+                arena,
+            ),
+        )
+
+    /** Installs a generated `id(id, SEL)` [callback] on an unregistered Objective-C class. */
+    fun addObjectNoArgumentMethod(
+        cls: MemorySegment,
+        selName: String,
+        callback: ObjCObjectNoArgumentCallback,
+    ): Boolean {
+        val sel = ObjCRuntime.sel(selName)
+        val installed = addMethod(cls, selName, callback.imp, "@@:")
+        if (installed) {
+            retainedObjectNoArgumentCallbacks.putIfAbsent(MethodKey(cls.address(), sel.address()), callback)
         }
         return installed
     }
