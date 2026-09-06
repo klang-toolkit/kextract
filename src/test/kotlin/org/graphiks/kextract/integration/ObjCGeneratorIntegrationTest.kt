@@ -440,6 +440,65 @@ class ObjCGeneratorIntegrationTest : FreeSpec({
                 "invokesGeneratedBooleanCallback",
             ) shouldBe true
         }
+
+        "installs managed IME selector and object callbacks that Objective-C dispatch invokes" {
+            val files = generateAll(
+                """
+                    @interface KxTextInputCallbackHost
+                    @end
+                """.trimIndent(),
+            )
+
+            compileAndInvokeBoolean(
+                files,
+                """
+                    package test
+
+                    import java.lang.foreign.MemorySegment
+                    import java.lang.foreign.ValueLayout
+                    import java.util.UUID
+                    import java.util.concurrent.atomic.AtomicReference
+
+                    fun invokesGeneratedTextInputCallbacks(): Boolean {
+                        val className = "KxGeneratedTextInputCallback_" + UUID.randomUUID().toString().replace('-', '_')
+                        val receivedCommand = AtomicReference<String?>(null)
+                        val commandCallback = ObjCSubclassing.voidSelectorCallback { _, _, command ->
+                            receivedCommand.set(ObjCRuntime.selectorName(command))
+                        }
+                        val attributesCallback = ObjCSubclassing.objectNoArgumentCallback { _, _ ->
+                            ObjCRuntime.getClass("NSObject")
+                        }
+                        val cls = ObjCSubclassing.allocateClass("NSObject", className)
+                        check(ObjCSubclassing.addVoidSelectorMethod(cls, "doCommandBySelector:", commandCallback))
+                        check(ObjCSubclassing.addObjectNoArgumentMethod(cls, "validAttributesForMarkedText", attributesCallback))
+                        ObjCSubclassing.registerClass(cls)
+                        val receiver = ObjCRuntime.msgSend(
+                            ValueLayout.ADDRESS,
+                            ObjCRuntime.getClass(className),
+                            ObjCRuntime.sel("new"),
+                        ) as MemorySegment
+                        return try {
+                            ObjCRuntime.msgSend(
+                                null,
+                                receiver,
+                                ObjCRuntime.sel("doCommandBySelector:"),
+                                ObjCRuntime.sel("insertNewline:"),
+                            )
+                            val attributes = ObjCRuntime.msgSend(
+                                ValueLayout.ADDRESS,
+                                receiver,
+                                ObjCRuntime.sel("validAttributesForMarkedText"),
+                            ) as MemorySegment
+                            receivedCommand.get() == "insertNewline:" &&
+                                attributes == ObjCRuntime.getClass("NSObject")
+                        } finally {
+                            ObjCRuntime.msgSend(null, receiver, ObjCRuntime.sel("release"))
+                        }
+                    }
+                """.trimIndent(),
+                "invokesGeneratedTextInputCallbacks",
+            ) shouldBe true
+        }
     }
 
     "ObjCRuntime is NOT emitted for pure C headers" - {
