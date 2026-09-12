@@ -3,6 +3,7 @@ package org.graphiks.kextract.kotlin.builders
 
 import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.Type
+import org.graphiks.kextract.getAttribute
 import org.graphiks.kextract.kotlin.utils.TypeMapper
 
 /** Generates Kotlin code for structs and unions. */
@@ -268,24 +269,23 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         decl: Declaration.Scoped,
         recordLayout: KotlinJvmRecordLayout,
     ) {
-        val requiredAlignment = recordLayout.members.maxOfOrNull { it.alignmentBytes } ?: 1L
-        require(recordLayout.alignmentBytes >= requiredAlignment) {
+        require(!hasExplicitPackedAttribute(decl)) {
             "Cannot safely emit Objective-C surface struct ${decl.name()}: " +
-                "record alignment ${recordLayout.alignmentBytes} is smaller than member alignment " +
-                "$requiredAlignment"
+                "explicit packed declarations remain unsupported"
         }
         val elements = mutableListOf<String>()
         var cursor = 0L
         for (member in recordLayout.members) {
-            require(member.offsetBytes % member.alignmentBytes == 0L) {
+            val fieldAlignment = legacyFieldAlignment(member, recordLayout.alignmentBytes)
+            require(member.offsetBytes % fieldAlignment == 0L) {
                 "Cannot safely emit Objective-C surface struct ${decl.name()}: " +
-                    "${member.cName} has Clang offset ${member.offsetBytes} but natural alignment " +
-                    "${member.alignmentBytes}"
+                    "${member.cName} has Clang offset ${member.offsetBytes} but effective alignment " +
+                    "$fieldAlignment"
             }
             val gap = member.offsetBytes - cursor
             if (gap > 0L) elements += "MemoryLayout.paddingLayout(${gap}L)"
             val fieldLayout = typeLowerer.lower(member.field.type()).layout
-            elements += "$fieldLayout.withByteAlignment(${member.alignmentBytes}L).withName(\"${member.cName}\")"
+            elements += "$fieldLayout.withByteAlignment(${fieldAlignment}L).withName(\"${member.cName}\")"
             cursor = member.offsetBytes + member.sizeBytes
         }
         val trailing = recordLayout.sizeBytes - cursor
@@ -309,6 +309,19 @@ class KotlinStructBuilder(private val builder: SourceBuilder, private val toplev
         builder.unindent()
         builder.appendLine()
     }
+
+    /**
+     * Clang reports `__attribute__((packed))` as a record attribute, but does
+     * not attach that marker to records whose alignment comes from
+     * `#pragma pack`.  The latter has a complete, byte-addressable layout from
+     * Clang and can be represented by lowering each member alignment.  Keep
+     * refusing the former rather than guessing its ABI semantics.
+     */
+    private fun hasExplicitPackedAttribute(decl: Declaration.Scoped): Boolean =
+        decl.getAttribute<Declaration.ClangAttributes>()
+            ?.attributes
+            ?.containsKey("PackedAttr")
+            ?: false
 
     private fun emitObjCSegmentField(fieldName: String, field: Declaration.Variable) {
         val offset = "layout.byteOffset(groupElement(\"${field.name()}\"))"
