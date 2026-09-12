@@ -67,6 +67,17 @@ class ObjCGeneratorTest : FreeSpec({
     fun generate(objcSource: String, pkg: String = "test"): String =
         generateAll(objcSource, pkg).joinToString("\n") { it.contents }
 
+    /** Parses inline ObjC source without running the generator. */
+    fun parse(objcSource: String): List<Declaration> {
+        val tmp = Files.createTempFile("kextract_objcparse_test_", ".h")
+        return try {
+            tmp.toFile().writeText(objcSource)
+            KextractTool.parse(listOf(tmp.toString()), "-x", "objective-c").members()
+        } finally {
+            Files.deleteIfExists(tmp)
+        }
+    }
+
     /** Generates one explicit pointer-backed adapter for a callback-borrowed protocol receiver. */
     fun generateProtocolReceiver(objcSource: String, protocolName: String, pkg: String = "test"): String {
         val tmp = Files.createTempFile("kextract_protocol_receiver_", ".h")
@@ -449,6 +460,53 @@ class ObjCGeneratorTest : FreeSpec({
             bitfield shouldContain "constructor(payload: Long, tail: Byte)"
             bitfield shouldNotContain "fun low("
             bitfield shouldNotContain "fun high("
+        }
+
+        "Objective-C surface structs preserve pragma-packed lower record alignment" {
+            val packed = generate(
+                """
+                #pragma pack(push, 4)
+                typedef struct KxPackedTime {
+                    long long value;
+                    int timescale;
+                    unsigned int flags;
+                    long long epoch;
+                } KxPackedTime;
+                #pragma pack(pop)
+
+                @interface KxCaptureStream
+                - (void)setMinimumFrameInterval:(KxPackedTime)value;
+                @end
+                """.trimIndent(),
+            ).substringAfter("class KxPackedTime internal constructor")
+                .substringBefore("class KxPackedTimePointer")
+
+            packed shouldContain "ValueLayout.JAVA_LONG.withByteAlignment(4L).withName(\"value\")"
+            packed shouldContain "ValueLayout.JAVA_LONG.withByteAlignment(4L).withName(\"epoch\")"
+            packed shouldContain ").withByteAlignment(4L).withName(\"KxPackedTime\")"
+        }
+
+        "explicit packed attributes remain distinct from pragma pack" {
+            val records = parse(
+                """
+                typedef struct __attribute__((packed)) KxExplicitPacked {
+                    long value;
+                } KxExplicitPacked;
+
+                #pragma pack(push, 4)
+                typedef struct KxPragmaPacked {
+                    long long value;
+                    int flags;
+                } KxPragmaPacked;
+                #pragma pack(pop)
+                """.trimIndent(),
+            ).filterIsInstance<Declaration.Scoped>()
+
+            val explicit = records.single { it.name() == "KxExplicitPacked" }
+            val pragmaPacked = records.single { it.name() == "KxPragmaPacked" }
+            explicit.getAttribute<Declaration.ClangAttributes>()!!.attributes shouldContainKey "PackedAttr"
+            pragmaPacked.getAttribute<Declaration.ClangAttributes>()?.attributes.orEmpty()
+                .containsKey("PackedAttr") shouldBe false
         }
 
         "struct return dispatch is selected from the return layout" {
