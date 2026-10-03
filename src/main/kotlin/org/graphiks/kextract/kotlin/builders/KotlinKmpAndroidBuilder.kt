@@ -250,7 +250,10 @@ internal class KotlinKmpAndroidBuilder(
         }
         if (argLetters.any { it == null }) return null
         val letters = argLetters.joinToString("") { it ?: "" }
-        return "call$returnLetter${argLetters.size}$letters"
+        val name = "call$returnLetter${argLetters.size}$letters"
+        // Only fixed shapes actually implemented by the kffi Android engine may use the
+        // typed wrapper; anything else rides the generic callGeneric path.
+        return name.takeIf { it in ANDROID_ENGINE_WRAPPERS }
     }
 
     private fun engineReturnLetter(type: Type): String? {
@@ -467,15 +470,57 @@ internal class KotlinKmpAndroidBuilder(
             else -> 8L
         }
 
-        builder.appendLine("val args = $memoryAllocator().allocateBuffer(${argsSize}uL)")
-        slotEmissions.forEach { it(builder) }
-        val outAllocator = callerAllocator ?: "$memoryAllocator()"
-        builder.appendLine("val out = $outAllocator.allocateBuffer(${outSize}uL)")
-        builder.appendLine(
-            "$nativeEngine.callGeneric(${functionAddress(function)}, ${params.size}, " +
-                "$typeSpec, args.handler.rawValue, out.handler.rawValue)",
-        )
-        emitGenericReturn(functionType.returnType(), returnType, returnAbi, asLastExpression)
+        val call = "$nativeEngine.callGeneric(${functionAddress(function)}, ${params.size}, $typeSpec"
+        if (returnAbi is KotlinKmpCAbiType.StructValue) {
+            // The returned wrapper borrows caller-owned memory: allocate `out` from the
+            // caller's allocator and only scope the temporary argument buffer.
+            val allocator = requireNotNull(callerAllocator) {
+                "Android generic struct-return downcall requires a caller allocator"
+            }
+            builder.appendLine("val out = $allocator.allocateBuffer(${outSize}uL)")
+            builder.appendLine("val argsAllocator = $memoryAllocator()")
+            builder.appendLine("try {")
+            builder.indent()
+            builder.appendLine("val args = argsAllocator.allocateBuffer(${argsSize}uL)")
+            slotEmissions.forEach { it(builder) }
+            builder.appendLine("$call, args.handler.rawValue, out.handler.rawValue)")
+            builder.unindent()
+            builder.appendLine("} finally {")
+            builder.indent()
+            builder.appendLine("argsAllocator.close()")
+            builder.unindent()
+            builder.appendLine("}")
+            emitGenericReturn(functionType.returnType(), returnType, returnAbi, asLastExpression)
+        } else if (returnAbi == null) {
+            builder.appendLine("val argsAllocator = $memoryAllocator()")
+            builder.appendLine("try {")
+            builder.indent()
+            builder.appendLine("val args = argsAllocator.allocateBuffer(${argsSize}uL)")
+            slotEmissions.forEach { it(builder) }
+            builder.appendLine("$call, args.handler.rawValue, 0L)")
+            builder.unindent()
+            builder.appendLine("} finally {")
+            builder.indent()
+            builder.appendLine("argsAllocator.close()")
+            builder.unindent()
+            builder.appendLine("}")
+            if (!asLastExpression) builder.appendLine("return")
+        } else {
+            builder.appendLine("val argsAllocator = $memoryAllocator()")
+            builder.appendLine("try {")
+            builder.indent()
+            builder.appendLine("val args = argsAllocator.allocateBuffer(${argsSize}uL)")
+            slotEmissions.forEach { it(builder) }
+            builder.appendLine("val out = argsAllocator.allocateBuffer(${outSize}uL)")
+            builder.appendLine("$call, args.handler.rawValue, out.handler.rawValue)")
+            emitGenericReturn(functionType.returnType(), returnType, returnAbi, asLastExpression)
+            builder.unindent()
+            builder.appendLine("} finally {")
+            builder.indent()
+            builder.appendLine("argsAllocator.close()")
+            builder.unindent()
+            builder.appendLine("}")
+        }
     }
 
     private fun emitStructSlot(
@@ -567,6 +612,16 @@ internal class KotlinKmpAndroidBuilder(
                     }
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.BOOL ->
                         builder.appendLine(resultPrefix + "out.readLong(0uL) != 0L")
+                    returnAbi.unsigned && returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I8 ->
+                        builder.appendLine(resultPrefix + "out.readByte(0uL).toUByte()")
+                    returnAbi.unsigned && returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I16 ->
+                        builder.appendLine(resultPrefix + "out.readShort(0uL).toUShort()")
+                    returnAbi.unsigned && returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.CHAR16 ->
+                        builder.appendLine(resultPrefix + "out.readShort(0uL).toUShort()")
+                    returnAbi.unsigned && returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I32 ->
+                        builder.appendLine(resultPrefix + "out.readInt(0uL).toUInt()")
+                    returnAbi.unsigned && returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I64 ->
+                        builder.appendLine(resultPrefix + "out.readLong(0uL).toULong()")
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I8 ->
                         builder.appendLine(resultPrefix + "out.readByte(0uL)")
                     returnAbi.kind == KotlinKmpCAbiType.Scalar.Kind.I16 ->
@@ -934,3 +989,18 @@ internal class KotlinKmpAndroidBuilder(
         else -> "com.sun.jna.Pointer?"
     }
 }
+
+/**
+ * Fixed-shape downcall wrappers implemented by the kffi Android engine baseline
+ * (`org.graphiks:kffi` 1.0.0-SNAPSHOT, build 20260928.205618-66, `NativeEngine.kt`).
+ * A signature whose wrapper is not listed here rides the generic `callGeneric` path.
+ */
+private val ANDROID_ENGINE_WRAPPERS: Set<String> = setOf(
+    "callF1P", "callI0", "callI1I", "callI1P", "callI2PI", "callI2PP", "callI3PIP",
+    "callI3PPP", "callI4IIII", "callI4PLPL", "callL1P", "callL3PLP", "callL3PPP",
+    "callP1P", "callP2PI", "callP2PP", "callP3PLL", "callV0", "callV1I", "callV1P",
+    "callV2PI", "callV2PP", "callV3PLP", "callV3PPI", "callV3PPL", "callV4PIII",
+    "callV4PIIP", "callV4PPLI", "callV4PPLL", "callV4PPPP", "callV5PIIII", "callV5PIPLL",
+    "callV5PIPLP", "callV5PPILL", "callV5PPLPL", "callV6PIIIII", "callV6PPIIPL",
+    "callV6PPLPLI", "callV6PPLPLL", "callV6PPPLPP", "callV7PFFFFFF",
+)
