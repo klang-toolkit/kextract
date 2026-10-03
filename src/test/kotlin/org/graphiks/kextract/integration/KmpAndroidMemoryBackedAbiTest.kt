@@ -353,6 +353,7 @@ private val MEMBACK_KFFI_COMMON_STUB =
     value class ArrayHolder<T>(val handler: NativeAddress)
     expect class MemoryAllocator() {
         fun allocateBuffer(size: ULong): MemoryBuffer
+        fun close()
     }
     expect class MemoryBuffer(handler: NativeAddress, size: ULong) {
         val size: ULong
@@ -406,6 +407,8 @@ private val MEMBACK_KFFI_ANDROID_STUB =
             retainedMemory.add(block)
             return MemoryBuffer(NativeAddress(com.sun.jna.Pointer.nativeValue(block)), size)
         }
+
+        actual fun close() = Unit
     }
 
     actual class MemoryBuffer actual constructor(
@@ -508,7 +511,9 @@ private val MEMBACK_KFFI_ENGINE_STUB =
                 MemoryBuffer(NativeAddress(argsPtr + i.toLong() * 8L), 8uL).readLong(0uL)
             }
             val result = handlers.getValue(fn)(values)
-            MemoryBuffer(NativeAddress(outPtr), 8uL).writeLong(result, 0uL)
+            if (outPtr != 0L) {
+                MemoryBuffer(NativeAddress(outPtr), 8uL).writeLong(result, 0uL)
+            }
         }
     }
 
@@ -760,6 +765,16 @@ class KmpAndroidMemoryBackedAbiTest : FreeSpec({
         generated.bridge shouldContain "actual fun wgpuPacketByValue(allocator: MemoryAllocator, packet: WGPUPacket): WGPUPacket"
         generated.bridge shouldContain
             "\"s20@4(i32,s8@4(f32,f32),a3(i16)):s20@4(i32,s8@4(f32,f32),a3(i16))\""
+    }
+
+    "signatures outside the kffi fixed-shape baseline ride the generic path with a scoped allocator" {
+        // `void(void*, long long)` maps to `callV2PL`, which the kffi Android baseline does
+        // not implement, so it must fall back to callGeneric.
+        val generated = generateAndroidSources("void absentShape(void* a, long long b);")
+
+        generated.bridge shouldNotContain "callV2PL"
+        generated.bridge shouldContain "NativeEngine.callGeneric(absentShape_ADDR, 2,"
+        generated.bridge shouldContain "argsAllocator.close()"
     }
 
     "generated memory-backed sources compile against the kffi runtime" {
