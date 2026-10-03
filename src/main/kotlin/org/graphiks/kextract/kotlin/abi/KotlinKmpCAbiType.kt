@@ -4,6 +4,7 @@ import org.graphiks.kextract.Declaration
 import org.graphiks.kextract.DeclarationImpl.ClangEnumType
 import org.graphiks.kextract.DeclarationImpl.JavaName
 import org.graphiks.kextract.Type
+import org.graphiks.kextract.pipeline.KextractConfig
 import org.graphiks.kextract.pipeline.isEnum
 import org.graphiks.kextract.pipeline.isStructOrUnion
 
@@ -180,11 +181,16 @@ internal sealed interface KotlinKmpCAbiType {
             Type.Primitive.Kind.Char16 -> Scalar(Scalar.Kind.CHAR16, unsigned = true)
             Type.Primitive.Kind.Short -> Scalar(Scalar.Kind.I16, unsigned)
             Type.Primitive.Kind.Int -> Scalar(Scalar.Kind.I32, unsigned)
-            Type.Primitive.Kind.Long -> unsupportedVariableWidthScalar(
-                context,
-                "long",
-                "target-dependent width (LP64 vs LLP64); use a fixed-width C integer type",
-            )
+            Type.Primitive.Kind.Long ->
+                if (KextractConfig.allow64BitScalars) {
+                    Scalar(Scalar.Kind.I64, unsigned)
+                } else {
+                    unsupportedVariableWidthScalar(
+                        context,
+                        "long",
+                        "target-dependent width (LP64 vs LLP64); use a fixed-width C integer type",
+                    )
+                }
             Type.Primitive.Kind.LongLong -> Scalar(Scalar.Kind.I64, unsigned)
             Type.Primitive.Kind.Float -> Scalar(Scalar.Kind.F32, unsigned = false)
             Type.Primitive.Kind.Double -> Scalar(Scalar.Kind.F64, unsigned = false)

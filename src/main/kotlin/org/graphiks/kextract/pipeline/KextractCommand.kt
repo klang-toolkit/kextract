@@ -146,6 +146,24 @@ class KextractCommand(private val logger: Logger) : CliktCommand(name = "kextrac
         help = "Generate Kotlin Multiplatform bindings using the kffi runtime",
     ).flag()
 
+    val allowNonVoidCallbacks by option(
+        "--allow-non-void-callbacks",
+        help = "Emit non-void function-pointer typedefs as raw functional interfaces instead of " +
+            "failing callback discovery (callbacks referenced by --callback-bindings must still return void)",
+    ).flag()
+
+    val allow64BitScalars by option(
+        "--allow-64-bit-scalars",
+        help = "Lower C long/unsigned long to a fixed 64-bit carrier in multiplatform C ABI contexts. " +
+            "Only valid for 64-bit LP64 targets (desktop/Android 64-bit); not for LLP64 or 32-bit targets",
+    ).flag()
+
+    val restrictToHeaderPaths by option(
+        "--restrict-to-header-paths",
+        help = "Only generate declarations whose source file is under the directory of an input header; " +
+            "drops system declarations pulled in transitively",
+    ).flag()
+
     // ── Positional ───────────────────────────────────────────────────────────
 
     val headers by argument("headers", help = "C/ObjC header files to process").multiple(required = true)
@@ -154,6 +172,7 @@ class KextractCommand(private val logger: Logger) : CliktCommand(name = "kextrac
 
     override fun run() {
         KextractConfig.verbose = verbose
+        KextractConfig.allow64BitScalars = allow64BitScalars
 
         if (objc && !isMacOSX) logger.warn("kextract.objc.non.macos.warning")
 
@@ -216,6 +235,12 @@ class KextractCommand(private val logger: Logger) : CliktCommand(name = "kextrac
         if (jvmNativeLibraries.isNotEmpty() && !multiplatform) {
             throw IllegalArgumentException("--jvm-native-library requires --multiplatform")
         }
+        if (allowNonVoidCallbacks && !multiplatform) {
+            throw IllegalArgumentException("--allow-non-void-callbacks requires --multiplatform")
+        }
+        if (allow64BitScalars && !multiplatform) {
+            throw IllegalArgumentException("--allow-64-bit-scalars requires --multiplatform")
+        }
         val callbackBindings = callbackBindingsPath?.let {
             CallbackBindingsLoader.load(Path.of(it))
         }
@@ -243,6 +268,8 @@ class KextractCommand(private val logger: Logger) : CliktCommand(name = "kextrac
             useInitMethod      = initMethod,
             multiplatform      = multiplatform,
             callbackBindings   = callbackBindings,
+            allowNonVoidCallbacks = allowNonVoidCallbacks,
+            restrictToHeaderPaths = restrictToHeaderPaths,
             objcProtocolReceivers = objcProtocolReceivers.toSet(),
         )
 
