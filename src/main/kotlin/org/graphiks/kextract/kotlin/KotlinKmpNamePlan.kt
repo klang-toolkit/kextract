@@ -151,6 +151,7 @@ internal class KotlinKmpNamePlan private constructor(
     companion object {
         private val RECORD_RESERVED_MEMBERS = setOf(
             "handler",
+            "handle",
             "Companion",
             "ByReference",
             "ByValue",

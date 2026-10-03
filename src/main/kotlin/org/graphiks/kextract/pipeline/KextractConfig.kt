@@ -12,4 +12,13 @@ package org.graphiks.kextract.pipeline
 object KextractConfig {
     /** When false (default), warnings for Skip-marked declarations are suppressed. */
     var verbose: Boolean = false
+
+    /**
+     * When true, C `long`/`unsigned long` scalars are lowered to a fixed 64-bit carrier in
+     * multiplatform C ABI contexts instead of being rejected as target-dependent width.
+     *
+     * Only valid when every generated target uses a 64-bit `long` data model (LP64), such as
+     * macOS/Linux desktop and Android 64-bit. Do not enable for LLP64 or 32-bit targets.
+     */
+    var allow64BitScalars: Boolean = false
 }

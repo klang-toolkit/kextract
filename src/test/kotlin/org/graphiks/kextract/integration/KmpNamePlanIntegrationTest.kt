@@ -339,6 +339,27 @@ class KmpNamePlanIntegrationTest : FreeSpec({
         generated.android shouldContain "private val mem: KffiMemoryBuffer by lazy { KffiMemoryBuffer(handle, 4uL) }"
         generated.android shouldContain "get() = reinterpret.ByValue(KffiNativeAddress(handle.rawValue + 0L))"
     }
+
+    "a struct field named handle does not collide with the wrapper pointer" {
+        val header = "typedef struct HasHandle { void * handle; int value; } HasHandle;"
+        val generated = generateKmpSources(header)
+
+        // The wrapper's own native pointer keeps the name `handle`; the C field is renamed.
+        generated.jvm shouldContain "class ByReference(val handle:"
+        generated.jvm shouldContain "handle_2"
+        generated.jvm shouldNotContain "override var handle:"
+        generated.native shouldContain "handle_2"
+    }
+
+    "large struct layouts are split into helper functions for the JVM 64 KiB method limit" {
+        val header = "typedef struct BigArray { char data[600]; } BigArray;"
+        val generated = generateKmpSources(header)
+
+        generated.jvm shouldContain "private fun __kffiJvmStructFields"
+        generated.jvm shouldContain "__kffiJvmRegisterStructLayout"
+        generated.jvm shouldContain "kotlin.collections.List<"
+        generated.jvm shouldContain ".StructField> = listOf("
+    }
 })
 
 private val NO_LONGER_EMITTED_ANDROID_SYMBOLS = setOf(

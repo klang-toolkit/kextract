@@ -1,6 +1,7 @@
 package org.graphiks.kextract.kotlin.callbacks
 
 import org.graphiks.kextract.Type
+import org.graphiks.kextract.pipeline.KextractConfig
 import org.junit.jupiter.api.Test
 import java.lang.reflect.InvocationTargetException
 import kotlin.test.assertEquals
@@ -26,6 +27,31 @@ class KotlinCallbackCAbiTypeTest {
             "Unsupported multiplatform callback C ABI scalar 'long': " +
                 "target-dependent width (LP64 vs LLP64); use a fixed-width C integer type",
         )
+    }
+
+    @Test
+    fun `accepts long as a fixed 64-bit carrier when 64-bit scalars are opted in`() {
+        try {
+            KextractConfig.allow64BitScalars = true
+
+            assertEquals(
+                ScalarShape("I64", unsigned = false),
+                scalarShape(abiType(Type.primitive(Type.Primitive.Kind.Long))),
+            )
+            assertEquals(
+                ScalarShape("I64", unsigned = true),
+                scalarShape(
+                    abiType(
+                        Type.qualified(
+                            Type.Delegated.Kind.UNSIGNED,
+                            Type.primitive(Type.Primitive.Kind.Long),
+                        ),
+                    ),
+                ),
+            )
+        } finally {
+            KextractConfig.allow64BitScalars = false
+        }
     }
 
     @Test

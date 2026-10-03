@@ -11,6 +11,7 @@ object CallbackAnalyzer {
     fun validate(
         index: CanonicalDeclarationIndex,
         config: CallbackBindingsConfig,
+        allowNonVoidCallbacks: Boolean = false,
     ): ValidatedCallbackBindings {
         CallbackBindingsSchemaValidator.validate(config)
         val analyzed = linkedMapOf<String, AnalyzedCallback>()
@@ -20,7 +21,12 @@ object CallbackAnalyzer {
 
         index.typedefIds().forEach { id ->
             val typedef = index.requireTypedef(id)
-            if (exactFunctionPointer(typedef.type()) != null) callback(id)
+            val function = exactFunctionPointer(typedef.type()) ?: return@forEach
+            // Non-void callbacks can only be validated when explicitly opted in; they are then
+            // left to the raw function-pointer generation path rather than the helper model.
+            // A non-void callback referenced by the configuration still fails in analyzeCallback.
+            if (!isCanonicalVoid(function.returnType()) && allowNonVoidCallbacks) return@forEach
+            callback(id)
         }
 
         val direct = config.directFunctionBindings.map { binding ->

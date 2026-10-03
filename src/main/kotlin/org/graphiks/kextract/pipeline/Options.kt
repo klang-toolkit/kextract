@@ -24,6 +24,20 @@ data class Options(
     val useInitMethod: Boolean = false,
     val multiplatform: Boolean = false,
     val callbackBindings: CallbackBindingsConfig? = null,
+    /**
+     * When true, function-pointer typedefs whose return type is not `void` are emitted as
+     * raw functional interfaces instead of the analyzed safe-callback model. They are never
+     * registered as helpers, so a header with non-void callbacks (for example Dawn's cache
+     * callbacks returning `size_t`) can still be generated. Callbacks explicitly referenced
+     * by the binding configuration must still return `void`.
+     */
+    val allowNonVoidCallbacks: Boolean = false,
+    /**
+     * When true, only declarations whose source file lives under the directory of one of
+     * the provided headers are generated. System declarations pulled in transitively (for
+     * example through `<math.h>`) are dropped.
+     */
+    val restrictToHeaderPaths: Boolean = false,
     /** Objective-C protocols for which a pointer-backed receiver adapter is generated. */
     val objcProtocolReceivers: Set<String> = emptySet(),
 ) {

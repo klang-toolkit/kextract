@@ -132,7 +132,7 @@ class KextractTool(private val logger: Logger) {
         options.includeHelper.setFrameworkPaths(resolveFrameworkPaths(options.includeFrameworks))
 
         val results: List<KotlinSourceFile> = try {
-            generate(decl, headers[0], options)
+            generate(decl, headers, options)
         } catch (e: Exception) {
             logger.err("kextract.generation.failed", e.message ?: "")
             if (DEBUG) e.printStackTrace()
@@ -171,9 +171,10 @@ class KextractTool(private val logger: Logger) {
 
     private fun generate(
         decl: Declaration.Scoped,
-        headerName: String,
+        headers: List<String>,
         options: Options
     ): List<KotlinSourceFile> {
+        val headerName = headers.first()
         require(options.multiplatform || options.callbackBindings == null) {
             "callbackBindings requires multiplatform generation"
         }
@@ -185,6 +186,12 @@ class KextractTool(private val logger: Logger) {
         }
         var d = decl
         d = IncludeFilter(options.includeHelper).scan(d)
+        if (options.restrictToHeaderPaths) {
+            val roots = headers.mapNotNull { header ->
+                runCatching { Path.of(header).toAbsolutePath().normalize().parent }.getOrNull()
+            }.distinct()
+            d = SourcePathFilter(roots).scan(d)
+        }
         d = DuplicateFilter(options.multiplatform).scan(d)
         d = UnsupportedFilter(
             logger,
@@ -198,6 +205,7 @@ class KextractTool(private val logger: Logger) {
             CallbackAnalyzer.validate(
                 CanonicalDeclarationIndex(d),
                 options.callbackBindings ?: CallbackBindingsConfig(),
+                options.allowNonVoidCallbacks,
             )
         } else {
             ValidatedCallbackBindings.EMPTY

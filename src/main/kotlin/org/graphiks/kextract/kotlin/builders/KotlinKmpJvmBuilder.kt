@@ -79,7 +79,20 @@ internal class KotlinKmpJvmBuilder(
      * n'est pas garanti, et `Box.ByValue(...)` (classe imbriquée) n'initialise
      * pas le companion.
      */
-    private val structLayoutRegistrations = mutableListOf<String>()
+    private val structLayoutRegistrations = mutableListOf<StructLayoutRegistration>()
+
+    /**
+     * One struct/union layout registration, kept structured so the emitter can split a
+     * large field list across several helper functions. A single struct (for example an
+     * opaque 8 KiB pthread struct flattened byte-by-byte) can otherwise emit a method
+     * larger than the JVM 64 KiB limit.
+     */
+    private data class StructLayoutRegistration(
+        val structName: String,
+        val sizeBytes: Long,
+        val alignmentBytes: Long,
+        val fields: List<String>,
+    )
 
     /**
      * java.lang.foreign / java.lang.invoke symbols. Struct emission and function
@@ -207,7 +220,7 @@ internal class KotlinKmpJvmBuilder(
         structName: String,
         layout: KotlinJvmRecordLayout,
         kind: Declaration.Scoped.Kind,
-    ): String = buildString {
+    ): StructLayoutRegistration {
         val engine = jvmDowncallEngine
         val fields = if (kind == Declaration.Scoped.Kind.UNION) {
             listOf("$engine.StructField(\"__pad\", $engine.FieldKind.PADDING, ${layout.sizeBytes}L)")
@@ -228,15 +241,7 @@ internal class KotlinKmpJvmBuilder(
             }
             entries
         }
-        appendLine("$engine.registerStructLayout(")
-        appendLine("    \"$structName\",")
-        appendLine("    ${layout.sizeBytes}L, ${layout.alignmentBytes}L,")
-        appendLine("    listOf(")
-        fields.forEach { field ->
-            appendLine("        $field,")
-        }
-        appendLine("    ),")
-        appendLine(")")
+        return StructLayoutRegistration(structName, layout.sizeBytes, layout.alignmentBytes, fields)
     }
 
     /**
@@ -504,15 +509,42 @@ internal class KotlinKmpJvmBuilder(
             ""
         } else {
             buildString {
+                val engine = jvmDowncallEngine
                 appendLine()
                 appendLine("// Layouts des structs par valeur : enregistrés au chargement du fichier")
                 appendLine("// (classe façade), donc avant tout downcall — les companions de structs")
                 appendLine("// imbriqués ne sont pas garantis initialisés à ce moment.")
-                appendLine("private val __kffiJvmStructLayouts: Unit = run {")
-                structLayoutRegistrations.forEach { registration ->
-                    registration.trimEnd().lineSequence().forEach { line ->
-                        appendLine("    $line")
+                appendLine("// Les listes de champs sont découpées en fonctions : un bloc unique dépasse")
+                appendLine("// la limite JVM de 64 Ko par méthode pour les gros en-têtes (structs opaques).")
+                structLayoutRegistrations.forEachIndexed { index, registration ->
+                    val chunks = registration.fields.chunked(256)
+                    chunks.forEachIndexed { chunkIndex, chunk ->
+                        appendLine(
+                            "private fun __kffiJvmStructFields${index}_$chunkIndex(): " +
+                                "kotlin.collections.List<$engine.StructField> = listOf(",
+                        )
+                        chunk.forEach { field -> appendLine("    $field,") }
+                        appendLine(")")
                     }
+                    appendLine("private fun __kffiJvmRegisterStructLayout$index() {")
+                    appendLine("    $engine.registerStructLayout(")
+                    appendLine("        \"${registration.structName}\",")
+                    appendLine("        ${registration.sizeBytes}L, ${registration.alignmentBytes}L,")
+                    when (chunks.size) {
+                        0 -> appendLine("        emptyList(),")
+                        1 -> appendLine("        __kffiJvmStructFields${index}_0(),")
+                        else -> appendLine(
+                            "        " +
+                                chunks.indices.joinToString(" + ") { "__kffiJvmStructFields${index}_$it()" } +
+                                ",",
+                        )
+                    }
+                    appendLine("    )")
+                    appendLine("}")
+                }
+                appendLine("private val __kffiJvmStructLayouts: Unit = run {")
+                structLayoutRegistrations.indices.forEach { index ->
+                    appendLine("    __kffiJvmRegisterStructLayout$index()")
                 }
                 appendLine("}")
             }

@@ -739,6 +739,45 @@ class CallbackAnalyzerTest {
     }
 
     @Test
+    fun `skips non-void callbacks during automatic discovery when opted in`() {
+        val automaticIndex = parseIndex(
+            """
+                typedef size_t (*NonVoidHandler)(size_t size);
+                typedef void (*VoidHandler)(void);
+            """.trimIndent(),
+        )
+
+        val validated = CallbackAnalyzer.validate(
+            automaticIndex,
+            CallbackBindingsConfig(),
+            allowNonVoidCallbacks = true,
+        )
+
+        assertEquals(listOf("typedef:VoidHandler"), validated.callbacks.map { it.id })
+    }
+
+    @Test
+    fun `still rejects a configured non-void callback when opted in`() {
+        val invalidIndex = parseIndex(
+            """
+                typedef int (*NonVoidCallback)(void * userdata);
+                void sampleSetNonVoidCallback(NonVoidCallback callback, void * userdata);
+            """.trimIndent(),
+        )
+        val config = directConfig(
+            function = "function:sampleSetNonVoidCallback",
+            callbackType = "typedef:NonVoidCallback",
+            routingUserdataParameter = "userdata",
+        )
+
+        assertDiagnostic(
+            "typedef:NonVoidCallback: callback return type must be void, found int",
+        ) {
+            CallbackAnalyzer.validate(invalidIndex, config, allowNonVoidCallbacks = true)
+        }
+    }
+
+    @Test
     fun `rejects a userdata name with a non-opaque-pointer type`() {
         val invalidIndex = parseIndex(
             """
